@@ -48,3 +48,11 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - `.github/workflows/ios.yml` is Sumo Scuffle's pipeline minus SumoNative and the Game Center entitlements step. Bundle ID `com.benbrook.sinnersgambit`, team 5ZPNDCA2QG, iOS preset in `export_presets.cfg`, placeholder icon `assets/icons/icon_1024.png`.
 - Run: `gh workflow run ios.yml --repo bbrook28/SinnersGambit --ref main` (xcode27 off by default: the xcode-27 runner is a paid larger runner; macos-15 is free on a public repo). Build number = 100 + run number.
 - Needs once: secrets ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (same App Store Connect key as Sumo), and an App Store Connect app record for the bundle ID.
+
+## Look pass, step 1 (2026-11-13)
+- Art briefs: `Docs/ArtDirection.md` (art direction, depth and feel, Sins as characters, tooling). Read it before any visual work.
+- `ui/style.gd`: palette, Sin colours, fonts (Pirata One for numbers/headers, IM Fell English for body; Fell has only old-style figures, so `Style.body`/`Style.numbers` set every number in Pirata), wax-seal button theme, page styleboxes.
+- Shaders in `ui/shaders/`: `candle_bg` (vignette, flicker, grain), `stained_glass` (Voronoi panes, leading, glow/dim), `grain` (panel surface).
+- Widgets in `ui/widgets/`: `glass.gd` (stained-glass panel container), `frame.gd` (manuscript page), `die.gd` (bone die, code-drawn), `strikes.gd`.
+- Layout: seat-order glass portraits, banner with drop cap, dice tray, your Sin's window, parchment prompt with wax seals (bottom third), log ticker (tap = Chronicle) and fast-bots seal. Safe-area insets from DisplayServer.
+- Everything is code-drawn placeholder in the right style. Next (step 2+): SpriteCook art (Sin characters, dice, borders), juice, depth/parallax, touch/fling, haptics, 3D tray.

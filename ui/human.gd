@@ -28,9 +28,9 @@ func dice_to_roll(p, game, turn_points: int, strikes: int) -> int:
 		text += "\nHubris: bank more than %d or score 0." % game.turn.min_points
 	var options := []
 	for n in range(1, most + 1):
-		options.append(["Throw %d" % n, n])
+		options.append([str(n), n])
 	if game.turn.throws > 0:
-		options.append(["BANK %d" % turn_points, 0])
+		options.append(["Bank %d" % turn_points, 0])
 	return await _choose(text, options)
 
 

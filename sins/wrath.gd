@@ -19,7 +19,7 @@ func _init() -> void:
 func on_other_bust(game, me, other) -> void:
 	me.score += RAGE
 	if game.view:
-		fired(game, me, "Spark of Rage", "+%d from %s's bust" % [RAGE, game.pname(other)])
+		fired(game, me, "Spark of Rage", "+%d (%s busted)" % [RAGE, game.pname(other)])
 
 
 func on_other_throw(game, me, other, turn) -> void:
