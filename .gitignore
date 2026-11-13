@@ -1,0 +1,7 @@
+.godot/
+/android/
+*.apk
+*.aab
+*.ipa
+export_presets.cfg.bak
+/build/
