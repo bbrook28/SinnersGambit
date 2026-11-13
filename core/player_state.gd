@@ -12,6 +12,7 @@ var in_purgatory := false
 # Stats for the simulator.
 var turns := 0
 var busts := 0
+var presses := 0
 
 
 func _init(p_seat: int, p_bot) -> void:

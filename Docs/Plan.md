@@ -36,6 +36,15 @@ A die costs 100: 3→4 pays back in ~5 turns, 4→5 in ~7, 5→6 in ~12. "Buy to
 - Indulgence vs Redemption: 52/48, close to irrelevant.
 - Game length: ~10 rounds (~41 turns at 4p, ~70 at 7p).
 
+## Sim run 2 (10k games each)
+- Finish the round (no press): 4p seats now 24–26%, fixed. 7p still 16.5% → 11.7%. Cause: 27 dice run out at 7 players, so early seats get them first.
+- Press (roll again; points and Strikes add up over the turn):
+  - It's a real decision: at 4p, a bot that never presses wins 15%; pressing styles win 26–31%.
+  - Games get shorter: ~8 rounds instead of ~10.
+  - New problem: buying dice becomes a trap. At a 5-bot table, buy-to-3 wins 43% and buy-to-7 wins 5.5%. More dice = more Strikes per press.
+  - New problem: with finish the round, the last seat chases a known target. 7p goes from 8% (seat 1) to 22% (seat 7).
+- Indulgence vs Redemption still 52/48: the choice doesn't matter.
+
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.
 - Can score go negative? Not covered.
