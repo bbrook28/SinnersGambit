@@ -10,7 +10,7 @@ on:
       xcode27:
         description: "Build with Xcode 27.1 (fills the iPhone Duo inner screen). Off: Xcode 26 on macos-15."
         type: boolean
-        default: true
+        default: false
   push:
     tags: ["v*"]
 

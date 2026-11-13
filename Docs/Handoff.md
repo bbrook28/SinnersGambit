@@ -46,5 +46,5 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 ## TestFlight (no Mac)
 - Repo: github.com/bbrook28/SinnersGambit (private; was FPS_TechDemo). `origin` points there.
 - `.github/workflows/ios.yml` is Sumo Scuffle's pipeline minus SumoNative and the Game Center entitlements step. Bundle ID `com.benbrook.sinnersgambit`, team 5ZPNDCA2QG, iOS preset in `export_presets.cfg`, placeholder icon `assets/icons/icon_1024.png`.
-- Run: `gh workflow run ios.yml --repo bbrook28/SinnersGambit --ref main` (xcode27 on by default). Build number = 100 + run number.
+- Run: `gh workflow run ios.yml --repo bbrook28/SinnersGambit --ref main` (xcode27 off by default: the xcode-27 runner is a paid larger runner; macos-15 is free on a public repo). Build number = 100 + run number.
 - Needs once: secrets ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (same App Store Connect key as Sumo), and an App Store Connect app record for the bundle ID.
