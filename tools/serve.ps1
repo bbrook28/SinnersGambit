@@ -9,7 +9,10 @@ $mime = @{ '.html' = 'text/html'; '.js' = 'application/javascript'; '.wasm' = 'a
     '.pck' = 'application/octet-stream'; '.png' = 'image/png'; '.svg' = 'image/svg+xml';
     '.ico' = 'image/x-icon'; '.json' = 'application/json' }
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
-$listener.Start()
+try { $listener.Start() } catch {
+    Write-Host "Port $Port is already in use (is another serve.ps1 running?). Close it or use -Port 8001."
+    exit 1
+}
 Write-Host "Serving $Root"
 Write-Host "On your phone (same Wi-Fi), open:  http://${ip}:$Port/"
 try {
