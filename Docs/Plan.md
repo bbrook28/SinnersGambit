@@ -41,7 +41,7 @@ A die costs 100: 3→4 pays back in ~5 turns, 4→5 in ~7, 5→6 in ~12. "Buy to
 5. Android export, then iOS.
 
 ## Art direction (agreed with Ben 2026-11-13)
-Gothic illuminated manuscript meets stained glass, in pixel art. Candlelit blacks and deep reds, gold-leaf numbers, a stained-glass panel per Sin, bone dice.
+Gothic illuminated manuscript meets stained glass, HD painted. Candlelit blacks and deep reds, gold-leaf numbers, a stained-glass panel per Sin, bone dice.
 - Borrow Balatro's principles: big readable numbers, juicy score tick-ups, screen shake, every roll animated and loud.
 - 2D game (decided 2026-11-13). In the juice phase, add a small 3D dice tray in a SubViewport: physics dice steered to land on the faces core/ already rolled, so sim and game stay identical.
 - Don't copy its look: no felt table, swirling CRT background or joker cards.

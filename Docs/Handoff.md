@@ -23,7 +23,7 @@ Read `CLAUDE.md`, then `Docs/Plan.md`. It has all decisions, sim results and the
 - No Python on this machine; use the Edit tool or sed.
 
 ## Ben
-Plan first, small steps, short replies, one recommendation. Commit locally, never push unless asked. Art direction agreed: gothic illuminated manuscript + stained glass pixel art.
+Plan first, small steps, short replies, one recommendation. Commit locally, never push unless asked. Art direction agreed: gothic illuminated manuscript + stained glass, HD painted (pixel art dropped 2026-11-13).
 
 ## Playtest UI (2026-11-13)
 - `ui/main.tscn` (main scene): pick a Sin, play 6 bots (the other Sins), Rules.V2 + Tiers 1-2. Built in code, placeholder look.

@@ -1,6 +1,6 @@
 # Art direction (agreed with Ben 2026-11-13)
 
-**One line:** a cursed medieval prayer book that is also a dice game. Gothic illuminated manuscript meets stained glass, rendered in pixel art, lit by a single candle.
+**One line:** a cursed medieval prayer book that is also a dice game. Gothic illuminated manuscript meets stained glass, HD painted, lit by a single candle.
 
 ## Palette
 - Base is candlelit black: warm, never pure #000, with a vignette so the screen edges fall into darkness.
@@ -25,6 +25,7 @@
 - Don't copy: no felt table, no swirling CRT background, no joker cards.
 
 ## Tech constraints
+- HD painted, not pixel art (decided 2026-11-13). Smooth filtering; no integer-scale rule.
 - 2D game.
 - In the juice phase, add a small 3D dice tray in a SubViewport: physics dice steered to land on the faces core/ already rolled, so sim and game stay identical.
 
@@ -51,7 +52,6 @@ The game is 2D but must never look flat. Treat the screen as a lit physical obje
 - Portrait, one-thumb play; all primary actions in the bottom third.
 - Respect safe areas (notch, home indicator); touch targets 44pt minimum.
 - 60fps floor on a 4-year-old phone, 120Hz where available.
-- Pixel art scaled by integer factors only; effects (light, glow, particles) render at native resolution on top.
 
 **Gut check:** with the sound off, does a roll still feel heavy in your hand?
 
@@ -92,7 +92,6 @@ Each Sin is a figure living in its stained-glass panel, drawn like a saint in a 
 - One subject, readable at 60px: a single bone die in front of a stained-glass panel, gold edge glint, candlelit black around it. No text, no logo.
 - Generate with SpriteCook using approved in-game assets as the style reference, so the icon matches the game.
 - Deliver one 1024x1024 master PNG: square, opaque, no rounded corners (iOS applies the mask), key detail kept inside the centre 80%.
-- Upscale pixel art with nearest-neighbour at an integer factor only; never smooth it.
 - Produce the smaller sizes by script from the master, then check the 60px version still reads.
 
 # iPhone layout (portrait only)
@@ -128,4 +127,4 @@ Each Sin is a figure living in its stained-glass panel, drawn like a saint in a 
 # Approved art (look pass step 2, 2026-11-13)
 - Sin windows: `assets/art/sins/raw/<sin>_glass_raw.png` (SpriteCook, Pride window as style anchor). Read with a hard alpha cut at 0.6.
 - UI kit (concept 1b, brass ornament, gold only on numbers): `assets/art/ui/*.png`; concepts and sheets in `assets/art/ui/raw/`. Names, asset IDs and sha12 in `assets/art/ui/ids.txt`; 9-slice borders listed in the SpriteCook kit manifest (kit f0bc80a6-d0b5-46dc-87f8-b08a90b687c1).
-- SpriteCook gotchas: pixel=true shrinks output to ~34px; fetch `raw_url` via `check_job_status(verbose=true)` for the 1024px source. Each style reference costs +8 credits. UI-kit concepts cost ~30 each.
+- SpriteCook gotchas: generate with pixel=false (HD painted). If pixel=true was used, it shrinks output to ~34px; fetch `raw_url` via `check_job_status(verbose=true)` for the 1024px source. Each style reference costs +8 credits. UI-kit concepts cost ~30 each.
