@@ -86,6 +86,23 @@ Chain 0.5, six value/cost setups. Winner: **die values 20/25/30, die cost 100**.
 - **Tiers:** 300 / 666 unchanged.
 - **Purgatory escape:** unchanged for now; to be replaced by the Devil's Bargain in Phase 3.
 
+## Phase 2, step 1: Tier 1 abilities (tuned 2026-11-13, `sim/run_sins.gd`)
+7 players, one of each Sin, seats shuffled, 10k games. Fair = 14.3%, target 12–16%.
+
+| Sin | Tier 1 (final) | Win % | History |
+|---|---|---|---|
+| Wrath | Spark of Rage: +40 whenever another player busts | 13.5 | 30 → 10%, 50 → 21%, 35 → 12% |
+| Greed | The Vig: 17 of each die an opponent buys goes to Greed | 14.3 | 20 → 18%, 15 → 12% |
+| Lust | Whisper of Desire: once a turn, swap a 3 (or a 2 if no 3) for the best face in the previous player's last throw. A swapped 2 cancels its Strike | 15.1 | any die → 33%, 3s only → 9%, 2 first → 20% |
+| Envy | Green-Eyed Glance: once a turn, add a copy of the previous player's best face to a throw. Counts toward the combo | 14.9 | unchanged |
+| Pride | Hubris: before rolling, call "beat the last player's turn" (floor 50). Beat it ×1.6, miss = 0 | 14.2 | ×1.5 → 12%, ×1.75 → 17% |
+| Gluttony | Feast: once a turn, feed a die from your throw to the Supply for +90. Feeding a Strike die cancels it | 13.0 | +100 → 18%, +75 → 9% |
+| Sloth | Lazy Bones: your first Strike each turn doesn't count | 15.1 | replaced Slow Drip (bank after one throw, +30/+50) → 5% |
+
+- Every Sin beats plain bots 1-vs-3 (34–55%). Wrath and Greed are weakest alone because they feed off the table.
+- Games with Sins run ~5 rounds at 7p (vs ~7 without). Revisit length after Tiers 2–3.
+- Sim limit: bots don't change how they press for their Sin (except Pride's call). A human Sloth or Wrath may play differently.
+
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.
 - Can score go negative? Not covered.

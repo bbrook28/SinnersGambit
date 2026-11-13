@@ -74,10 +74,20 @@ func wants_press(p, game, turn_points: int, strikes: int) -> bool:
 
 ## Dice-choice mode: how many dice to throw next. 0 = bank. Called before the first roll too.
 func dice_to_roll(p, game, turn_points: int, strikes: int) -> int:
+	var n := _normal_roll(p, game, turn_points, strikes)
+	# Pride's Hubris: a called turn scores 0 unless it beats the bar, so don't bank short of it.
+	if n == 0 and game.turn != null and game.turn.min_points >= 0 and turn_points <= game.turn.min_points:
+		n = mini(1 if Rules.STRIKES_TO_BUST - strikes <= 1 else 2, p.dice)
+	return n
+
+
+func _normal_roll(p, game, turn_points: int, strikes: int) -> int:
 	var total: int = p.score + turn_points
 	if turn_points > 0 and total >= Rules.WIN_SCORE and total > game.leader_score():
 		return 0
 	if turn_points >= bank_at:
+		return 0
+	if p.sin and p.sin.has_method("bot_bank_now") and game.turn != null and p.sin.bot_bank_now(game.turn):
 		return 0
 	match Rules.STRIKES_TO_BUST - strikes:
 		3:

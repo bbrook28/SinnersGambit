@@ -5,6 +5,7 @@ const Rules = preload("res://core/rules.gd")
 
 var seat: int
 var bot  # BotPolicy (ai/bot_policy.gd)
+var sin = null  # Sin (sins/*.gd) or null
 var score := 0
 var dice := Rules.START_DICE
 var in_purgatory := false
