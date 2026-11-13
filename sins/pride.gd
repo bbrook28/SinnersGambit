@@ -16,10 +16,16 @@ func _init() -> void:
 	sin_name = "Pride"
 
 
-func before_turn(game, _me, turn) -> void:
+func before_turn(game, me, turn) -> void:
 	var bar := maxi(FLOOR, game.last_turn_points)
-	if bar <= CALL_IF_AT_MOST:
-		turn.min_points = bar
+	if me.bot.human:
+		if not await me.bot.ask(game, "Hubris? Call \"I Am Superior\": bank more than %d for x%.1f, otherwise score 0." % [bar, MULT]):
+			return
+	elif bar > CALL_IF_AT_MOST:
+		return
+	turn.min_points = bar
+	if game.view:
+		fired(game, me, "Hubris", "\"I Am Superior\". Must bank more than %d" % bar)
 
 
 func on_bank(_game, _me, turn, points: int) -> int:
@@ -28,5 +34,9 @@ func on_bank(_game, _me, turn, points: int) -> int:
 	return int(points * MULT) if points > turn.min_points else 0
 
 
-func bounces(game, me) -> bool:
-	return game.t2_available(me)
+func bounces(game, me, attacker, kind: String) -> bool:
+	if not game.t2_available(me):
+		return false
+	if me.bot.human:
+		return await me.bot.ask(game, "Untouchable? Bounce %s's %s back onto them." % [game.pname(attacker), {"reroll": "Fury", "pact": "Binding Pact", "drag": "Drag"}[kind]])
+	return true

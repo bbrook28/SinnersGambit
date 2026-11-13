@@ -3,7 +3,7 @@
 extends SceneTree
 
 const Rules = preload("res://core/rules.gd")
-const Game = preload("res://core/game.gd")
+const Game = preload("res://core/game.gd")  # play() is a coroutine; games below are untyped so it can be called without await (bots never suspend)
 const BotPolicy = preload("res://ai/bot_policy.gd")
 
 const GRID_GAMES := 1000
@@ -119,7 +119,7 @@ func _solo(bot, games: int) -> Array:
 	var busts := 0
 	var presses := 0
 	for g in games:
-		var game := Game.new([bot], g, _opts(1))
+		var game = Game.new([bot], g, _opts(1))
 		game.play()
 		turns += game.players[0].turns
 		busts += game.players[0].busts
@@ -137,7 +137,7 @@ func _table(bots: Array, options: Dictionary) -> void:
 		var order := []
 		for i in bots.size():
 			order.append(bots[(i + g) % bots.size()])
-		var game := Game.new(order, g, options)
+		var game = Game.new(order, g, options)
 		var w = game.play()
 		rounds += game.round_count
 		if w != null:
@@ -157,7 +157,7 @@ func _seat_bias(count: int, bot, options: Dictionary, title: String) -> void:
 		bots.append(bot)
 	var rounds := 0
 	for g in GAMES:
-		var game := Game.new(bots, g, options)
+		var game = Game.new(bots, g, options)
 		var w = game.play()
 		rounds += game.round_count
 		if w != null:

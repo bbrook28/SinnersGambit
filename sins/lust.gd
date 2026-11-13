@@ -13,7 +13,7 @@ func _init() -> void:
 	sin_name = "Lust"
 
 
-func after_throw(game, _me, turn) -> void:
+func after_throw(game, me, turn) -> void:
 	if turn.used_t1:
 		return
 	var best: int = game.best_face_last_throw()
@@ -24,9 +24,15 @@ func after_throw(game, _me, turn) -> void:
 		i = turn.faces.find(2)
 	if i < 0:
 		return
+	if me.bot.human and not await me.bot.ask(game, "Whisper of Desire? Swap your %d for a %d (once a turn)." % [turn.faces[i], best]):
+		return
+	if game.view:
+		fired(game, me, "Whisper of Desire", "swaps a %d for a %d" % [turn.faces[i], best])
 	turn.faces[i] = best
 	turn.used_t1 = true
 
 
 func gambit(game, me, _bought: int) -> void:
-	game.attack(me, game.leader_other(me), "pact", PACT_PCT)
+	var target = await pick_target(game, me, "Binding Pact (take %d%% of their next banked turn)" % PACT_PCT, game.leader_other(me))
+	if target:
+		await game.attack(me, target, "pact", PACT_PCT)

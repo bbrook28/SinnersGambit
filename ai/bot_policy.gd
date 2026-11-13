@@ -4,6 +4,7 @@ extends RefCounted
 const Rules = preload("res://core/rules.gd")
 
 var label: String
+var human := false  # ui/human.gd sets true; Sins then prompt instead of using their bot logic
 var target_dice: int
 ## Pay the Indulgence while score is below this; above it, roll for Redemption.
 var pay_below: int

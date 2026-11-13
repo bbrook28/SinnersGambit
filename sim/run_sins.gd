@@ -51,7 +51,7 @@ func _init() -> void:
 		for i in order.size():
 			bots.append(bot)
 		var game := Game.new(bots, g, options, order)
-		var w = game.play()
+		var w = await game.play()
 		rounds += game.round_count
 		wins[w.sin.sin_name] += 1
 		for p in game.players:
@@ -71,7 +71,7 @@ func _init() -> void:
 			table[seat] = s.new()
 			sname = table[seat].sin_name
 			var game := Game.new([bot, bot, bot, bot], g, options, table)
-			if game.play().seat == seat:
+			if (await game.play()).seat == seat:
 				w += 1
 		print("  %-9s %5.1f%%" % [sname, 100.0 * w / GAMES])
 	quit()

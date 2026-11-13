@@ -20,10 +20,13 @@ func before_turn(game, me, turn) -> void:
 	if game.t2_available(me):
 		var prev = game.prev_player(me)
 		if prev.sin and prev.sin.get_script() != get_script():
-			borrowed = prev.sin.get_script().new()
-			game.mark_t2(me)
+			if not me.bot.human or await me.bot.ask(game, "Mimicry? Borrow %s's Tier 1 (%s) for this turn." % [game.pname(prev), prev.sin.sin_name]):
+				borrowed = prev.sin.get_script().new()
+				game.mark_t2(me)
+				if game.view:
+					fired(game, me, "Mimicry", "borrows %s's Tier 1" % prev.sin.sin_name)
 	if borrowed:
-		borrowed.before_turn(game, me, turn)
+		await borrowed.before_turn(game, me, turn)
 
 
 func after_throw(game, me, turn) -> void:
@@ -31,10 +34,10 @@ func after_throw(game, me, turn) -> void:
 		# The borrowed Tier 1 gets its own once-per-turn flag.
 		var own: bool = turn.used_t1
 		turn.used_t1 = turn.used_t1b
-		borrowed.after_throw(game, me, turn)
+		await borrowed.after_throw(game, me, turn)
 		turn.used_t1b = turn.used_t1
 		turn.used_t1 = own
-	_glance(game, turn)
+	await _glance(game, me, turn)
 
 
 func on_bank(game, me, turn, points: int) -> int:
@@ -54,18 +57,24 @@ func on_other_buy(game, me, other, n: int) -> int:
 	return borrowed.on_other_buy(game, me, other, n) if borrowed and MIMIC_PASSIVES else 0
 
 
-func _glance(game, turn) -> void:
+func _glance(game, me, turn) -> void:
 	if turn.used_t1:
 		return
 	var best: int = game.best_face_last_throw()
 	if best < 4:
 		return
-	# Worth the most on a throw that already has scorers (bigger combo).
-	var scorers := 0
-	for f in turn.faces:
-		if f >= 4:
-			scorers += 1
-	if scorers == 0:
-		return
+	if me.bot.human:
+		if not await me.bot.ask(game, "Green-Eyed Glance? Add a %d to this throw (once a turn)." % best):
+			return
+	else:
+		# Worth the most on a throw that already has scorers (bigger combo).
+		var scorers := 0
+		for f in turn.faces:
+			if f >= 4:
+				scorers += 1
+		if scorers == 0:
+			return
+	if game.view:
+		fired(game, me, "Green-Eyed Glance", "adds a %d" % best)
 	turn.faces.append(best)
 	turn.used_t1 = true

@@ -40,6 +40,26 @@ var turn = null                     # TurnState of the turn in progress
 var last_throw: Array[int] = []     # previous player's last throw (Lust, Envy)
 var last_turn_points := 0           # previous player's banked turn, 0 on a bust (Pride)
 
+## UI only (null in the sim): gets log lines and paces the game. See ui/main.gd.
+var view = null
+var current = null                  # player whose turn it is
+
+
+## Log line for the UI. Callers guard with `if view:` so the sim skips the formatting.
+func say(text: String) -> void:
+	if view:
+		view.log_line(text)
+
+
+## UI pause after a throw or a turn end, so bot turns can be followed.
+func beat(p, kind: String) -> void:
+	if view:
+		await view.beat(p, kind)
+
+
+func pname(p) -> String:
+	return view.player_name(p) if view else "P%d" % p.seat
+
 
 ## sins: optional, one Sin instance (or null) per player.
 func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
@@ -65,11 +85,13 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	supply = total_dice - Rules.START_DICE * bots.size()
 
 
+## Decisions and Sin hooks are awaited so a human (ui/human.gd) can answer from the UI.
+## Bots answer at once, so in the sim nothing suspends and play() runs synchronously.
 func play():
 	while winner == null and round_count < MAX_ROUNDS:
 		round_count += 1
 		for p in players:
-			take_turn(p)
+			await take_turn(p)
 			if winner != null:
 				return winner
 		if end_triggered:
@@ -126,11 +148,23 @@ func attack(attacker, target, kind: String, amount: int) -> void:
 	mark_t2(attacker)
 	var hit = target
 	var source = attacker
-	if target.sin and target.sin.bounces(self, target):
+	if view:
+		say("%s %s %s." % [pname(attacker), {"reroll": "unleashes Fury on", "pact": "binds a Pact on", "drag": "Drags"}[kind], pname(target)])
+	if target.sin and await target.sin.bounces(self, target, attacker, kind):
 		mark_t2(target)
 		target.t2_bounces += 1
 		hit = attacker
 		source = target
+		if view:
+			say("%s is Untouchable: it bounces back onto %s!" % [pname(target), pname(attacker)])
+	if view:
+		match kind:
+			"reroll":
+				say("  %s must reroll %d best dice%s." % [pname(hit), amount, "" if hit == target else " on their next throw"])
+			"pact":
+				say("  %s gives %d%% of their next banked turn to %s." % [pname(hit), amount, pname(source)])
+			"drag":
+				say("  %s throws at most %d fewer dice next turn." % [pname(hit), amount])
 	match kind:
 		"reroll":
 			if hit == target:
@@ -172,43 +206,58 @@ func indulgence_cost(p) -> int:
 func take_turn(p) -> void:
 	p.turns += 1
 	turn = TurnState.new()
+	current = p
 	if t2_available(p) or p.t2_unlocked:
 		p.t2_ready = true  # Tier 2 recharges at the start of your turn
+	if view:
+		view.turn_started(p)
 
 	# Fate Phase 1: escape Purgatory.
-	if p.in_purgatory and not _try_escape(p):
+	if p.in_purgatory and not await _try_escape(p):
 		_end_turn(p, 0)
+		await beat(p, "end")
 		return
 
 	if p.sin:
-		p.sin.before_turn(self, p, turn)
+		await p.sin.before_turn(self, p, turn)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
 	if dice_choice:
-		count = clampi(p.bot.dice_to_roll(p, self, 0, 0), 1, _max_throw(p))
+		count = clampi(await p.bot.dice_to_roll(p, self, 0, 0), 1, _max_throw(p))
 	while count > 0:
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
+		if view:
+			say("%s throws %d: %s" % [pname(p), count, _faces_str(turn.faces)])
 		if p.reroll_next > 0:
 			reroll_best(turn.faces, p.reroll_next)
+			if view:
+				say("  Fury (bounced) rerolls %d: %s" % [p.reroll_next, _faces_str(turn.faces)])
 			p.reroll_next = 0
 		# Opponents react first (Wrath's Fury), then your own Sin.
 		if tier2:
 			for o in players:
 				if o != p and o.sin and t2_available(o):
-					o.sin.on_other_throw(self, o, p, turn)
+					await o.sin.on_other_throw(self, o, p, turn)
 		if p.sin:
-			p.sin.after_throw(self, p, turn)
+			await p.sin.after_throw(self, p, turn)
 		turn.strikes += Rules.count_strikes(turn.faces)
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
+			if view:
+				say("  %d Strikes: %s BUSTS and goes to Purgatory." % [turn.strikes, pname(p)])
 			_bust(p)
+			await beat(p, "end")
 			return
-		turn.points += Rules.score(turn.faces, chain, face_mult)
+		turn.throw_points = Rules.score(turn.faces, chain, face_mult)
+		turn.points += turn.throw_points
+		if view:
+			say("  +%d (turn %d, Strikes %d)" % [turn.throw_points, turn.points, turn.strikes])
+		await beat(p, "throw")
 		if not press:
 			break
 		if dice_choice:
-			count = clampi(p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, _max_throw(p))
+			count = clampi(await p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, _max_throw(p))
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
 		if count > 0:
@@ -217,11 +266,17 @@ func take_turn(p) -> void:
 	var banked: int = turn.points
 	if p.sin:
 		banked = p.sin.on_bank(self, p, turn, banked)
+		if view and turn.min_points >= 0:
+			say("  Hubris %s: %d -> %d" % ["pays off" if banked > 0 else "fails", turn.points, banked])
 	if p.pact_by != null:
 		var cut: int = banked * p.pact_pct / 100
 		p.pact_by.score += cut  # like Spark of Rage, 1000 reached off-turn wins on their next turn
 		banked -= cut
+		if view and cut > 0:
+			say("  Binding Pact: %s takes %d." % [pname(p.pact_by), cut])
 	p.score += banked
+	if view:
+		say("%s banks %d (score %d)." % [pname(p), banked, p.score])
 	_end_turn(p, banked)
 
 	if p.score >= Rules.WIN_SCORE:
@@ -232,18 +287,36 @@ func take_turn(p) -> void:
 			return
 
 	# Gambit Phase: buy dice, then Gambit abilities.
-	var n: int = clampi(p.bot.dice_to_buy(p, self), 0, supply)
+	var n: int = clampi(await p.bot.dice_to_buy(p, self), 0, supply)
 	while n > 0 and _buy_price(p, n) > p.score:
 		n -= 1
 	if n > 0:
-		p.score -= _buy_price(p, n)
+		var price := _buy_price(p, n)
+		p.score -= price
 		p.dice += n
 		supply -= n
+		if view:
+			say("%s buys %d %s for %d (now %d dice)." % [pname(p), n, "die" if n == 1 else "dice", price, p.dice])
 		for o in players:
 			if o != p and o.sin:
-				o.score += o.sin.on_other_buy(self, o, p, n)
+				var vig: int = o.sin.on_other_buy(self, o, p, n)
+				o.score += vig
+				if view and vig > 0:
+					say("  The Vig: %s takes %d." % [pname(o), vig])
 	if p.sin and t2_available(p):
-		p.sin.gambit(self, p, n)
+		await p.sin.gambit(self, p, n)
+	await beat(p, "end")
+
+
+func max_buy(p) -> int:
+	var n := 0
+	while n < supply and _buy_price(p, n + 1) <= p.score:
+		n += 1
+	return n
+
+
+static func _faces_str(faces: Array[int]) -> String:
+	return " ".join(faces.map(func(f): return str(f)))
 
 
 func _buy_price(p, n: int) -> int:
@@ -277,12 +350,23 @@ func _resolve_finish() -> void:
 func _try_escape(p) -> bool:
 	# Indulgence. Rulebook doesn't say what happens if you can't pay; we fall back to Redemption.
 	var cost := indulgence_cost(p)
-	if p.bot.wants_indulgence(p, self) and p.score >= cost:
+	# (Affordability is checked first so the human is only asked when paying is possible; bots don't care.)
+	if p.score >= cost and await p.bot.wants_indulgence(p, self):
 		p.score -= cost
 		p.in_purgatory = false
+		if view:
+			say("%s pays the Indulgence (%d) and leaves Purgatory." % [pname(p), cost])
 		return true
 	# Redemption: any 6 frees you.
-	if 6 in Rules.roll(rng, p.dice):
+	var faces := Rules.roll(rng, p.dice)
+	if view:
+		turn.redeem_faces = faces  # display only: last_throw stays as the rules have it
+		say("%s rolls for Redemption: %s" % [pname(p), _faces_str(faces)])
+	if 6 in faces:
 		p.in_purgatory = false
+		if view:
+			say("  A 6! Redeemed.")
 		return true
+	if view:
+		say("  No 6. Still in Purgatory.")
 	return false

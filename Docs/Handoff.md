@@ -24,3 +24,20 @@ Read `CLAUDE.md`, then `Docs/Plan.md`. It has all decisions, sim results and the
 
 ## Ben
 Plan first, small steps, short replies, one recommendation. Commit locally, never push unless asked. Art direction agreed: gothic illuminated manuscript + stained glass pixel art.
+
+## Playtest UI (2026-11-13)
+- `ui/main.tscn` (main scene): pick a Sin, play 6 bots (the other Sins), Rules.V2 + Tiers 1-2. Built in code, placeholder look.
+- `core/game.gd` awaits every decision and Sin hook; `ui/human.gd` answers from buttons. Bots answer at once, so the sim never suspends (run_sins output verified identical, default and `-- t1`). `game.view` (null in sim) gets log lines and paces bot turns.
+- Sins branch on `me.bot.human`: bots keep their heuristics, the human gets a yes/no whenever the ability is legal, and a target pick (with Skip) for Pact/Drag.
+- `tests/ui_autoplay.gd`: one full UI game per Sin with random button presses, headless.
+- Web: `export_presets.cfg` "Web" preset (single-threaded) -> `build/web`. Export: `--headless --path . --export-release "Web" build/web/index.html`. Templates in %APPDATA%\Godot\export_templates\4.7.2.stable (web only).
+- Serve on Wi-Fi: `powershell -ExecutionPolicy Bypass -File tools\serve.ps1` (prints the phone URL, port 8000).
+
+### Rule questions the UI raised
+- Feast: the UI feeds your lowest die (Strikes first); the rule lets you pick any die.
+- After-throw abilities are offered before the Strike check, every throw until used, so the human can save Glance/Whisper/Feast for a later throw. Bots never wait.
+- Untouchable: the human may decline a bounce to keep it; the rule reads as automatic. Bots always bounce.
+- Fury: the human can Fury any scoring throw; bots only at 150+. The rerolled dice are always the best scorers (no choice).
+- Mimicry on Wrath/Greed borrows a passive that does nothing on your own turn; the prompt still offers it.
+- Interest fires automatically whenever Greed buys nothing (no prompt).
+- Indulgence is offered only when you can afford it; otherwise you roll for Redemption.

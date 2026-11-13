@@ -11,7 +11,7 @@ Plan and balance notes: `Docs/Plan.md`.
 - Scripts use `preload` consts, not `class_name`, so headless `--script` runs work without an editor import.
 
 ## Layout
-`core/` rules + game loop · `ai/` bots · `sim/` balance runner · `sins/` Sin abilities (next) · `ui/` scenes (later) · `assets/` · `tests/` · `Docs/`
+`core/` rules + game loop · `ai/` bots · `sim/` balance runner · `sins/` Sin abilities (next) · `ui/` playtest UI · `assets/` · `tests/` · `Docs/`
 
 ## Run the sim
 `godot --headless --path . --script res://sim/run_sim.gd`

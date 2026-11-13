@@ -21,7 +21,7 @@ func _init() -> void:
 		var rounds := 0
 		for g in GAMES:
 			var game := Game.new(bots, g, Rules.V2)
-			game.play()
+			await game.play()
 			rounds += game.round_count
 			wins[game.winner.seat] += 1
 		var line := "%dp V2 seats:" % n

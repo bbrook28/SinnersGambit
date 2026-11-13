@@ -12,15 +12,19 @@ func _init() -> void:
 	sin_name = "Sloth"
 
 
-func after_throw(_game, _me, turn) -> void:
+func after_throw(game, me, turn) -> void:
 	if turn.used_t1:
 		return
 	for i in turn.faces.size():
 		if turn.faces[i] <= 2:
+			if game.view:
+				fired(game, me, "Lazy Bones", "ignores a Strike (%d)" % turn.faces[i])
 			turn.faces[i] = 3  # treated as a blank: no points, no Strike
 			turn.used_t1 = true
 			return
 
 
 func gambit(game, me, _bought: int) -> void:
-	game.attack(me, game.leader_other(me), "drag", DRAG)
+	var target = await pick_target(game, me, "Drag (they throw %d fewer dice next turn)" % DRAG, game.leader_other(me))
+	if target:
+		await game.attack(me, target, "drag", DRAG)

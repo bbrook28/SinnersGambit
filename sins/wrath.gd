@@ -16,10 +16,19 @@ func _init() -> void:
 	sin_name = "Wrath"
 
 
-func on_other_bust(_game, me, _other) -> void:
+func on_other_bust(game, me, other) -> void:
 	me.score += RAGE
+	if game.view:
+		fired(game, me, "Spark of Rage", "+%d from %s's bust" % [RAGE, game.pname(other)])
 
 
 func on_other_throw(game, me, other, turn) -> void:
-	if Rules.score(turn.faces, game.chain, game.face_mult) >= FURY_TRIGGER:
-		game.attack(me, other, "reroll", FURY_DICE)
+	var pts: int = Rules.score(turn.faces, game.chain, game.face_mult)
+	if me.bot.human:
+		if pts <= 0 or not await me.bot.ask(game, "Fury? %s's throw is worth %d. Make them reroll their %d best dice." % [game.pname(other), pts, FURY_DICE]):
+			return
+	elif pts < FURY_TRIGGER:
+		return
+	await game.attack(me, other, "reroll", FURY_DICE)
+	if game.view:
+		game.say("  Rerolled: %s" % game._faces_str(turn.faces))

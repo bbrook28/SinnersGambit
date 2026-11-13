@@ -53,6 +53,18 @@ func buy_price(game, me, n: int) -> int:
 	return n * die_cost(game, me)
 
 
-## Another player's Tier 2 targets you. Return true to bounce it back (Pride).
-func bounces(_game, _me) -> bool:
+## Another player's Tier 2 targets you (kind: "reroll", "pact", "drag"). Return true to bounce it back (Pride).
+func bounces(_game, _me, _attacker, _kind: String) -> bool:
 	return false
+
+
+## Log an ability firing (UI only). Call as `if game.view: fired(game, me, "Feast", "...")`.
+func fired(game, me, ability: String, what: String) -> void:
+	game.say("  %s's %s: %s" % [game.pname(me), ability, what])
+
+
+## Human picks an opponent for a targeted Tier 2, or null to skip. Bots use bot_pick.
+func pick_target(game, me, ability: String, bot_pick):
+	if not me.bot.human:
+		return bot_pick
+	return await me.bot.choose_target(game, me, ability)

@@ -20,5 +20,8 @@ func on_other_buy(_game, _me, _other, n: int) -> int:
 func gambit(game, me, bought: int) -> void:
 	if bought > 0:
 		return
-	me.score += mini(INTEREST_CAP, me.score * INTEREST_PCT / 100)
+	var gain: int = mini(INTEREST_CAP, me.score * INTEREST_PCT / 100)
+	me.score += gain
 	game.mark_t2(me)
+	if game.view:
+		fired(game, me, "Interest", "+%d for buying nothing" % gain)
