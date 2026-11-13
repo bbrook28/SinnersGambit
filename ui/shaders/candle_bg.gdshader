@@ -3,7 +3,7 @@ shader_type canvas_item;
 
 uniform vec4 base_color : source_color = vec4(0.075, 0.05, 0.045, 1.0);
 uniform vec4 glow_color : source_color = vec4(0.34, 0.16, 0.07, 1.0);
-uniform vec2 light_pos = vec2(0.5, 0.45);
+uniform vec2 light_pos = vec2(0.88, 0.42);  // the candle stands to the right
 uniform float pixel = 6.0;
 
 float hash(vec2 p) {

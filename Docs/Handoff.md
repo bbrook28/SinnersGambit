@@ -56,3 +56,9 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Widgets in `ui/widgets/`: `glass.gd` (stained-glass panel container), `frame.gd` (manuscript page), `die.gd` (bone die, code-drawn), `strikes.gd`.
 - Layout: seat-order glass portraits, banner with drop cap, dice tray, your Sin's window, parchment prompt with wax seals (bottom third), log ticker (tap = Chronicle) and fast-bots seal. Safe-area insets from DisplayServer.
 - Everything is code-drawn placeholder in the right style. Next (step 2+): SpriteCook art (Sin characters, dice, borders), juice, depth/parallax, touch/fling, haptics, 3D tray.
+
+## Look pass, step 3: v3 board (2026-11-13)
+- `ui/main.gd` board rebuilt to the iPhone three-zone layout (Docs/ArtDirection.md § iPhone layout, Docs/ArtAudit.md): Glance 25% (seven SpriteCook windows over brass plates, current Sin glows), Stage 45% (tinted turn banner with drop cap, leather tray, score as hero, Strikes as nails), Thumb 30% (darkened page; Roll = big crimson seal under the right thumb, Bank = bronze seal on the left, fewer dice as small seals, other choices as plaques). Log strip taps open the Chronicle; Fast seal sits beside it, clear of edges.
+- Art helpers in `ui/art.gd`; runtime textures baked by `tools/bake_art.gd` from `assets/art/*/raw` (ignored by Godot). Shaders: `flare` (window glow/dim), `tint` (banner/Bank recolour).
+- `debug_safe` on main fakes notch/home insets for desktop screenshots.
+- Still old: setup screen and Chronicle overlay widgets. Next: HD bone dice, idle/trigger animations + marginalia (hook: sins/sin.gd log line), app icon.

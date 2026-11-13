@@ -18,7 +18,7 @@ const C_STRIKE := Color("b0161c")
 
 const SIN_COLORS := {
 	"Wrath": Color("c8202a"),     # ruby
-	"Greed": Color("d9a21b"),     # topaz
+	"Greed": Color("a9b4c2"),     # tarnished silver (was topaz; too close to gold numbers and Gluttony)
 	"Lust": Color("c02c78"),      # rose
 	"Envy": Color("1f9a4e"),      # emerald
 	"Pride": Color("7a3cc8"),     # amethyst

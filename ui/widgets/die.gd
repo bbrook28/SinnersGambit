@@ -42,7 +42,7 @@ func _draw() -> void:
 	body.set_border_width_all(maxi(3, int(s * 0.05)))
 	body.shadow_color = Color(0, 0, 0, 0.6)
 	body.shadow_size = int(s * 0.06)
-	body.shadow_offset = Vector2(0, s * 0.05)
+	body.shadow_offset = Vector2(-s * 0.06, s * 0.06)  # candle on the right: shadows fall left
 	body.anti_aliasing = false
 	draw_style_box(body, r)
 	draw_rect(Rect2(r.position + Vector2(s * 0.14, s * 0.08), Vector2(s * 0.72, s * 0.06)), Color(1, 1, 1, 0.22))
