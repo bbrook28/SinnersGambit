@@ -1,0 +1,154 @@
+name: iOS TestFlight
+
+# Builds the iPhone app on a GitHub-hosted Mac, signs it with Apple's
+# automatic (cloud) signing and uploads it to TestFlight. No Mac needed.
+# Run it from the Actions tab ("Run workflow"). Same pipeline as Sumo Scuffle (its docs/IOS.md covers setup).
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcode27:
+        description: "Build with Xcode 27.1 (fills the iPhone Duo inner screen). Off: Xcode 26 on macos-15."
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  testflight:
+    runs-on: ${{ inputs.xcode27 && 'xcode-27' || 'macos-15' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check Apple secrets
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          KEY: ${{ secrets.ASC_KEY_P8 }}
+          TEAM_SECRET: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # The Team ID lives in export_presets.cfg (it isn't secret); an
+          # APPLE_TEAM_ID secret, if set, overrides it.
+          TEAM="$TEAM_SECRET"
+          [ -z "$TEAM" ] && TEAM=$(sed -n 's/^application\/app_store_team_id="\(.*\)"/\1/p' export_presets.cfg)
+          echo "APPLE_TEAM=$TEAM" >> $GITHUB_ENV
+          missing=""
+          [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
+          [ -z "$KEY_ID" ] && missing="$missing ASC_KEY_ID"
+          [ -z "$ISSUER" ] && missing="$missing ASC_ISSUER_ID"
+          [ -z "$KEY" ] && missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing (see Docs/Handoff.md)"
+            exit 1
+          fi
+
+      - name: Pick Xcode (a release, never a beta or RC)
+        run: |
+          if [ "${{ inputs.xcode27 }}" = "true" ]; then newest=/Applications/Xcode_27.1.app; else newest=""; fi
+          [ -d "$newest" ] || newest=$(ls -d /Applications/Xcode_*.app | grep -iv "beta\|release_candidate" | sort -V | tail -1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/godot
+            ~/Library/Application Support/Godot/export_templates
+          key: godot-macos-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          cd ~/godot
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip
+          unzip -q godot.zip && rm godot.zip
+          curl -sSL -o tpl.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q tpl.tpz && rm tpl.tpz
+          mv templates/* "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Import project
+        run: |
+          GODOT=~/godot/Godot.app/Contents/MacOS/Godot
+          $GODOT --headless --import || $GODOT --headless --import
+
+      - name: Set Team ID and build number
+        env:
+          TEAM: ${{ env.APPLE_TEAM }}
+        run: |
+          # Every TestFlight upload needs a higher build number.
+          BUILD=$((100 + GITHUB_RUN_NUMBER))
+          sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$TEAM\"/" export_presets.cfg
+          sed -i '' "s/^application\/version=.*/application\/version=\"$BUILD\"/" export_presets.cfg
+          echo "Build number $BUILD"
+
+      - name: Export Xcode project
+        run: |
+          mkdir -p build/ios
+          ~/godot/Godot.app/Contents/MacOS/Godot --headless --export-release "iOS" build/ios/SinnersGambit.ipa
+          test -d build/ios/SinnersGambit.xcodeproj
+
+      - name: Write App Store Connect key
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${KEY_ID}.p8"
+          printf '%s\n' "$KEY" > "$KEY_PATH"
+          echo "ASC_KEY_PATH=$KEY_PATH" >> $GITHUB_ENV
+
+      - name: Archive
+        env:
+          TEAM: ${{ env.APPLE_TEAM }}
+        run: |
+          # Build the archive unsigned. Signing it here would need a
+          # development profile, which Apple only issues once an iPhone is
+          # registered to the team; the upload step below signs it with an
+          # App Store profile instead, which needs no devices.
+          xcodebuild archive \
+            -project build/ios/SinnersGambit.xcodeproj \
+            -scheme SinnersGambit \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/SinnersGambit.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Upload to TestFlight
+        env:
+          TEAM: ${{ env.APPLE_TEAM }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/SinnersGambit.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER"
+
+      - name: Clean up key
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
