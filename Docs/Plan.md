@@ -22,12 +22,28 @@ A die costs 100: 3→4 pays back in ~5 turns, 4→5 in ~7, 5→6 in ~12. "Buy to
    - Tier 3 "Once Per Game" vs "Cooldown 2"/"once per cycle"
 4. Measure each Sin's win rate with the headless sim before tuning by hand.
 
-## Steps
-1. Base rules + sim, no Sins (done, pending first run).
-2. Sins in core + sim win rates per Sin.
-3. Try the rule changes in the sim, compare.
-4. Playable UI: solo vs bots, then pass-and-play.
+## Phases (agreed 2026-11-13: rebalance everything, abilities included, and add content)
+1. **Base loop.** Press, choose how many dice each roll, instant win + head start for later seats, dice supply scales with player count, Indulgence cost scales with score.
+2. **Rebuild the Sins on the new loop.**
+   - Fixed structure: T1 free identity passive · T2 active (300) · T3 ultimate (666), once per game, no cooldowns.
+   - Every ability tagged Before roll / After roll / Gambit.
+   - Target: each Sin wins 12–16% of 7-player sim games, then Ben plays for feel.
+   - Draft kits:
+     - Wrath: profit when anyone busts · force a reroll · target's Strikes count double next turn
+     - Greed: Vig · interest on unspent points · dice cost 150 for others for a round
+     - Lust: swap a die with the previous roll · binding pact (shared cut) · one-turn Command
+     - Envy: borrow a die face · copy last ability · steal part of the gap to the leader
+     - Pride: call a target before rolling (×1.5 or 0) · first attack each round bounces · ignore one bust
+     - Gluttony: feed a die mid-turn for 100 · cheaper dice · eat a die from every opponent for a round
+     - Sloth: bonus for banking without pressing · target rolls one fewer die · undo your own bust
+3. **Additions.** Blessed/cursed dice first. Later: Circles of Hell round modifiers, Devil's Bargain in Purgatory, solo campaign up the nine Circles (after UI).
+4. Playable UI: solo vs bots, then pass-and-play (phone + iPad).
 5. Android export, then iOS.
+
+## Art direction (agreed with Ben 2026-11-13)
+Gothic illuminated manuscript meets stained glass, in pixel art. Candlelit blacks and deep reds, gold-leaf numbers, a stained-glass panel per Sin, bone dice.
+- Borrow Balatro's principles: big readable numbers, juicy score tick-ups, screen shake, every roll animated and loud.
+- Don't copy its look: no felt table, swirling CRT background or joker cards.
 
 ## Sim run 1 (base rules, no Sins, 20k games each, Godot 4.7.2)
 - Buying dice barely matters: solo, 3 dice = 14.3 turns to 1000, best (4 dice) = 13.2. 4 and 5 tie at a table (30% vs 31%). 7+ dice lose.
@@ -44,6 +60,16 @@ A die costs 100: 3→4 pays back in ~5 turns, 4→5 in ~7, 5→6 in ~12. "Buy to
   - New problem: buying dice becomes a trap. At a 5-bot table, buy-to-3 wins 43% and buy-to-7 wins 5.5%. More dice = more Strikes per press.
   - New problem: with finish the round, the last seat chases a known target. 7p goes from 8% (seat 1) to 22% (seat 7).
 - Indulgence vs Redemption still 52/48: the choice doesn't matter.
+
+## Sim runs 3–4 (dice choice: each roll, choose how many dice to throw)
+- Plain dice choice is broken: the best play is rolling 2–3 dice at a time. With 3 Strikes left, 2 dice can't bust you. Buying is still a trap: at 6 players, buy-to-3 wins 34% and buy-to-8 wins 6%.
+- Skill matters a lot: at 4p, best style 43%, throw-everything 22%, one roll and bank 7.5%.
+- Head start that zeroes seat bias: 4p ≈ +40 per seat, 7p ≈ +20 per seat (re-check after scoring changes).
+- Indulgence at 10/20/30% of score: pay vs redeem still within a few points. The choice doesn't matter at any price → replace it (Devil's Bargain, Phase 3) instead of tuning.
+- **Combo multiplier fixes buying.** Each extra scoring die in one roll adds ×chain to that roll's points.
+  - chain 0.5: every buy target from 3 to 8 wins 16–18% at 6 players. Best play becomes "throw everything first, then roll 2".
+  - chain 1.0: same, slight edge to 6 dice.
+  - Side effect: with the target still 1000, games drop to ~3 rounds (chain 0.5) or ~2 (chain 1.0). Target or face values must scale.
 
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.

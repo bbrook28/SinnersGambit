@@ -10,8 +10,17 @@ const MAX_ROUNDS := 500
 ## Rule options under test. Defaults = rulebook as written.
 ## finish_round: reaching 1000 ends the game after the round completes; highest score wins.
 ## press: after a safe roll you may roll all your dice again. Points and Strikes add up over the turn.
+## dice_choice: implies press; each roll you choose how many of your dice to throw (0 = bank).
+## seat_bonus: head start; seat N (0-based) starts with N * seat_bonus points.
+## supply: total dice in the game (owned + Shared Supply).
+## indulgence_pct: Indulgence costs this % of your score instead of a flat 50.
 var finish_round := false
 var press := false
+var dice_choice := false
+var seat_bonus := 0
+var indulgence_pct := 0
+## chain: combo multiplier per extra scoring die in one roll (see Rules.score).
+var chain := 0.0
 
 var players: Array = []
 var supply: int
@@ -25,10 +34,16 @@ var is_tie := false
 func _init(bots: Array, seed_value: int, options := {}) -> void:
 	rng.seed = seed_value
 	finish_round = options.get("finish_round", false)
-	press = options.get("press", false)
+	dice_choice = options.get("dice_choice", false)
+	press = options.get("press", false) or dice_choice
+	seat_bonus = options.get("seat_bonus", 0)
+	indulgence_pct = options.get("indulgence_pct", 0)
+	chain = options.get("chain", 0.0)
 	for i in bots.size():
-		players.append(PlayerState.new(i, bots[i]))
-	supply = Rules.TOTAL_DICE - Rules.START_DICE * bots.size()
+		var p := PlayerState.new(i, bots[i])
+		p.score = i * seat_bonus
+		players.append(p)
+	supply = options.get("supply", Rules.TOTAL_DICE) - Rules.START_DICE * bots.size()
 
 
 func play():
@@ -50,6 +65,12 @@ func leader_score() -> int:
 	return best
 
 
+func indulgence_cost(p) -> int:
+	if indulgence_pct > 0:
+		return p.score * indulgence_pct / 100
+	return Rules.INDULGENCE_COST
+
+
 func take_turn(p) -> void:
 	p.turns += 1
 
@@ -60,17 +81,25 @@ func take_turn(p) -> void:
 	# Fate Phase 2-4: roll (and press), strike check, score.
 	var turn_points := 0
 	var strikes := 0
-	while true:
-		var faces := Rules.roll(rng, p.dice)
+	var count: int = p.dice
+	if dice_choice:
+		count = clampi(p.bot.dice_to_roll(p, self, 0, 0), 1, p.dice)
+	while count > 0:
+		var faces := Rules.roll(rng, count)
 		strikes += Rules.count_strikes(faces)
 		if strikes >= Rules.STRIKES_TO_BUST:
 			p.in_purgatory = true
 			p.busts += 1
 			return
-		turn_points += Rules.score(faces)
-		if not press or not p.bot.wants_press(p, self, turn_points, strikes):
+		turn_points += Rules.score(faces, chain)
+		if not press:
 			break
-		p.presses += 1
+		if dice_choice:
+			count = clampi(p.bot.dice_to_roll(p, self, turn_points, strikes), 0, p.dice)
+		else:
+			count = p.dice if p.bot.wants_press(p, self, turn_points, strikes) else 0
+		if count > 0:
+			p.presses += 1
 	p.score += turn_points
 
 	if p.score >= Rules.WIN_SCORE:
@@ -97,9 +126,10 @@ func _resolve_finish() -> void:
 
 ## Returns true if the player is free to take the rest of the turn.
 func _try_escape(p) -> bool:
-	# Indulgence. Rulebook doesn't say what happens below 50 points; we fall back to Redemption.
-	if p.bot.pay_indulgence and p.score >= Rules.INDULGENCE_COST:
-		p.score -= Rules.INDULGENCE_COST
+	# Indulgence. Rulebook doesn't say what happens if you can't pay; we fall back to Redemption.
+	var cost := indulgence_cost(p)
+	if p.bot.wants_indulgence(p, self) and p.score >= cost:
+		p.score -= cost
 		p.in_purgatory = false
 		return true
 	# Redemption: any 6 frees you.

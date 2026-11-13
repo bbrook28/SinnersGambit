@@ -1,4 +1,4 @@
-## Headless balance runner.
+## Headless balance runner. Phase 1: base loop with dice choice.
 ## godot --headless --path . --script res://sim/run_sim.gd
 extends SceneTree
 
@@ -6,90 +6,113 @@ const Rules = preload("res://core/rules.gd")
 const Game = preload("res://core/game.gd")
 const BotPolicy = preload("res://ai/bot_policy.gd")
 
+const GRID_GAMES := 1000
 const GAMES := 10000
-const BASE := {}
-const FINISH := {"finish_round": true}
-const PRESS := {"finish_round": true, "press": true}
 
-## Press styles to try: [max strikes to keep pressing, bank at].
-const STYLES := [[-1, 9999], [0, 9999], [0, 150], [0, 250], [1, 100], [1, 150], [1, 250], [1, 9999]]
+const CAPS_3 := [2, 3, 4, 99]
+const CAPS_2 := [2, 3, 99]
+const CAPS_1 := [0, 1]
+const BANKS := [300, 9999]
+
+## Rule options for the current experiment, merged into every game.
+var rule := {}
+
+
+func _opts(players: int, extra := {}) -> Dictionary:
+	var o := {"dice_choice": true, "supply": maxi(Rules.TOTAL_DICE, players * 8)}
+	o.merge(rule, true)
+	o.merge(extra, true)
+	return o
 
 
 func _init() -> void:
-	print("\n######## SEAT BIAS FIX (no press) ########")
-	for n in [4, 7]:
-		_seat_bias(n, BotPolicy.new(5), BASE, "rulebook")
-		_seat_bias(n, BotPolicy.new(5), FINISH, "finish the round")
-
-	print("\n######## PRESS: solo turns to 1000 ########")
-	var best_style := _press_grid()
-
-	print("\n######## PRESS + FINISH THE ROUND: tables ########")
-	var buyers := []
-	for d in range(3, 8):
-		buyers.append(_bot(d, best_style[d]))
-	_table(buyers, PRESS, "Buy targets, each with its best press style, 4-5 players")
-
-	var styles := []
-	for s in [[-1, 9999], [0, 9999], [1, 150], [1, 9999]]:
-		styles.append(BotPolicy.new(5, true, s[0], s[1]))
-	_table(styles, PRESS, "Press styles, all buy to 5, 4 players")
-
-	_table([_bot(5, best_style[5], true), _bot(5, best_style[5], false)], PRESS, "Purgatory escape with press, 2 players")
-
-	for n in [4, 7]:
-		_seat_bias(n, _bot(5, best_style[5]), PRESS, "press + finish the round")
+	# Run 4: combo multiplier, to make big throws worth it.
+	for c in [0.0, 0.25, 0.5, 1.0]:
+		rule = {"chain": c}
+		print("\n\n================ CHAIN %.2f ================" % c)
+		print("\n## Solo: best way to play each dice count")
+		var best := _grid()
+		print("\n## Does buying pay? (6 players, seats rotated)")
+		var buyers := []
+		for d in range(3, 9):
+			buyers.append(best[d])
+		_table(buyers, _opts(6))
 	quit()
 
 
-func _bot(dice: int, style: Array, pay := true):
-	return BotPolicy.new(dice, pay, style[0], style[1])
+## Run 3 (kept for reference): skill check, head start, Indulgence sweep.
+func _run3() -> void:
+	print("\n######## A. Solo: best way to play each dice count ########")
+	var best := _grid()
+
+	print("\n######## B. Does buying pay? (6 players, seats rotated) ########")
+	var buyers := []
+	for d in range(3, 9):
+		buyers.append(best[d])
+	_table(buyers, _opts(6))
+
+	print("\n######## C. Skill check: play styles at buy-to-5 (4 players) ########")
+	_table([
+		best[5],
+		BotPolicy.chooser(5, [99, 99, 0], 400),   # always throw everything
+		BotPolicy.chooser(5, [99, 2, 0], 200),    # cautious
+		BotPolicy.chooser(5, [99, 0, 0], 1),      # one roll and bank
+	], _opts(4))
+
+	print("\n######## D. Head start per seat (identical best buy-to-5 bots) ########")
+	for n in [4, 7]:
+		for bonus in [0, 10, 20, 30, 40, 60]:
+			_seat_bias(n, best[5], _opts(n, {"seat_bonus": bonus}), "bonus %d" % bonus)
+
+	var s: BotPolicy = best[5]
+	var caps := [s.cap_3_left, s.cap_2_left, s.cap_1_left]
+	for pct in [10, 20, 30]:
+		print("\n######## E. Indulgence = %d%% of score (4 players) ########" % pct)
+		var escapes := []
+		for pay_below in [99999, 0, 300, 600]:
+			escapes.append(BotPolicy.chooser(5, caps, s.bank_at, pay_below))
+		_table(escapes, _opts(4, {"indulgence_pct": pct}))
 
 
-## Solo: average turns to 1000 for every dice count x press style. Returns best style per dice count.
-func _press_grid() -> Dictionary:
-	var header := "dice "
-	for s in STYLES:
-		header += "%10s" % _style_name(s)
-	print(header)
+## Solo: average turns to 1000 for each dice count, over every play style. Returns best bot per dice count.
+func _grid() -> Dictionary:
 	var best := {}
-	for d in range(3, 8):
-		var line := "%4d " % d
+	print("dice  best style                   turns  bust%  rolls/turn | throw-all  one-roll")
+	for d in range(3, 9):
 		var best_turns := 1e9
-		for s in STYLES:
-			var turns := 0
-			var busts := 0
-			for g in GAMES:
-				var game := Game.new([_bot(d, s)], g, {"press": true})
-				game.play()
-				turns += game.players[0].turns
-				busts += game.players[0].busts
-			var avg := float(turns) / GAMES
-			line += "%5.1f/%2d%%" % [avg, roundi(100.0 * busts / turns)]
-			if avg < best_turns:
-				best_turns = avg
-				best[d] = s
-		print(line)
-	print("(avg turns / bust rate)  best: ", _best_str(best))
+		var best_line := ""
+		for c3 in CAPS_3:
+			for c2 in CAPS_2:
+				for c1 in CAPS_1:
+					for b in BANKS:
+						var bot = BotPolicy.chooser(d, [c3, c2, c1], b)
+						var r := _solo(bot, GRID_GAMES)
+						if r[0] < best_turns:
+							best_turns = r[0]
+							best[d] = bot
+							best_line = "%-28s %5.1f  %4.0f%%  %5.2f" % [bot.label, r[0], r[1], r[2]]
+		var allin := _solo(BotPolicy.chooser(d, [99, 99, 0], 400), GRID_GAMES)
+		var one := _solo(BotPolicy.chooser(d, [99, 0, 0], 1), GRID_GAMES)
+		print("%4d  %s     | %8.1f  %8.1f" % [d, best_line, allin[0], one[0]])
 	return best
 
 
-func _style_name(s: Array) -> String:
-	if s[0] < 0:
-		return "no press"
-	return "s%d%s" % [s[0], "" if s[1] >= 9999 else "b%d" % s[1]]
-
-
-func _best_str(best: Dictionary) -> String:
-	var parts := []
-	for d in best:
-		parts.append("%d dice: %s" % [d, _style_name(best[d])])
-	return ", ".join(parts)
+## Returns [avg turns to 1000, bust %, rolls per turn].
+func _solo(bot, games: int) -> Array:
+	var turns := 0
+	var busts := 0
+	var presses := 0
+	for g in games:
+		var game := Game.new([bot], g, _opts(1))
+		game.play()
+		turns += game.players[0].turns
+		busts += game.players[0].busts
+		presses += game.players[0].presses
+	return [float(turns) / games, 100.0 * busts / turns, 1.0 + float(presses) / turns]
 
 
 ## Mixed bots at one table, seats rotated each game. Prints win rate per bot.
-func _table(bots: Array, options: Dictionary, title: String) -> void:
-	print("\n== %s ==" % title)
+func _table(bots: Array, options: Dictionary) -> void:
 	var wins := {}
 	var rounds := 0
 	for b in bots:
@@ -104,8 +127,8 @@ func _table(bots: Array, options: Dictionary, title: String) -> void:
 		if w != null:
 			wins[w.bot.label] += 1
 	for b in bots:
-		print("%-16s %5.1f%%" % [b.label, 100.0 * wins[b.label] / GAMES])
-	print("avg rounds: %.1f" % (float(rounds) / GAMES))
+		print("  %-28s %5.1f%%" % [b.label, 100.0 * wins[b.label] / GAMES])
+	print("  avg rounds: %.1f" % (float(rounds) / GAMES))
 
 
 ## Identical bots: does seat order matter?
@@ -117,17 +140,17 @@ func _seat_bias(count: int, bot, options: Dictionary, title: String) -> void:
 	for i in count:
 		bots.append(bot)
 	var rounds := 0
-	var ties := 0
 	for g in GAMES:
 		var game := Game.new(bots, g, options)
 		var w = game.play()
 		rounds += game.round_count
-		if game.is_tie:
-			ties += 1
 		if w != null:
 			wins[w.seat] += 1
-	var line := "%dp %-26s" % [count, title]
+	var line := "  %dp %-10s" % [count, title]
+	var spread := 0.0
 	for i in count:
-		line += " %4.1f" % (100.0 * wins[i] / GAMES)
-	line += "  | fair %.1f, rounds %.1f, ties %.1f%%" % [100.0 / count, float(rounds) / GAMES, 100.0 * ties / GAMES]
+		var pct: float = 100.0 * wins[i] / GAMES
+		spread = maxf(spread, absf(pct - 100.0 / count))
+		line += " %4.1f" % pct
+	line += "  | worst seat off by %.1f, rounds %.1f" % [spread, float(rounds) / GAMES]
 	print(line)

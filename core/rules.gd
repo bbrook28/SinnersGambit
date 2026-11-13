@@ -27,9 +27,14 @@ static func count_strikes(faces: Array[int]) -> int:
 
 
 ## 4/5/6 score 40/50/60. 1-3 score nothing.
-static func score(faces: Array[int]) -> int:
+## chain (option under test): each extra scoring die in the same roll adds this much multiplier.
+static func score(faces: Array[int], chain := 0.0) -> int:
 	var total := 0
+	var scorers := 0
 	for f in faces:
 		if f >= 4:
 			total += f * 10
+			scorers += 1
+	if scorers > 1:
+		total = int(total * (1.0 + chain * (scorers - 1)))
 	return total
