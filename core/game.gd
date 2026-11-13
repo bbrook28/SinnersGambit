@@ -21,6 +21,9 @@ var seat_bonus := 0
 var indulgence_pct := 0
 ## chain: combo multiplier per extra scoring die in one roll (see Rules.score).
 var chain := 0.0
+## face_mult: points per pip (4 -> 4*face_mult). die_cost: price of one die.
+var face_mult := 10
+var die_cost := Rules.DIE_COST
 
 var players: Array = []
 var supply: int
@@ -39,11 +42,16 @@ func _init(bots: Array, seed_value: int, options := {}) -> void:
 	seat_bonus = options.get("seat_bonus", 0)
 	indulgence_pct = options.get("indulgence_pct", 0)
 	chain = options.get("chain", 0.0)
+	face_mult = options.get("face_mult", 10)
+	die_cost = options.get("die_cost", Rules.DIE_COST)
 	for i in bots.size():
 		var p := PlayerState.new(i, bots[i])
 		p.score = i * seat_bonus
 		players.append(p)
-	supply = options.get("supply", Rules.TOTAL_DICE) - Rules.START_DICE * bots.size()
+	var total_dice: int = options.get("supply", Rules.TOTAL_DICE)
+	if options.has("supply_per_player"):
+		total_dice = maxi(Rules.TOTAL_DICE, options["supply_per_player"] * bots.size())
+	supply = total_dice - Rules.START_DICE * bots.size()
 
 
 func play():
@@ -91,7 +99,7 @@ func take_turn(p) -> void:
 			p.in_purgatory = true
 			p.busts += 1
 			return
-		turn_points += Rules.score(faces, chain)
+		turn_points += Rules.score(faces, chain, face_mult)
 		if not press:
 			break
 		if dice_choice:
@@ -111,8 +119,8 @@ func take_turn(p) -> void:
 
 	# Gambit Phase: buy dice.
 	var n: int = clampi(p.bot.dice_to_buy(p, self), 0, supply)
-	n = mini(n, p.score / Rules.DIE_COST)
-	p.score -= n * Rules.DIE_COST
+	n = mini(n, p.score / die_cost)
+	p.score -= n * die_cost
 	p.dice += n
 	supply -= n
 

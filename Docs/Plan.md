@@ -71,6 +71,21 @@ Gothic illuminated manuscript meets stained glass, in pixel art. Candlelit black
   - chain 1.0: same, slight edge to 6 dice.
   - Side effect: with the target still 1000, games drop to ~3 rounds (chain 0.5) or ~2 (chain 1.0). Target or face values must scale.
 
+## Sim run 5: rescale, keeping 1000 / 666 (Ben's call)
+Chain 0.5, six value/cost setups. Winner: **die values 20/25/30, die cost 100**.
+- Buying: every buy target 3–8 wins 15–18% at 6 players. A real choice.
+- Length: ~8 rounds at 4p, ~7 at 7p.
+- Head start +20 per seat: worst seat within 1 point of fair at both 4p and 7p.
+- Cheap dice (cost cut with values) made buy-to-8 dominant; 12/15/18 games ran 11–15 rounds.
+
+## Phase 1 rules (locked 2026-11-13, `Rules.V2` in code)
+- **Roll:** each throw, choose how many of your dice to throw. Strikes add up over the turn; 3 = Purgatory, turn points lost. Bank any time.
+- **Score:** 4/5/6 = 20/25/30. Combo: each extra scoring die in the same throw adds ×0.5 (3 scorers = ×2, 5 = ×3).
+- **Dice:** cost 100. Supply = 8 per player (min 27).
+- **Win:** first to 1000 wins instantly. Seat N starts with 20 × (N−1) points.
+- **Tiers:** 300 / 666 unchanged.
+- **Purgatory escape:** unchanged for now; to be replaced by the Devil's Bargain in Phase 3.
+
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.
 - Can score go negative? Not covered.

@@ -9,6 +9,16 @@ const DIE_COST := 100
 const STRIKES_TO_BUST := 3
 const INDULGENCE_COST := 50
 
+## Phase 1 rule set (sim run 5, 2026-11-13). Pass to Game.new() as options.
+const V2 := {
+	"dice_choice": true,  # each throw, choose how many dice; Strikes add up; bank any time
+	"chain": 0.5,         # +x0.5 per extra scoring die in one throw
+	"face_mult": 5,       # 4/5/6 = 20/25/30
+	"die_cost": 100,
+	"seat_bonus": 20,     # seat N starts with 20 x (N-1)
+	"supply_per_player": 8,
+}
+
 
 static func roll(rng: RandomNumberGenerator, count: int) -> Array[int]:
 	var faces: Array[int] = []
@@ -28,12 +38,13 @@ static func count_strikes(faces: Array[int]) -> int:
 
 ## 4/5/6 score 40/50/60. 1-3 score nothing.
 ## chain (option under test): each extra scoring die in the same roll adds this much multiplier.
-static func score(faces: Array[int], chain := 0.0) -> int:
+## face_mult (option under test): points per pip on a scoring die. Rulebook = 10.
+static func score(faces: Array[int], chain := 0.0, face_mult := 10) -> int:
 	var total := 0
 	var scorers := 0
 	for f in faces:
 		if f >= 4:
-			total += f * 10
+			total += f * face_mult
 			scorers += 1
 	if scorers > 1:
 		total = int(total * (1.0 + chain * (scorers - 1)))

@@ -12,7 +12,7 @@ const GAMES := 10000
 const CAPS_3 := [2, 3, 4, 99]
 const CAPS_2 := [2, 3, 99]
 const CAPS_1 := [0, 1]
-const BANKS := [300, 9999]
+const BANKS := [150, 300, 9999]
 
 ## Rule options for the current experiment, merged into every game.
 var rule := {}
@@ -26,10 +26,10 @@ func _opts(players: int, extra := {}) -> Dictionary:
 
 
 func _init() -> void:
-	# Run 4: combo multiplier, to make big throws worth it.
-	for c in [0.0, 0.25, 0.5, 1.0]:
-		rule = {"chain": c}
-		print("\n\n================ CHAIN %.2f ================" % c)
+	# Run 5: keep 1000/666, chain 0.5, shrink die values (and maybe die cost) to lengthen games.
+	for cfg in [[5, 50], [5, 100], [4, 40], [4, 100], [3, 30], [3, 100]]:
+		rule = {"chain": 0.5, "face_mult": cfg[0], "die_cost": cfg[1]}
+		print("\n\n======== DIE VALUES %d/%d/%d, DIE COST %d ========" % [cfg[0] * 4, cfg[0] * 5, cfg[0] * 6, cfg[1]])
 		print("\n## Solo: best way to play each dice count")
 		var best := _grid()
 		print("\n## Does buying pay? (6 players, seats rotated)")
@@ -37,7 +37,23 @@ func _init() -> void:
 		for d in range(3, 9):
 			buyers.append(best[d])
 		_table(buyers, _opts(6))
+		print("\n## Head start per seat (identical best buy-to-5 bots)")
+		for n in [4, 7]:
+			for bonus in [0, 10, 20, 30]:
+				_seat_bias(n, best[5], _opts(n, {"seat_bonus": bonus}), "bonus %d" % bonus)
 	quit()
+
+
+## Run 4 (kept for reference): combo multiplier sweep.
+func _run4() -> void:
+	for c in [0.0, 0.25, 0.5, 1.0]:
+		rule = {"chain": c}
+		print("\n\n================ CHAIN %.2f ================" % c)
+		var best := _grid()
+		var buyers := []
+		for d in range(3, 9):
+			buyers.append(best[d])
+		_table(buyers, _opts(6))
 
 
 ## Run 3 (kept for reference): skill check, head start, Indulgence sweep.
