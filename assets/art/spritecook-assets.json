@@ -1,0 +1,16 @@
+{
+  "project_id": "51df3718-0e94-4271-80a8-71746271920a",
+  "ui_kit_id": "f0bc80a6-d0b5-46dc-87f8-b08a90b687c1",
+  "ui_kit_assets": "ui/ids.txt",
+  "assets": [
+    {"asset_id": "baf0f401-ebb4-4109-b314-1f6530788e31", "sha12": "a2a5155a8769", "label": "pride_a (gold die + cloth)", "file": "sins/raw/pride_a_raw.png"},
+    {"asset_id": "dea3e562-5d78-4f58-9e72-0f813d732afe", "sha12": "28a6d8b28903", "label": "pride_b (amethyst mirror)", "file": "sins/raw/pride_b_raw.png"},
+    {"asset_id": "fd19a978-b7bf-45d4-94a0-aad68be4f741", "sha12": "341460f46033", "label": "pride_glass (lancet window, style anchor)", "file": "sins/raw/pride_glass_raw.png"}
+    ,{"asset_id": "35967302-2c8b-4d1b-bd38-540275ba4002", "sha12": "61fe94d820bf", "label": "greed_glass", "file": "sins/raw/greed_glass_raw.png"}
+    ,{"asset_id": "9f105458-422f-4101-b82b-d9c82d941629", "sha12": "761ebac23542", "label": "wrath_glass", "file": "sins/raw/wrath_glass_raw.png"}
+    ,{"asset_id": "c39bba99-4fed-4a24-8e99-c93e1ce619e2", "sha12": "4bc244e5648d", "label": "envy_glass", "file": "sins/raw/envy_glass_raw.png"}
+    ,{"asset_id": "f6238d2c-4ecd-474d-ad57-636c1b5205ab", "sha12": "963d68c4a65e", "label": "gluttony_glass", "file": "sins/raw/gluttony_glass_raw.png"}
+    ,{"asset_id": "de87a71d-578c-4b69-867d-d1b130f0d6a0", "sha12": "b659c0b8c1cc", "label": "lust_glass", "file": "sins/raw/lust_glass_raw.png"}
+    ,{"asset_id": "05e02e27-b38c-44dd-bb4a-71814fad0afa", "sha12": "881868d815ce", "label": "sloth_glass", "file": "sins/raw/sloth_glass_raw.png"}
+  ]
+}

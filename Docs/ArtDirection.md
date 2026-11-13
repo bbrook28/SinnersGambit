@@ -86,3 +86,46 @@ Each Sin is a figure living in its stained-glass panel, drawn like a saint in a 
 - **Godot VFX skills (`thedivergentai/gd-agentic-skills`: `particles`, `shaders-basics`):** if installed, load the matching one before writing any particle system or `.gdshader`.
 - **Godot MCP (`@coding-solo/godot-mcp`):** if connected, run the scene after any visual change and check the result on screen before calling it done. One screenshot per check, smallest size that shows the effect.
 - If a tool above is missing, say so in one line and carry on without it.
+
+# App icon
+
+- One subject, readable at 60px: a single bone die in front of a stained-glass panel, gold edge glint, candlelit black around it. No text, no logo.
+- Generate with SpriteCook using approved in-game assets as the style reference, so the icon matches the game.
+- Deliver one 1024x1024 master PNG: square, opaque, no rounded corners (iOS applies the mask), key detail kept inside the centre 80%.
+- Upscale pixel art with nearest-neighbour at an integer factor only; never smooth it.
+- Produce the smaller sizes by script from the master, then check the 60px version still reads.
+
+# iPhone layout (portrait only)
+
+**Canvas**
+- Design at 393x852pt (mock up at 1179x2556px). iPhones are about 9:19.5, taller and narrower than a 9:16 mockup.
+- Safe areas: keep the top 59pt (Dynamic Island) and bottom 34pt (home indicator) free of text and controls. Background art bleeds under both.
+- Must also hold up at 430pt wide (Pro Max) by scaling the dice stage, not by stretching the UI.
+
+**Three zones, top to bottom**
+1. Glance zone (top 25%): the seven Sin windows. Look-only; nothing here needs a tap during a turn. Tap-and-hold a Sin for its detail card.
+2. Stage (middle 45%): dice and the turn score. Dice at least 64pt each; the score is the largest text on screen (56pt or more).
+3. Thumb zone (bottom 30%): Roll and Bank, each 88pt or larger, Roll under the right thumb. Secondary seals 44pt minimum with a label.
+
+**Text**
+- Nothing below 13pt. Blackletter for numbers and headings only; sentences in a plain serif.
+- Bright gold for numbers only; frames and filigree drop to dull brass.
+
+**Touch and gestures**
+- Drag dice anywhere in the stage; no gestures starting from the screen edges (they clash with iOS back and home swipes).
+- Haptic on every roll, landing, strike and bank.
+- Every action reachable one-handed; no two-finger gestures.
+
+**iOS behaviour**
+- 120Hz on ProMotion phones, 60fps floor elsewhere and in Low Power Mode.
+- Save mid-turn on every state change; resume exactly where you left off after a call or app switch.
+- Obey the silent switch; the game is fully playable muted.
+- Respect Reduce Motion: swap screen shake and parallax for fades.
+- A full turn takes under 30 seconds; a session works in a 2-minute gap.
+
+**Gut check:** can you play a whole turn on the bus, one-handed, muted, in sunlight?
+
+# Approved art (look pass step 2, 2026-11-13)
+- Sin windows: `assets/art/sins/raw/<sin>_glass_raw.png` (SpriteCook, Pride window as style anchor). Read with a hard alpha cut at 0.6.
+- UI kit (concept 1b, brass ornament, gold only on numbers): `assets/art/ui/*.png`; concepts and sheets in `assets/art/ui/raw/`. Names, asset IDs and sha12 in `assets/art/ui/ids.txt`; 9-slice borders listed in the SpriteCook kit manifest (kit f0bc80a6-d0b5-46dc-87f8-b08a90b687c1).
+- SpriteCook gotchas: pixel=true shrinks output to ~34px; fetch `raw_url` via `check_job_status(verbose=true)` for the 1024px source. Each style reference costs +8 credits. UI-kit concepts cost ~30 each.
