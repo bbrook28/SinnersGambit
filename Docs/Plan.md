@@ -29,6 +29,13 @@ A die costs 100: 3→4 pays back in ~5 turns, 4→5 in ~7, 5→6 in ~12. "Buy to
 4. Playable UI: solo vs bots, then pass-and-play.
 5. Android export, then iOS.
 
+## Sim run 1 (base rules, no Sins, 20k games each, Godot 4.7.2)
+- Buying dice barely matters: solo, 3 dice = 14.3 turns to 1000, best (4 dice) = 13.2. 4 and 5 tie at a table (30% vs 31%). 7+ dice lose.
+- Strong first-player advantage. With 7 players, seat 1 wins 21.5% and seat 7 wins 8.9% (fair is 14.3%). 4 players: 29.9% vs 20.2%. Cause: game ends the moment someone hits 1000.
+  - Fix to test: finish the round so everyone gets equal turns, highest score wins.
+- Indulgence vs Redemption: 52/48, close to irrelevant.
+- Game length: ~10 rounds (~41 turns at 4p, ~70 at 7p).
+
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.
 - Can score go negative? Not covered.
