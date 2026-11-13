@@ -32,6 +32,7 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - `tests/ui_autoplay.gd`: one full UI game per Sin with random button presses, headless.
 - Web: `export_presets.cfg` "Web" preset (single-threaded) -> `build/web`. Export: `--headless --path . --export-release "Web" build/web/index.html`. Templates in %APPDATA%\Godot\export_templates\4.7.2.stable (web only).
 - Serve on Wi-Fi: `powershell -ExecutionPolicy Bypass -File tools\serve.ps1` (prints the phone URL, port 8000).
+- Plain HTTP on a LAN IP is not a secure context: the Web preset head_include skips Godot's secure-context check, and `audio/driver/driver.web="Dummy"` (no AudioWorklet without HTTPS). When the game gets sound, serve over HTTPS or use TestFlight instead.
 
 ### Rule questions the UI raised
 - Feast: the UI feeds your lowest die (Strikes first); the rule lets you pick any die.

@@ -23,3 +23,7 @@ window/handheld/orientation=1
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[audio]
+
+driver/driver.web="Dummy"
