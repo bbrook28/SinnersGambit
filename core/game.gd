@@ -25,6 +25,8 @@ var indulgence_pct := 0
 var chain := 0.0
 var face_mult := 10
 var die_cost := Rules.DIE_COST
+## tier2: Tier 2 Sin abilities are on (unlock at Rules.TIER2_SCORE, once per round).
+var tier2 := false
 
 var players: Array = []
 var supply: int
@@ -50,6 +52,7 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	chain = options.get("chain", 0.0)
 	face_mult = options.get("face_mult", 10)
 	die_cost = options.get("die_cost", Rules.DIE_COST)
+	tier2 = options.get("tier2", false)
 	for i in bots.size():
 		var p := PlayerState.new(i, bots[i])
 		p.score = i * seat_bonus
@@ -88,6 +91,78 @@ func best_face_last_throw() -> int:
 	return best
 
 
+## Previous player in seat order.
+func prev_player(p):
+	return players[(p.seat - 1 + players.size()) % players.size()]
+
+
+## Highest-scoring player other than me (Tier 2 target for bots).
+func leader_other(me):
+	var best = null
+	for p in players:
+		if p != me and (best == null or p.score > best.score):
+			best = p
+	return best
+
+
+## Tier 2: unlocked (first time at 300+, stays unlocked) and not used since your last turn started.
+func t2_available(p) -> bool:
+	if not tier2:
+		return false
+	if not p.t2_unlocked and p.score >= Rules.TIER2_SCORE:
+		p.t2_unlocked = true
+		p.t2_ready = true
+	return p.t2_unlocked and p.t2_ready
+
+
+func mark_t2(p) -> void:
+	p.t2_ready = false
+	p.t2_uses += 1
+
+
+## A targeted Tier 2 (an attack). Pride's Untouchable may bounce it onto the attacker.
+## kind: "reroll" (Wrath, amount = dice), "pact" (Lust, amount = %), "drag" (Sloth, amount = dice).
+func attack(attacker, target, kind: String, amount: int) -> void:
+	mark_t2(attacker)
+	var hit = target
+	var source = attacker
+	if target.sin and target.sin.bounces(self, target):
+		mark_t2(target)
+		target.t2_bounces += 1
+		hit = attacker
+		source = target
+	match kind:
+		"reroll":
+			if hit == target:
+				reroll_best(turn.faces, amount)  # target is throwing right now
+			else:
+				hit.reroll_next = amount
+		"pact":
+			hit.pact_by = source
+			hit.pact_pct = amount
+		"drag":
+			hit.drag = amount
+
+
+## Reroll the n highest scoring dice in faces.
+func reroll_best(faces: Array[int], n: int) -> void:
+	var picked: Array[int] = []
+	for k in n:
+		var best_i := -1
+		for i in faces.size():
+			if faces[i] >= 4 and not picked.has(i) and (best_i < 0 or faces[i] > faces[best_i]):
+				best_i = i
+		if best_i < 0:
+			break
+		picked.append(best_i)
+	for i in picked:
+		faces[i] = rng.randi_range(1, 6)
+
+
+func _max_throw(p) -> int:
+	return maxi(1, p.dice - p.drag)
+
+
 func indulgence_cost(p) -> int:
 	if indulgence_pct > 0:
 		return p.score * indulgence_pct / 100
@@ -97,10 +172,12 @@ func indulgence_cost(p) -> int:
 func take_turn(p) -> void:
 	p.turns += 1
 	turn = TurnState.new()
+	if t2_available(p) or p.t2_unlocked:
+		p.t2_ready = true  # Tier 2 recharges at the start of your turn
 
 	# Fate Phase 1: escape Purgatory.
 	if p.in_purgatory and not _try_escape(p):
-		_end_turn(0)
+		_end_turn(p, 0)
 		return
 
 	if p.sin:
@@ -109,10 +186,18 @@ func take_turn(p) -> void:
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
 	if dice_choice:
-		count = clampi(p.bot.dice_to_roll(p, self, 0, 0), 1, p.dice)
+		count = clampi(p.bot.dice_to_roll(p, self, 0, 0), 1, _max_throw(p))
 	while count > 0:
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
+		if p.reroll_next > 0:
+			reroll_best(turn.faces, p.reroll_next)
+			p.reroll_next = 0
+		# Opponents react first (Wrath's Fury), then your own Sin.
+		if tier2:
+			for o in players:
+				if o != p and o.sin and t2_available(o):
+					o.sin.on_other_throw(self, o, p, turn)
 		if p.sin:
 			p.sin.after_throw(self, p, turn)
 		turn.strikes += Rules.count_strikes(turn.faces)
@@ -123,7 +208,7 @@ func take_turn(p) -> void:
 		if not press:
 			break
 		if dice_choice:
-			count = clampi(p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, p.dice)
+			count = clampi(p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, _max_throw(p))
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
 		if count > 0:
@@ -132,8 +217,12 @@ func take_turn(p) -> void:
 	var banked: int = turn.points
 	if p.sin:
 		banked = p.sin.on_bank(self, p, turn, banked)
+	if p.pact_by != null:
+		var cut: int = banked * p.pact_pct / 100
+		p.pact_by.score += cut  # like Spark of Rage, 1000 reached off-turn wins on their next turn
+		banked -= cut
 	p.score += banked
-	_end_turn(banked)
+	_end_turn(p, banked)
 
 	if p.score >= Rules.WIN_SCORE:
 		if finish_round:
@@ -142,30 +231,37 @@ func take_turn(p) -> void:
 			winner = p
 			return
 
-	# Gambit Phase: buy dice.
-	var cost: int = p.sin.die_cost(self, p) if p.sin else die_cost
+	# Gambit Phase: buy dice, then Gambit abilities.
 	var n: int = clampi(p.bot.dice_to_buy(p, self), 0, supply)
-	n = mini(n, p.score / cost)
-	if n <= 0:
-		return
-	p.score -= n * cost
-	p.dice += n
-	supply -= n
-	for o in players:
-		if o != p and o.sin:
-			o.score += o.sin.on_other_buy(self, o, p, n)
+	while n > 0 and _buy_price(p, n) > p.score:
+		n -= 1
+	if n > 0:
+		p.score -= _buy_price(p, n)
+		p.dice += n
+		supply -= n
+		for o in players:
+			if o != p and o.sin:
+				o.score += o.sin.on_other_buy(self, o, p, n)
+	if p.sin and t2_available(p):
+		p.sin.gambit(self, p, n)
+
+
+func _buy_price(p, n: int) -> int:
+	return p.sin.buy_price(self, p, n) if p.sin else n * die_cost
 
 
 func _bust(p) -> void:
 	p.in_purgatory = true
 	p.busts += 1
-	_end_turn(0)
+	_end_turn(p, 0)
 	for o in players:
 		if o != p and o.sin:
 			o.sin.on_other_bust(self, o, p)
 
 
-func _end_turn(banked: int) -> void:
+func _end_turn(p, banked: int) -> void:
+	p.pact_by = null  # Pact and Drag last one turn, bust or not
+	p.drag = 0
 	last_throw = turn.faces.duplicate()
 	last_turn_points = banked
 

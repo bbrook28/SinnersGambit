@@ -8,6 +8,7 @@ const TOTAL_DICE := 27
 const DIE_COST := 100
 const STRIKES_TO_BUST := 3
 const INDULGENCE_COST := 50
+const TIER2_SCORE := 300
 
 ## Phase 1 rule set (sim run 5, 2026-11-13). Pass to Game.new() as options.
 const V2 := {

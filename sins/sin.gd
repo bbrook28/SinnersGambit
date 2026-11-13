@@ -33,3 +33,26 @@ func on_other_bust(_game, _me, _other) -> void:
 ## Passive: another player bought n dice. Return points they pay to you (taken out of the bank's share).
 func on_other_buy(_game, _me, _other, _n: int) -> int:
 	return 0
+
+
+# --- Tier 2 hooks (only called when Game.tier2 is on). Keep Tier 1 and Tier 2 in
+# separate methods: Envy's Mimicry borrows only the Tier 1 hooks above.
+
+## After roll, another player's turn: they just threw (turn.faces), before their own Sin reacts.
+func on_other_throw(_game, _me, _other, _turn) -> void:
+	pass
+
+
+## Gambit Phase, own turn, after buying (bought = dice bought this turn). Not called on a bust.
+func gambit(_game, _me, _bought: int) -> void:
+	pass
+
+
+## Total price for buying n dice this turn.
+func buy_price(game, me, n: int) -> int:
+	return n * die_cost(game, me)
+
+
+## Another player's Tier 2 targets you. Return true to bounce it back (Pride).
+func bounces(_game, _me) -> bool:
+	return false

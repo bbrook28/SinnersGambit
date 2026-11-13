@@ -103,6 +103,28 @@ Chain 0.5, six value/cost setups. Winner: **die values 20/25/30, die cost 100**.
 - Games with Sins run ~5 rounds at 7p (vs ~7 without). Revisit length after Tiers 2–3.
 - Sim limit: bots don't change how they press for their Sin (except Pride's call). A human Sloth or Wrath may play differently.
 
+## Phase 2, step 2: Tier 2 abilities (tuned 2026-11-13, `sim/run_sins.gd`; `-- t1` = Tier 1 only)
+Same setup as step 1, Tiers 1+2 on. Tier 2 unlocks the first time you reach 300 and stays unlocked. Once per round (recharges at the start of your turn). Wrath, Lust and Sloth's are attacks, which Pride can bounce.
+
+| Sin | Tier 2 (final) | Tag | Win % | Uses/game | History |
+|---|---|---|---|---|---|
+| Wrath | Fury: after an opponent's throw, force them to reroll their 3 best scoring dice (bot: throw worth 150+) | After roll | 13.8 | 1.75 | 2 dice → 12.4% |
+| Greed | Interest: buy no dice this turn → +8% of your score, max 60 | Gambit | 15.2 | 1.67 | 5%/max 50 → 12.5% |
+| Lust | Binding Pact: take 15% of an opponent's next banked turn (bot: the leader) | Gambit | 13.6 | 1.61 | 25% → 18.4%, 20% → 17.0% |
+| Envy | Mimicry: gain the previous player's Tier 1 for your own turn | Before roll | 15.4 | 1.17 | until next turn, passives too → 16.7% |
+| Pride | Untouchable: first attack on you each round bounces onto the attacker | Reaction | 14.8 | 0.42 bounces | unchanged |
+| Gluttony | Gorge: buy one die a turn for 70 | Gambit | 14.7 | 2.66 | unchanged |
+| Sloth | Drag: an opponent's next turn, each throw uses at most their dice − 3, min 1 (bot: the leader) | Gambit | 12.5 | 1.62 | −1 → 10.9%, −2 → 12.2% |
+
+- History values were measured with the other Sins mid-tuning (several knobs moved per pass), so treat them as direction, not exact.
+- Game length at 7p: 5.2 rounds (5.1 with Tier 1 only). Tier 2 is in play for ~2–3 rounds a game.
+- 1-vs-3 plain bots: 42–64%. Envy (52%) and Pride (46%) don't change, because plain bots have no Tier 1 to copy and never attack.
+- Feel flags for Ben:
+  - Sloth's Drag at −3 is harsh: a 5-dice player throws 2 at a time for a turn. A smaller drag plus a small bonus may feel better.
+  - Pride's Untouchable fires ~0.4 times a game and barely moves its win rate (14.2 → 14.8). It's close to a non-ability. Candidate for a redesign.
+  - Greed's Interest is basically a passive once Greed stops buying.
+- Sim limits: bots always use Tier 2 by a fixed rule, and the Pact and Drag go to the leader. Off-turn points (Pact cut, Spark, Vig) that cross 1000 win on that player's next turn, not instantly.
+
 ## Rulebook gaps found
 - Indulgence with under 50 points: not covered. Sim falls back to Redemption.
 - Can score go negative? Not covered.
