@@ -23,7 +23,7 @@ const SAVE := "user://save.json"
 const SAVE_VERSION := 2  # 2: Rules.V3 and First Game mode (a V2 save can't replay)
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
-const MENU_SEAL := 230
+const MENU_SEAL := 280
 const MUSIC := "res://assets/audio/music/menu.ogg"
 const MENU_GLASS := preload("res://ui/shaders/menu_glass.gdshader")
 const MENU_SHAFT := preload("res://ui/shaders/menu_shaft.gdshader")
@@ -417,7 +417,7 @@ func _build_menu() -> void:
 	# Once laid out: ink the words in, bring the seals in, then let the title breathe.
 	(func():
 		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
-		_set_lettering(sub, "Seven Sins. One table. First to 1000.", Style.C_STRIKE)
+		_set_lettering(sub, "Choose your Sin, push your luck, and be the first to 1000.", Style.C_STRIKE)
 		_dir.seals_enter(_menu_seals)
 		if not Tuning.reduce_motion:
 			title.pivot_offset = title.size / 2
@@ -457,7 +457,13 @@ func _menu_seal(text: String, size: int, on_press: Callable) -> Button:
 	b.set_meta("kind", "menu")
 	b.custom_minimum_size = Vector2(size, size)
 	Art.skin(b, Art.SEAL_L)
-	_caption(b, text, int(size * 0.2))
+	# The word sits inside the wax recess (about the middle 46%): shrink long words to fit.
+	var fs := int(size * Tuning.MENU_SEAL_TEXT)
+	var room := size * Tuning.MENU_SEAL_ROOM
+	var w := Style.BLACKLETTER.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0  # + outline
+	if w > room:
+		fs = int(fs * room / w)
+	_caption(b, text, fs)
 	b.material = Art.glint_material(-Tuning.GLINT_STAGGER * size / 100.0)
 	_seal_feel(b, "roll", on_press)
 	return b
