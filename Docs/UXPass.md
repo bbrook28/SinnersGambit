@@ -101,3 +101,4 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 Phase 0 rules (Rules.V3, First Game mode) built: the throw prompt is now one Throw seal for all dice plus Bank; Purgatory is automatic. Docs/Handoff.md § Phase 0.
 Phase 1 (rules reference) built: rulebook from menu and "?", tap / hold to explain, all rule text in ui/rules_text.gd.
 Phase 2 (legibility) built: opening card, Score/Dice captions, Strike candles, "Throw 3" / "Bank 75" seals, one-line throw result, 1.5 s score-cause tags, player-language ticker and Chronicle (rules_text SAY). No beat-timing changes. Docs/Handoff.md § Phase 2.
+Phase 3 (scripted tutorial) built: the first Play is a short practice game against Sloth with set dice (scoring throw, Strike, bank, buy, Envy's Glance, bust, Purgatory freed by a 6); one prompt per step, only the lit control is live, Skip at any time, replay from Settings > Tutorial. No core/ change. Docs/Handoff.md § Phase 3.

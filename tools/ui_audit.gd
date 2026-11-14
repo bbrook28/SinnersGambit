@@ -101,6 +101,7 @@ func _initialize() -> void:
 			main._layout_buttons()
 			await process_frame
 			await _check("synthetic %d dice%s" % [n, " + Bank" if bank else ""])
+	await _audit_tutorial()
 	var f := FileAccess.open(out.path_join("audit.txt"), FileAccess.WRITE)
 	f.store_string("\n".join(report))
 	print("\n".join(report))
@@ -204,3 +205,43 @@ func _check(screen: String) -> void:
 					report.append("- gap %s to %s is %.1f pt (min 12)" % [nm, _name(b), gap / PT]); n += 1
 	if n == 0:
 		report.append("- ok (%d targets)" % bs.size())
+
+
+## The tutorial (a fresh board): every read and act step, then the end card. Taps through it the
+## way tests/tutorial_check.gd does.
+func _audit_tutorial() -> void:
+	main.queue_free()
+	main = load("res://ui/main.tscn").instantiate()
+	main.debug_safe = SAFE
+	main.save_enabled = false
+	main.tutorial_enabled = false
+	root.add_child(main)
+	await _settle(10)
+	main.start_tutorial(false)
+	var done := {}
+	var guard := 0
+	while guard < 20000:
+		guard += 1
+		Engine.time_scale = 40.0
+		await process_frame
+		var t = main._tutor
+		var ov = t.overlay
+		var i: int = t.index - 1
+		var waiting: bool = (ov.mode == ov.READ and (ov._ready_for_tap or ov._choices.visible)) or (ov.mode == ov.ACT and not done.has(i))
+		if not waiting or done.has(i):
+			continue
+		done[i] = true
+		Engine.time_scale = 1.0
+		await _settle(30)
+		var s: Dictionary = t.SCRIPT[i]
+		await _check("tutorial %d %s%s" % [i, s.get("say", "end"), " (act)" if ov.mode == ov.ACT else ""])
+		if ov._choices.visible:
+			break
+		if ov.mode == ov.ACT:
+			var live: Array = _prompt_buttons().filter(func(b): return not b.disabled)
+			if not live.is_empty():
+				live[0].pressed.emit()
+		else:
+			ov._ready_for_tap = true
+			ov.advance()
+	Engine.time_scale = 1.0

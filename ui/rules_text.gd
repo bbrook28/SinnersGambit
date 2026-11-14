@@ -221,21 +221,36 @@ static func term_page(name: String) -> String:
 	return g[name][1] if g.has(name) else "contents"
 
 
-# ---------- Tutorial lines (ui/main.gd _tutorial_prompt) ----------
+# ---------- Tutorial (ui/tutorial_game.gd SCRIPT, in order) ----------
+## A practice game with set dice. {ability} is your Sin's Basic ability ("Name: text").
 const TUTORIAL := {
-	"throw": "Throw all your dice. Throw as often as you like.",
-	"scoring": "4, 5 and 6 score {face_mult} times their face. 3 does nothing.",
-	"multiplier": "Scoring several dice in one throw is worth more.",
-	"strikes": "1s and 2s are Strikes. Each one snuffs a candle, and they add up all turn.",
-	"bust": "Bust: a third Strike loses this turn's points and starts your next turn in Purgatory.",
-	"bank": "Bank to keep this turn's points, or throw again to push your luck.",
-	"sin": "Your Sin bends the rules: ",
-	"goal": "First to {win} wins.",
+	"settings_play": "Play",
+	"skip": "Skip",
+	"tap": "Tap to continue",
+	"welcome": "A practice game against Sloth. The dice are set, so you'll see every rule once.",
+	"throw": "Tap Throw to throw all your dice.",
+	"scored": "4, 5 and 6 score {face_mult} times their face; 3 does nothing. Two scorers in one throw make it {x2}.",
+	"again": "Every throw adds to this turn's points. Throw again.",
+	"strike": "A 1 or 2 is a Strike: it snuffs a candle. Strikes add up all turn.",
+	"bank": "Bank now to keep this turn's points.",
+	"buy": "After you bank, you may buy dice for {die_cost} each. More dice score more, and throw more Strikes. Buy one.",
+	"bot": "Sloth's turn. Watch its best die: your Sin can copy it.",
+	"turn2": "Your turn again, now with four dice. Throw.",
+	"sin": "You are Envy. {ability} Tap Yes.",
+	"glance": "The copy counts like any die you threw.",
+	"risk": "One candle is out. Push your luck: throw again.",
+	"bust": "Three Strikes: bust. This turn's points are lost, and your next turn starts in Purgatory.",
+	"purgatory": "Purgatory: your turn starts with a free throw. Any 6 frees you; without one you pay {purg_cost}.",
+	"done": "That's the game. Throw, bank before your luck runs out, and be the first to {win}.",
+	"done_play": "Play",
+	"done_menu": "Menu",
 }
 
 
-static func tutorial(key: String) -> String:
-	return fill(TUTORIAL[key])
+static func tutorial(key: String, args := {}) -> String:
+	var v := vals()
+	v.merge(args, true)
+	return TUTORIAL[key].format(v)
 
 
 # ---------- On-screen words (Phase 2: legibility) ----------

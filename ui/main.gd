@@ -10,7 +10,8 @@ const Human = preload("res://ui/human.gd")
 const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
 const Glass = preload("res://ui/widgets/glass.gd")
-const Tutorial = preload("res://ui/tutorial.gd")
+const TutorialGame = preload("res://ui/tutorial_game.gd")
+const TutorialBot = preload("res://ui/tutorial_bot.gd")
 const Frame = preload("res://ui/widgets/frame.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const CANDLE_BG = preload("res://ui/shaders/candle_bg.gdshader")
@@ -123,9 +124,10 @@ var _speed_label: Label
 var _speed_slider: HSlider
 var _last_tap := -1.0
 var _skip: Button                 # "Skip to my turn", on the thumb page during bot turns
-static var tutorial_pending := true  # first game (or Settings > Tutorial): explain the first turn
-var _tut_stage := 0                # 0: nothing shown, 1: throwing explained, 2: done
-var _tut: Control                  # the tutorial overlay while it shows
+static var tutorial_pending := true  # the tutorial hasn't been played or skipped: Play starts it
+static var _tutorial_on_load := false  # Settings > Tutorial > Play: the reload opens the tutorial
+static var _tutorial_from_settings := false
+var _tutor = null                  # ui/tutorial_game.gd while the tutorial is playing
 var _music: AudioStreamPlayer
 var _screen_root: Control          # the menu scene (freed when leaving it)
 var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
@@ -181,7 +183,10 @@ func _ready() -> void:
 	_apply_music()
 	if _music.stream:
 		_music.play()
-	if _setup_on_load:  # New game goes straight to choosing a Sin
+	if _tutorial_on_load:  # Settings > Tutorial > Play
+		_tutorial_on_load = false
+		start_tutorial(_tutorial_from_settings)
+	elif _setup_on_load:  # New game goes straight to choosing a Sin
 		_setup_on_load = false
 		_build_setup()
 	else:
@@ -479,6 +484,10 @@ func _open_setup() -> void:
 	await _ink_wash(true)
 	_dir._stop_pulses()
 	_free_screen()
+	if tutorial_pending and tutorial_enabled:  # the first Play is the tutorial (it can be skipped)
+		_starting = false
+		start_tutorial(false)
+		return
 	_build_setup()
 	_starting = false
 	if _wash:
@@ -535,12 +544,8 @@ func _open_settings() -> void:
 	_setting_row(v, "Reduce Motion", _segmented(["On", "Off"], 0 if Tuning.reduce_motion else 1, func(i: int):
 		Tuning.reduce_motion = i == 0
 		_save_settings()))
-	var tut := _segmented(["Next game" if tutorial_pending else "Replay"], 0 if tutorial_pending else -1, func(_i: int):
-		tutorial_pending = true
-		_tut_stage = 0
-		_save_settings())
-	var tb: Button = tut.get_child(0)
-	tb.pressed.connect(func(): tb.text = "Next game")
+	var tut := _segmented([RulesText.tutorial("settings_play")], -1, func(_i: int):
+		_replay_tutorial())
 	_setting_row(v, "Tutorial", tut)
 	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
 	var bc := CenterContainer.new()
@@ -831,57 +836,66 @@ static func load_save() -> Dictionary:
 	return d
 
 
-# ---------- Tutorial (first game, or Settings > Tutorial) ----------
+# ---------- Tutorial (the first Play, or Settings > Tutorial > Play) ----------
 
-## At your prompts during the tutorial: the first throw prompt explains choosing and throwing;
-## the first prompt with Bank explains scoring, Strikes, busting, banking, your Sin and the goal.
-func _tutorial_prompt() -> void:
-	if not tutorial_pending or not tutorial_enabled or _replaying or game == null:
+## A scripted practice game with set dice (ui/tutorial_game.gd): you as Envy against a Sloth bot,
+## Basic abilities only, never saved. Its overlay stays up throughout; Skip leaves at any time.
+func start_tutorial(from_settings: bool) -> void:
+	_free_screen()
+	_content = null
+	human = Human.new()
+	human.view = self
+	_first_game = true
+	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE
+	var options := Rules.V3.duplicate()
+	options["tier2"] = false
+	var sins := [_sin_script(TutorialGame.YOU).new(), _sin_script(TutorialGame.BOT).new()]
+	game = Game.new([human, TutorialBot.new(TutorialGame.BOT_TURNS)], 1, options, sins)
+	game.view = self
+	_save = {}  # never saved: Continue keeps whatever game you had
+	_tutor = TutorialGame.new(self, from_settings)
+	_tutor.finished.connect(_end_tutorial)
+	_build_board()
+	if _help:
+		_help.visible = false  # the script explains; the rulebook waits for a real game
+	add_child(_tutor.overlay)
+	_ink_wash(false)
+	await game.play()
+
+
+func _sin_script(sname: String) -> Script:
+	for s in SIN_SCRIPTS:
+		if s.new().sin_name == sname:
+			return s
+	return SIN_SCRIPTS[0]
+
+
+## Play / Skip on the first run: the Sin choice. Menu, or Skip from Settings: the title page.
+func _end_tutorial(to_setup: bool) -> void:
+	if _starting:
 		return
-	var bs: Array = _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
-	var of := func(kind: String) -> Rect2:
-		var r := Rect2()
-		for b in bs:
-			if b.get_meta("kind", "") == kind:
-				r = b.get_global_rect() if r.size == Vector2.ZERO else r.merge(b.get_global_rect())
-		return r
-	var steps := []
-	if _tut_stage == 0 and of.call("roll").size != Vector2.ZERO:
-		if of.call("num").size != Vector2.ZERO:
-			steps.append([of.call("num"), "Choose how many dice to throw."])  # dice choice only (not in V3)
-		steps.append([of.call("roll"), RulesText.tutorial("throw")])
-		_tut_stage = 1
-	elif _tut_stage == 1 and of.call("bank").size != Vector2.ZERO:
-		var candles := Rect2()
-		for n in _strike_icons:
-			candles = n.get_global_rect() if candles.size == Vector2.ZERO else candles.merge(n.get_global_rect())
-		var mine: Control = null
-		var table := Rect2()
-		for pt in _portraits:
-			table = pt.col.get_global_rect() if table.size == Vector2.ZERO else table.merge(pt.col.get_global_rect())
-			if pt.mine:
-				mine = pt.col
-		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("scoring")])
-		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("multiplier")])
-		steps.append([candles, RulesText.tutorial("strikes")])
-		steps.append([candles, RulesText.tutorial("bust")])
-		steps.append([of.call("bank"), RulesText.tutorial("bank")])
-		if mine:
-			var me = human_player()
-			steps.append([mine.get_global_rect(), RulesText.tutorial("sin") + RulesText.ability(me.sin.sin_name, false)])
-		steps.append([table, RulesText.tutorial("goal")])
-		_tut_stage = 2
-	if steps.is_empty():
-		return
-	_tut = Tutorial.new(self)
-	add_child(_tut)
-	for s in steps:
-		await _tut.step(s[0], s[1])
-	await _tut.finish()
-	_tut = null
-	if _tut_stage == 2:
-		tutorial_pending = false
+	_starting = true
+	tutorial_pending = false
+	if save_enabled:
 		_save_settings()
+	if not is_inside_tree() or get_tree().current_scene != self:
+		return  # tests/tutorial_check.gd: nothing to reload into
+	await _ink_wash(true)
+	_wash_on_load = true
+	_setup_on_load = to_setup
+	get_tree().reload_current_scene()
+
+
+## Settings > Tutorial > Play, from the menu or mid-game (a game in progress is already saved).
+func _replay_tutorial() -> void:
+	if _starting:
+		return
+	_starting = true
+	_save_settings()
+	await _ink_wash(true)
+	_tutorial_on_load = true
+	_tutorial_from_settings = true
+	get_tree().reload_current_scene()
 
 
 func human_player():
@@ -1303,7 +1317,7 @@ func _build_thumb(zone: VBoxContainer) -> void:
 
 func _show_skip(on: bool) -> void:
 	if _skip:
-		_skip.visible = on and not _replaying
+		_skip.visible = on and not _replaying and _tutor == null
 
 
 func _build_log_overlay() -> void:
@@ -1394,7 +1408,7 @@ func _show_speed() -> void:
 ## to your next decision. When nothing is playing, a tap explains what's under it. A hold (LONG_PRESS)
 ## explains at any time, bot turns included (the ticker too).
 func _input(event: InputEvent) -> void:
-	if game == null or _tut != null or _overlay != null or _settings != null or (_log_overlay and _log_overlay.visible):
+	if game == null or _tutor != null or _overlay != null or _settings != null or (_log_overlay and _log_overlay.visible):
 		_press_at = Vector2.INF
 		return
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
@@ -1951,6 +1965,8 @@ func _with_sigils(bb: String) -> String:
 
 ## Turn change: its own beat (longer when it's yours). Docs/UXPass.md #1.
 func turn_started(p) -> void:
+	if _tutor:
+		_tutor.on_turn_started(p)  # rigs a Purgatory throw before core draws it
 	var snap := _snapshot()
 	_last_snap = snap
 	var head := RulesText.word("chronicle_your_turn", {"score": p.score}) if p.bot == human else RulesText.word("chronicle_turn", {"name": player_name(p), "score": p.score})
@@ -1964,11 +1980,13 @@ func turn_started(p) -> void:
 
 ## core/game.gd awaits this after a throw, a bust and at the end of a turn: let the screen catch up
 ## (and show the state as it stands now, e.g. Purgatory after a bust) before the rules go on.
-func beat(_p, _kind: String) -> void:
+func beat(p, kind: String) -> void:
 	var snap := _snapshot()
 	_last_snap = snap
 	_q.push(func(): _refresh(snap, ["plates", "glow", "banner", "turn", "strikes"]))
 	await _q.drain()
+	if _tutor:
+		await _tutor.on_beat(p, kind)
 
 
 ## Queued like everything else, so the buttons only appear once the board has caught up.
@@ -1983,11 +2001,14 @@ func show_prompt(text: String, options: Array) -> void:
 			_ink_wash(false)
 		if game and not _portraits.is_empty():
 			_refresh(_snapshot(), ["plates", "glow", "banner", "turn", "strikes"])
+		if _tutor:
+			_tutor.overlay.block()  # dead until the script lights one
 		_show_prompt_now(text, options)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
-		await _tutorial_prompt())
+		if _tutor:
+			await _tutor.on_prompt())
 
 
 ## Dice counts become one row of small seals that only select (the most dice starts selected),
@@ -2054,6 +2075,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 					b.text = o[0]
 					b.add_theme_font_size_override("font_size", 42)
 		var val = o[1]
+		b.set_meta("value", val)  # the tutorial finds its button by kind and value
 		_seal_feel(b, kind, func(): human.answered.emit(val))
 		_buttons.add_child(b)
 	if throw_b:
