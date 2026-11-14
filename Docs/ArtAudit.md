@@ -45,3 +45,20 @@ Style decision: HD painted, not pixel art. (Applied to ArtDirection.md.)
 - Dark, low-contrast UI washes out in daylight. Check the score, dice pips and button labels at full sun brightness.
 - Secondary seals and Fast Bots are under 44pt; Fast Bots sits on the home-indicator corner.
 - Keep all text live, not painted into the art.
+
+## v3 board audit (Ben, 2026-11-13, on commit 21ca13b)
+
+Fix first
+1. Dice are flat placeholders (white vector squares, red dots), small in an empty stage. Need bone dice, ~2x size, shadows on the leather.
+2. Numeral font unreadable: blackletter 0 is a hollow rectangle ("+0" reads "+D", "20" as "2D"); "This turn o" uses a different, letter-like zero. All numbers in one clear display serif in gold; blackletter for words only.
+3. Sin windows went dark: lost the backlit glow, murkier than the UI. Greed went grey and lost its colour. Dim inactive Sins slightly; they should still be the most saturated things on screen.
+4. Depth gone: no candle, still life or directional light from the mockup; plain brown gradient; score is flat yellow with no gold-leaf shading.
+
+Then
+- Bottom panel: three lines of small low-contrast text; "or throw fewer" nearly invisible; first line runs into the right marginalia.
+- Log scroll is a big bright bar for one short string: shrink or darken.
+- "You" plate is red while your Sin is purple: match the banner.
+- Blackletter capitals unreadable at plate size ("Lust" -> "Iust", "Greed" -> "6reed").
+- Dice state shown by a red outline (flat-UI idiom): show it in-world, raised and lit vs sunk and shadowed.
+- Bank, Roll and the 1/2 seals float far apart; small seals borderline for touch. Tighten into one cluster.
+- Drop-cap "Y" detached from "our turn", reads as two words.
