@@ -4,7 +4,7 @@ Single starting point for a fresh session. Detail per finished phase: `Docs/Hand
 Ben approves each phase: send a short plan, wait for his OK, build, stop for him to play. Commit locally, push only when he says.
 Never touch `core/`, `sins/` or `ai/` without his explicit OK.
 
-## Phases (next: Phase 7)
+## Phases (next: Phase 7 review)
 - **0 Rules simplification: done.** `Rules.V3`: throw all dice, automatic Purgatory, First Game mode, three Sin redesigns (`Docs/RulesDraft.md`).
 - **1 Rules reference: done.** Rulebook from menu and "?", tap / hold to explain, all text in `ui/rules_text.gd`.
 - **2 Legibility: done.** Opening card, Score/Dice captions, Strike candles, "Throw 3" / "Bank 75", throw result line, score causes, player-language ticker.
@@ -13,16 +13,14 @@ Never touch `core/`, `sins/` or `ai/` without his explicit OK.
 - **4 Sin select carousel: built, waiting for Ben to play** (`8d77f96`). `ui/sin_carousel.gd`: one Sin per page, swipe or tap a dot, opens on Sloth (Recommended ribbon), Sin-coloured glow, a synthesized sting per Sin (`play_solo`, Nave bus), table-size segmented control, Choose seal. The mosaic banners and `ui/widgets/glass.gd` are gone.
 - **5 Game layout: built, waiting for Ben to play.** Tray about 40% (zones `Tuning.ZONE_*`), "Your turn" and a pause seal inside it; the ticker, "?" and speed seals are gone. Pause menu: Resume, Rulebook (page for the moment), Sin abilities (this table only), Chronicle, Settings, Main menu. Bot-turn summary on the parchment during bot turns (tap: Chronicle). Windows cropped to the arch and figure (1:1.8), status badges on their corner (the name stays), a crown over the leader, a gold frame round your column.
 - **6 Feedback: built, waiting for Ben to play.** A reserved score strip between the dice and the turn row holds one thing at a time: the throw total over its result line, or an ability note (which no longer covers the turn lettering). No "+0"; the multiplier joins the line as a fixed "x1.5", then the total snaps. BUST, Free! and Hubris stamps sit on the tray's top edge. Envy's added dice are tinted in its colour and thrown in from its window. One die size at any count: what fits `TRAY_DICE` (18) in rows of 6 with margins (114 px on 1080x2341); zones now 21 / 49 / 30, candles shorter. Ability dice changes (Envy, Lust, Gluttony, Fury) now show before the throw scores.
-- **7 Controls: not started.** Throw N stepper with bust chance, Buy stepper (replaces the 7 buy pills), ability consequence text, the 12-dice gaps.
-- **8 Mechanics: not started.** Multiplier, escalating die price, Wrath and Greed caps, multiples of 5, +10 handicap, final round, Gluttony loop; report three mid-turn decision options (e.g. pay to reroll a Strike), don't build them. Balance notes below.
-- **9 Polish: not started.** Serif for body text, blackletter for titles only; painted turn banners in each Sin's glass colour (now a flat ColorRect); no silent screens, audio limiter; windows take their seats after Choose; rename "Tutorial: Next game" to "Show tutorial"; app icon.
-- **10 VFX spectacle: not started.**
-  - Sin ability activations: a full-screen signature effect per Sin in its stained-glass colours (light shafts, shattering glass, ink flooding the page), 1-1.5 s, skippable.
-  - Big scores scale in tiers: small = seal punch; medium adds gold sparks and page shake; huge adds a full-page illumination burst and a slow-motion hold.
-  - Bust: the page burns or bleeds from the edges into the Purgatory transition (moved here from Phase 9).
-  - Win / lose: a staged finale sequence, not a results panel.
-  - Multiplier build-up: glow, pitch and particle density escalate as the multiplier climbs, so tension builds before the payoff.
-  - Budget: 60 fps on the oldest supported iPhone; every intensity in `ui/tuning.gd`; Reduce Motion swaps these for simple flashes.
+
+**Rework (Ben, 2026-11-14): Balatro is the quality bar.** Phases 7-11 below replace the old 7-10 (Controls, Mechanics, Polish, VFX). One phase per session. Phase 7 and Phase 8's balance work on Opus; 9-11 fine on Sonnet. Acceptance from Phase 9 on: re-record the tour; no wait over 1.5 s without input, no sentence in the play field, no overlapping text, no empty zone on your turn, every button painted; report failures with timestamps.
+- **7 Run design doc: drafted, waiting for Ben's review.** `Docs/RunDesign.md`: solo runs of 7 Circles (two trials and a ruling Sin each, 4 turns a round), Points x Mult, 30 relics, shop and gold, cuts, meta, 8 terms. No code until approved.
+- **8 Core loop: not started.** Build the run, targets, ruling Sins, shop and relics with placeholder presentation. Sim: win rate per Sin, relic pick rate (none above twice the average).
+- **GATE after 8:** Ben plays 10 runs and shows 5 people. No Phase 9 until he says the loop is fun; otherwise revise RunDesign and repeat 8.
+- **9 Board, text, controls: not started.** Permanent readouts (target, Points, Mult, turns left, Strikes, gold), max 4 words per label, two-line tooltips, Points gold / Mult crimson everywhere, dice twice the size, relic row, controls dim instead of vanishing, Throw seal 22%+ of width with bust chance, one painted button language, serif body text, 6-step learn-by-doing tutorial, rulebook = collection + 3 pages, new run in two taps.
+- **10 Motion: not started.** 3D rigid-body dice in a SubViewport (cost estimate first; pre-rendered tumble sheets as fallback), one-piece-at-a-time scoring with rising pitch, target-passed fire, idle wobble everywhere, background reacts to Mult, dimming no lower than 70%, ruling-Sin entrances, bust burns the page, staged win and loss.
+- **11 Meta and ship: not started.** Unlocks, collection, Vows, stats, daily run, audio limiter, app icon, tutorial on a real iPhone, 60 fps on the oldest device.
 
 ## Where the extra items go
 - Main menu: built in the first quality pass (Docs/Handoff.md § Quality pass Phase 1, § Menu windows). Further menu work goes in Phase 9.

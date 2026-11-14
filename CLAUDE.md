@@ -15,7 +15,8 @@ Plan and balance notes: `Docs/Plan.md`.
 `core/` rules + game loop · `ai/` bots · `sim/` balance runner · `sins/` Sin abilities (next) · `ui/` playtest UI · `assets/` · `tests/` · `Docs/`
 
 ## Run the sim
-`godot --headless --path . --script res://sim/run_sim.gd`
+Table game (V2 vs V3, win share per Sin): `godot --headless --path . --script res://sim/check_v3.gd [-- games]`
+Run mode (`Docs/RunDesign.md`): `sim/run_sim.gd`, rebuilt in Phase 8. The old `run_sim.gd` hasn't parsed since `cf24783`.
 
 ## About Ben
 Game/level designer, expert in UE5/Blueprint/combat design. Reads code; Claude writes it, Ben reviews. Judges feel himself.
