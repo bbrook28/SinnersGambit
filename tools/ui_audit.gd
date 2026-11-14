@@ -54,6 +54,20 @@ func _initialize() -> void:
 		prompts += 1
 		Engine.time_scale = 40.0
 		bs[randi() % bs.size()].pressed.emit()
+	# Worst cases a random game may not reach: many dice, with and without Bank.
+	Engine.time_scale = 1.0
+	for n in [7, 8]:
+		for bank in [false, true]:
+			var opts := []
+			for i in range(1, n + 1):
+				opts.append([str(i), i])
+			if bank:
+				opts.append(["Bank 150", 0])
+			main._show_prompt_now("Throw again, or bank?" if bank else "Throw how many dice?", opts)
+			await _settle(6)
+			main._layout_buttons()
+			await process_frame
+			await _check("synthetic %d dice%s" % [n, " + Bank" if bank else ""])
 	var f := FileAccess.open(out.path_join("audit.txt"), FileAccess.WRITE)
 	f.store_string("\n".join(report))
 	print("\n".join(report))

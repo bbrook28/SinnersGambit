@@ -47,6 +47,9 @@ const SIN_TEXT := {
 const MIN_TEXT := 36
 const SEAL_SMALL := 140
 const SEAL_BIG := 250
+const TARGET_MIN := 44.0 * 1080.0 / 393.0   # 44 pt: smallest tappable thing (Apple HIG)
+const GAP_MIN := 13.0 * 1080.0 / 393.0      # a little over 12 pt between separate targets
+const SIDE_MIN := 17.0 * 1080.0 / 393.0     # a little over 16 pt from the screen's sides
 const DIE_MAX := 280
 const SCORE_SIZE := 136
 
@@ -454,7 +457,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	var lrow := HBoxContainer.new()
 	lrow.custom_minimum_size.y = 104
 	_log_row = lrow
-	lrow.add_theme_constant_override("separation", 14)
+	lrow.add_theme_constant_override("separation", int(GAP_MIN))
 	_ticker = Button.new()
 	_ticker.flat = true
 	_ticker.clip_contents = true
@@ -497,7 +500,10 @@ func _build_stage(zone: VBoxContainer) -> void:
 	fv.add_child(_speed_label)
 	_show_speed()
 	lrow.add_child(fv)
-	zone.add_child(lrow)
+	# Clear of the screen sides (the zone margin alone is under 16 pt).
+	var lpad := _margin(24, 0)
+	lpad.add_child(lrow)
+	zone.add_child(lpad)
 
 
 ## Darkened parchment page: the prompt line, then the seals. Roll sits under the right thumb.
@@ -506,13 +512,13 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	_thumb = page
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var paper := Art.framed(Art.PAGE, [240, 50, 240, 50], 0.5)
+	var paper := Art.framed(Art.PAGE, [240, 50, 240, 50], 0.4)
 	paper.modulate = Color(0.8, 0.72, 0.62)
 	page.add_child(paper)
 	var pv := VBoxContainer.new()
 	pv.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pv.offset_left = 150
-	pv.offset_right = -150
+	pv.offset_left = 104
+	pv.offset_right = -104
 	pv.offset_top = 24
 	pv.offset_bottom = -22
 	pv.add_theme_constant_override("separation", 6)
@@ -895,34 +901,63 @@ func show_prompt(text: String, options: Array) -> void:
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())))
 
 
-## Dice counts become Roll (the most dice, crimson, right thumb) plus small "fewer" seals;
-## Bank is the dark-wax seal on the left. Anything else is a red plaque.
+## Dice counts become one row of small seals that only select (the most dice starts selected),
+## and a separate Throw seal below that commits the selection (crimson, right thumb).
+## Bank is the bronze seal beside it on the left. Anything else is a red plaque.
 func _show_prompt_now(text: String, options: Array) -> void:
 	clear_prompt()
 	_waiting = false
 	Style.set_body(_prompt_label, text)
+	var counts := options.filter(func(o): return o[0].is_valid_int())
 	var most := 0
+	for o in counts:
+		most = maxi(most, int(o[0]))
+	var group := ButtonGroup.new()
+	var throw_b: Button = null
+	if most > 0:
+		throw_b = Button.new()
+		throw_b.set_meta("kind", "roll")
+		Art.skin(throw_b, Art.SEAL_L)
+		_caption(throw_b, "Throw\n%d" % most, 62)
+		throw_b.set_meta("value", counts.filter(func(o): return int(o[0]) == most)[0][1])
+		_seal_feel(throw_b, "roll", func(): human.answered.emit(throw_b.get_meta("value")))
 	for o in options:
-		if o[0].is_valid_int():
-			most = maxi(most, int(o[0]))
-	for o in options:
-		var b := Button.new()
 		var kind := "pill"
 		if o[0].is_valid_int():
-			kind = "roll" if int(o[0]) == most else "num"
+			if counts.size() < 2:
+				continue  # one choice: the Throw seal alone
+			kind = "num"
 		elif o[0].begins_with("Bank") and most > 0:
 			kind = "bank"
+		var b := Button.new()
 		b.set_meta("kind", kind)
 		match kind:
-			"roll":
-				Art.skin(b, Art.SEAL_L)
-				_caption(b, "Roll\n%s" % o[0], 62)
+			"num":
+				Art.skin(b, Art.SEAL_S, Color(0.82, 0.76, 0.76))
+				# Selected: the wax brightens and a gold ring circles it (toggled on = "pressed" style).
+				for st in ["pressed", "hover_pressed"]:
+					b.add_theme_stylebox_override(st, _seal_style(Art.SEAL_S[0], Color(1.2, 1.1, 1.0)))
+				_caption(b, o[0], 62)
+				b.toggle_mode = true
+				b.button_group = group
+				b.button_pressed = int(o[0]) == most
+				_selected_ring(b)
+				var n := int(o[0])
+				var cv = o[1]
+				b.toggled.connect(func(on: bool):
+					if on and throw_b:
+						throw_b.set_meta("value", cv)
+						for c in throw_b.get_children():
+							if c is CenterContainer:
+								c.queue_free()
+						_caption(throw_b, "Throw\n%d" % n, 62)
+						_layout_buttons())
+				_seal_feel(b, "num", Callable())
+				_buttons.add_child(b)
+				continue
 			"bank":
 				_bronze_seal(b)
 				_caption(b, o[0].replace(" ", "\n"), 56)
-			"num":
-				Art.skin(b, Art.SEAL_S)
-				_caption(b, o[0], 62)
 			_:
 				Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
 				b.set_meta("w", Style.BLACKLETTER.get_string_size(o[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 42).x + 70)
@@ -931,21 +966,46 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				else:
 					b.text = o[0]
 					b.add_theme_font_size_override("font_size", 42)
-		b.add_theme_color_override("font_color", Style.C_IVORY)
-		b.add_theme_color_override("font_hover_color", Style.C_IVORY)
-		b.add_theme_color_override("font_pressed_color", Style.C_BONE)
-		b.add_theme_constant_override("line_spacing", -14)
-		# Tactile: the seal presses in under the finger and springs back.
-		b.button_down.connect(func():
-			_dir.prompt_answered()
-			_dir.sfx.play("plaque" if kind == "pill" else "seal", 0.7 if kind in ["roll", "bank"] else 0.4, 1.0, true)
-			b.pivot_offset = b.size / 2
-			b.create_tween().tween_property(b, "scale", Vector2.ONE * 0.9, 0.06))
-		b.button_up.connect(func():
-			b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
-		b.pressed.connect(func(): human.answered.emit(o[1]))
+		var val = o[1]
+		_seal_feel(b, kind, func(): human.answered.emit(val))
 		_buttons.add_child(b)
+	if throw_b:
+		_buttons.add_child(throw_b)
 	_layout_buttons.call_deferred()
+
+
+## Tactile press: the seal sinks under the finger and springs back, with a sound.
+## on_press: what a committing press does (empty for the dice-count seals, which only select).
+func _seal_feel(b: Button, kind: String, on_press: Callable) -> void:
+	b.add_theme_color_override("font_color", Style.C_IVORY)
+	b.add_theme_color_override("font_hover_color", Style.C_IVORY)
+	b.add_theme_color_override("font_pressed_color", Style.C_BONE)
+	b.add_theme_constant_override("line_spacing", -14)
+	b.button_down.connect(func():
+		if on_press.is_valid():
+			_dir.prompt_answered()
+		else:
+			_dir.haptic(0.15)
+		_dir.sfx.play("plaque" if kind == "pill" else "seal", 0.7 if kind in ["roll", "bank"] else 0.4, 1.0, true)
+		b.pivot_offset = b.size / 2
+		b.create_tween().tween_property(b, "scale", Vector2.ONE * 0.9, 0.06))
+	b.button_up.connect(func():
+		b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+	if on_press.is_valid():
+		b.pressed.connect(on_press)
+
+
+## Selected state for a dice-count seal: a gold ring drawn round it while it's toggled on.
+func _selected_ring(b: Button) -> void:
+	var ring := Control.new()
+	ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.draw.connect(func():
+		if b.button_pressed:
+			var r := minf(ring.size.x, ring.size.y) / 2.0
+			ring.draw_arc(ring.size / 2, r - 4.0, 0, TAU, 64, Style.C_GOLD, 7.0, true))
+	b.add_child(ring)
+	b.toggled.connect(func(_on): ring.queue_redraw())
 
 
 func clear_prompt() -> void:
@@ -966,26 +1026,31 @@ func _layout_buttons() -> void:
 	var big := bs.filter(func(b): return b.get_meta("kind") in ["roll", "bank"])
 	var nums := bs.filter(func(b): return b.get_meta("kind") == "num")
 	var pills := bs.filter(func(b): return b.get_meta("kind") == "pill")
+	var gap := GAP_MIN
+	var mid := w / 2.0
 	if not big.is_empty() or not nums.is_empty():
-		# One cluster: Bank and Roll side by side (Roll right), the fewer-dice seals tucked in above.
-		var d := minf(SEAL_BIG, h * 0.62)
-		var gap := 24.0
-		var mid := w / 2.0
-		for b in big:
-			var cx: float = mid + (d + gap) / 2.0 * (1.0 if b.get_meta("kind") == "roll" else -1.0)
-			b.position = Vector2(cx - d / 2.0, h - d)
-			b.size = Vector2(d, d)
-		var s := float(SEAL_SMALL)
-		var g := 10.0
-		var per_row := maxi(1, int((w + g) / (s + g)))
+		# Dice counts: one centred row of equal seals (wraps above what fits), selecting only.
+		# Below it, apart: Bank (left) and Throw (right), the only seals that commit.
+		var s := clampf((w + gap) / maxf(1.0, nums.size()) - gap, TARGET_MIN, float(SEAL_SMALL))
+		var per_row := maxi(1, int((w + gap) / (s + gap)))
 		var rows := ceili(float(nums.size()) / per_row)
-		var bottom := h - (d * 0.82 if not big.is_empty() else 0.0)
+		var counts_h := rows * s + maxi(0, rows - 1) * gap
+		var d := clampf(h - counts_h - (gap * 1.5 if rows > 0 else 0.0), TARGET_MIN, float(SEAL_BIG))
+		d = minf(d, (w - gap * 2.0) / 2.0)
 		for i in nums.size():
 			var r := i / per_row
 			var in_row := mini(per_row, nums.size() - r * per_row)
-			var total := in_row * s + (in_row - 1) * g
-			nums[i].position = Vector2(mid - total / 2.0 + (i % per_row) * (s + g), maxf(0.0, bottom - (rows - r) * (s + g)))
+			var total := in_row * s + (in_row - 1) * gap
+			nums[i].position = Vector2(mid - total / 2.0 + (i % per_row) * (s + gap), r * (s + gap))
 			nums[i].size = Vector2(s, s)
+		var top := h - d
+		for b in big:
+			var cx: float = mid
+			if big.size() > 1:
+				cx = mid + (d / 2.0 + gap) * (1.0 if b.get_meta("kind") == "roll" else -1.0)
+			b.position = Vector2(cx - d / 2.0, top)
+			b.size = Vector2(d, d)
+			_caption_size(b, int(clampf((62.0 if b.get_meta("kind") == "roll" else 56.0) * d / SEAL_BIG, 34.0, 62.0)))
 	if not pills.is_empty():
 		var rows := [[]]
 		var row_w := 0.0
@@ -995,20 +1060,20 @@ func _layout_buttons() -> void:
 				rows.append([])
 				row_w = 0.0
 			rows[-1].append([b, bw])
-			row_w += bw + 16.0
+			row_w += bw + gap
 		var bh := float(SEAL_SMALL)
 		var y := 0.0
 		for r in rows:
 			var rw := 0.0
 			for e in r:
 				rw += e[1]
-			rw += 16.0 * (r.size() - 1)
+			rw += gap * (r.size() - 1)
 			var x := (w - rw) / 2.0
 			for e in r:
 				e[0].position = Vector2(x, y)
 				e[0].size = Vector2(e[1], bh)
-				x += e[1] + 16.0
-			y += bh + 16.0
+				x += e[1] + gap
+			y += bh + gap
 
 
 ## Button face: words in blackletter, numbers in Cinzel gold. Leaves b.text empty.
@@ -1116,3 +1181,10 @@ func _rich(size: int, blackletter: bool) -> RichTextLabel:
 ## Illuminated drop cap: first letter larger and crimson.
 func _drop_cap(text: String, cap_size: int) -> String:
 	return "[font_size=%d][color=#%s]%s[/color][/font_size]%s" % [cap_size, Style.C_CRIMSON.lightened(0.15).to_html(false), text.left(1), text.substr(1)]
+
+
+## Resizes a seal's caption (see _caption) to fit a seal laid out smaller than full size.
+func _caption_size(b: Button, size: int) -> void:
+	for r in b.find_children("*", "RichTextLabel", true, false):
+		r.add_theme_font_size_override("normal_font_size", size)
+		r.add_theme_constant_override("line_separation", -int(size * 0.25))

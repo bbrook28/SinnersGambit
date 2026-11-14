@@ -63,7 +63,7 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 
 ## Part 3 (2026-11-13)
 1. Sound on every beat phase, seals, nails, bust, coins, banner. **Done** (`ui/sfx.gd`, `Tuning.VOL`).
-2. Thumb-zone layout fix plus outcome preview on the seals (projected bank, bust risk, Hubris bar).
+2. Thumb-zone layout: count row that selects, separate Throw/Bank confirm row, audit tool. **Done** (outcome preview moves to after the art set).
 3. Fast-forward: hold to speed up; shorter beats for repeated events.
 4. Recap: last turn per player; restyle the Chronicle.
 5. Idle life, Sin window reactions, light shaft.
