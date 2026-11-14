@@ -13,6 +13,11 @@ const Glass = preload("res://ui/widgets/glass.gd")
 const Frame = preload("res://ui/widgets/frame.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const CANDLE_BG = preload("res://ui/shaders/candle_bg.gdshader")
+const ActionQueue = preload("res://ui/action_queue.gd")
+const Events = preload("res://ui/events.gd")
+const SETTINGS := "user://settings.cfg"
+const SPEEDS := [1.0, 2.0, 4.0]
+const DOUBLE_TAP := 0.35
 const SIN_SCRIPTS := [
 	preload("res://sins/wrath.gd"),
 	preload("res://sins/greed.gd"),
@@ -45,7 +50,6 @@ const SCORE_SIZE := 136
 
 var game = null
 var human = null
-var fast := false
 ## Fake notch/home-indicator insets (top, bottom) in px for desktop screenshots. Zero = ask the OS.
 var debug_safe := Vector2.ZERO
 
@@ -68,11 +72,21 @@ var _log_lines: Array[String] = []
 var _log_overlay: Control
 var _log: RichTextLabel
 var _notes: Array = []           # marginalia currently showing, oldest first
+## Every state change plays through this, one beat at a time (Docs/UXPass.md). The board shows
+## the snapshot taken when the event happened, never the live rules state.
+var _q: Node
+var _speed_label: Label
+var _last_tap := -1.0
 var _fired_re := RegEx.create_from_string("^\\s+(.+?)'s (.+?): (.*)$")  # sins/sin.gd fired()
 
 
 func _ready() -> void:
 	theme = Style.make_theme()
+	_q = ActionQueue.new()
+	add_child(_q)
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS) == OK:
+		_q.speed = float(cfg.get_value("ui", "speed", 1.0))
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var m := ShaderMaterial.new()
@@ -147,8 +161,7 @@ func _start(my_sin: Script) -> void:
 	var w = await game.play()
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
-	_refresh()
-	_set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w)
+	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
 	show_prompt("The game is done. %s reached %d." % [player_name(w), w.score], [["New game", "new"]])
 	_on_new_game_wait()
 
@@ -400,14 +413,17 @@ func _build_stage(zone: VBoxContainer) -> void:
 	lrow.add_child(_ticker)
 	var fv := VBoxContainer.new()
 	fv.add_theme_constant_override("separation", -8)
+	# One global speed for every beat: 1x, 2x, 4x. Remembered between sessions.
 	var speed := Button.new()
-	speed.toggle_mode = true
 	speed.custom_minimum_size = Vector2(SEAL_SMALL, SEAL_SMALL) * 0.86
 	Art.skin(speed, [Art.SEAL_FAST, Art.SEAL_FAST, Art.SEAL_FAST])
 	speed.add_theme_stylebox_override("pressed", _seal_style(Art.SEAL_FAST, Color(1.25, 1.1, 0.8)))
-	speed.toggled.connect(func(on): fast = on)
+	speed.pressed.connect(_cycle_speed)
 	fv.add_child(speed)
-	fv.add_child(Style.label("Fast", MIN_TEXT, Style.C_BONE, true, 6))
+	_speed_label = Style.label("", MIN_TEXT + 4, Style.C_BONE, false, 6)
+	_speed_label.add_theme_font_override("font", Style.NUMERAL)
+	fv.add_child(_speed_label)
+	_show_speed()
 	lrow.add_child(fv)
 	zone.add_child(lrow)
 
@@ -472,18 +488,43 @@ func _build_log_overlay() -> void:
 	add_child(_log_overlay)
 
 
-func _process(_delta: float) -> void:
-	if game and _banner_text:
-		_refresh()
+func _cycle_speed() -> void:
+	_q.speed = SPEEDS[(SPEEDS.find(_q.speed) + 1) % SPEEDS.size()]
+	_show_speed()
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS)
+	cfg.set_value("ui", "speed", _q.speed)
+	cfg.save(SETTINGS)
 
 
-func _refresh() -> void:
-	var cur = game.current
-	for i in game.players.size():
-		var p = game.players[i]
-		var pt: Dictionary = _portraits[i]
-		pt.score.text = str(p.score)
-		pt.dice.text = str(p.dice)
+func _show_speed() -> void:
+	if _speed_label:
+		_speed_label.text = "%dx" % int(_q.speed)
+
+
+## Tap anywhere that isn't a button: finish the current beat. Double tap: skip to your next decision.
+func _input(event: InputEvent) -> void:
+	if game == null or not _q.busy():
+		return
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var c := get_viewport().gui_get_hovered_control()
+	while c:
+		if c is Button:
+			return
+		c = c.get_parent() as Control
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _last_tap < DOUBLE_TAP:
+		_q.skip_to_decision()
+	else:
+		_q.skip_beat()
+	_last_tap = now
+
+
+## What the board shows, copied from the rules at the moment an event happened.
+func _snapshot() -> Dictionary:
+	var ps := []
+	for p in game.players:
 		var tag := ""
 		if p.in_purgatory:
 			tag = "Purgatory"
@@ -493,23 +534,41 @@ func _refresh() -> void:
 			tag = "Pact"
 		elif _t2_ready(p):
 			tag = "II ready"
+		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag})
+	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null}
+	var t = game.turn
+	if t:
+		var faces: Array = (t.faces if t.throws > 0 else t.redeem_faces).duplicate()
+		s.turn = {"faces": faces, "throws": t.throws, "points": t.points, "strikes": t.strikes}
+	return s
+
+
+func _refresh(s: Dictionary) -> void:
+	var cur_i: int = s.cur
+	for i in game.players.size():
+		var ps: Dictionary = s.players[i]
+		var pt: Dictionary = _portraits[i]
+		pt.score.text = str(ps.score)
+		pt.dice.text = str(ps.dice)
+		var tag: String = ps.tag
 		var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
 		if pt.name.text != nm:
 			pt.name.text = nm
 			_fit_label(pt.name, MIN_TEXT, 30)
-		pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if p.in_purgatory else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
-		var lit: bool = p == cur
+		pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
+		var lit: bool = i == cur_i
 		pt.glow.modulate.a = 1.0 if lit else 0.35
 		var m: ShaderMaterial = pt.window.material
 		m.set_shader_parameter("glow", 0.6 if lit else 0.0)
-		m.set_shader_parameter("dim", 0.0 if lit else (0.55 if p.in_purgatory else 0.15))
+		m.set_shader_parameter("dim", 0.0 if lit else (0.55 if ps.purg else 0.15))
 
-	var t = game.turn
-	if cur == null or t == null:
+	if cur_i < 0 or not s.has("turn"):
 		return
-	if game.winner == null:
+	var cur = game.players[cur_i]
+	var t: Dictionary = s.turn
+	if not s.winner:
 		_set_banner("Your turn" if cur.bot == human else "%s's turn" % player_name(cur), cur)
-	var faces: Array = t.faces if t.throws > 0 else t.redeem_faces
+	var faces: Array = t.faces
 	_show_dice(faces)
 	var scorers := 0
 	for f in faces:
@@ -519,7 +578,7 @@ func _refresh() -> void:
 	var text := ""
 	var size := SCORE_SIZE
 	if t.throws > 0:
-		var pts: int = Rules.score(faces, game.chain, game.face_mult)
+		var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
 		text = "+%d  x%.1f" % [pts, mult] if pts > 0 else "+0"
 	elif faces.size() > 0:
 		text = "Redemption: need a 6"
@@ -531,7 +590,7 @@ func _refresh() -> void:
 		Style.set_body(_turn_label, "This turn %d" % t.points)
 	for i in _strike_icons.size():
 		_strike_icons[i].texture = Art.STRIKE_STRUCK if i < t.strikes else Art.STRIKE_EMPTY
-	if _waiting and game.winner == null:
+	if _waiting and not s.winner:
 		var wait_text := "%s %s at the dice." % [player_name(cur), "are" if cur.bot == human else "is"]
 		if _prompt_label.get_meta("wait", "") != wait_text:
 			_prompt_label.set_meta("wait", wait_text)
@@ -606,9 +665,23 @@ func player_name(p) -> String:
 	return p.sin.sin_name if p.sin else "Bot %d" % p.seat
 
 
+## Every rules log line becomes one queued beat that shows the state as it was when said.
 func log_line(text: String) -> void:
+	if _q == null or game == null or _portraits.is_empty():
+		_show_log(text)
+		return
+	var snap := _snapshot()
+	var ev := Events.classify(text)
+	_q.push(func():
+		_show_log(text)
+		_refresh(snap)
+		if ev.kind == "ability":
+			_ability_fired(text)
+		await _q.wait(ev.dur))
+
+
+func _show_log(text: String) -> void:
 	_log_lines.append(text)
-	_ability_fired(text)
 	if _log:
 		_log.append_text(_with_sigils(Style.numbers(text)) + "\n")
 	if _ticker_text and text.strip_edges() != "":
@@ -639,7 +712,7 @@ func _flare(pt: Dictionary) -> void:
 	win.pivot_offset = win.size / 2
 	if pt.has("flare_tw") and pt.flare_tw.is_valid():
 		pt.flare_tw.kill()
-	var tw := create_tween()
+	var tw: Tween = _q.tween(self)
 	pt.flare_tw = tw
 	var set_flash := func(v: float): mat.set_shader_parameter("flash", v)
 	tw.tween_property(win, "scale", Vector2(0.96, 0.96), 0.06)
@@ -678,10 +751,10 @@ func _marginalia(pt: Dictionary, ability: String, what: String) -> void:
 	if _log_overlay:
 		move_child(note, _log_overlay.get_index())  # under the Chronicle
 	_notes.append(note)
-	var tw := note.create_tween()
+	var tw: Tween = _q.tween(note)
 	tw.tween_property(note, "modulate:a", 1.0, 0.2)
 	tw.parallel().tween_property(note, "position:y", y, 0.35).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(1.0 if fast else 1.8)
+	tw.tween_interval(1.8)
 	tw.tween_property(note, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(note.queue_free)
 
@@ -693,25 +766,37 @@ func _with_sigils(bb: String) -> String:
 	return bb
 
 
+## Turn change: its own beat (longer when it's yours). Docs/UXPass.md #1.
 func turn_started(p) -> void:
-	log_line("")
-	log_line("[color=#e9c46a]-- %s (%d) --[/color]" % [player_name(p), p.score])
+	var snap := _snapshot()
+	var header := "[color=#e9c46a]-- %s (%d) --[/color]" % [player_name(p), p.score]
+	_q.push(func():
+		_show_log("")
+		_show_log(header)
+		_refresh(snap)
+		await _q.wait(0.9 if p.bot == human else 0.6))
 
 
-func beat(p, kind: String) -> void:
-	var t := 0.0
-	if p.bot == human:
-		t = 0.3 if kind == "throw" else 1.2
-	else:
-		t = 0.8 if kind == "throw" else 1.0
-		if fast:
-			t *= 0.25
-	await get_tree().create_timer(t).timeout
+## core/game.gd awaits this after a throw, a bust and at the end of a turn: let the screen catch up
+## (and show the state as it stands now, e.g. Purgatory after a bust) before the rules go on.
+func beat(_p, _kind: String) -> void:
+	var snap := _snapshot()
+	_q.push(func(): _refresh(snap))
+	await _q.drain()
+
+
+## Queued like everything else, so the buttons only appear once the board has caught up.
+func show_prompt(text: String, options: Array) -> void:
+	_q.push(func():
+		_q.skip_all = false  # "skip to my next decision" ends here
+		if game and not _portraits.is_empty():
+			_refresh(_snapshot())
+		_show_prompt_now(text, options))
 
 
 ## Dice counts become Roll (the most dice, crimson, right thumb) plus small "fewer" seals;
 ## Bank is the dark-wax seal on the left. Anything else is a red plaque.
-func show_prompt(text: String, options: Array) -> void:
+func _show_prompt_now(text: String, options: Array) -> void:
 	clear_prompt()
 	_waiting = false
 	Style.set_body(_prompt_label, text)

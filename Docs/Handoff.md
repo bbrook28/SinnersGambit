@@ -64,3 +64,9 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Numbers in Cinzel Bold (`Style.NUMERAL`, gold-leaf shader via `Style.number`); blackletter for words only. Bone dice art in `ui/widgets/die.gd` (scorers raised and lit, others sunk); painted desk background `runtime/bg.png`.
 - Sin windows live: idle shimmer (`flare` shader, `phase` per seat) and ability flare (`flash` + scale punch) with a marginalia note under the plate, all driven from the ability log line in `main._ability_fired`.
 - Still old: setup screen and Chronicle overlay widgets. Next: VFX (Docs/VFX.md), app icon.
+
+## UX pass, step 1: action queue (2026-11-13)
+- Plan and per-event beats: `Docs/UXPass.md`.
+- `ui/action_queue.gd`: every log line, turn change and prompt is a queued beat; `view.beat()` drains the queue, so the rules never run ahead of the screen. Speed 1x/2x/4x (seal by the log strip, saved in `user://settings.cfg`). Tap = finish beat, double tap = skip to your next decision.
+- `ui/events.gd`: log line -> event kind + beat length (regex table; unknown lines get a 0.35 s log beat).
+- `main._refresh(snapshot)` draws state copied when the event happened; the per-frame live refresh is gone.
