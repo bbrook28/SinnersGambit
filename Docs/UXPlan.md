@@ -2,17 +2,17 @@
 
 Single starting point for a fresh session. Detail per finished phase: `Docs/Handoff.md`. Beat table: `Docs/UXPass.md`. Run design: `Docs/RunDesign.md`.
 Ben approves each phase: send a short plan, wait for his OK, build, stop for him to play. Commit locally, push only when he says.
-Never touch `core/`, `sins/` or `ai/` without his explicit OK. Approving `Docs/RunDesign.md` gives that OK for Phase 8's changes there.
+Never touch `core/`, `sins/` or `ai/` without his explicit OK. RunDesign was approved 2026-11-14, which gives that OK for Phase 8's changes there.
 
 ## Phases 0-6 (bot-table game)
 - **0-3 done:** V3 rules, rulebook and explain, legibility, scripted tutorial (`ad34895`).
 - **3.5 art and audio, 4 Sin carousel, 5 layout, 6 feedback: built, waiting for Ben to play** (`b99da21`, `8d77f96`, `d9fba39`, `92d9e67`). Detail in Handoff.
 
 **Rework (Ben, 2026-11-14): Balatro is the quality bar.** Phases 7-11 replace the old 7-10. One phase per session. Phase 7 and Phase 8's balance work on Opus; 9-11 fine on Sonnet.
-- **7 Run design doc: revision 2 (keep-and-rethrow, no Strikes), waiting for Ben's review.** `Docs/RunDesign.md`. No code until approved.
-- **8 Core loop: on hold until Ben brings the review back.** Build the run, targets, ruling Sins, shop and relics with placeholder presentation. Needs a new run sim (`sim/run_sim.gd`, rebuilt; the old one doesn't parse) and `ai/run_bot.gd`. Report win rate per Sin and relic pick rate; pick rates only flag broken relics (none above twice the average), they are not final balance. Relic art: placeholders until Phase 9.
+- **7 Run design doc: done, approved 2026-11-14.** `Docs/RunDesign.md` revision 2: keep-and-rethrow, no Strikes, 3 turns a round, 7 Circles. Scratch sim: `sim/keep_sim2.gd`.
+- **8 Core loop: next, in a fresh session on Opus.** Build the run, targets, ruling Sins, shop and relics with placeholder presentation (RunDesign §11 lists the files and every number the sim must report). Needs a new run sim (`sim/run_sim.gd`, rebuilt; the old one doesn't parse) and `ai/run_bot.gd`, which searches the whole turn. Report win rate per Sin and relic pick rate; pick rates only flag broken relics (none above twice the average), they are not final balance. Relic art: placeholders until Phase 9.
 - **GATE after 8:** Ben plays 10 runs and shows 5 people. No Phase 9 until he says the loop is fun; otherwise revise RunDesign and repeat 8.
-- **9 Board, text, controls: not started.** Permanent readouts (target, Points, Mult, turns left, Strikes, gold), max 4 words per label, two-line tooltips, Points gold / Mult crimson everywhere, dice twice the size, relic row, controls dim instead of vanishing, Throw seal 22%+ of width with bust chance, one painted button language, serif body text, 6-step learn-by-doing tutorial, rulebook = collection + 3 pages, new run in two taps. Relic art: state a SpriteCook credit budget before generating (32 left).
+- **9 Board, text, controls: not started.** Permanent readouts (target, Points, Mult, turns left, gold; the three candles show turns left this round; bust chance stays on the Throw seal; no Strikes readout, no dice-left counter), max 4 words per label, two-line tooltips, Points gold / Mult crimson everywhere, dice twice the size, relic row, controls dim instead of vanishing, Throw seal 22%+ of width with bust chance, one painted button language, serif body text, 6-step learn-by-doing tutorial, rulebook = collection + 3 pages, new run in two taps. Relic art: state a SpriteCook credit budget before generating (32 left).
 - **10 Motion: not started.** 3D rigid-body dice in a SubViewport (cost estimate first; pre-rendered tumble sheets as fallback), one-piece-at-a-time scoring with rising pitch, target-passed fire, idle wobble, background reacts to Mult, dimming no lower than 70%, ruling-Sin entrances, bust burns the page, staged win and loss.
 - **11 Meta and ship: not started.** Unlocks, collection, Vows, stats, daily run, audio limiter, app icon, tutorial on a real iPhone, 60 fps on the oldest device.
 - **Acceptance from Phase 9 on:** re-record the tour; no wait over 1.5 s without input, no sentence in the play field, no overlapping text, no empty zone on your turn, every button painted. Report failures with timestamps.

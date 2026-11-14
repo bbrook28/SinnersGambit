@@ -1,4 +1,4 @@
-# Run design (Phase 7, revision 2, 2026-11-14)
+# Run design (Phase 7, revision 2, approved for Phase 8 2026-11-14)
 Solo roguelike runs replace the bot table. Keep: throw, push your luck, Bank, bust, all the art. Strikes are gone: you bust when a throw has nothing you can keep. Numbers are starting guesses; the Phase 8 sim sets them. Points in multiples of 5, Mult and gold in whole numbers, multipliers only "x2", no percentages.
 
 ## 1. Run structure
@@ -38,7 +38,7 @@ After each throw, tap the dice to keep; you must keep at least one group. Then r
 | Lust | Every pair you keep adds +2 Mult, not +1. | 6 |
 | Envy | Your leftmost relic fires twice. Starts with one common relic. | 6 |
 | Pride | Bank having kept only sets, no single dice: x2 total. | 6 |
-| Gluttony | Once a turn, eat a die you can't keep: +25 Points, counts as kept. | 7 |
+| Gluttony | Once a turn, eat a die you can't keep; it counts as kept, for no Points. | 7 |
 
 ## 5. Relics: five slots, fire left to right, drag to reorder, sell for half
 C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in Phase 11.
@@ -105,7 +105,7 @@ C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in 
 ## 10. Terms a new player must learn (8)
 Set, Bust, Bank, Points, Mult, Gold, Relic, Circle. Keep, single, round, turn, target, shop and repaint are plain words.
 
-## 11. Scratch sim (one-step lookahead bot, 600 turns each) and Phase 8 plan
+## 11. Scratch sim (`sim/keep_sim2.gd`, one-step lookahead bot, 600 turns each) and Phase 8 plan
 | Dice | Avg turn | Throws (p95) | Decisions | First-throw bust |
 |---|---|---|---|---|
 | 5 | 500 | 2.9 (5) | 1.9 | 0% |
@@ -115,5 +115,5 @@ Set, Bust, Bank, Points, Mult, Gold, Relic, Circle. Keep, single, round, turn, t
 | 8, two faces each repainted to 6 | 4170 | 3.4 (6); bolder bot 4.9 (7) | 2.7-3.5 | 0% |
 - A decision is a throw point with two or more legal options (keep choice x throw / Bank) within 20% of each other. Repainting two faces of one die at 6 dice: x1.5 average turn. Five dice fall under two decisions, so no kit starts there. If keeping every die returned them every time, the strongest build never stopped (95th percentile at the 40-throw cap), hence once a turn.
 - Minutes: about 5 s a throw (throw, pops, taps), 3-5 throws a turn, about 2.5 of 3 turns used a round, 30 s of shop: 21 rounds is 22-28 minutes (bolder players at the top). 4 turns a round was 29-36.
-- Phase 8 build: `run/` (rules only): `run_state.gd`, `round.gd`, `relics.gd` (hooks: on_keep, on_throw, on_bank, on_bust, on_round_end), `kits.gd`, `rulers.gd`, `shop.gd`. `ai/run_bot.gd`: keeps and throws by lookahead, buys by simulating rounds with and without each offer. `sim/run_sim.gd` rebuilt. Placeholder board: today's tray and seals, Points x Mult, a relic row, a plain shop page.
-- The run sim must report: win rate and Circle reached per Sin; relic pick rate (none above twice the average; this flags broken relics, not final balance); share of winning runs holding an x2 source (above 60%: add multiplicative uncommons); throws per turn (mean, and the strongest build's 95th percentile, 8 or fewer); decisions per turn; minutes per run; whether dice 7 and 8 each raise the average turn.
+- Phase 8 build: `run/` (rules only): `run_state.gd`, `round.gd`, `relics.gd` (hooks: on_keep, on_throw, on_bank, on_bust, on_round_end), `kits.gd`, `rulers.gd`, `shop.gd`. `ai/run_bot.gd`: keeps and throws by searching the whole turn (not one throw ahead), buys by simulating rounds with and without each offer. `sim/run_sim.gd` rebuilt. Placeholder board: today's tray and seals, Points x Mult, a relic row, a plain shop page.
+- The run sim must report: win rate and Circle reached per Sin; relic pick rate (none above twice the average; this flags broken relics, not final balance); share of winning runs holding an x2 source (above 60%: add multiplicative uncommons); throws per turn (mean, and the strongest build's 95th percentile, 8 or fewer); decisions per turn; minutes per run; whether dice 7 and 8 each raise the average turn; share of turns ending in a bust for the best bot (target 10-25%; under 10%, tighten what is keepable, e.g. singles only on 5 and 6, and re-derive the numbers; the scratch sim's 0% first-throw bust suggests this is likely). Kits are balanced by win rate in the sim, with no handicaps carried over: Gluttony's seventh die is paid for by its weaker kit, tuned until its win rate matches.
