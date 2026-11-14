@@ -212,8 +212,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	impact(k * 0.6, "")  # the throw sound already lands
 	await q.wait(T.IMPACT)
 	if n == 0:  # Redemption: say what's needed
-		m._throw_label.add_theme_font_size_override("font_size", 72)
-		m._throw_label.text = RulesText.word("purgatory_need")
+		m.set_throw(RulesText.word("purgatory_need"), 72)
 	await q.wait(_hold())
 
 
@@ -312,11 +311,11 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 	# The chain multiplier joins the line as one fixed number ("+9  x1.5"), then the total snaps to
 	# the product: no fractions ticking past.
 	if pts != base:
-		m._throw_label.text = "+%d  %s" % [base, RulesText._mult(1.0 + m.game.chain * (scorers.size() - 1))]
+		m.set_throw("+%d  %s" % [base, RulesText._mult(1.0 + m.game.chain * (scorers.size() - 1))])
 		_punch(m._throw_label, 0.5)
 		sfx.play("stamp", 0.5)
 		await q.wait(T.IMPACT * 2)
-		m._throw_label.text = "+%d" % pts
+		m.set_throw("+%d" % pts)
 	# Impact.
 	_punch(m._throw_label, k)
 	burst(dest, k, Style.C_GOLD)
@@ -833,7 +832,9 @@ func _punch(node: Control, k: float) -> void:
 	if node == null or not is_instance_valid(node):
 		return
 	node.pivot_offset = node.size / 2
-	var base: Vector2 = node.scale
+	# Always spring back to scale 1 (everything punched rests there): taking the current scale as
+	# the rest let a punch landing mid-spring keep the swollen size, and they ratcheted up.
+	var base := Vector2.ONE
 	var tw: Tween = q.tween(node)
 	tw.tween_property(node, "scale", base * (1.0 + (T.PUNCH_SCALE - 1.0) * clampf(k, T.K_MIN, 1.0)), T.IMPACT * 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(node, "scale", base, T.IMPACT * 1.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)

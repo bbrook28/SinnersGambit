@@ -1254,6 +1254,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_throw_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_throw_label.offset_bottom = SCORE_SIZE * 1.15
 	_throw_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_throw_label.clip_text = true  # never wider than the strip (an unwrapped Label grows to its text and widens the tray)
 	_score_zone.add_child(_throw_label)
 	_result_label = Style.label("", Tuning.RESULT_SIZE, Style.C_BONE, false, 6)
 	_result_label.add_theme_font_override("font", Style.SERIF)
@@ -1261,6 +1262,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_result_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_result_label.offset_top = -(Tuning.RESULT_SIZE + 12)
 	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_result_label.clip_text = true
 	_result_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_score_zone.add_child(_result_label)
 	_turn_label = Style.body("", 44, Style.C_BONE, 8)
@@ -1774,9 +1776,8 @@ func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 		elif faces.size() > 0:
 			text = RulesText.word("purgatory_need")
 			size = 72
-		_throw_label.text = text
+		set_throw(text, size)
 		set_result(result_line(faces, Rules.count_strikes(Array(faces, TYPE_INT, "", null))) if t.throws > 0 else "")
-		_throw_label.add_theme_font_size_override("font_size", size)
 	if "turn" in parts:
 		set_turn_points(t.points)
 	if "strikes" in parts:
@@ -1822,6 +1823,18 @@ func result_line(faces: Array, new_strikes: int) -> String:
 	elif new_strikes > 1:
 		text += RulesText.word("res_strikes", {"count": RulesText._num_word(new_strikes).capitalize()})
 	return text
+
+
+## The score strip's big line, shrunk to fit the strip's width ("+105  x2.5", the Purgatory line).
+func set_throw(text: String, size := SCORE_SIZE) -> void:
+	_throw_label.text = text
+	# Measured against the strip, not the label: an unwrapped Label grows to its text.
+	var font: Font = _throw_label.get_theme_font("font")
+	var room := _score_zone.size.x - 24.0
+	var s := size
+	while s > 40 and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x > room:
+		s -= 2
+	_throw_label.add_theme_font_size_override("font_size", s)
 
 
 func set_result(text: String) -> void:
