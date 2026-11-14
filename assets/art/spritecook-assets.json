@@ -18,5 +18,15 @@
     ,{"asset_id": "509cc8af-c0be-4b64-b191-7fb7234555e2", "sha12": "6ef9eefa0d7c", "label": "sigils x7 (pride greed wrath envy gluttony lust sloth)", "file": "extra/raw/sigils_raw.png"}
     ,{"asset_id": "934c5289-5c04-452a-9099-ea94b9840deb", "sha12": "ef733467cd21", "label": "bone dice 1-6 (in use)", "file": "dice/raw/dice_b_raw.png"}
     ,{"asset_id": "c2292528-e0cf-475c-b133-c47c9c467188", "sha12": "092139f93052", "label": "desk background, candle right (in use)", "file": "bg/raw/bg_b_raw.png"}
+    ,{"asset_id": "f002d94b-4690-4edd-9273-3837eaae0595", "sha12": "3955aa2a9c79", "label": "seal blank (anchor, picked)", "file": "seals/raw/seal_b_raw.png"}
+    ,{"asset_id": "bf6ed274-b9be-4610-8050-1d87761c63a6", "sha12": "0a1541071820", "label": "seal blank variant a", "file": "seals/raw/seal_a_raw.png"}
+    ,{"asset_id": "6eb6c362-26be-493a-b135-c561775fdc8d", "sha12": "1a35622eaac7", "label": "seal pressed (edit of b)", "file": "seals/raw/seal_pressed_raw.png"}
+    ,{"asset_id": "4f0f6789-a2c5-4c1c-8c02-a0fbc4af21b2", "sha12": "6230ec1dd6b8", "label": "seal cracked (edit of b)", "file": "seals/raw/seal_cracked_raw.png"}
+    ,{"asset_id": "5b4ad85f-b9dc-4f61-86ae-d314664323ea", "sha12": "bbd045a8beb7", "label": "wax numerals 1-9, 3x3 grid (picked)", "file": "seals/raw/numerals_a_raw.png"}
+    ,{"asset_id": "a20e251d-92a6-4804-a2e7-194689b6f980", "sha12": "02494a0cb02e", "label": "wax numerals 1-9 variant b", "file": "seals/raw/numerals_b_raw.png"}
+    ,{"asset_id": "0774950c-d1b9-45eb-85a4-ea7691f53fb2", "sha12": "a80d87358d7d", "label": "ivory dice inked pips 1-6, 3x2 grid (picked)", "file": "dice/raw/dice_ink_a_raw.png"}
+    ,{"asset_id": "9252253b-8f38-4d86-8fb3-79fe940313a1", "sha12": "0e929360ef2c", "label": "ivory dice inked pips variant b", "file": "dice/raw/dice_ink_b_raw.png"}
+    ,{"asset_id": "c5c2b703-122a-41fd-a26f-d4a16f03b0ae", "sha12": "375f83f85284", "label": "marginalia throw hand (picked)", "file": "extra/raw/throw_hand_a_raw.png"}
+    ,{"asset_id": "33e048ba-a31c-442b-856f-a7ca57196e86", "sha12": "daab915aae6c", "label": "marginalia throw hand variant b", "file": "extra/raw/throw_hand_b_raw.png"}
   ]
 }
