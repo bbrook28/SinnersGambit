@@ -4,22 +4,30 @@ Single starting point for a fresh session. Detail per finished phase: `Docs/Hand
 Ben approves each phase: send a short plan, wait for his OK, build, stop for him to play. Commit locally, push only when he says.
 Never touch `core/`, `sins/` or `ai/` without his explicit OK.
 
-## Phases (next: fix the throw-number bug, then Phase 4)
+## Phases (next: Phase 3.5)
 - **0 Rules simplification: done.** `Rules.V3`: throw all dice, automatic Purgatory, First Game mode, three Sin redesigns (`Docs/RulesDraft.md`).
 - **1 Rules reference: done.** Rulebook from menu and "?", tap / hold to explain, all text in `ui/rules_text.gd`.
 - **2 Legibility: done.** Opening card, Score/Dice captions, Strike candles, "Throw 3" / "Bank 75", throw result line, score causes, player-language ticker.
 - **3 Scripted tutorial: done** (`ad34895`). Practice game vs Sloth with rigged dice; replay from Settings > Tutorial.
+- **3.5 Art and audio style: not started.** New seal, dice and throw-icon art (ask before spending SpriteCook credits, 92 left). Write the audio style definition (stylized gothic, not realistic foley), then restyle the sounds to it.
 - **4 Sin select carousel: not started.** Recommended tag on Sloth, an audio sting per Sin, page dots, Sin-coloured ambient light, table-size segmented control, delete the mosaic banners. Rebuilds the setup screen.
 - **5 Game layout: not started.** Tray about 40% of the screen, status badges, "You" marker, leader marker, bot-turn summary panel, pause menu (Rulebook, Sin abilities), safe areas, 44 pt touch targets. Crop the in-game Sin windows (see Decisions).
 - **6 Feedback: not started.** One score line at a time in a reserved zone that never overlaps dice or labels; no "+0"; no multipliers tweening through fractions; BUST above the tray, not over the dice; ability-added dice are a physical tinted die; fixed die size, tray fits the max dice count with margins.
 - **7 Controls: not started.** Throw N stepper with bust chance, Buy stepper (replaces the 7 buy pills), ability consequence text, the 12-dice gaps.
 - **8 Mechanics: not started.** Multiplier, escalating die price, Wrath and Greed caps, multiples of 5, +10 handicap, final round, Gluttony loop; report three mid-turn decision options (e.g. pay to reroll a Strike), don't build them. Balance notes below.
-- **9 Polish: not started.** Serif for body text, blackletter for titles only; painted turn banners in each Sin's glass colour (now a flat ColorRect); stronger bust-into-Purgatory transition; no silent screens, audio limiter; windows take their seats after Choose; rename "Tutorial: Next game" to "Show tutorial". Also: audio restyle, new art, app icon (below).
+- **9 Polish: not started.** Serif for body text, blackletter for titles only; painted turn banners in each Sin's glass colour (now a flat ColorRect); no silent screens, audio limiter; windows take their seats after Choose; rename "Tutorial: Next game" to "Show tutorial"; app icon.
+- **10 VFX spectacle: not started.**
+  - Sin ability activations: a full-screen signature effect per Sin in its stained-glass colours (light shafts, shattering glass, ink flooding the page), 1-1.5 s, skippable.
+  - Big scores scale in tiers: small = seal punch; medium adds gold sparks and page shake; huge adds a full-page illumination burst and a slow-motion hold.
+  - Bust: the page burns or bleeds from the edges into the Purgatory transition (moved here from Phase 9).
+  - Win / lose: a staged finale sequence, not a results panel.
+  - Multiplier build-up: glow, pitch and particle density escalate as the multiplier climbs, so tension builds before the payoff.
+  - Budget: 60 fps on the oldest supported iPhone; every intensity in `ui/tuning.gd`; Reduce Motion swaps these for simple flashes.
 
 ## Where the extra items go
 - Main menu: built in the first quality pass (Docs/Handoff.md § Quality pass Phase 1, § Menu windows). Further menu work goes in Phase 9.
-- Audio restyle (stylized gothic, not realistic foley): Phase 9, with the limiter. Phase 4's per-Sin stings should already be in that style.
-- New seal / dice / throw-icon art: Phase 9. Ask before spending SpriteCook credits (92 left).
+- Audio style definition and restyle (stylized gothic, not realistic foley): Phase 3.5, so Phase 4's per-Sin stings are made in that style. The limiter stays in Phase 9.
+- New seal / dice / throw-icon art: Phase 3.5.
 - App icon: Phase 9.
 
 ## Standing rules for every new screen
@@ -43,7 +51,7 @@ Still open:
 - Bank and Throw seals stay a fixed size at any dice count.
 
 ## Bugs to fix before their phase
-- **Fix now:** after a scoring throw, the big throw number shows the sum before the multiplier (+50 next to "x1.5 = 75"). Score beat in `ui/director.gd` (~line 299-310).
+- Fixed 2026-11-14: after a scoring throw the big throw number showed the sum before the multiplier (+50 next to "x1.5 = 75"). The last die's count landed after the multiplier count (`fly()` has a fade-and-pop lead); `_score` now waits for it (`FLY_LEAD`).
 - **Before Phase 8:** CLAUDE.md's sim command runs `sim/run_sim.gd`, which hasn't parsed since `cf24783` (play() is a coroutine, lines 141 and 161). Point it at `sim/check_v3.gd`.
 
 ## Phase 8 balance notes (`sim/check_v3.gd`, 4000 games each)

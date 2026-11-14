@@ -303,7 +303,8 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		tw.tween_callback(func():
 			count(m._throw_label, from, from + v, T.IMPACT, "+%d")
 			_punch(m._throw_label, 0.3))
-	await q.wait(act + T.STAGGER * (scorers.size() - 1))
+	# Wait until the last flight has landed and its count has finished, or it would overwrite the multiplied total.
+	await q.wait(T.STAGGER * (scorers.size() - 1) + FLY_LEAD + act + T.IMPACT)
 	# The chain multiplier brands the total.
 	if pts != base:
 		var mult := float(pts) / base
@@ -756,6 +757,10 @@ func _remember(node: CanvasItem) -> Color:
 
 # ================= Juice primitives =================
 
+const FLY_FADE := 0.06  # fly(): the label fades in,
+const FLY_POP := 0.08   # pops up,
+const FLY_LEAD := FLY_FADE + FLY_POP  # then starts its flight this long after its delay
+
 ## A value flies from a to b along an arc. Returns its tween (append callbacks to act on arrival).
 func fly(text: String, a: Vector2, b: Vector2, col: Color, dur: float, delay := 0.0, font := T.FLY_FONT) -> Tween:
 	var l := Style.label(text, font, col, false, 10)
@@ -770,8 +775,8 @@ func fly(text: String, a: Vector2, b: Vector2, col: Color, dur: float, delay := 
 	var tw: Tween = q.tween(l)
 	tw.tween_interval(delay)
 	tw.tween_callback(func(): sfx.play("whoosh", clampf(dur / T.ACTION - 0.5, 0.2, 1.0)))
-	tw.tween_property(l, "modulate:a", 1.0, 0.06)
-	tw.tween_property(l, "scale", Vector2.ONE * 1.3, 0.08)
+	tw.tween_property(l, "modulate:a", 1.0, FLY_FADE)
+	tw.tween_property(l, "scale", Vector2.ONE * 1.3, FLY_POP)
 	tw.tween_method(func(t: float):
 		var p := a.lerp(ctrl, t).lerp(ctrl.lerp(b, t), t)
 		l.position = p - l.size / 2
