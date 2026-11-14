@@ -32,7 +32,6 @@ const SERIF := preload("res://assets/fonts/IMFellEnglish-Regular.ttf")
 const NUMERAL := preload("res://assets/fonts/cinzel_bold.tres")
 const GOLD_LEAF := preload("res://ui/shaders/gold_leaf.gdshader")
 
-const GLASS_SHADER := preload("res://ui/shaders/stained_glass.gdshader")
 const GRAIN_SHADER := preload("res://ui/shaders/grain.gdshader")
 
 

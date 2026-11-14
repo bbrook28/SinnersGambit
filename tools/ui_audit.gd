@@ -44,6 +44,9 @@ func _initialize() -> void:
 	await main._open_setup()
 	await _settle(30)
 	await _check("setup")
+	main._content.find_children("*", "VBoxContainer", true, false).filter(func(c): return c.has_method("go_to"))[0].go_to(0, false)
+	await _settle(40)
+	await _check("setup: Wrath page")
 	main._start(main.SIN_SCRIPTS[3])
 	Engine.time_scale = 40.0
 	while prompts < 60:
@@ -191,7 +194,7 @@ func _check(screen: String) -> void:
 			report.append("- side margin: %s spans x %.0f-%.0f pt (allowed 16-%.0f)" % [nm, ra.position.x / PT, ra.end.x / PT, (vp.x - SIDE) / PT]); n += 1
 		for j in range(i + 1, bs.size()):
 			var b: Control = bs[j]
-			if a.is_ancestor_of(b) or b.is_ancestor_of(a):
+			if a.is_ancestor_of(b) or b.is_ancestor_of(a) or _one_control(a, b):
 				continue
 			var rb := b.get_global_rect()
 			if ra.intersects(rb):
@@ -245,3 +248,9 @@ func _audit_tutorial() -> void:
 			ov._ready_for_tap = true
 			ov.advance()
 	Engine.time_scale = 1.0
+
+
+## Segments of one segmented control (Settings rows, the table size) share a ButtonGroup and touch
+## by design: one control, so no gap between them is required.
+func _one_control(a: Control, b: Control) -> bool:
+	return a is BaseButton and b is BaseButton and a.button_group != null and a.button_group == b.button_group

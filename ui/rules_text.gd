@@ -293,6 +293,15 @@ const WORDS := {
 	"cause_buy": "Bought {n} dice",
 	"cause_purgatory": "Purgatory",
 	"cause_score": "Score",
+	# Sin select (Phase 4).
+	"setup_title": "Choose thy Sin",
+	"setup_blurb": "{others} shall face thee. First to {win}.",
+	"setup_blurb_first": "Three others shall face thee. First to {win}. Finishing a game unlocks Greater abilities and the Table of 7.",
+	"setup_three": "Three others",
+	"setup_six": "Six others",
+	"setup_table": "Table of {n}",
+	"setup_recommended": "Recommended",
+	"setup_choose": "Choose",
 }
 
 

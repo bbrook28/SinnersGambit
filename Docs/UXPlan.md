@@ -4,13 +4,13 @@ Single starting point for a fresh session. Detail per finished phase: `Docs/Hand
 Ben approves each phase: send a short plan, wait for his OK, build, stop for him to play. Commit locally, push only when he says.
 Never touch `core/`, `sins/` or `ai/` without his explicit OK.
 
-## Phases (next: Phase 4)
+## Phases (next: Phase 5)
 - **0 Rules simplification: done.** `Rules.V3`: throw all dice, automatic Purgatory, First Game mode, three Sin redesigns (`Docs/RulesDraft.md`).
 - **1 Rules reference: done.** Rulebook from menu and "?", tap / hold to explain, all text in `ui/rules_text.gd`.
 - **2 Legibility: done.** Opening card, Score/Dice captions, Strike candles, "Throw 3" / "Bank 75", throw result line, score causes, player-language ticker.
 - **3 Scripted tutorial: done** (`ad34895`). Practice game vs Sloth with rigged dice; replay from Settings > Tutorial.
-- **3.5 Art and audio style: built, waiting for Ben to play.** Painted seal / dice / throw-hand art (60 credits, 32 left). Audio style in `Docs/AudioStyle.md`; synthesized bells (`tools/bake_audio.gd`), a Nave reverb bus, darker base pitches, no casino sounds.
-- **4 Sin select carousel: not started.** Recommended tag on Sloth, an audio sting per Sin, page dots, Sin-coloured ambient light, table-size segmented control, delete the mosaic banners. Rebuilds the setup screen.
+- **3.5 Art and audio style: built, waiting for Ben to play** (`b99da21`). Painted seal / dice / throw-hand art (60 credits, 32 left). Audio style in `Docs/AudioStyle.md`; synthesized bells (`tools/bake_audio.gd`), a Nave reverb bus, darker base pitches, no casino sounds.
+- **4 Sin select carousel: built, waiting for Ben to play.** `ui/sin_carousel.gd`: one Sin per page, swipe or tap a dot, opens on Sloth (Recommended ribbon), Sin-coloured glow, a synthesized sting per Sin (`play_solo`, Nave bus), table-size segmented control, Choose seal. The mosaic banners and `ui/widgets/glass.gd` are gone.
 - **5 Game layout: not started.** Tray about 40% of the screen, status badges, "You" marker, leader marker, bot-turn summary panel, pause menu (Rulebook, Sin abilities), safe areas, 44 pt touch targets. Crop the in-game Sin windows (see Decisions).
 - **6 Feedback: not started.** One score line at a time in a reserved zone that never overlaps dice or labels; no "+0"; no multipliers tweening through fractions; BUST above the tray, not over the dice; ability-added dice are a physical tinted die; fixed die size, tray fits the max dice count with margins.
 - **7 Controls: not started.** Throw N stepper with bust chance, Buy stepper (replaces the 7 buy pills), ability consequence text, the 12-dice gaps.
@@ -42,9 +42,7 @@ Never touch `core/`, `sins/` or `ai/` without his explicit OK.
 ## Audit
 `tools/ui_audit.gd`, windowed: `godot --path . --resolution 1080x2341 --script res://tools/ui_audit.gd -- <out_dir>`. Checks every visible button for 44 pt size, 12 pt gaps, side margins and the safe area, and screenshots each layout.
 Still open:
-- Setup screen gaps, including the table pills (Phase 4).
-- 7 buy pills overflow the safe area; synthetic 12-dice prompts (Phase 7).
-- Settings segmented rows report 0 pt gaps between their own segments (one control by design; not a bug).
+- 7 buy pills overflow the safe area; synthetic 12-dice prompts (Phase 7). The only items left; segments of one control (same ButtonGroup) now count as one target.
 
 ## Decisions made
 - In-game Sin windows get cropped to the arch and figure (about 1:1.8). Today the 222x760 lancet art sits in a ~215 px box, so each window is ~60 px wide. Phase 5.
@@ -62,6 +60,7 @@ Still open:
 ## Untested
 - The tutorial has not been played on a device.
 - Phase 3.5 sound has only been checked by tests (headless runs are silent); the new art only in audit screenshots.
+- Phase 4 stings and the swipe feel have not been heard or played; the carousel only in audit screenshots.
 
 ## Tests to keep passing
 `tests/ui_autoplay.gd`, `tests/replay_check.gd`, `tests/terms_check.gd`, `tests/tutorial_check.gd`, `tests/bot_pace.gd`, `tools/ui_audit.gd`.

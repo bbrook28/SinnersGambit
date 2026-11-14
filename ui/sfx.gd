@@ -39,6 +39,11 @@ const SETS := {
 	"stamp": ["impactSoft_heavy_000", "impactSoft_heavy_001"],
 	"card": ["card-place-1", "card-place-2"],
 	"win": ["synth_win.wav"],
+	# Sin select stings (Phase 4): one bell or organ gesture per Sin, each in its own key.
+	"sting_wrath": ["synth_sting_wrath.wav"], "sting_greed": ["synth_sting_greed.wav"],
+	"sting_lust": ["synth_sting_lust.wav"], "sting_envy": ["synth_sting_envy.wav"],
+	"sting_pride": ["synth_sting_pride.wav"], "sting_gluttony": ["synth_sting_gluttony.wav"],
+	"sting_sloth": ["synth_sting_sloth.wav"],
 }
 
 ## Sounds that bring a second sound with them: the third Strike tolls as its nail goes in.
@@ -121,3 +126,25 @@ func impact(k: float) -> void:
 ## One count-up tick. t in [0, 1] = how far through the count; ticks rise in pitch.
 func tick(t: float) -> void:
 	play("tick", 0.5, lerpf(T.TICK_PITCH.x, T.TICK_PITCH.y, clampf(t, 0.0, 1.0)))
+
+
+## One outcome voice at a time (Docs/AudioStyle.md pillar 5): a new solo sound (the Sin select
+## stings) cuts the last one off with a short fade, so a fast swipe never piles them up.
+var _solo: AudioStreamPlayer
+func play_solo(name: String, k := 0.5) -> void:
+	if T.MUTE or T.muted or not _streams.has(name) or _streams[name].is_empty():
+		return
+	if _solo and _solo.playing:
+		var old := _solo
+		var tw := old.create_tween()
+		tw.tween_property(old, "volume_db", -60.0, T.SOLO_CUT)
+		tw.tween_callback(old.queue_free)
+		_solo = null
+	if _solo == null:
+		_solo = AudioStreamPlayer.new()
+		_solo.bus = _nave_bus()
+		add_child(_solo)
+	_solo.stream = _streams[name][0]
+	_solo.volume_db = T.VOL_MASTER + float(T.VOL.get(name, -6.0)) + 6.0 * (clampf(k, 0.0, 1.0) - 0.5) + linear_to_db(maxf(T.sfx_vol, 0.001))
+	_solo.pitch_scale = float(T.SFX_PITCH.get(name, 1.0))
+	_solo.play()

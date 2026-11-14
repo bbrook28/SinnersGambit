@@ -9,7 +9,7 @@ const BotPolicy = preload("res://ai/bot_policy.gd")
 const Human = preload("res://ui/human.gd")
 const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
-const Glass = preload("res://ui/widgets/glass.gd")
+const SinCarousel = preload("res://ui/sin_carousel.gd")
 const TutorialGame = preload("res://ui/tutorial_game.gd")
 const TutorialBot = preload("res://ui/tutorial_bot.gd")
 const Frame = preload("res://ui/widgets/frame.gd")
@@ -618,8 +618,9 @@ func _slider(value: float, on_change: Callable) -> HSlider:
 	return s
 
 
-## Choices side by side in one inked frame; the chosen one is filled crimson.
-func _segmented(options: Array, selected: int, on_pick: Callable) -> HBoxContainer:
+## Choices side by side in one inked frame; the chosen one is filled crimson. on_dark: for the
+## candlelit desk (Sin select), not the parchment: a dark fill, gold frame and bone words.
+func _segmented(options: Array, selected: int, on_pick: Callable, on_dark := false) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 0)
 	var group := ButtonGroup.new()
@@ -633,8 +634,8 @@ func _segmented(options: Array, selected: int, on_pick: Callable) -> HBoxContain
 		b.custom_minimum_size.y = TARGET_MIN * 1.1
 		b.add_theme_font_size_override("font_size", 40)
 		var off := StyleBoxFlat.new()
-		off.bg_color = Color(0.25, 0.14, 0.08, 0.12)
-		off.border_color = Color(0.25, 0.12, 0.06, 0.8)
+		off.bg_color = Color(0.03, 0.015, 0.01, 0.6) if on_dark else Color(0.25, 0.14, 0.08, 0.12)
+		off.border_color = Style.C_GOLD.darkened(0.35) if on_dark else Color(0.25, 0.12, 0.06, 0.8)
 		off.set_border_width_all(3)
 		var first := i == 0
 		var last := i == options.size() - 1
@@ -651,8 +652,9 @@ func _segmented(options: Array, selected: int, on_pick: Callable) -> HBoxContain
 			b.add_theme_stylebox_override(st, off)
 		for st in ["pressed", "hover_pressed"]:
 			b.add_theme_stylebox_override(st, on)
-		b.add_theme_color_override("font_color", Style.C_INK.darkened(0.2))
-		b.add_theme_color_override("font_hover_color", Style.C_INK.darkened(0.2))
+		var ink: Color = Style.C_BONE if on_dark else Style.C_INK.darkened(0.2)
+		b.add_theme_color_override("font_color", ink)
+		b.add_theme_color_override("font_hover_color", ink)
 		b.add_theme_color_override("font_pressed_color", Style.C_IVORY)
 		b.add_theme_color_override("font_hover_pressed_color", Style.C_IVORY)
 		b.button_pressed = i == selected
@@ -669,67 +671,53 @@ func _speed_text() -> String:
 
 # ---------- Setup ----------
 
+## Sin select (Phase 4): the title, a line on the table, the carousel (ui/sin_carousel.gd: one
+## Sin per page, opening on the recommended Sin), the table size and the Choose seal.
 func _build_setup() -> void:
 	_content = _page()
-	var title := _rich(110, true)
-	title.text = "[center]%s[/center]" % _drop_cap("Sinners' Gambit", 150)
+	var m := _content.get_parent() as MarginContainer
+	m.add_theme_constant_override("margin_left", int(SIDE_MIN))
+	m.add_theme_constant_override("margin_right", int(SIDE_MIN))
+	_content.add_theme_constant_override("separation", int(GAP_MIN))
+	var title := _make_lettering(100, Style.C_GOLD, true)
+	title.add_theme_constant_override("outline_size", 12)
+	title.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.01))
 	_content.add_child(title)
-	var blurb := Style.body("", 34, Style.C_BONE)
+	var blurb := Style.body("", 34, Style.C_BONE, 8)
 	_content.add_child(blurb)
-	# Table size: one pill per choice; the chosen one is lit. Saved with the settings.
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(GAP_MIN * 1.5))
-	_content.add_child(row)
-	var pills := []
 	var first := is_first_game()
-	row.visible = not first  # First Game: always a table of 4
+	var names: Array = SIN_SCRIPTS.map(func(s): return s.new().sin_name)
+	var car = SinCarousel.new(names, not first, _dir.sfx)
+	car.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content.add_child(car)
 	var show := func():
 		if first:
-			Style.set_body(blurb, "Choose thy Sin. Three others shall face thee. First to %d. Win or lose, finishing unlocks Greater abilities and the Table of 7." % Rules.WIN_SCORE)
-			return
-		Style.set_body(blurb, "Choose thy Sin. %s shall face thee. First to %d." % ["Three others" if Tuning.table_size == 4 else "Six others", Rules.WIN_SCORE])
-		for b in pills:
-			b.modulate = Color.WHITE if b.get_meta("n") == Tuning.table_size else Color(0.55, 0.5, 0.48)
-	for n in Tuning.TABLE_SIZES:
-		var b := Button.new()
-		b.set_meta("kind", "table")
-		b.set_meta("n", n)
-		Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
-		b.custom_minimum_size = Vector2(380, TARGET_MIN * 1.3)
-		b.add_theme_font_size_override("font_size", 40)
-		b.text = "Table of %d" % n
-		b.pressed.connect(func():
-			Tuning.table_size = n
+			Style.set_body(blurb, RulesText.word("setup_blurb_first"))
+		else:
+			Style.set_body(blurb, RulesText.word("setup_blurb", {"others": RulesText.word("setup_three" if Tuning.table_size == 4 else "setup_six")}))
+	# Table size: one segmented control (First Game: always a table of 4, so it's hidden).
+	if not first:
+		var opts: Array = Tuning.TABLE_SIZES.map(func(n): return RulesText.word("setup_table", {"n": n}))
+		var pick := func(i: int):
+			Tuning.table_size = Tuning.TABLE_SIZES[i]
 			_save_settings()
-			show.call())
-		b.button_down.connect(func(): _dir.sfx.play("plaque", 0.5, 1.0, true))
-		pills.append(b)
-		row.add_child(b)
+			show.call()
+		var seg := _segmented(opts, maxi(0, Tuning.TABLE_SIZES.find(Tuning.table_size)), pick, true)
+		for b in seg.get_children():
+			b.set_meta("kind", "table")
+		seg.custom_minimum_size.x = 700
+		var sc := CenterContainer.new()
+		sc.add_child(seg)
+		_content.add_child(sc)
 	show.call()
-	for s in SIN_SCRIPTS:
-		var sname: String = s.new().sin_name
-		var g = Glass.new(Style.SIN_COLORS[sname], 60.0, float(SIN_SCRIPTS.find(s)) * 3.1)
-		g.custom_minimum_size.y = 196
-		g.dim = 0.35  # keep the text readable over the glass
-		g.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		var box := _margin(34, 22)
-		var v := VBoxContainer.new()
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.add_theme_constant_override("separation", 2)
-		v.add_child(Style.label("%s, %s" % [sname, RulesText.SINS[sname].epithet], 50, Style.C_IVORY, true, 10))
-		for line in ([RulesText.ability(sname, false)] if first else [RulesText.ability(sname, false), RulesText.ability(sname, true)]):  # First Game: Basic only
-			v.add_child(Style.body(line, 26, Style.C_IVORY, 10))
-		box.add_child(v)
-		g.add_child(box)
-		var hit := Button.new()
-		hit.flat = true
-		for st in ["normal", "hover", "pressed"]:
-			hit.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-		hit.pressed.connect(_start.bind(s))
-		hit.button_down.connect(func(): _dir.sfx.play("seal", 0.5, 1.0, true))
-		g.add_child(hit)
-		_content.add_child(g)
+	var choose := _menu_seal(RulesText.word("setup_choose"), Tuning.SELECT_CHOOSE, func(): _start(SIN_SCRIPTS[car.index]))
+	choose.set_meta("kind", "choose")
+	var cc := CenterContainer.new()
+	cc.add_child(choose)
+	_content.add_child(cc)
+	(func():
+		_set_lettering(title, RulesText.word("setup_title"), Style.C_CRIMSON)
+		_dir.seals_enter([choose])).call_deferred()
 
 
 ## Starts a game as `my_sin`, or rebuilds a saved one (Continue): same seed, same seats, and your

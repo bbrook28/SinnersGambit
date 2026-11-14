@@ -26,13 +26,14 @@ Sinners' Gambit sounds like a dice game played on a desk inside a dark cathedral
 - **Count-up ticks:** tiny bell pings, rising in pitch across the count.
 - **Third Strike:** the iron nail plus a small toll.
 - **Buy dice:** bone dropped on wood, pitched down (no chips).
+- **Sin select stings** (`synth_sting_*`, `Sfx.play_solo`: a new one cuts the last with a 0.12 s fade): Wrath, D: one hard low strike over a hum; Greed, F#: a thin bright bell; Lust, Db major: a soft organ swell; Envy, E: two bells a minor second apart; Pride, C: a rising fifth; Gluttony, Bb minor: a heavy low organ chord; Sloth, A: a slow low organ drone.
 
 ## Limits
 - Every synthesized sound is mono, 44.1 kHz, peak at -1 dBFS, a 5 ms attack (no clicks) and a faded tail.
 - Outcome bells never exceed 4.5 s; touch sounds stay under 0.3 s.
 - Music stays dry on Master; only effects go through the nave.
 - The limiter on Master comes in Phase 9.
-- Phase 4's per-Sin stings follow this sheet: one bell or organ gesture in the Sin's own key, sent to the nave.
+- Phase 4's per-Sin stings follow this sheet: one bell or organ gesture in the Sin's own key, sent to the nave (2-3.2 s).
 
 ## Where things live
 - `ui/sfx.gd`: sound sets, the per-sound pitch (`T.SFX_PITCH`) and the dry list (`T.SFX_DRY`); it builds the `Nave` bus (reverb plus low-pass) at start.

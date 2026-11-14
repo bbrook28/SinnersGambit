@@ -39,8 +39,40 @@ func _init() -> void:
 	for f in [220.0, 261.63, 329.63, 440.0]:
 		win = _organ(win, f, 0.35, 2.4, 1.1, 3.6)
 	_write("synth_win", _bell(win, 0.0, 440.0, 2.0, 3.6, 0.6))
+	_stings()
 	print("audio baked")
 	quit()
+
+
+## Sin select (Phase 4): one bell or organ gesture per Sin, each in its own key.
+func _stings() -> void:
+	var e := PackedFloat32Array()
+	# Wrath, D: one hard, low strike with a fifth-below hum.
+	var w := _bell(e.duplicate(), 0.0, 146.83, 1.6, 2.6, 1.0)
+	_write("synth_sting_wrath", _sine(w, 0.0, 98.0, 0.35, 1.2, 2.6))
+	# Greed, F#: a thin, bright little bell, quick to fade.
+	_write("synth_sting_greed", _bell(e.duplicate(), 0.0, 739.99, 0.9, 2.0, 0.25))
+	# Lust, Db major: a soft organ swell.
+	var l := e.duplicate()
+	for f in [277.18, 349.23, 415.30]:
+		l = _organ(l, f, 0.6, 1.4, 1.1, 2.6)
+	_write("synth_sting_lust", l)
+	# Envy, E: two bells a minor second apart, the second close behind.
+	var v := _bell(e.duplicate(), 0.0, 329.63, 1.2, 2.6, 0.45)
+	_write("synth_sting_envy", _bell(v, 0.18, 349.23, 1.2, 2.6, 0.45))
+	# Pride, C: a rising fifth.
+	var p := _bell(e.duplicate(), 0.0, 261.63, 1.1, 2.8, 0.5)
+	_write("synth_sting_pride", _bell(p, 0.3, 392.0, 1.4, 2.8, 0.6))
+	# Gluttony, Bb minor: a heavy, low organ chord.
+	var g := e.duplicate()
+	for f in [116.54, 174.61, 233.08, 277.18]:
+		g = _organ(g, f, 0.25, 1.3, 1.2, 2.6)
+	_write("synth_sting_gluttony", g)
+	# Sloth, A: a slow, low organ drone.
+	var s := e.duplicate()
+	for f in [110.0, 164.81]:
+		s = _organ(s, f, 0.9, 1.9, 1.2, 3.2)
+	_write("synth_sting_sloth", s)
 
 
 ## Adds a struck bell at `at` s: base frequency f, ring time `ring` (partial decays scale by it),

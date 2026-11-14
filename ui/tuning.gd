@@ -94,6 +94,8 @@ const VOL := {
 	"coins": -10.0, "coins_small": -14.0, "buy": -8.0,
 	"banner_in": -10.0, "banner_out": -14.0,
 	"glass": -14.0, "glass_light": -10.0, "hit": -6.0, "stamp": -6.0, "card": -12.0, "win": -6.0,
+	"sting_wrath": -8.0, "sting_greed": -10.0, "sting_lust": -9.0, "sting_envy": -9.0,
+	"sting_pride": -9.0, "sting_gluttony": -9.0, "sting_sloth": -8.0,
 }
 ## Base pitch per sound (Docs/AudioStyle.md: low and dark). 1.0 = as recorded / as synthesized.
 const SFX_PITCH := {
@@ -115,6 +117,7 @@ const TICK_PITCH := Vector2(0.8, 1.35) # count-up bell pings rise from .x to .y 
 const TICK_GAP := 0.045             # count-up ticks never come faster than this
 const SFX_GAP := 0.04               # the same sound never retriggers faster than this
 const SFX_VOICES := 16
+const SOLO_CUT := 0.12              # a solo sound (play_solo) fades out this fast when the next one starts
 
 # ---- Materials (ui/shaders) ----
 const GLINT_PERIOD := 5.5        # seconds between specular sweeps across a seal
@@ -169,3 +172,14 @@ const RESULT_SIZE := 38        # the one-line throw result under the throw total
 const PLATE_CAPTION := 24      # "Score" / "Dice" captions on the player plates
 const CANDLE_SIZE := Vector2(52, 150)  # each Strike candle
 const SNUFF := 0.25            # a candle going out
+
+# ---- Sin select (Phase 4: ui/sin_carousel.gd) ----
+const SELECT_SNAP := 0.45          # a page springs into place
+const SELECT_TURN := 0.2           # drag this fraction of the width to turn the page
+const SELECT_FLICK := 900.0        # or flick faster than this (px/s)
+const SELECT_PAGE_PAD := 40.0      # px each side of a page's content
+const SELECT_LIGHT := 0.95         # the Sin-coloured glow behind the window
+const SELECT_LIGHT_FADE := 0.35    # it cross-fades to the next Sin's colour this fast
+const SELECT_LIGHT_BREATHE := 0.7  # and breathes down to this much (off with Reduce Motion)
+const SELECT_LIGHT_PERIOD := 4.0
+const SELECT_CHOOSE := 260         # the Choose seal
