@@ -66,6 +66,7 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 2. Thumb-zone layout: count row that selects, separate Throw/Bank confirm row, audit tool. **Done** (outcome preview moves to after the art set).
 3. Fast-forward: hold to speed up; shorter beats for repeated events.
 4. Recap: last turn per player; restyle the Chronicle.
+- Main menu (title page, Play / Continue / Settings seals), Settings, Continue by replay. **Done** (2026-11-13).
 5. Idle life, Sin window reactions, light shaft.
 6. Tap a die to inspect; tappable glowing Tier 2 targets.
 7. Reduce Motion, haptics on device, setup screen restyle.

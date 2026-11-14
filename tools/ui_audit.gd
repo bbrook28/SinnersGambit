@@ -23,8 +23,17 @@ func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(out)
 	main = load("res://ui/main.tscn").instantiate()
 	main.debug_safe = SAFE
+	main.save_enabled = false
 	root.add_child(main)
-	await _settle(20)
+	await _settle(40)
+	await _check("menu")
+	main._open_settings()
+	await _settle(30)
+	await _check("settings")
+	main._settings.queue_free()
+	main._settings = null
+	await main._open_setup()
+	await _settle(30)
 	await _check("setup")
 	main._start(main.SIN_SCRIPTS[3])
 	Engine.time_scale = 40.0
@@ -123,6 +132,8 @@ func _check(screen: String) -> void:
 	# The Chronicle covers the board: only its own buttons count while it's open.
 	if main._log_overlay and main._log_overlay.visible:
 		bs = _all_buttons(main._log_overlay)
+	if main._settings and is_instance_valid(main._settings):
+		bs = _all_buttons(main._settings)
 	var n := 0
 	for i in bs.size():
 		var a: Control = bs[i]

@@ -7,14 +7,43 @@ signal answered(value)
 var human := true
 var label := "You"
 var view  # ui/main.gd
+var record: Array = []    # every answer so far, JSON-safe (a player is {"seat": n}): the save (main._save_game)
+var replay: Array = []    # answers to give back without asking, oldest first (Continue)
+var on_answer: Callable   # called after each answer you give (main saves)
 
 
 ## Shows text with buttons ([label, value] pairs) and returns the value of the one pressed.
 func _choose(text: String, options: Array):
+	if not replay.is_empty():
+		var want = replay.pop_front()
+		for o in options:
+			if _same(_store(o[1]), want):
+				record.append(want)
+				return o[1]
+		push_warning("Continue: saved answer %s doesn't fit '%s'; asking instead" % [want, text])
+		replay.clear()
 	view.show_prompt(text, options)
 	var v = await answered
 	view.clear_prompt()
+	record.append(_store(v))
+	if on_answer.is_valid():
+		on_answer.call()
 	return v
+
+
+func _store(v):
+	if v is Object:
+		return {"seat": v.seat}
+	return v
+
+
+## JSON turns ints into floats, so compare numbers by value.
+func _same(a, b) -> bool:
+	if a is Dictionary and b is Dictionary:
+		return int(a.get("seat", -1)) == int(b.get("seat", -2))
+	if (a is int or a is float) and (b is int or b is float):
+		return is_equal_approx(float(a), float(b))
+	return typeof(a) == typeof(b) and a == b
 
 
 func dice_to_roll(p, game, turn_points: int, _strikes: int) -> int:

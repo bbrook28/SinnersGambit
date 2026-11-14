@@ -127,7 +127,7 @@ static func shimmer_material(phase: float) -> ShaderMaterial:
 
 
 static func page_light_material() -> ShaderMaterial:
-	return _material(PAGE_LIGHT, {"strength": Tuning.PAGE_LIGHT, "flicker": Tuning.CANDLE_FLICKER})
+	return _material(PAGE_LIGHT, {"strength": Tuning.PAGE_LIGHT, "flicker": 0.0 if Tuning.reduce_motion else Tuning.CANDLE_FLICKER})
 
 
 static func ink_material() -> ShaderMaterial:

@@ -118,27 +118,7 @@ func my_turn(buttons: Array) -> void:
 	var gen := _prompt_gen
 	focus(["thumb"], T.DIM, {"dice": T.INFO_DIM, "turn": T.INFO_DIM, "throw": T.INFO_DIM}, false)
 	_stop_pulses()
-	# The seals enter one by one in reading order (count row, then Bank, then Throw), then breathe.
-	var order := buttons.duplicate()
-	order.sort_custom(func(x, y): return x.position.y < y.position.y - 1.0 or (absf(x.position.y - y.position.y) <= 1.0 and x.position.x < y.position.x))
-	for i in order.size():
-		var b: Control = order[i]
-		b.pivot_offset = b.size / 2
-		b.scale = Vector2.ONE * T.ENTER_SCALE
-		b.modulate.a = 0.0
-		_entering.append(b)
-		var en := b.create_tween()
-		en.tween_interval(T.ENTER_STAGGER * i)
-		en.tween_property(b, "scale", Vector2.ONE, T.ENTER_SPRING).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
-		en.parallel().tween_property(b, "modulate:a", 1.0, T.ENTER_SPRING * 0.35)
-		_pulses.append(en)
-		en.finished.connect(func():
-			if not is_instance_valid(b):
-				return
-			var tw := b.create_tween().set_loops()
-			tw.tween_property(b, "scale", Vector2.ONE * T.PULSE_SCALE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
-			tw.tween_property(b, "scale", Vector2.ONE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
-			_pulses.append(tw))
+	seals_enter(buttons)
 	await get_tree().create_timer(T.IDLE_HINT).timeout
 	if gen != _prompt_gen or buttons.is_empty() or not is_instance_valid(buttons[0]):
 		return
@@ -154,6 +134,31 @@ func my_turn(buttons: Array) -> void:
 	tw.tween_interval(0.6)
 	_pulses.append(tw)
 	burst(_center(primary), 0.4, Style.C_GOLD)
+
+
+## The seals enter one by one in reading order (count row, then Bank, then Throw), then breathe.
+## Also used by the menu.
+func seals_enter(buttons: Array) -> void:
+	var order := buttons.duplicate()
+	order.sort_custom(func(x, y): return x.position.y < y.position.y - 1.0 or (absf(x.position.y - y.position.y) <= 1.0 and x.position.x < y.position.x))
+	for i in order.size():
+		var b: Control = order[i]
+		b.pivot_offset = b.size / 2
+		b.scale = Vector2.ONE * T.ENTER_SCALE
+		b.modulate.a = 0.0
+		_entering.append(b)
+		var en := b.create_tween()
+		en.tween_interval(T.ENTER_STAGGER * i)
+		en.tween_property(b, "scale", Vector2.ONE, T.ENTER_SPRING).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		en.parallel().tween_property(b, "modulate:a", 1.0, T.ENTER_SPRING * 0.35)
+		_pulses.append(en)
+		en.finished.connect(func():
+			if not is_instance_valid(b) or T.reduce_motion:
+				return
+			var tw := b.create_tween().set_loops()
+			tw.tween_property(b, "scale", Vector2.ONE * T.PULSE_SCALE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(b, "scale", Vector2.ONE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
+			_pulses.append(tw))
 
 
 func prompt_answered() -> void:
@@ -757,7 +762,7 @@ func _punch(node: Control, k: float) -> void:
 ## hops and the pennant is raised on a bank. Bigger k, bigger reaction.
 func flinch(k: float) -> void:
 	var j: Control = m.marginalia.get("jester")
-	if j == null or not is_instance_valid(j) or _reacting(j):
+	if j == null or not is_instance_valid(j) or _reacting(j) or T.reduce_motion:
 		return
 	var tw: Tween = q.tween(j)
 	j.set_meta("react", tw)
@@ -772,6 +777,8 @@ func flinch(k: float) -> void:
 
 
 func cheer(k: float) -> void:
+	if T.reduce_motion:
+		return
 	var s: Control = m.marginalia.get("skeleton")
 	if s != null and is_instance_valid(s) and not _reacting(s):
 		var y: float = s.position.y
@@ -815,7 +822,7 @@ func _lift(node: Control, dur: float, tint := Color.WHITE, snd := "lift") -> voi
 
 func shake(k: float) -> void:
 	var board: Control = m._board
-	if board == null or k <= 0.0:
+	if board == null or k <= 0.0 or T.reduce_motion:
 		return
 	var amp := T.SHAKE_PX * clampf(k, 0.0, 1.0)
 	var tw: Tween = q.tween(board)

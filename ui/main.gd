@@ -18,6 +18,11 @@ const Director = preload("res://ui/director.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const Events = preload("res://ui/events.gd")
 const SETTINGS := "user://settings.cfg"
+const SAVE := "user://save.json"
+const SAVE_VERSION := 1
+const MENU_TITLE := 120          # the title page: name, Play seal, Continue / Settings seals
+const MENU_PLAY := 340
+const MENU_SEAL := 250
 const SPEEDS := [1.0, 2.0, 4.0]
 const DOUBLE_TAP := 0.35
 const SIN_SCRIPTS := [
@@ -93,7 +98,13 @@ var _tilt := Vector2.ZERO
 var _inking := {}                 # lettering label -> ink-in progress 0..1 (_set_lettering, _process)
 var _wash: ColorRect                # full-screen ink for screen transitions (_ink_wash)
 static var _wash_on_load := false   # a New game reload starts under the ink and washes it away
+static var _setup_on_load := false  # ...and opens on the Sin choice, not the menu
 var _starting := false
+var _save := {}                    # the game in progress, as written to SAVE
+var _replaying := false            # Continue: replaying saved answers under the ink
+var save_enabled := true           # tests turn this off
+var _menu_seals: Array = []
+var _settings: Control            # the Settings page while open
 var _desk: Control
 var _dice_nodes: Array = []       # the Die controls showing now, in face order
 var _last_snap := {}              # the state as of the last queued event (the next one's "before")
@@ -112,6 +123,8 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS) == OK:
 		Tuning.speed = clampf(float(cfg.get_value("ui", "speed", 1.0)), Tuning.SPEED_MIN, Tuning.SPEED_MAX)
+		Tuning.muted = not bool(cfg.get_value("ui", "sound", true))
+		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var m := ShaderMaterial.new()
@@ -128,10 +141,177 @@ func _ready() -> void:
 	desk.modulate = Color(0.78, 0.74, 0.7)  # keep the desk behind the UI, not competing
 	add_child(desk)
 	_desk = desk
-	_build_setup()
+	if _setup_on_load:  # New game goes straight to choosing a Sin
+		_setup_on_load = false
+		_build_setup()
+	else:
+		_build_menu()
 	if _wash_on_load:
 		_wash_on_load = false
 		_ink_wash(false)
+
+
+# ---------- Main menu ----------
+
+## The title page: the game's name in illuminated lettering on the same candlelit parchment as
+## play, the corner figures, and three wax seals (Play, Continue, Settings) that enter and breathe
+## like the gameplay seals. Continue is cracked (disabled) when there is no game to continue.
+func _build_menu() -> void:
+	_content = _page()
+	var cover := Control.new()
+	cover.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.add_child(cover)
+	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
+	paper.material = Art.page_light_material()
+	paper.modulate = Color(0.86, 0.78, 0.68)
+	_paper = paper
+	marginalia = _add_marginalia(paper)
+	cover.add_child(paper)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 150
+	v.offset_right = -150
+	v.offset_top = 160
+	v.offset_bottom = -150
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", int(GAP_MIN * 1.4))
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cover.add_child(v)
+	var title := _make_lettering(MENU_TITLE, Style.C_INK.darkened(0.3), true)
+	v.add_child(title)
+	var sub := _make_lettering(46, Style.C_INK, false)
+	v.add_child(sub)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 90
+	v.add_child(gap)
+	var saved := load_save()
+	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
+	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
+	cont.disabled = saved.is_empty()
+	if cont.disabled:  # cracked and dimmed: nothing to continue
+		cont.modulate = Color(0.55, 0.5, 0.48)
+	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
+	var top := CenterContainer.new()
+	top.add_child(play)
+	v.add_child(top)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(GAP_MIN * 2.0))
+	row.add_child(cont)
+	row.add_child(settings)
+	v.add_child(row)
+	_menu_seals = [play, cont, settings]
+	# Once laid out: ink the words in, bring the seals in one by one.
+	(func():
+		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
+		_set_lettering(sub, "Seven Sins at one table. First to 1000.", Style.C_STRIKE)
+		_dir.seals_enter(_menu_seals)).call_deferred()
+
+
+func _menu_seal(text: String, size: int, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.set_meta("kind", "menu")
+	b.custom_minimum_size = Vector2(size, size)
+	Art.skin(b, Art.SEAL_L)
+	_caption(b, text, int(size * 0.2))
+	b.material = Art.glint_material(-Tuning.GLINT_STAGGER * size / 100.0)
+	_seal_feel(b, "roll", on_press)
+	return b
+
+
+## Play: the ink washes over the title page and the Sin choice is under it.
+func _open_setup() -> void:
+	if _starting:
+		return
+	_starting = true
+	await _ink_wash(true)
+	_dir._stop_pulses()
+	_content.get_parent().queue_free()
+	_build_setup()
+	_starting = false
+	if _wash:
+		move_child(_wash, -1)
+	_ink_wash(false)
+
+
+## Settings turn in like a page over whatever is showing: speed, sound, Reduce Motion.
+func _open_settings() -> void:
+	var ov := Control.new()
+	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ov.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(Style.C_BLACK, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ov.add_child(dim)
+	var holder := _margin(60, 0)
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var safe := _safe_insets()
+	holder.add_theme_constant_override("margin_top", int(safe.x) + 220)
+	holder.add_theme_constant_override("margin_bottom", int(safe.y) + 220)
+	ov.add_child(holder)
+	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
+	paper.modulate = Color(0.86, 0.78, 0.68)
+	var page := Control.new()
+	_add_marginalia(paper)
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(paper)
+	holder.add_child(page)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 130
+	v.offset_right = -130
+	v.offset_top = 110
+	v.offset_bottom = -110
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", int(GAP_MIN * 1.5))
+	page.add_child(v)
+	var title := _make_lettering(80, Style.C_INK.darkened(0.3), true)
+	v.add_child(title)
+	var rows := [
+		[func(): return "Speed: %s" % _speed_text(), func():
+			_set_speed(SPEEDS[(SPEEDS.find(Tuning.speed) + 1) % SPEEDS.size()])],
+		[func(): return "Sound: %s" % ("Off" if Tuning.muted else "On"), func():
+			Tuning.muted = not Tuning.muted
+			_save_settings()],
+		[func(): return "Reduce Motion: %s" % ("On" if Tuning.reduce_motion else "Off"), func():
+			Tuning.reduce_motion = not Tuning.reduce_motion
+			_save_settings()],
+	]
+	for r in rows:
+		var b := Button.new()
+		b.set_meta("kind", "setting")
+		Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
+		b.custom_minimum_size = Vector2(620, SEAL_SMALL)
+		b.add_theme_font_size_override("font_size", 46)
+		b.text = r[0].call()
+		var label_fn: Callable = r[0]
+		var act: Callable = r[1]
+		_seal_feel(b, "pill", func():
+			act.call()
+			b.text = label_fn.call())
+		var c := CenterContainer.new()
+		c.add_child(b)
+		v.add_child(c)
+	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
+	var bc := CenterContainer.new()
+	bc.add_child(back)
+	v.add_child(bc)
+	add_child(ov)
+	_settings = ov
+	(func():
+		_set_lettering(title, "Settings", Style.C_CRIMSON)
+		_page_turn(ov, true)).call_deferred()
+
+
+func _close_settings(ov: Control) -> void:
+	await _page_turn(ov, false)
+	ov.queue_free()
+	_settings = null
+
+
+func _speed_text() -> String:
+	return ("%dx" % int(Tuning.speed)) if is_equal_approx(Tuning.speed, roundf(Tuning.speed)) else ("%.2gx" % Tuning.speed)
 
 
 # ---------- Setup ----------
@@ -167,7 +347,9 @@ func _build_setup() -> void:
 		_content.add_child(g)
 
 
-func _start(my_sin: Script) -> void:
+## Starts a game as `my_sin`, or rebuilds a saved one (Continue): same seed, same seats, and your
+## saved answers given back under the ink until the game reaches your next decision.
+func _start(my_sin: Script, saved := {}) -> void:
 	if _starting:
 		return  # a second tap while the ink covers the setup
 	_starting = true
@@ -178,22 +360,37 @@ func _start(my_sin: Script) -> void:
 	human = Human.new()
 	human.view = self
 	var bot = BotPolicy.chooser(5, [99, 2, 0], 300)
-	var seats := []
-	for s in SIN_SCRIPTS:
-		seats.append([human if s == my_sin else bot, s.new()])
-	seats.shuffle()
+	var order := []  # [sin index, is human] per seat
+	if saved.is_empty():
+		for s in SIN_SCRIPTS:
+			order.append([SIN_SCRIPTS.find(s), s == my_sin])
+		order.shuffle()
+	else:
+		for e in saved.seats:
+			order.append([int(e[0]), bool(e[1])])
 	var bots := []
 	var sins := []
-	for e in seats:
-		bots.append(e[0])
-		sins.append(e[1])
+	for e in order:
+		bots.append(human if e[1] else bot)
+		sins.append(SIN_SCRIPTS[e[0]].new())
 	var options := Rules.V2.duplicate()
 	options["tier2"] = true
-	game = Game.new(bots, randi(), options, sins)
+	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
+	game = Game.new(bots, seed_value, options, sins)
 	game.view = self
+	_save = {"v": SAVE_VERSION, "seed": seed_value, "seats": order, "choices": human.record}
+	human.on_answer = _save_game
 	_build_board()
-	_ink_wash(false)
+	if _wash:
+		move_child(_wash, -1)  # the board was added above the ink
+	if saved.is_empty():
+		_ink_wash(false)
+	else:
+		human.replay = saved.choices.duplicate()
+		_replaying = true
+		_q.skip_all = true  # every beat jumps to its end; show_prompt lifts the ink
 	var w = await game.play()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))  # a finished game can't be continued
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
 	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
@@ -201,9 +398,28 @@ func _start(my_sin: Script) -> void:
 	_on_new_game_wait()
 
 
+## The save is the seed, the seats and every answer you've given (ui/human.gd records them).
+func _save_game() -> void:
+	if _save.is_empty() or not save_enabled:
+		return
+	var f := FileAccess.open(SAVE, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(_save))
+
+
+static func load_save() -> Dictionary:
+	if not FileAccess.file_exists(SAVE):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE))
+	if not (d is Dictionary) or int(d.get("v", 0)) != SAVE_VERSION or not d.has("seats") or not d.has("choices"):
+		return {}
+	return d
+
+
 func _on_new_game_wait() -> void:
 	await human.answered
 	_wash_on_load = true
+	_setup_on_load = true
 	await _ink_wash(true)
 	get_tree().reload_current_scene()
 
@@ -526,29 +742,7 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	paper.material = Art.page_light_material()  # candle pool that slides with tilt (_process)
 	_paper = paper
 	# The corner figures are their own sprites so the director can make them react (jester, skeleton, pennant).
-	for nm in Art.MARGINALIA:
-		var md: Array = Art.MARGINALIA[nm]
-		var tex: Texture2D = md[0]
-		var corner: Vector2 = md[2]
-		var sz := tex.get_size() * 0.55 * Tuning.MARGINALIA_SCALE
-		var tr := TextureRect.new()
-		tr.texture = tex
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tr.use_parent_material = true
-		tr.anchor_left = corner.x
-		tr.anchor_right = corner.x
-		tr.anchor_top = corner.y
-		tr.anchor_bottom = corner.y
-		# Offsets are from the page corner, so scaling them grows the figure out of its corner.
-		var p: Vector2 = (md[1] - corner * Vector2(Art.PAGE.get_size())) * 0.55 * Tuning.MARGINALIA_SCALE
-		tr.offset_left = p.x
-		tr.offset_top = p.y
-		tr.offset_right = p.x + sz.x
-		tr.offset_bottom = p.y + sz.y
-		tr.pivot_offset = sz * (md[3] as Vector2)
-		paper.add_child(tr)
-		marginalia[nm] = tr
+	marginalia = _add_marginalia(paper)
 	paper.modulate = Color(0.8, 0.72, 0.62)
 	page.add_child(paper)
 	var pv := VBoxContainer.new()
@@ -624,15 +818,21 @@ func _cycle_speed() -> void:
 func _set_speed(v: float) -> void:
 	Tuning.speed = clampf(v, Tuning.SPEED_MIN, Tuning.SPEED_MAX)
 	_show_speed()
+	_save_settings()
+
+
+func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SETTINGS)
 	cfg.set_value("ui", "speed", Tuning.speed)
+	cfg.set_value("ui", "sound", not Tuning.muted)
+	cfg.set_value("ui", "reduce_motion", Tuning.reduce_motion)
 	cfg.save(SETTINGS)
 
 
 func _show_speed() -> void:
 	if _speed_label:
-		_speed_label.text = ("%dx" % int(Tuning.speed)) if is_equal_approx(Tuning.speed, roundf(Tuning.speed)) else ("%.2gx" % Tuning.speed)
+		_speed_label.text = _speed_text()
 
 
 ## Tap anywhere that isn't a button: finish the current beat. Double tap: skip to your next decision.
@@ -1000,6 +1200,9 @@ func beat(_p, _kind: String) -> void:
 func show_prompt(text: String, options: Array) -> void:
 	_q.push(func():
 		_q.skip_all = false  # "skip to my next decision" ends here
+		if _replaying:  # Continue: caught up, lift the ink
+			_replaying = false
+			_ink_wash(false)
 		if game and not _portraits.is_empty():
 			_refresh(_snapshot(), ["plates", "glow", "banner", "turn", "strikes"])
 		_show_prompt_now(text, options)
@@ -1434,7 +1637,9 @@ func _process(delta: float) -> void:
 		return
 	var g := Input.get_gravity()
 	var want: Vector2
-	if g.length() > 0.5:
+	if Tuning.reduce_motion:
+		want = Vector2.ZERO
+	elif g.length() > 0.5:
 		want = Vector2(clampf(g.x / 9.8, -1, 1), clampf(-g.z / 9.8, -1, 1))
 	else:
 		var t := Time.get_ticks_msec() / 1000.0
@@ -1442,6 +1647,35 @@ func _process(delta: float) -> void:
 	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
 	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
 	_paper.position = _tilt * Tuning.TILT_PX
+
+
+## The page's corner figures as their own sprites (so the director can make them react).
+func _add_marginalia(paper: Control) -> Dictionary:
+	var out := {}
+	for nm in Art.MARGINALIA:
+		var md: Array = Art.MARGINALIA[nm]
+		var tex: Texture2D = md[0]
+		var corner: Vector2 = md[2]
+		var sz := tex.get_size() * 0.55 * Tuning.MARGINALIA_SCALE
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.use_parent_material = true
+		tr.anchor_left = corner.x
+		tr.anchor_right = corner.x
+		tr.anchor_top = corner.y
+		tr.anchor_bottom = corner.y
+		# Offsets are from the page corner, so scaling them grows the figure out of its corner.
+		var p: Vector2 = (md[1] - corner * Vector2(Art.PAGE.get_size())) * 0.55 * Tuning.MARGINALIA_SCALE
+		tr.offset_left = p.x
+		tr.offset_top = p.y
+		tr.offset_right = p.x + sz.x
+		tr.offset_bottom = p.y + sz.y
+		tr.pivot_offset = sz * (md[3] as Vector2)
+		paper.add_child(tr)
+		out[nm] = tr
+	return out
 
 
 # ---------- Screen transitions (polish 10) ----------

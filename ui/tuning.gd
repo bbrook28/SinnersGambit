@@ -4,6 +4,8 @@
 extends RefCounted
 
 static var speed := 1.0
+static var muted := false          # Settings: sound off
+static var reduce_motion := false  # Settings: no shake, tilt, idle breathing, flicker or figure reactions
 const SPEED_MIN := 0.25
 const SPEED_MAX := 4.0
 const SHOW_DEBUG_SLIDER := true

@@ -25,6 +25,7 @@ func _next() -> void:
 		return
 	main = load("res://ui/main.tscn").instantiate()
 	root.add_child(main)
+	main.save_enabled = false
 	main._start(main.SIN_SCRIPTS[sin_i])
 	sin_i += 1
 

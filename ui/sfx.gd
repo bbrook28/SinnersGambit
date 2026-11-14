@@ -61,7 +61,7 @@ func _ready() -> void:
 ## name: a key of SETS. k in [0, 1] adds up to +6 dB (bigger results sound bigger).
 ## pitch: 1.0 = as recorded (a little random jitter is added).
 func play(name: String, k := 0.5, pitch := 1.0, force := false) -> void:
-	if T.MUTE or not _streams.has(name) or _streams[name].is_empty():
+	if T.MUTE or T.muted or not _streams.has(name) or _streams[name].is_empty():
 		return
 	if not force and q and q.skipping():
 		return
