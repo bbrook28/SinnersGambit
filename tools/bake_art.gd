@@ -5,11 +5,11 @@ extends SceneTree
 
 const SINS := ["pride", "greed", "wrath", "envy", "gluttony", "lust", "sloth"]
 const OUT := "res://assets/art/runtime/"
-## Corner figures on page_b_b_raw.png: [rect in raw px, darkest parchment luminance, extra flood seeds].
+## Corner figures on page_c_a_raw.png: [rect in raw px, darkest parchment luminance, extra flood seeds].
 const MARGINALIA := {
-	"jester": [Rect2i(62, 84, 166, 148), 0.40, []],
-	"pennant": [Rect2i(1835, 65, 160, 165), 0.30, []],
-	"skeleton": [Rect2i(1798, 872, 162, 192), 0.30, [Vector2i(30, 100), Vector2i(35, 60), Vector2i(30, 150), Vector2i(60, 160), Vector2i(50, 175)]],
+	"jester": [Rect2i(80, 84, 218, 214), 0.35, []],
+	"pennant": [Rect2i(1738, 66, 220, 234), 0.35, []],
+	"skeleton": [Rect2i(1738, 843, 210, 214), 0.35, []],
 }
 
 
@@ -44,7 +44,7 @@ func _init() -> void:
 	# Thumb-zone page: slim vine border, marginalia only in the corners (9-sliced in ui/main.gd).
 	# The jester, pennant and skeleton are keyed out into their own sprites (they react in play,
 	# ui/director.gd) and their spots on the page are filled with plain parchment.
-	var page := _load("res://assets/art/ui/raw/page_b_b_raw.png")
+	var page := _load("res://assets/art/ui/raw/page_c_a_raw.png")
 	var probe: Image = page.duplicate()
 	for y in probe.get_height():
 		for x in probe.get_width():
@@ -52,14 +52,14 @@ func _init() -> void:
 			c.a = 1.0 if c.a > 0.6 else 0.0
 			probe.set_pixel(x, y, c)
 	var used := probe.get_used_rect()  # what _cut keeps
-	var k := 1600.0 / used.size.x
+	var k := Vector2(1600.0, 900.0) / Vector2(used.size)  # the page is resized to 1600x900, not quite uniformly
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "marginalia"))
 	for name in MARGINALIA:
 		var m: Array = MARGINALIA[name]
 		var fig := _key_parchment(page, m[0], m[1], m[2])
 		var box := fig.get_used_rect()
 		var sprite := fig.get_region(box)
-		sprite.resize(roundi(sprite.get_width() * k), roundi(sprite.get_height() * k), Image.INTERPOLATE_LANCZOS)
+		sprite.resize(roundi(sprite.get_width() * k.x), roundi(sprite.get_height() * k.y), Image.INTERPOLATE_LANCZOS)
 		_save(sprite, OUT + "marginalia/%s.png" % name)
 		print("%s at %s size %s" % [name, (Vector2(m[0].position + box.position - used.position) * k).round(), sprite.get_size()])
 	page = _cut(page)

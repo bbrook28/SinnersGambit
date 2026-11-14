@@ -35,6 +35,13 @@ const CARD_HOLD := 0.5       # the chosen move, enlarged at centre, before it re
 # ---- Your turn ----
 const PULSE_PERIOD := 1.2    # interactables breathe
 const PULSE_SCALE := 1.05
+const RING_PULSE := 1.6      # the selected seal's gold ring glows up and down this often
+const ENTER_STAGGER := 0.04  # seals enter one by one, this far apart
+const ENTER_SCALE := 0.55    # and spring up from this size
+const ENTER_SPRING := 0.35
+const PRESS_SQUASH := Vector2(1.08, 0.86)  # a seal under the thumb
+const RELEASE_WOBBLE := 0.4  # spring back after release
+const WOBBLE_DEG := 4.0       # the seal rocks this far on release
 const IDLE_HINT := 4.0       # seconds idle before the primary action is hinted
 const HINT_SCALE := 1.18
 
@@ -81,9 +88,11 @@ const GLINT_STAGGER := 0.06       # sweep phase between neighbouring seals, so t
 const SHIMMER_PERIOD := 3.2       # gold numerals catch the light this often
 const SHIMMER_STRENGTH := 0.6
 const PAGE_LIGHT := 0.14          # how much the candle pool brightens the parchment
+const CANDLE_FLICKER := 0.25     # how much the candle pool wavers (0 = steady)
 const TILT_PX := 7.0              # the page slides this far at full tilt
 const TILT_SMOOTH := 4.0          # higher = follows the phone faster
 const TILT_DRIFT := 0.35          # desktop / no accelerometer: slow drift amplitude (in tilt units)
+const MARGINALIA_SCALE := 1.0     # corner figures drawn this much bigger than painted on the page
 
 # ---- Text ----
 const FLY_FONT := 72

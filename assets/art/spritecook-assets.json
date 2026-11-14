@@ -30,7 +30,9 @@
     ,{"asset_id": "33e048ba-a31c-442b-856f-a7ca57196e86", "sha12": "daab915aae6c", "label": "marginalia throw hand variant b", "file": "extra/raw/throw_hand_b_raw.png"}
     ,{"asset_id": "bb00e7d8-32ed-4c9a-804a-6fc9e4a31e8f", "sha12": "b7ca2d943161", "label": "gold-leaf numerals 1-9, 3x3 grid (picked)", "file": "seals/raw/numerals_gold_b_raw.png"}
     ,{"asset_id": "b4503838-ff6e-4360-9f14-6eac1af1df0e", "sha12": "f7af36234ded", "label": "gold-leaf numerals variant a (smoky haze in bg)", "file": "seals/raw/numerals_gold_a_raw.png"}
-    ,{"asset_id": "761a39e5-9f22-4622-aa1b-6c403be5a06c", "sha12": "3bf978e0bc71", "label": "thumb-zone page, slim vine border, corner marginalia (in use)", "file": "ui/raw/page_b_b_raw.png"}
+    ,{"asset_id": "761a39e5-9f22-4622-aa1b-6c403be5a06c", "sha12": "3bf978e0bc71", "label": "thumb-zone page, slim vine border, corner marginalia (previous)", "file": "ui/raw/page_b_b_raw.png"}
+    ,{"asset_id": "b053ccc5-b69c-4f42-83d8-9ff97d026f74", "sha12": "e68244bf6808", "label": "thumb-zone page, larger corner boxes (in use; figures cut into runtime/marginalia)", "file": "ui/raw/page_c_a_raw.png"}
+    ,{"asset_id": "28954491-9a75-49b4-b944-890a7fce5a03", "sha12": "2108f7488577", "label": "thumb-zone page larger corners, variant b", "file": "ui/raw/page_c_b_raw.png"}
     ,{"asset_id": "9e4c82f4-e007-4a24-ac5e-088da2fef1e9", "sha12": "b60cdccfba19", "label": "thumb-zone page variant a (boxed corners)", "file": "ui/raw/page_b_a_raw.png"}
   ]
 }

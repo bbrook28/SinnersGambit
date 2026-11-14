@@ -47,6 +47,7 @@ const SIN_TEXT := {
 const MIN_TEXT := 36
 const SEAL_SMALL := 140
 const SEAL_BIG := 250
+const SEAL_CONFIRM := 200   # Bank and Throw: the same size whatever the dice count (polish item 4)
 const TARGET_MIN := 44.0 * 1080.0 / 393.0   # 44 pt: smallest tappable thing (Apple HIG)
 const GAP_MIN := 13.0 * 1080.0 / 393.0      # a little over 12 pt between separate targets
 const SIDE_MIN := 17.0 * 1080.0 / 393.0     # a little over 16 pt from the screen's sides
@@ -525,7 +526,7 @@ func _build_thumb(zone: VBoxContainer) -> void:
 		var md: Array = Art.MARGINALIA[nm]
 		var tex: Texture2D = md[0]
 		var corner: Vector2 = md[2]
-		var sz := tex.get_size() * 0.55
+		var sz := tex.get_size() * 0.55 * Tuning.MARGINALIA_SCALE
 		var tr := TextureRect.new()
 		tr.texture = tex
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -535,7 +536,8 @@ func _build_thumb(zone: VBoxContainer) -> void:
 		tr.anchor_right = corner.x
 		tr.anchor_top = corner.y
 		tr.anchor_bottom = corner.y
-		var p: Vector2 = (md[1] - corner * Vector2(Art.PAGE.get_size())) * 0.55
+		# Offsets are from the page corner, so scaling them grows the figure out of its corner.
+		var p: Vector2 = (md[1] - corner * Vector2(Art.PAGE.get_size())) * 0.55 * Tuning.MARGINALIA_SCALE
 		tr.offset_left = p.x
 		tr.offset_top = p.y
 		tr.offset_right = p.x + sz.x
@@ -852,7 +854,7 @@ func _flare(pt: Dictionary) -> void:
 	tw.tween_method(set_flash, 0.0, 1.0, 0.07)
 	tw.parallel().tween_property(win, "scale", Vector2(1.12, 1.12), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_method(set_flash, 1.0, 0.0, 0.5).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 ## One short handwritten line under the Sin's plate: ability in gold, what it did in ivory.
@@ -887,7 +889,7 @@ func _marginalia(pt: Dictionary, ability: String, what: String) -> Control:
 	_notes.append(note)
 	var tw: Tween = _q.tween(note)
 	tw.tween_property(note, "modulate:a", 1.0, 0.2)
-	tw.parallel().tween_property(note, "position:y", y, Tuning.ACTION).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(note, "position:y", y, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	return note
 
 
@@ -1016,9 +1018,16 @@ func _seal_feel(b: Button, kind: String, on_press: Callable) -> void:
 			_dir.haptic(0.15)
 		_dir.sfx.play("plaque" if kind == "pill" else "seal", 0.7 if kind in ["roll", "bank"] else 0.4, 1.0, true)
 		b.pivot_offset = b.size / 2
-		b.create_tween().tween_property(b, "scale", Vector2.ONE * 0.9, 0.06))
+		# Squash: the wax gives under the thumb, wider and flatter.
+		b.create_tween().tween_property(b, "scale", Tuning.PRESS_SQUASH, 0.06))
 	b.button_up.connect(func():
-		b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+		# Wobble back: spring the scale, rock the seal once either way.
+		var tw := b.create_tween()
+		tw.tween_property(b, "scale", Vector2.ONE, Tuning.RELEASE_WOBBLE).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		var rk := b.create_tween()
+		rk.tween_property(b, "rotation", deg_to_rad(Tuning.WOBBLE_DEG), Tuning.RELEASE_WOBBLE * 0.2)
+		rk.tween_property(b, "rotation", deg_to_rad(-Tuning.WOBBLE_DEG * 0.5), Tuning.RELEASE_WOBBLE * 0.25)
+		rk.tween_property(b, "rotation", 0.0, Tuning.RELEASE_WOBBLE * 0.55).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT))
 	if on_press.is_valid():
 		b.pressed.connect(on_press)
 
@@ -1032,6 +1041,10 @@ func _selected_ring(b: Button) -> void:
 		if b.button_pressed:
 			var r := minf(ring.size.x, ring.size.y) / 2.0
 			ring.draw_arc(ring.size / 2, r - 4.0, 0, TAU, 64, Style.C_GOLD, 7.0, true))
+	# Idle: the ring glows brighter and dimmer while selected.
+	var glow := ring.create_tween().set_loops()
+	glow.tween_property(ring, "modulate", Color(1.35, 1.25, 1.0), Tuning.RING_PULSE / 2).set_trans(Tween.TRANS_SINE)
+	glow.tween_property(ring, "modulate", Color(0.7, 0.62, 0.5), Tuning.RING_PULSE / 2).set_trans(Tween.TRANS_SINE)
 	b.add_child(ring)
 	b.toggled.connect(func(_on): ring.queue_redraw())
 
@@ -1059,22 +1072,60 @@ func _layout_buttons() -> void:
 	if not big.is_empty() or not nums.is_empty():
 		# Dice counts: one centred row of equal seals (wraps above what fits), selecting only.
 		# Below it, apart: Bank (left) and Throw (right), the only seals that commit.
-		var s := clampf((w + gap) / maxf(1.0, nums.size()) - gap, TARGET_MIN, float(SEAL_SMALL))
-		var per_row := maxi(1, int((w + gap) / (s + gap)))
-		var rows := ceili(float(nums.size()) / per_row)
-		var counts_h := rows * s + maxi(0, rows - 1) * gap
-		var d := clampf(h - counts_h - (gap * 1.5 if rows > 0 else 0.0), TARGET_MIN, float(SEAL_BIG))
-		d = minf(d, (w - gap * 2.0) / 2.0)
-		for i in nums.size():
+		# Bank and Throw are one size whatever the dice count (SEAL_CONFIRM). Only the counts
+		# shrink and wrap. When they overflow the space above, Bank and Throw move out to the page
+		# edges and the last counts sit between them. Only past that (9+ dice with Bank) do the
+		# confirm seals give way.
+		var has_bank := big.any(func(b): return b.get_meta("kind") == "bank")
+		var d := minf(minf(float(SEAL_CONFIRM), h - SEAL_SMALL - gap * 1.5), (w - gap * 2.0) / 2.0)
+		var s := float(SEAL_SMALL)
+		var per_row := 1
+		var in_band := 0
+		var top := 0.0
+		var slot_l := 0.0
+		var slot_w := 0.0
+		var fits := false
+		while not fits:
+			d = maxf(d, TARGET_MIN)
+			top = h - d
+			var room := h - d - gap * 1.5
+			slot_l = (d + gap) if has_bank else 0.0
+			slot_w = w - d - gap - slot_l
+			s = float(SEAL_SMALL)
+			while true:
+				per_row = maxi(1, int((w + gap) / (s + gap)))
+				var fit_rows := maxi(0, int((room + gap) / (s + gap)))
+				var rows := ceili(float(nums.size()) / per_row)
+				in_band = 0
+				if rows <= fit_rows:
+					fits = true
+				elif not big.is_empty():
+					in_band = nums.size() - fit_rows * per_row
+					fits = in_band <= maxi(0, int((slot_w + gap) / (s + gap)))
+				if fits or s <= TARGET_MIN:
+					break
+				s = maxf(TARGET_MIN, s - 4.0)
+			if not fits and d <= TARGET_MIN:
+				in_band = 0  # nothing fits: let it overlap rather than loop
+				break
+			d -= 8.0
+		var above := nums.size() - in_band
+		for i in above:
 			var r := i / per_row
-			var in_row := mini(per_row, nums.size() - r * per_row)
+			var in_row := mini(per_row, above - r * per_row)
 			var total := in_row * s + (in_row - 1) * gap
 			nums[i].position = Vector2(mid - total / 2.0 + (i % per_row) * (s + gap), r * (s + gap))
 			nums[i].size = Vector2(s, s)
-		var top := h - d
+		var band_total := in_band * s + maxi(0, in_band - 1) * gap
+		for j in in_band:
+			var b: Control = nums[above + j]
+			b.position = Vector2(slot_l + (slot_w - band_total) / 2.0 + j * (s + gap), top + (d - s) / 2.0)
+			b.size = Vector2(s, s)
 		for b in big:
 			var cx: float = mid
-			if big.size() > 1:
+			if in_band > 0:
+				cx = (w - d / 2.0) if b.get_meta("kind") == "roll" else d / 2.0
+			elif big.size() > 1:
 				cx = mid + (d / 2.0 + gap) * (1.0 if b.get_meta("kind") == "roll" else -1.0)
 			b.position = Vector2(cx - d / 2.0, top)
 			b.size = Vector2(d, d)

@@ -19,6 +19,7 @@ var sfx: Node          # ui/sfx.gd
 var _shown := {}          # the snapshot the board currently shows
 var _prompt_gen := 0      # bumps on every prompt, so stale idle hints do nothing
 var _pulses: Array[Tween] = []
+var _entering: Array[Control] = []  # seals mid-entry (my_turn)
 var _line := ""             # the log line of the beat playing (shown once a bot has revealed its move)
 
 
@@ -96,7 +97,7 @@ func turn_change(p, snap: Dictionary) -> void:
 	var w: float = m.size.x
 	band.position.x = -w
 	var tw: Tween = q.tween(band)
-	tw.tween_property(band, "position:x", 0.0, T.BANNER_IN).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(band, "position:x", 0.0, T.BANNER_IN).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	await q.wait(T.BANNER_IN)
 	m._refresh(snap)
 	_punch(_seat(seat).window, 0.6)
@@ -117,14 +118,27 @@ func my_turn(buttons: Array) -> void:
 	var gen := _prompt_gen
 	focus(["thumb"], T.DIM, {"dice": T.INFO_DIM, "turn": T.INFO_DIM, "throw": T.INFO_DIM}, false)
 	_stop_pulses()
-	for i in buttons.size():
-		var b: Control = buttons[i]
+	# The seals enter one by one in reading order (count row, then Bank, then Throw), then breathe.
+	var order := buttons.duplicate()
+	order.sort_custom(func(x, y): return x.position.y < y.position.y - 1.0 or (absf(x.position.y - y.position.y) <= 1.0 and x.position.x < y.position.x))
+	for i in order.size():
+		var b: Control = order[i]
 		b.pivot_offset = b.size / 2
-		var tw := b.create_tween().set_loops()
-		tw.tween_interval(0.06 * i)
-		tw.tween_property(b, "scale", Vector2.ONE * T.PULSE_SCALE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(b, "scale", Vector2.ONE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
-		_pulses.append(tw)
+		b.scale = Vector2.ONE * T.ENTER_SCALE
+		b.modulate.a = 0.0
+		_entering.append(b)
+		var en := b.create_tween()
+		en.tween_interval(T.ENTER_STAGGER * i)
+		en.tween_property(b, "scale", Vector2.ONE, T.ENTER_SPRING).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		en.parallel().tween_property(b, "modulate:a", 1.0, T.ENTER_SPRING * 0.35)
+		_pulses.append(en)
+		en.finished.connect(func():
+			if not is_instance_valid(b):
+				return
+			var tw := b.create_tween().set_loops()
+			tw.tween_property(b, "scale", Vector2.ONE * T.PULSE_SCALE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(b, "scale", Vector2.ONE, T.PULSE_PERIOD / 2).set_trans(Tween.TRANS_SINE)
+			_pulses.append(tw))
 	await get_tree().create_timer(T.IDLE_HINT).timeout
 	if gen != _prompt_gen or buttons.is_empty() or not is_instance_valid(buttons[0]):
 		return
@@ -135,8 +149,8 @@ func my_turn(buttons: Array) -> void:
 	_stop_pulses()
 	primary.pivot_offset = primary.size / 2
 	var tw := primary.create_tween().set_loops()
-	tw.tween_property(primary, "scale", Vector2.ONE * T.HINT_SCALE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(primary, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(primary, "scale", Vector2.ONE * T.HINT_SCALE, 0.25).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	tw.tween_property(primary, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(0.6)
 	_pulses.append(tw)
 	burst(_center(primary), 0.4, Style.C_GOLD)
@@ -180,12 +194,12 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 		var tw: Tween = q.tween(d)
 		tw.tween_interval(T.STAGGER * i)
 		tw.tween_property(d, "modulate:a", 1.0, 0.08)
-		tw.parallel().tween_property(d, "position", to, T.ACTION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(d, "position", to, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(d, "rotation", 0.0, T.ACTION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(d, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(d, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 		# Landing squash.
 		tw.tween_property(d, "scale", Vector2(1.14, 0.86), T.IMPACT * 0.4)
-		tw.tween_property(d, "scale", Vector2.ONE, T.IMPACT * 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(d, "scale", Vector2.ONE, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	await q.wait(T.ACTION + T.STAGGER * maxi(0, dice.size() - 1))
 	# Impact: dust, shake and a tap you feel, scaled to the number of dice.
 	var k := clampf(dice.size() / 8.0, T.K_MIN, 1.0)
@@ -602,8 +616,8 @@ func _think_and_card(seat: int, text: String, kind: String) -> void:
 	focus(["seat%d" % seat], T.DIM * 0.8)
 	var t2: Tween = q.tween(card)
 	t2.tween_property(card, "modulate:a", 1.0, 0.1)
-	t2.parallel().tween_property(card, "position", to, T.ACTION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t2.parallel().tween_property(card, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t2.parallel().tween_property(card, "position", to, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	t2.parallel().tween_property(card, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	await q.wait(T.ACTION)
 	_punch(card, 0.4)
 	impact(0.2, "card")
@@ -654,7 +668,7 @@ func focus(keys: Array, others := T.DIM, levels := {}, grow := true) -> void:
 		tw.tween_property(node, "modulate", Color(base.r * lv, base.g * lv, base.b * lv, base.a), T.t(T.FOCUS_FADE))
 		if node is Control and key.begins_with("seat"):
 			node.pivot_offset = node.size / 2
-			tw.parallel().tween_property(node, "scale", Vector2.ONE * (T.FOCUS_SCALE if key in keys and grow else 1.0), T.t(T.FOCUS_FADE))
+			tw.parallel().tween_property(node, "scale", Vector2.ONE * (T.FOCUS_SCALE if key in keys and grow else 1.0), T.t(T.FOCUS_FADE)).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 func unfocus() -> void:
@@ -722,7 +736,7 @@ func _punch(node: Control, k: float) -> void:
 	var base: Vector2 = node.scale
 	var tw: Tween = q.tween(node)
 	tw.tween_property(node, "scale", base * (1.0 + (T.PUNCH_SCALE - 1.0) * clampf(k, T.K_MIN, 1.0)), T.IMPACT * 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(node, "scale", base, T.IMPACT * 1.6).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "scale", base, T.IMPACT * 1.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 ## Marginalia react (no beat waits on them): the jester flinches from a bust, the skeleton
@@ -740,7 +754,7 @@ func flinch(k: float) -> void:
 		tw.tween_property(j, "rotation", a * 0.8, 0.05)
 		tw.tween_property(j, "rotation", a, 0.05)
 	tw.tween_property(j, "rotation", 0.0, T.HOLD * 1.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(j, "scale", Vector2.ONE, T.HOLD * 1.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(j, "scale", Vector2.ONE, T.HOLD * 1.5).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 func cheer(k: float) -> void:
@@ -754,7 +768,7 @@ func cheer(k: float) -> void:
 		tw.parallel().tween_property(s, "scale", Vector2(0.94, 1.1), T.IMPACT * 1.5)
 		tw.parallel().tween_property(s, "rotation", deg_to_rad(6.0), T.IMPACT * 1.5)
 		tw.tween_property(s, "position:y", y, T.IMPACT * 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.tween_property(s, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(s, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(s, "rotation", 0.0, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	var p: Control = m.marginalia.get("pennant")
 	if p != null and is_instance_valid(p) and not _reacting(p):
@@ -767,8 +781,8 @@ func cheer(k: float) -> void:
 			tw2.tween_property(p, "rotation", deg_to_rad(-8.0), 0.12).set_trans(Tween.TRANS_SINE)
 			tw2.tween_property(p, "rotation", deg_to_rad(5.0), 0.12).set_trans(Tween.TRANS_SINE)
 		tw2.tween_property(p, "rotation", 0.0, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-		tw2.parallel().tween_property(p, "position:y", y2, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-		tw2.parallel().tween_property(p, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(p, "position:y", y2, T.HOLD).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(p, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 ## Anticipation: lift (and optionally tint) an element, holding until the beat moves on.
@@ -781,7 +795,7 @@ func _lift(node: Control, dur: float, tint := Color.WHITE, snd := "lift") -> voi
 	tw.tween_property(node, "scale", Vector2.ONE * T.LIFT_SCALE, dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if tint != Color.WHITE:
 		tw.parallel().tween_property(node, "self_modulate", tint, dur)
-	tw.tween_property(node, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(node, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(node, "self_modulate", Color.WHITE, T.ACTION * 2)
 
 
@@ -845,7 +859,7 @@ func stamp(text: String, at: Vector2, col: Color, k: float, font := T.STAMP_FONT
 	l.modulate.a = 0.0
 	var tw: Tween = q.tween(l)
 	tw.tween_property(l, "modulate:a", 1.0, T.IMPACT)
-	tw.parallel().tween_property(l, "scale", Vector2.ONE, T.IMPACT * 2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "scale", Vector2.ONE, T.IMPACT * 2).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(T.HOLD * 2)
 	tw.tween_property(l, "modulate:a", 0.0, 0.2)
 	tw.tween_callback(l.queue_free)
@@ -899,6 +913,10 @@ func _stop_pulses() -> void:
 		if tw.is_valid():
 			tw.kill()
 	_pulses.clear()
+	for b in _entering:  # a seal stopped mid-entry still shows
+		if is_instance_valid(b):
+			b.modulate.a = 1.0
+	_entering.clear()
 
 
 # ================= Lookups =================

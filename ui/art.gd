@@ -20,13 +20,13 @@ const STRIKE_STRUCK := preload("res://assets/art/runtime/strike_struck.png")
 const TRAY := preload("res://assets/art/ui/dice_tray.png")
 const BANNER := preload("res://assets/art/ui/turn_banner.png")
 const PAGE := preload("res://assets/art/runtime/page.png")  # 1600x900; corners hold the marginalia (PAGE_MARGINS)
-const PAGE_MARGINS := [230, 160, 230, 160]
+const PAGE_MARGINS := [262, 252, 262, 262]
 ## Corner figures cut from the page (tools/bake_art.gd prints these): texture, top-left in page px,
 ## the page corner they hang from, pivot (fraction of the sprite) they rock around.
 const MARGINALIA := {
-	"jester": [preload("res://assets/art/runtime/marginalia/jester.png"), Vector2(26, 36), Vector2(0, 0), Vector2(0.4, 1.0)],
-	"pennant": [preload("res://assets/art/runtime/marginalia/pennant.png"), Vector2(1457, 21), Vector2(1, 0), Vector2(0.12, 1.0)],
-	"skeleton": [preload("res://assets/art/runtime/marginalia/skeleton.png"), Vector2(1423, 678), Vector2(1, 1), Vector2(0.6, 1.0)],
+	"jester": [preload("res://assets/art/runtime/marginalia/jester.png"), Vector2(36, 42), Vector2(0, 0), Vector2(0.4, 1.0)],
+	"pennant": [preload("res://assets/art/runtime/marginalia/pennant.png"), Vector2(1378, 27), Vector2(1, 0), Vector2(0.12, 1.0)],
+	"skeleton": [preload("res://assets/art/runtime/marginalia/skeleton.png"), Vector2(1378, 676), Vector2(1, 1), Vector2(0.6, 1.0)],
 }
 const LOG_STRIP := preload("res://assets/art/ui/log_strip.png")
 const YOU_TAB := preload("res://assets/art/ui/you_tab.png")
@@ -125,4 +125,4 @@ static func shimmer_material(phase: float) -> ShaderMaterial:
 
 
 static func page_light_material() -> ShaderMaterial:
-	return _material(PAGE_LIGHT, {"strength": Tuning.PAGE_LIGHT})
+	return _material(PAGE_LIGHT, {"strength": Tuning.PAGE_LIGHT, "flicker": Tuning.CANDLE_FLICKER})
