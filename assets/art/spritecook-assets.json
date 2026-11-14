@@ -28,5 +28,7 @@
     ,{"asset_id": "9252253b-8f38-4d86-8fb3-79fe940313a1", "sha12": "0e929360ef2c", "label": "ivory dice inked pips variant b", "file": "dice/raw/dice_ink_b_raw.png"}
     ,{"asset_id": "c5c2b703-122a-41fd-a26f-d4a16f03b0ae", "sha12": "375f83f85284", "label": "marginalia throw hand (picked)", "file": "extra/raw/throw_hand_a_raw.png"}
     ,{"asset_id": "33e048ba-a31c-442b-856f-a7ca57196e86", "sha12": "daab915aae6c", "label": "marginalia throw hand variant b", "file": "extra/raw/throw_hand_b_raw.png"}
+    ,{"asset_id": "bb00e7d8-32ed-4c9a-804a-6fc9e4a31e8f", "sha12": "b7ca2d943161", "label": "gold-leaf numerals 1-9, 3x3 grid (picked)", "file": "seals/raw/numerals_gold_b_raw.png"}
+    ,{"asset_id": "b4503838-ff6e-4360-9f14-6eac1af1df0e", "sha12": "f7af36234ded", "label": "gold-leaf numerals variant a (smoky haze in bg)", "file": "seals/raw/numerals_gold_a_raw.png"}
   ]
 }
