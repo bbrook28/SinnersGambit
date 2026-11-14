@@ -64,7 +64,7 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 ## Part 3 (2026-11-13)
 1. Sound on every beat phase, seals, nails, bust, coins, banner. **Done** (`ui/sfx.gd`, `Tuning.VOL`).
 2. Thumb-zone layout: count row that selects, separate Throw/Bank confirm row, audit tool. **Done** (outcome preview moves to after the art set).
-3. Fast-forward: hold to speed up; shorter beats for repeated events.
+3. Fast-forward: hold to speed up; shorter beats for repeated events. **Pacing pass done** (2026-11-13): bot beats at `BOT_PACE`, no bot move cards, Skip to my turn, table of 4 (Docs/Handoff.md § Pacing pass).
 4. Recap: last turn per player; restyle the Chronicle.
 - Main menu (title page, Play / Continue / Settings seals), Settings, Continue by replay. **Done** (2026-11-13).
 5. Idle life, Sin window reactions, light shaft.

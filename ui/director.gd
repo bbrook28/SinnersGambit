@@ -21,6 +21,9 @@ var _prompt_gen := 0      # bumps on every prompt, so stale idle hints do nothin
 var _pulses: Array[Tween] = []
 var _entering: Array[Control] = []  # seals mid-entry (my_turn)
 var _line := ""             # the log line of the beat playing (shown once a bot has revealed its move)
+var _bot_thought := false   # the bot has had its one "thinking" pause this turn
+
+signal turn_shown(seat: int, mine: bool)  # a turn-change beat starts (tests/bot_pace.gd times turns with it)
 
 
 func _ready() -> void:
@@ -40,6 +43,7 @@ func setup(main, queue, layer: Control) -> void:
 ## One rules log line. prev: what the board showed before; snap: the state after this line.
 func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> void:
 	_line = text
+	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE
 	if not (ev.kind in ["throw", "bank", "buy", "attack", "redemption"]):
 		m.show_ticker(text)
 	var mt: RegExMatch = ev.match
@@ -77,7 +81,7 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 		"pact_cut":
 			focus(["turn"], T.DIM)
 			await _effects_from(_center(m._turn_label), prev, snap)
-			await q.wait(T.HOLD)
+			await q.wait(_hold())
 		_:
 			await _generic(prev, snap, -1)
 	_shown = snap
@@ -87,6 +91,9 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 func turn_change(p, snap: Dictionary) -> void:
 	var seat: int = snap.cur
 	var mine: bool = p.bot == m.human
+	T.pace = 1.0 if mine else T.BOT_PACE
+	_bot_thought = false
+	turn_shown.emit(seat, mine)
 	var col: Color = Style.SIN_COLORS[p.sin.sin_name]
 	while m._dice_area.size.y <= 0.0:  # the first turn starts the frame the board is built
 		await get_tree().process_frame
@@ -103,7 +110,7 @@ func turn_change(p, snap: Dictionary) -> void:
 	_punch(_seat(seat).window, 0.6)
 	if mine:
 		haptic(0.5)
-	await q.wait(T.BANNER_HOLD)
+	await q.wait(T.BANNER_HOLD if mine else T.BOT_BANNER_HOLD)
 	sfx.play("banner_out", 0.3)
 	tw = q.tween(band)
 	tw.tween_property(band, "position:x", w, T.BANNER_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
@@ -172,8 +179,9 @@ func prompt_answered() -> void:
 ## A throw (or a Redemption roll). Bots think and show the move first; dice tumble in from the thrower.
 func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: String) -> void:
 	var seat := _seat_index(who)
-	if not _is_mine(seat):
-		await _think_and_card(seat, card, "roll")
+	if not _is_mine(seat) and not _bot_thought:
+		_bot_thought = true
+		await _think(seat, T.BOT_THINK)
 	m.show_ticker(_line)
 	focus(["dice", "seat%d" % seat], T.DIM, {"throw": T.DIM})
 	m._refresh(snap, ["glow", "banner", "plates", "turn", "strikes"])
@@ -181,7 +189,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	m._show_dice([])
 	# Anticipation: the tray draws breath.
 	_lift(m._dice_area, T.ANTICIPATION, Color.WHITE, "shake")
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	# Action: the dice tumble in from the thrower's side, one after another.
 	var faces: Array = snap.turn.faces
 	m._show_dice(faces)
@@ -230,7 +238,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	if n == 0:  # Redemption: say what's needed
 		m._throw_label.add_theme_font_size_override("font_size", 72)
 		m._throw_label.text = "Redemption: need a 6"
-	await q.wait(T.HOLD)
+	await q.wait(_hold())
 
 
 ## Strikes nail in one by one, then the scoring dice send their points to the throw total and on to the turn.
@@ -250,7 +258,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		m._throw_label.modulate = Color(0.6, 0.55, 0.5)
 		sfx.play("impact_light", 0.0, 0.7)
 		_punch(m._throw_label, 0.3)
-		await q.wait(T.HOLD)
+		await q.wait(_hold())
 		m._throw_label.modulate = Color.WHITE
 		m._refresh(snap, ["turn"])
 		return
@@ -258,7 +266,20 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 	# Anticipation: the scoring dice lift and glow.
 	for i in scorers:
 		_lift(dice[i], T.ANTICIPATION, Color(1.3, 1.2, 0.9))
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
+	if not _is_mine(snap.cur):
+		# A bot's throw: one flight straight from the dice to the turn total.
+		var before := _turn_points(prev)
+		var src := _center(dice[scorers[scorers.size() / 2]])
+		var tw0 := fly("+%d" % pts, src, _center(m._turn_label), Style.C_GOLD, T.ACTION)
+		tw0.tween_callback(func():
+			count_turn(before, snap.turn.points, T.IMPACT * 2)
+			_punch(m._turn_label, k)
+			impact(k * 0.5))
+		await q.wait(T.ACTION + T.IMPACT)
+		m._refresh(snap, ["turn", "strikes"])
+		await q.wait(_hold() * 0.5)
+		return
 	# Action: each die's points fly to the throw total, which counts up as they land.
 	m._throw_label.add_theme_font_size_override("font_size", m.SCORE_SIZE)
 	m._throw_label.text = "+0"
@@ -286,7 +307,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 	shake(k * 0.5)
 	impact(k * 0.5)
 	await q.wait(T.IMPACT)
-	await q.wait(T.HOLD * 0.5)
+	await q.wait(_hold() * 0.5)
 	# Second action: the throw total travels to the turn total, which punches and counts up.
 	var tw2 := fly("+%d" % pts, dest, _center(m._turn_label), Style.C_GOLD, T.ACTION)
 	var before := _turn_points(prev)
@@ -295,7 +316,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		_punch(m._turn_label, k))
 	await q.wait(T.ACTION + T.IMPACT)
 	m._refresh(snap, ["turn", "strikes"])
-	await q.wait(T.HOLD)
+	await q.wait(_hold())
 
 
 ## New Strikes since the last beat: each Strike die flashes red and its ember drives a nail in.
@@ -313,7 +334,7 @@ func _strikes(prev: Dictionary, snap: Dictionary) -> void:
 	focus(["dice", "turn"])
 	for d in strike_dice:
 		_lift(d, T.ANTICIPATION, Color(1.5, 0.55, 0.5))
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	for s in range(had, mini(now, m._strike_icons.size())):
 		var nail: Control = m._strike_icons[s]
 		var src: Vector2 = _center(strike_dice[(s - had) % strike_dice.size()]) if not strike_dice.is_empty() else _center(m._dice_area)
@@ -326,7 +347,7 @@ func _strikes(prev: Dictionary, snap: Dictionary) -> void:
 		shake(k * 0.5)
 		impact(k, "nail_last" if s >= 2 else "nail")
 		await q.wait(T.IMPACT)
-	await q.wait(T.HOLD * 0.6)
+	await q.wait(_hold() * 0.6)
 
 
 ## The third nail, the stage gutters, the turn total burns to nothing.
@@ -335,7 +356,7 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	focus(["dice", "turn", "throw"])
 	for nail in m._strike_icons:
 		_lift(nail, T.ANTICIPATION, Color(1.6, 0.5, 0.4))
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	var lost := _turn_points(prev)
 	count_turn(lost, 0, T.ACTION * 1.5)
 	m._throw_label.text = ""
@@ -349,21 +370,19 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	burst(_center(m._turn_label), 1.0, Style.C_STRIKE)
 	await q.wait(T.IMPACT)
 	m._refresh(snap, ["plates", "glow"])
-	await q.wait(T.HOLD * 2.0)
+	await q.wait(_hold() * 2.0)
 
 
 ## The turn total travels to the plate; the plate punches and counts up.
 func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var seat := _seat_index(who)
-	if not _is_mine(seat):
-		await _think_and_card(seat, "Bank %d" % n, "bank")
 	m.show_ticker(_line)
 	var pt: Dictionary = _seat(seat)
 	focus(["turn", "seat%d" % seat])
 	m._throw_label.text = ""
 	var k := T.k_of(n)
 	_lift(m._turn_label, T.ANTICIPATION)
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	var act := T.ACTION * (1.0 + T.ACTION_STRETCH * k)
 	var from_score := _score_of(prev, seat)
 	var tw := fly("+%d" % n, _center(m._turn_label), _center(pt.score), Style.C_GOLD, act)
@@ -377,20 +396,18 @@ func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	impact(k * 0.7, "coins")
 	cheer(k)
 	await q.wait(T.IMPACT)
-	await q.wait(maxf(T.HOLD, T.COUNT_UP - T.IMPACT))
+	await q.wait(maxf(_hold(), T.COUNT_UP - T.IMPACT) if T.pace <= 1.0 else _hold())
 	m._refresh(snap, ["plates"])
 
 
 ## The price leaves the plate; new dice drop onto it.
 func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var seat := _seat_index(who)
-	if not _is_mine(seat):
-		await _think_and_card(seat, "Buy %d" % n, "pill")
 	m.show_ticker(_line)
 	var pt: Dictionary = _seat(seat)
 	focus(["seat%d" % seat])
 	_lift(pt.col, T.ANTICIPATION)
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	var s0 := _score_of(prev, seat)
 	var s1 := _score_of(snap, seat)
 	var away := _center(pt.score) + Vector2(0, 420)
@@ -404,7 +421,7 @@ func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	_punch(pt.dice, 0.5)
 	burst(_center(pt.dice), 0.3, Style.C_BONE)
 	impact(0.3, "impact_light")
-	await q.wait(T.IMPACT + T.HOLD)
+	await q.wait(T.IMPACT + _hold())
 
 
 ## The Sin acts: its window lifts, its line is written, the glass flares, then its effect travels.
@@ -416,7 +433,7 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	var pt: Dictionary = _seat(seat)
 	focus(["seat%d" % seat], T.DIM, {"dice": T.INFO_DIM, "turn": T.INFO_DIM})
 	_lift(pt.window, T.ANTICIPATION)
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	var note: Control = m._marginalia(pt, ability, what)
 	await q.wait(T.ACTION)
 	m._flare(pt)
@@ -424,7 +441,7 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	burst(_center(pt.window), 0.5, Style.SIN_COLORS[pt.sin].lightened(0.3))
 	await q.wait(T.IMPACT)
 	await _effects_from(_center(pt.window), prev, snap)
-	await q.wait(T.HOLD * 1.5)
+	await q.wait(_hold() * 1.5)
 	if is_instance_valid(note):
 		var tw: Tween = q.tween(note)
 		tw.tween_property(note, "modulate:a", 0.0, 0.2)
@@ -438,7 +455,7 @@ func _reroll(snap: Dictionary) -> void:
 	var dice: Array = m._dice_nodes
 	for d in dice:
 		_lift(d, T.ANTICIPATION, Color(1.4, 0.7, 0.6), "shake")
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	sfx.play("throw", 0.6)
 	for d in dice:
 		var tw: Tween = q.tween(d)
@@ -451,7 +468,7 @@ func _reroll(snap: Dictionary) -> void:
 		burst(_center(d), 0.3, Style.C_BONE_DARK)
 	shake(0.4)
 	impact(0.5, "")
-	await q.wait(T.ACTION * 0.5 + T.IMPACT + T.HOLD)
+	await q.wait(T.ACTION * 0.5 + T.IMPACT + _hold())
 
 
 ## A Tier 2 attack: a streak flies from attacker to target, which shudders and takes its mark.
@@ -487,7 +504,7 @@ func _streak(a: int, b: int, prev: Dictionary, snap: Dictionary) -> void:
 	var col: Color = Style.SIN_COLORS[pa.sin]
 	focus(["seat%d" % a, "seat%d" % b])
 	_lift(pa.window, T.ANTICIPATION)
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	fly("✦", _center(pa.window), _center(pb.window), col.lightened(0.4), T.ACTION, 0.0, 110)
 	await q.wait(T.ACTION)
 	m._flare(pb)
@@ -497,13 +514,13 @@ func _streak(a: int, b: int, prev: Dictionary, snap: Dictionary) -> void:
 	impact(0.7, "hit")
 	await q.wait(T.IMPACT)
 	m._refresh(snap, ["plates"])
-	await q.wait(T.HOLD)
+	await q.wait(_hold())
 
 
 func _hubris(paid: bool, prev: Dictionary, snap: Dictionary) -> void:
 	focus(["turn"])
 	_lift(m._turn_label, T.ANTICIPATION)
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	var before := _turn_points(prev)
 	if paid:
 		stamp("x1.6", _center(m._turn_label) + Vector2(0, -90), Style.C_GOLD, 0.8, 110)
@@ -518,7 +535,7 @@ func _hubris(paid: bool, prev: Dictionary, snap: Dictionary) -> void:
 		await q.wait(T.ACTION)
 		impact(0.8)
 		shake(0.7)
-	await q.wait(T.IMPACT + T.HOLD)
+	await q.wait(T.IMPACT + _hold())
 
 
 func _redeem_result(freed: bool, snap: Dictionary) -> void:
@@ -527,7 +544,7 @@ func _redeem_result(freed: bool, snap: Dictionary) -> void:
 		for i in mini(snap.turn.faces.size(), m._dice_nodes.size()):
 			if snap.turn.faces[i] == 6:
 				_lift(m._dice_nodes[i], T.ANTICIPATION, Color(1.4, 1.25, 0.8))
-	await q.wait(T.ANTICIPATION)
+	await q.wait(_ant())
 	stamp("Redeemed!" if freed else "Still in Purgatory", _center(m._dice_area),
 		Style.C_GOLD if freed else Style.C_STRIKE.lightened(0.3), 0.7, 100)
 	impact(0.6 if freed else 0.3, "glass" if freed else "")
@@ -535,7 +552,7 @@ func _redeem_result(freed: bool, snap: Dictionary) -> void:
 		burst(_center(m._dice_area), 0.7, Style.C_GOLD)
 	await q.wait(T.ACTION + T.IMPACT)
 	m._refresh(snap, ["plates"])
-	await q.wait(T.HOLD)
+	await q.wait(_hold())
 
 
 func _win(snap: Dictionary) -> void:
@@ -549,7 +566,7 @@ func _win(snap: Dictionary) -> void:
 	m._refresh(snap)
 	var pt: Dictionary = _seat(seat)
 	_lift(pt.col, T.ANTICIPATION * 2)
-	await q.wait(T.ANTICIPATION * 2)
+	await q.wait(_ant() * 2)
 	m._flare(pt)
 	burst(_center(pt.window), 1.0, Style.C_GOLD)
 	burst(_center(pt.score), 1.0, Style.C_GOLD)
@@ -557,7 +574,7 @@ func _win(snap: Dictionary) -> void:
 	impact(1.0, "bell")
 	sfx.play("win", 1.0)
 	sfx.play("coins", 1.0)
-	await q.wait(T.HOLD * 3)
+	await q.wait(_hold() * 3)
 
 
 ## Anything else: show it, let any changed numbers travel, hold.
@@ -565,7 +582,7 @@ func _generic(prev: Dictionary, snap: Dictionary, seat: int) -> void:
 	var src := _center(m._banner) if seat < 0 else _center(_seat(seat).window)
 	await _effects_from(src, prev, snap)
 	m._refresh(snap)
-	await q.wait(T.HOLD)
+	await q.wait(_hold())
 
 
 ## Whatever numbers changed between two snapshots travel from src to where they belong:
@@ -612,7 +629,17 @@ func _effects_from(src: Vector2, prev: Dictionary, snap: Dictionary) -> void:
 
 # ================= Bots: think, then show the move =================
 
-func _think_and_card(seat: int, text: String, kind: String) -> void:
+## Anticipation and hold phases: full on your turn, cut down on a bot's (Tuning.BOT_ANTICIPATION / BOT_HOLD).
+func _ant() -> float:
+	return T.ANTICIPATION * (T.BOT_ANTICIPATION if T.pace > 1.0 else 1.0)
+
+
+func _hold() -> float:
+	return T.HOLD * (T.BOT_HOLD if T.pace > 1.0 else 1.0)
+
+
+## The bot's window breathes while the page says it's thinking.
+func _think(seat: int, dur: float) -> void:
 	if seat < 0:
 		return
 	var pt: Dictionary = _seat(seat)
@@ -620,12 +647,19 @@ func _think_and_card(seat: int, text: String, kind: String) -> void:
 	m.set_waiting_text("%s is thinking" % m.player_name(m.game.players[seat]))
 	var tw: Tween = q.tween(pt.window)
 	pt.window.pivot_offset = pt.window.size / 2
-	tw.tween_property(pt.window, "scale", Vector2.ONE * 1.06, T.THINK / 2).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(pt.window, "scale", Vector2.ONE, T.THINK / 2).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(pt.window, "scale", Vector2.ONE * 1.06, dur / 2).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(pt.window, "scale", Vector2.ONE, dur / 2).set_trans(Tween.TRANS_SINE)
 	var dots: Tween = q.tween(self)
 	var base := "%s is thinking" % m.player_name(m.game.players[seat])
-	dots.tween_method(func(v: float): m.set_waiting_text(base + ".".repeat(int(v) % 4)), 0.0, 7.99, T.THINK)
-	await q.wait(T.THINK)
+	dots.tween_method(func(v: float): m.set_waiting_text(base + ".".repeat(int(v) % 4)), 0.0, 7.99, dur)
+	await q.wait(dur)
+
+
+func _think_and_card(seat: int, text: String, kind: String) -> void:
+	if seat < 0:
+		return
+	var pt: Dictionary = _seat(seat)
+	await _think(seat, T.THINK)
 	# The chosen move rises out of the window, enlarged at centre.
 	var card := _card(text, kind)
 	var to := _center(m._dice_area) - card.size / 2
@@ -837,7 +871,7 @@ func burst(at: Vector2, k: float, col: Color) -> void:
 	p.one_shot = true
 	p.explosiveness = 0.95
 	p.lifetime = 0.7
-	p.speed_scale = T.speed
+	p.speed_scale = T.rate()
 	p.direction = Vector2(0, -1)
 	p.spread = 180.0
 	p.initial_velocity_min = 180.0

@@ -31,8 +31,19 @@ const BANNER_HOLD := 0.8
 const BANNER_OUT := 0.35
 
 # ---- Bots ----
-const THINK := 0.6           # visible "thinking" before every bot action
-const CARD_HOLD := 0.5       # the chosen move, enlarged at centre, before it resolves
+const THINK := 0.6           # visible "thinking" before a bot's attack card
+const CARD_HOLD := 0.5       # the chosen move (attacks only), enlarged at centre, before it resolves
+# Pacing: a bot's turn should come in under 4 s at 1x (tests/bot_pace.gd measures it).
+static var pace := 1.0       # set per beat by the director: 1 on your turn, BOT_PACE on a bot's
+const BOT_PACE := 2.25       # a bot's beats play this much faster than yours
+const BOT_THINK := 0.5       # "thinking" before a bot's first throw of the turn only (scaled by BOT_PACE)
+const BOT_BANNER_HOLD := 0.3 # turn-change band hold for a bot (yours: BANNER_HOLD)
+const BOT_ANTICIPATION := 0.0  # a bot's beats skip the wait before the action (the lift still plays under it)
+const BOT_HOLD := 0.3        # and hold this fraction of HOLD afterwards
+
+# ---- Table ----
+const TABLE_SIZES := [4, 7]  # you plus 3 or 6 bots; the first is the default
+static var table_size := 4
 
 # ---- Your turn ----
 const PULSE_PERIOD := 1.2    # interactables breathe
@@ -113,6 +124,11 @@ static func k_of(value: float) -> float:
 	return clampf(absf(value) / BIG_VALUE, K_MIN, 1.0)
 
 
-## A phase length at the current speed.
+## The playback rate right now: the global speed times the beat's pace (bots play faster).
+static func rate() -> float:
+	return speed * pace
+
+
+## A phase length at the current rate.
 static func t(seconds: float) -> float:
-	return maxf(MIN_PHASE, seconds / speed)
+	return maxf(MIN_PHASE, seconds / rate())

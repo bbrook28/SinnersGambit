@@ -60,7 +60,7 @@ func wait(seconds: float) -> void:
 ## A tween that runs at the global speed and jumps to its end when the beat is skipped.
 func tween(owner: Node) -> Tween:
 	var tw := owner.create_tween()
-	tw.set_speed_scale(Tuning.speed)
+	tw.set_speed_scale(Tuning.rate())
 	if skipping():
 		tw.set_speed_scale(1000.0)
 	_tweens = _tweens.filter(func(x): return x.is_valid())

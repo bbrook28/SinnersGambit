@@ -112,6 +112,7 @@ var _focus_groups := {}
 var _speed_label: Label
 var _speed_slider: HSlider
 var _last_tap := -1.0
+var _skip: Button                 # "Skip to my turn", on the thumb page during bot turns
 
 
 func _ready() -> void:
@@ -125,6 +126,8 @@ func _ready() -> void:
 		Tuning.speed = clampf(float(cfg.get_value("ui", "speed", 1.0)), Tuning.SPEED_MIN, Tuning.SPEED_MAX)
 		Tuning.muted = not bool(cfg.get_value("ui", "sound", true))
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
+		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
+		Tuning.table_size = ts if ts in Tuning.TABLE_SIZES else Tuning.TABLE_SIZES[0]
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var m := ShaderMaterial.new()
@@ -321,7 +324,34 @@ func _build_setup() -> void:
 	var title := _rich(110, true)
 	title.text = "[center]%s[/center]" % _drop_cap("Sinners' Gambit", 150)
 	_content.add_child(title)
-	_content.add_child(Style.body("Choose thy Sin. Six others shall face thee. First to 1000.", 34, Style.C_BONE))
+	var blurb := Style.body("", 34, Style.C_BONE)
+	_content.add_child(blurb)
+	# Table size: one pill per choice; the chosen one is lit. Saved with the settings.
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(GAP_MIN * 1.5))
+	_content.add_child(row)
+	var pills := []
+	var show := func():
+		Style.set_body(blurb, "Choose thy Sin. %s shall face thee. First to 1000." % ("Three others" if Tuning.table_size == 4 else "Six others"))
+		for b in pills:
+			b.modulate = Color.WHITE if b.get_meta("n") == Tuning.table_size else Color(0.55, 0.5, 0.48)
+	for n in Tuning.TABLE_SIZES:
+		var b := Button.new()
+		b.set_meta("kind", "table")
+		b.set_meta("n", n)
+		Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
+		b.custom_minimum_size = Vector2(380, TARGET_MIN * 1.3)
+		b.add_theme_font_size_override("font_size", 40)
+		b.text = "Table of %d" % n
+		b.pressed.connect(func():
+			Tuning.table_size = n
+			_save_settings()
+			show.call())
+		b.button_down.connect(func(): _dir.sfx.play("plaque", 0.5, 1.0, true))
+		pills.append(b)
+		row.add_child(b)
+	show.call()
 	for s in SIN_SCRIPTS:
 		var sname: String = s.new().sin_name
 		var g = Glass.new(Style.SIN_COLORS[sname], 60.0, float(SIN_SCRIPTS.find(s)) * 3.1)
@@ -362,8 +392,12 @@ func _start(my_sin: Script, saved := {}) -> void:
 	var bot = BotPolicy.chooser(5, [99, 2, 0], 300)
 	var order := []  # [sin index, is human] per seat
 	if saved.is_empty():
-		for s in SIN_SCRIPTS:
-			order.append([SIN_SCRIPTS.find(s), s == my_sin])
+		# You plus (table size - 1) other Sins, drawn at random.
+		var others := SIN_SCRIPTS.filter(func(s): return s != my_sin)
+		others.shuffle()
+		order.append([SIN_SCRIPTS.find(my_sin), true])
+		for s in others.slice(0, clampi(Tuning.table_size, 2, SIN_SCRIPTS.size()) - 1):
+			order.append([SIN_SCRIPTS.find(s), false])
 		order.shuffle()
 	else:
 		for e in saved.seats:
@@ -766,7 +800,29 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	_buttons.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_buttons.resized.connect(_layout_buttons)
 	pv.add_child(_buttons)
+	# During bot turns: skip everything up to your next decision (same as a double tap).
+	_skip = Button.new()
+	_skip.set_meta("kind", "skip")
+	Art.skin(_skip, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
+	_skip.text = "Skip to my turn"
+	_skip.add_theme_font_size_override("font_size", 44)
+	_skip.custom_minimum_size = Vector2(520, TARGET_MIN * 1.4)
+	_skip.set_anchors_preset(Control.PRESET_CENTER)
+	_skip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_skip.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_skip.offset_top = 30
+	_skip.offset_bottom = 30
+	_skip.visible = false
+	_seal_feel(_skip, "pill", func():
+		_show_skip(false)
+		_q.skip_to_decision())
+	page.add_child(_skip)
 	zone.add_child(page)
+
+
+func _show_skip(on: bool) -> void:
+	if _skip:
+		_skip.visible = on and not _replaying
 
 
 func _build_log_overlay() -> void:
@@ -827,6 +883,7 @@ func _save_settings() -> void:
 	cfg.set_value("ui", "speed", Tuning.speed)
 	cfg.set_value("ui", "sound", not Tuning.muted)
 	cfg.set_value("ui", "reduce_motion", Tuning.reduce_motion)
+	cfg.set_value("ui", "table", Tuning.table_size)
 	cfg.save(SETTINGS)
 
 
@@ -848,6 +905,7 @@ func _input(event: InputEvent) -> void:
 		c = c.get_parent() as Control
 	var now := Time.get_ticks_msec() / 1000.0
 	if now - _last_tap < DOUBLE_TAP:
+		_show_skip(false)
 		_q.skip_to_decision()
 	else:
 		_q.skip_beat()
@@ -1183,6 +1241,7 @@ func turn_started(p) -> void:
 	_q.push(func():
 		_show_log("")
 		_show_log(header)
+		_show_skip(p.bot != human and not _q.skip_all)
 		await _dir.turn_change(p, snap))
 
 
@@ -1200,6 +1259,8 @@ func beat(_p, _kind: String) -> void:
 func show_prompt(text: String, options: Array) -> void:
 	_q.push(func():
 		_q.skip_all = false  # "skip to my next decision" ends here
+		Tuning.pace = 1.0  # your decision plays at your speed
+		_show_skip(false)
 		if _replaying:  # Continue: caught up, lift the ink
 			_replaying = false
 			_ink_wash(false)

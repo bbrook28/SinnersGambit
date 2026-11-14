@@ -124,3 +124,12 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Continue = replay. `ui/human.gd` records every answer (`record`; a player as `{"seat": n}`); `main._save_game` writes `user://save.json` after each one: seed, seat order, answers. `_start(null, saved)` rebuilds the same seats and seed, feeds the answers back (`human.replay`) under the ink with every beat skipped, and lifts the ink at your next decision. This works because only the game's seeded generator rolls (ai/ and sins/ use no randomness) and the seat shuffle is saved. A finished game deletes the save. `tests/replay_check.gd` plays to 5/25/60 answers, rebuilds through JSON, and compares every score, dice count, the supply and the prompt.
 - Tests and the audit set `main.save_enabled = false`. The audit now covers menu, Settings and setup.
 - No way back to the menu during a game yet (Continue matters after the app is closed).
+
+## Pacing pass (2026-11-13)
+- Problem (Ben, from the tour video): bot turns took 12-30 s, so with six bots your turn came back after about two minutes.
+- Bots play faster: `Tuning.pace` is set per beat by the director (1 on your turn, `BOT_PACE` 2.25 on a bot's); `Tuning.rate()` = speed x pace drives `q.wait`, queue tweens and particles. On a bot's beats the anticipation wait is skipped (`BOT_ANTICIPATION`) and holds are cut to 30% (`BOT_HOLD`), via `director._ant()` / `_hold()`. Your own beats are unchanged.
+- No more bot move cards for throws, banks and buys (attacks keep theirs). A bot "thinks" only before its first throw of the turn (`BOT_THINK`). A bot's score is one flight from the dice to the turn total. The bot turn-change band holds `BOT_BANNER_HOLD`.
+- Table of 4 by default (you + 3 random Sins), Table of 7 as an option: pills on the setup screen, `Tuning.table_size`, saved in settings.cfg. The seat handicap (20 x seat) still comes from `Rules.V2` in core.
+- "Skip to my turn" pill on the thumb page during bot turns (`main._skip`, same as a double tap).
+- `tests/bot_pace.gd [-- 4|7]` times bot turns in the real UI at 1x (game time, 4x time scale). Now: table of 4 avg 3.7 s per bot turn (90th pct 5.3, max 7.1), your turn back after about 11 s; table of 7 avg 3.8 s, back after about 22 s. Before: about 7.5 s per bot turn at a table of 4, 15+ s at full beats.
+- `tests/ui_autoplay.gd` alternates table sizes. Audit: the setup screen's known gap failures now include the table pills (rebuilt in the Sin selection step).
