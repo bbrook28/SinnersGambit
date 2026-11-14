@@ -16,5 +16,7 @@
     ,{"asset_id": "a6f8b4bb-40bb-40a0-8a45-8915c05d345c", "sha12": "605a69837616", "label": "strikes (empty roundel, nailed)", "file": "extra/raw/strikes_raw.png"}
     ,{"asset_id": "c2326b8b-958f-4081-885b-a6b14d5093f7", "sha12": "66e9252f4a1d", "label": "leather (dice stage)", "file": "extra/raw/leather_raw.png"}
     ,{"asset_id": "509cc8af-c0be-4b64-b191-7fb7234555e2", "sha12": "6ef9eefa0d7c", "label": "sigils x7 (pride greed wrath envy gluttony lust sloth)", "file": "extra/raw/sigils_raw.png"}
+    ,{"asset_id": "934c5289-5c04-452a-9099-ea94b9840deb", "sha12": "ef733467cd21", "label": "bone dice 1-6 (in use)", "file": "dice/raw/dice_b_raw.png"}
+    ,{"asset_id": "c2292528-e0cf-475c-b133-c47c9c467188", "sha12": "092139f93052", "label": "desk background, candle right (in use)", "file": "bg/raw/bg_b_raw.png"}
   ]
 }

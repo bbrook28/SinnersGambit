@@ -40,8 +40,8 @@ const SIN_TEXT := {
 const MIN_TEXT := 36
 const SEAL_SMALL := 140
 const SEAL_BIG := 250
-const DIE_MAX := 176
-const SCORE_SIZE := 160
+const DIE_MAX := 280
+const SCORE_SIZE := 136
 
 var game = null
 var human = null
@@ -77,6 +77,15 @@ func _ready() -> void:
 	m.shader = CANDLE_BG
 	bg.material = m
 	add_child(bg)
+	# Painted desk: candle on the right, still life in the corners. Covers the gradient where it fits.
+	var desk := TextureRect.new()
+	desk.texture = Art.BG
+	desk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	desk.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	desk.set_anchors_preset(Control.PRESET_FULL_RECT)
+	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	desk.modulate = Color(0.78, 0.74, 0.7)  # keep the desk behind the UI, not competing
+	add_child(desk)
 	_build_setup()
 
 
@@ -273,7 +282,7 @@ func _build_glance(zone: VBoxContainer) -> void:
 ## Turn banner (in the current Sin's colour), the leather dice stage with the score as hero, then the log.
 func _build_stage(zone: VBoxContainer) -> void:
 	var banner := Control.new()
-	banner.custom_minimum_size.y = 116
+	banner.custom_minimum_size.y = 100
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_banner_frame = Art.framed(Art.BANNER, [260, 40, 260, 40], 0.6)
 	_banner_frame.offset_left = 90
@@ -335,18 +344,20 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_throw_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tv.add_child(_throw_label)
 	_turn_label = Style.body("", 44, Style.C_BONE, 8)
-	tv.add_child(_turn_label)
 	var srow := HBoxContainer.new()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
 	srow.add_theme_constant_override("separation", 14)
 	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sl := Style.label("Strikes", 42, Style.C_BONE, false, 8)
 	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_turn_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_turn_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	srow.add_child(_turn_label)  # one row with the Strikes, so the dice get the height
 	srow.add_child(sl)
 	for i in Rules.STRIKES_TO_BUST:
 		var t := TextureRect.new()
 		t.texture = Art.STRIKE_EMPTY
-		t.custom_minimum_size = Vector2(96, 96)
+		t.custom_minimum_size = Vector2(88, 88)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		srow.add_child(t)

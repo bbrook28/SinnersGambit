@@ -9,6 +9,7 @@ const RT := "res://assets/art/runtime/"
 const FLARE := preload("res://ui/shaders/flare.gdshader")
 const TINT := preload("res://ui/shaders/tint.gdshader")
 
+const BG := preload("res://assets/art/runtime/bg.png")
 const LEATHER := preload("res://assets/art/runtime/leather.png")
 const STRIKE_EMPTY := preload("res://assets/art/runtime/strike_empty.png")
 const STRIKE_STRUCK := preload("res://assets/art/runtime/strike_struck.png")

@@ -20,6 +20,13 @@ func _init() -> void:
 	var st := _split(_cut(_load("res://assets/art/extra/raw/strikes_raw.png")), 2)
 	_save(_fit_h(st[0], 160), OUT + "strike_empty.png")
 	_save(_fit_h(st[1], 200), OUT + "strike_struck.png")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "dice"))
+	var dice := _split(_cut(_load("res://assets/art/dice/raw/dice_b_raw.png")), 6)
+	for i in 6:
+		_save(_fit_h(dice[i], 320), OUT + "dice/%d.png" % (i + 1))
+	var bg := _load("res://assets/art/bg/raw/bg_b_raw.png")
+	bg.resize(1080, 1920, Image.INTERPOLATE_LANCZOS)
+	_save(bg, OUT + "bg.png")
 	var lea := _load("res://assets/art/extra/raw/leather_raw.png")
 	lea.resize(512, 512, Image.INTERPOLATE_LANCZOS)
 	_save(lea, OUT + "leather.png")

@@ -1,58 +1,40 @@
-## Carved bone die: yellowed face, chipped corner, drilled and inked pips.
-## Scorers (4-6) get a gold rim, Strikes (1-2) red ink and a red rim, 3s stay plain.
+## Carved bone die (SpriteCook art, assets/art/runtime/dice/<face>.png). Strike faces (1-2) have red ink.
+## State is shown in the world, not with outlines: scorers (4-6) sit raised and candle-lit with a long
+## soft shadow; 3s and Strikes sit sunk into the leather, darker, with a tight shadow. Candle on the right.
 extends Control
 
-const Style = preload("res://ui/style.gd")
-
-const PIPS := {
-	1: [Vector2(0.5, 0.5)],
-	2: [Vector2(0.27, 0.27), Vector2(0.73, 0.73)],
-	3: [Vector2(0.27, 0.27), Vector2(0.5, 0.5), Vector2(0.73, 0.73)],
-	4: [Vector2(0.27, 0.27), Vector2(0.73, 0.27), Vector2(0.27, 0.73), Vector2(0.73, 0.73)],
-	5: [Vector2(0.27, 0.27), Vector2(0.73, 0.27), Vector2(0.5, 0.5), Vector2(0.27, 0.73), Vector2(0.73, 0.73)],
-	6: [Vector2(0.27, 0.25), Vector2(0.73, 0.25), Vector2(0.27, 0.5), Vector2(0.73, 0.5), Vector2(0.27, 0.75), Vector2(0.73, 0.75)],
-}
+const FACES := [
+	preload("res://assets/art/runtime/dice/1.png"), preload("res://assets/art/runtime/dice/2.png"),
+	preload("res://assets/art/runtime/dice/3.png"), preload("res://assets/art/runtime/dice/4.png"),
+	preload("res://assets/art/runtime/dice/5.png"), preload("res://assets/art/runtime/dice/6.png"),
+]
 
 var face := 1
-var chip := 0  # which corner is chipped (varies per die)
+var tilt := 0.0  # small per-die rotation so a row doesn't look stamped
 
 
-func _init(p_face := 1, side := 120, p_chip := 0) -> void:
-	face = p_face
-	chip = p_chip % 4
+func _init(p_face := 1, side := 120, seed := 0) -> void:
+	face = clampi(p_face, 1, 6)
+	tilt = deg_to_rad(float((seed * 37) % 9) - 4.0)
 	custom_minimum_size = Vector2(side, side)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _draw() -> void:
 	var s: float = minf(size.x, size.y)
-	var r := Rect2(Vector2.ZERO, Vector2(s, s))
-	var rim := Style.C_BONE_DARK.darkened(0.25)
-	var ink := Style.C_INK
-	if face >= 4:
-		rim = Style.C_GOLD
-	elif face <= 2:
-		rim = Style.C_STRIKE
-		ink = Style.C_STRIKE
-	# Shadow, body, top-light band.
-	var body := StyleBoxFlat.new()
-	body.bg_color = Style.C_BONE if face != 3 else Style.C_BONE.darkened(0.12)
-	body.set_corner_radius_all(int(s * 0.16))
-	body.border_color = rim
-	body.set_border_width_all(maxi(3, int(s * 0.05)))
-	body.shadow_color = Color(0, 0, 0, 0.6)
-	body.shadow_size = int(s * 0.06)
-	body.shadow_offset = Vector2(-s * 0.06, s * 0.06)  # candle on the right: shadows fall left
-	body.anti_aliasing = false
-	draw_style_box(body, r)
-	draw_rect(Rect2(r.position + Vector2(s * 0.14, s * 0.08), Vector2(s * 0.72, s * 0.06)), Color(1, 1, 1, 0.22))
-	# Chipped corner: a notch of darker, rougher bone.
-	var c: Vector2 = [Vector2(0, 0), Vector2(s, 0), Vector2(s, s), Vector2(0, s)][chip]
-	var dir: Vector2 = [Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1), Vector2(1, -1)][chip]
-	var k := s * 0.13
-	draw_colored_polygon(PackedVector2Array([c + dir * Vector2(k * 0.3, k * 0.3), c + dir * Vector2(k * 1.3, k * 0.35), c + dir * Vector2(k * 0.35, k * 1.3)]), Style.C_BONE_DARK.darkened(0.15))
-	# Pips: drilled (dark rim) and inked.
-	for p in PIPS[face]:
-		var pc: Vector2 = p * s
-		draw_circle(pc, s * 0.085, ink.darkened(0.5))
-		draw_circle(pc + Vector2(0, -s * 0.008), s * 0.07, ink)
+	var raised := face >= 4
+	var tex: Texture2D = FACES[face - 1]
+	var d := s * (0.94 if raised else 0.86)
+	var lift := s * (0.05 if raised else 0.0)
+	var c := Vector2(s, s) / 2.0 - Vector2(0, lift)
+	draw_set_transform(c, tilt)
+	var r := Rect2(Vector2(-d, -d) / 2.0, Vector2(d, d))
+	# Soft shadow falling left and down: a few offset silhouettes.
+	var reach := s * (0.11 if raised else 0.035)
+	var passes := 4
+	for i in passes:
+		var k := float(i + 1) / passes
+		var off := Vector2(-reach, reach * 1.1) * k + Vector2(0, lift)
+		draw_texture_rect(tex, Rect2(r.position + off, r.size), false, Color(0, 0, 0, (0.32 if raised else 0.5) / passes * (passes - i)))
+	draw_texture_rect(tex, r, false, Color(1.1, 1.06, 0.98) if raised else Color(0.62, 0.58, 0.54))
+	draw_set_transform(Vector2.ZERO)
