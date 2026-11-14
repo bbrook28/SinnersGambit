@@ -25,6 +25,8 @@ const MENU_TITLE := 150          # the title page: name, Play seal, Continue / S
 const MENU_PLAY := 400
 const MENU_SEAL := 230
 const MUSIC := "res://assets/audio/music/menu.ogg"
+const MENU_GLASS := preload("res://ui/shaders/menu_glass.gdshader")
+const MENU_SHAFT := preload("res://ui/shaders/menu_shaft.gdshader")
 const PANEL_FROM := 0.94          # panels (Settings, Chronicle) open from this scale
 const CANDLE_RAW := Vector2(1065, 150) / Vector2(1152, 2048)  # the flame on bg_hd_raw.png, as a fraction
 const SPEEDS := [1.0, 2.0, 4.0]
@@ -132,7 +134,6 @@ var _tut_stage := 0                # 0: nothing shown, 1: throwing explained, 2:
 var _tut: Control                  # the tutorial overlay while it shows
 var _music: AudioStreamPlayer
 var _screen_root: Control          # the menu scene (freed when leaving it)
-var _parallax: Array = []          # [node, rest position, px at full tilt]: layers that shift with tilt
 var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
 
 
@@ -203,7 +204,6 @@ func _build_menu() -> void:
 	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(scene)
 	_screen_root = scene
-	_parallax.clear()
 	# The far wall: darkness over the top of the table, where the seven windows hang.
 	var wall := TextureRect.new()
 	var wg := Gradient.new()
@@ -218,59 +218,122 @@ func _build_menu() -> void:
 	wall.size = Vector2(vp.x + 80, vp.y * 0.42 + 40)
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scene.add_child(wall)
-	# The seven windows, left of the candle, each lit from behind and casting a shaft of its colour.
+	# The seven windows, centred across the wall, each lit from behind (menu_glass: cloud light and a
+	# passing sheen), with a halo, a shaft of its colour onto the table, motes in the shaft and a pool
+	# of coloured light where the shaft lands.
 	var names: Array = SIN_TITLES.keys()
-	var left := 34.0
-	var right := vp.x * 0.80
-	var gap := 12.0
-	var ww := (right - left - gap * (names.size() - 1)) / names.size()
+	var gap := 14.0
+	var margin := vp.x * Tuning.MENU_WINDOW_MARGIN
+	var ww := (vp.x - margin * 2.0 - gap * (names.size() - 1)) / names.size()
 	var wh := ww / 0.295
 	var top := safe.x + 46.0
+	var motion := 0.0 if Tuning.reduce_motion else 1.0
 	var windows := Control.new()
 	windows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scene.add_child(windows)
-	_parallax.append([windows, Vector2.ZERO, 5.0])
+	var shafts := Control.new()  # behind the glass, so every shaft starts under its window
+	shafts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	windows.add_child(shafts)
 	for i in names.size():
 		var col: Color = Style.SIN_COLORS[names[i]]
 		var holder := Control.new()
-		holder.position = Vector2(left + i * (ww + gap), top)
+		holder.position = Vector2(margin + i * (ww + gap), top)
 		holder.size = Vector2(ww, wh)
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		windows.add_child(holder)
-		# The shaft: a widening beam of the glass colour falling onto the table.
+		var ph := float(i) * 1.37
+		# The shaft: a widening beam falling onto the table, fanning out from the centre of the wall.
 		var shaft := Polygon2D.new()
-		var w0 := ww * 0.7
-		var len := vp.y * 0.38
-		var drift := (holder.position.x + ww / 2.0 - vp.x * 0.4) * 0.35
-		shaft.polygon = PackedVector2Array([Vector2(ww / 2 - w0 / 2, wh * 0.6), Vector2(ww / 2 + w0 / 2, wh * 0.6),
-			Vector2(ww / 2 + w0 * 1.6 + drift, wh + len), Vector2(ww / 2 - w0 * 1.6 + drift, wh + len)])
-		var c0 := Color(col.lightened(0.2), 0.16)
-		var c1 := Color(col, 0.0)
-		shaft.vertex_colors = PackedColorArray([c0, c0, c1, c1])
-		shaft.material = Art.additive()
-		holder.add_child(shaft)
+		var w0 := ww * 0.8
+		var len := vp.y * Tuning.MENU_SHAFT_LEN
+		var cx := holder.position.x + ww / 2.0
+		var drift := (cx - vp.x / 2.0) * 0.45
+		var y0 := top + wh * 0.55
+		var foot := Vector2(cx + drift, top + wh + len)
+		shaft.polygon = PackedVector2Array([Vector2(cx - w0 / 2, y0), Vector2(cx + w0 / 2, y0),
+			Vector2(foot.x + w0 * 1.7, foot.y), Vector2(foot.x - w0 * 1.7, foot.y)])
+		# Beam coordinates for menu_shaft (r = across, g = along): Polygon2D drops UVs without a texture.
+		shaft.vertex_colors = PackedColorArray([Color(0, 0, 0), Color(1, 0, 0), Color(1, 1, 0), Color(0, 1, 0)])
+		var sm := ShaderMaterial.new()
+		sm.shader = MENU_SHAFT
+		sm.set_shader_parameter("tint", col.lightened(0.25))
+		sm.set_shader_parameter("strength", Tuning.MENU_SHAFT_STRENGTH)
+		sm.set_shader_parameter("phase", ph)
+		sm.set_shader_parameter("motion", motion)
+		shaft.material = sm
+		shafts.add_child(shaft)
+		# Where the light lands: a soft coloured pool on the table, breathing with the window.
+		var pool := TextureRect.new()
+		pool.texture = Art.soft_dot(128, col.lightened(0.2))
+		pool.material = Art.additive()
+		pool.size = Vector2(w0 * 4.0, w0 * 1.6)
+		pool.position = foot - Vector2(pool.size.x / 2, pool.size.y * 0.75)
+		pool.modulate.a = 0.22
+		pool.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shafts.add_child(pool)
+		# Motes catching the light, only inside the beam.
+		if motion > 0.0:
+			var motes := CPUParticles2D.new()
+			motes.texture = Art.soft_dot(32)
+			motes.material = Art.additive()
+			motes.amount = 7
+			motes.lifetime = 7.0
+			motes.preprocess = 7.0
+			motes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+			motes.emission_rect_extents = Vector2(w0 * 0.7, len * 0.35)
+			motes.position = Vector2(cx + drift * 0.5, y0 + len * 0.45)
+			motes.direction = Vector2(0.15, 1)
+			motes.spread = 30.0
+			motes.gravity = Vector2(0, 3)
+			motes.initial_velocity_min = 3.0
+			motes.initial_velocity_max = 10.0
+			motes.scale_amount_min = 0.1
+			motes.scale_amount_max = 0.3
+			var mg := Gradient.new()
+			var mc := col.lightened(0.6)
+			mg.set_color(0, Color(mc, 0.0))
+			mg.set_color(1, Color(mc, 0.0))
+			mg.add_point(0.4, Color(mc, 0.5))
+			motes.color_ramp = mg
+			shafts.add_child(motes)
+		# The halo: light spilling round the stone, breathing slowly.
 		var glow := TextureRect.new()
 		glow.texture = Art.soft_dot(128, col.lightened(0.15))
 		glow.material = Art.additive()
-		glow.position = Vector2(-ww * 0.6, -wh * 0.1)
-		glow.size = Vector2(ww * 2.2, wh * 1.2)
-		glow.modulate.a = 0.45
+		glow.position = Vector2(-ww * 0.75, -wh * 0.12)
+		glow.size = Vector2(ww * 2.5, wh * 1.24)
+		glow.modulate.a = Tuning.MENU_HALO
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(glow)
+		# The rim: a tight, brighter glow hugging the window's outline.
+		var rim := TextureRect.new()
+		rim.texture = Art.soft_dot(128, col.lightened(0.35))
+		rim.material = Art.additive()
+		rim.position = Vector2(-ww * 0.22, -wh * 0.05)
+		rim.size = Vector2(ww * 1.44, wh * 1.1)
+		rim.modulate.a = Tuning.MENU_HALO
+		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(rim)
+		if motion > 0.0:
+			var per := 5.0 + fmod(i * 1.7, 2.5)
+			for g in [glow, rim]:
+				var tw: Tween = g.create_tween().set_loops()
+				tw.tween_interval(fmod(i * 0.9, per))
+				tw.tween_property(g, "modulate:a", Tuning.MENU_HALO * 1.35, per / 2).set_trans(Tween.TRANS_SINE)
+				tw.tween_property(g, "modulate:a", Tuning.MENU_HALO * 0.7, per / 2).set_trans(Tween.TRANS_SINE)
 		var win := TextureRect.new()
 		win.texture = Art.window(names[i])
 		win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		win.size = holder.size
 		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var gm := ShaderMaterial.new()
+		gm.shader = MENU_GLASS
+		gm.set_shader_parameter("phase", ph * 2.3)
+		gm.set_shader_parameter("period", Tuning.MENU_SHEEN_PERIOD)
+		gm.set_shader_parameter("motion", motion)
+		win.material = gm
 		holder.add_child(win)
-		# Slow light: each window brightens and dims on its own slow breath, as clouds pass outside.
-		if not Tuning.reduce_motion:
-			var tw := holder.create_tween().set_loops()
-			var per := 4.0 + fmod(i * 1.7, 2.5)
-			tw.tween_interval(fmod(i * 0.9, per))
-			tw.tween_property(holder, "modulate", Color(1.15, 1.12, 1.08), per / 2).set_trans(Tween.TRANS_SINE)
-			tw.tween_property(holder, "modulate", Color(0.78, 0.76, 0.74), per / 2).set_trans(Tween.TRANS_SINE)
 	# The candle's light pool (the flame is painted on the table; this makes it breathe).
 	var glow := TextureRect.new()
 	glow.texture = Art.soft_dot(256, Color(1.0, 0.72, 0.38))
@@ -312,7 +375,6 @@ func _build_menu() -> void:
 	remove_child(m)
 	scene.add_child(m)
 	scene.move_child(m, dust.get_index() if dust.get_parent() else -1)
-	_parallax.append([m, Vector2.ZERO, -3.0])
 	var v := _content
 	v.alignment = BoxContainer.ALIGNMENT_BEGIN
 	var space := Control.new()
@@ -362,8 +424,6 @@ func _build_menu() -> void:
 			var tw := title.create_tween().set_loops()
 			tw.tween_property(title, "scale", Vector2.ONE * 1.025, 2.4).set_trans(Tween.TRANS_SINE)
 			tw.tween_property(title, "scale", Vector2.ONE, 2.4).set_trans(Tween.TRANS_SINE)).call_deferred()
-	for e in _parallax:
-		(func(): e[1] = e[0].position).call_deferred()
 
 
 ## A point on the painted desk (fraction of bg_hd_raw.png) in screen pixels: the desk is drawn
@@ -383,7 +443,6 @@ func _free_screen() -> void:
 	elif _content:
 		_content.get_parent().queue_free()
 	_screen_root = null
-	_parallax.clear()
 	_candle_glow = null
 
 
@@ -2080,7 +2139,7 @@ func _process(delta: float) -> void:
 		var f := 0.62 if Tuning.reduce_motion else 0.62 + 0.1 * sin(ct * 11.0) * sin(ct * 6.7) + 0.06 * sin(ct * 2.3)
 		_candle_glow.modulate.a = f
 		_candle_glow.scale = Vector2.ONE * (0.97 + f * 0.05)
-	if not has_paper and _parallax.is_empty():
+	if not has_paper:
 		return
 	var g := Input.get_gravity()
 	var want: Vector2
@@ -2092,11 +2151,6 @@ func _process(delta: float) -> void:
 		var t := Time.get_ticks_msec() / 1000.0
 		want = Vector2(sin(t * 0.31), cos(t * 0.23)) * Tuning.TILT_DRIFT
 	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
-	for e in _parallax:  # menu layers: further back moves less (or the other way)
-		if is_instance_valid(e[0]):
-			e[0].position = e[1] + _tilt * e[2]
-	if not has_paper:
-		return
 	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
 	_paper.position = _tilt * Tuning.TILT_PX
 

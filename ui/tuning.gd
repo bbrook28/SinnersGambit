@@ -111,6 +111,12 @@ const PAGE_LIGHT := 0.14          # how much the candle pool brightens the parch
 const CANDLE_FLICKER := 0.25     # how much the candle pool wavers (0 = steady)
 const TILT_PX := 7.0              # the page slides this far at full tilt
 const TILT_SMOOTH := 4.0          # higher = follows the phone faster
+# Main menu windows (main._build_menu): centred row, lit glass, shafts onto the table.
+const MENU_WINDOW_MARGIN := 0.05   # side margin, fraction of screen width
+const MENU_SHAFT_LEN := 0.36       # shaft length, fraction of screen height
+const MENU_SHAFT_STRENGTH := 0.5
+const MENU_SHEEN_PERIOD := 9.0     # seconds between sheens across each window
+const MENU_HALO := 0.75            # halo and rim glow round each window (breathes 0.7x-1.35x)
 const TILT_DRIFT := 0.35          # desktop / no accelerometer: slow drift amplitude (in tilt units)
 const MARGINALIA_SCALE := 1.0     # corner figures drawn this much bigger than painted on the page
 
