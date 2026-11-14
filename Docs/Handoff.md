@@ -62,4 +62,5 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Art helpers in `ui/art.gd`; runtime textures baked by `tools/bake_art.gd` from `assets/art/*/raw` (ignored by Godot). Shaders: `flare` (window glow/dim), `tint` (banner/Bank recolour).
 - `debug_safe` on main fakes notch/home insets for desktop screenshots.
 - Numbers in Cinzel Bold (`Style.NUMERAL`, gold-leaf shader via `Style.number`); blackletter for words only. Bone dice art in `ui/widgets/die.gd` (scorers raised and lit, others sunk); painted desk background `runtime/bg.png`.
-- Still old: setup screen and Chronicle overlay widgets. Next: idle/trigger animations + marginalia (hook: sins/sin.gd log line), VFX (Docs/VFX.md), app icon.
+- Sin windows live: idle shimmer (`flare` shader, `phase` per seat) and ability flare (`flash` + scale punch) with a marginalia note under the plate, all driven from the ability log line in `main._ability_fired`.
+- Still old: setup screen and Chronicle overlay widgets. Next: VFX (Docs/VFX.md), app icon.

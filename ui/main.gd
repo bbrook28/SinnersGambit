@@ -67,6 +67,8 @@ var _waiting := true              # no human prompt showing
 var _log_lines: Array[String] = []
 var _log_overlay: Control
 var _log: RichTextLabel
+var _notes: Array = []           # marginalia currently showing, oldest first
+var _fired_re := RegEx.create_from_string("^\\s+(.+?)'s (.+?): (.*)$")  # sins/sin.gd fired()
 
 
 func _ready() -> void:
@@ -222,6 +224,7 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		win.set_anchors_preset(Control.PRESET_FULL_RECT)
 		win.material = Art.flare_material()
+		win.material.set_shader_parameter("phase", float(p.seat) * 0.37)  # shimmer out of step
 		if sname == "Greed":
 			win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))  # cold silver, not grey
 		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -276,7 +279,7 @@ func _build_glance(zone: VBoxContainer) -> void:
 			l.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_l.clip_text = true
 		col.add_child(plate)
-		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname, "mine": mine})
+		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname, "mine": mine, "col": col})
 
 
 ## Turn banner (in the current Sin's colour), the leather dice stage with the score as hero, then the log.
@@ -605,11 +608,82 @@ func player_name(p) -> String:
 
 func log_line(text: String) -> void:
 	_log_lines.append(text)
+	_ability_fired(text)
 	if _log:
 		_log.append_text(_with_sigils(Style.numbers(text)) + "\n")
 	if _ticker_text and text.strip_edges() != "":
 		var plain := RegEx.create_from_string("\\[[^\\]]*\\]").sub(text, "", true).strip_edges()
 		_ticker_text.text = _with_sigils(Style.numbers(plain))
+
+
+## Ability log lines ("  Gluttony's Feast: feeds a 3 ...") flare that Sin's window
+## and write a line of marginalia under its plate.
+func _ability_fired(text: String) -> void:
+	if _portraits.is_empty():
+		return
+	var m := _fired_re.search(text)
+	if m == null:
+		return
+	var who := m.get_string(1)
+	for pt in _portraits:
+		if (pt.mine and who == "You") or (not pt.mine and who == pt.sin):
+			_flare(pt)
+			_marginalia(pt, m.get_string(2), m.get_string(3))
+			return
+
+
+## Anticipation (slight draw-in), impact (white-hot, punch out), settle.
+func _flare(pt: Dictionary) -> void:
+	var win: TextureRect = pt.window
+	var mat: ShaderMaterial = win.material
+	win.pivot_offset = win.size / 2
+	if pt.has("flare_tw") and pt.flare_tw.is_valid():
+		pt.flare_tw.kill()
+	var tw := create_tween()
+	pt.flare_tw = tw
+	var set_flash := func(v: float): mat.set_shader_parameter("flash", v)
+	tw.tween_property(win, "scale", Vector2(0.96, 0.96), 0.06)
+	tw.tween_method(set_flash, 0.0, 1.0, 0.07)
+	tw.parallel().tween_property(win, "scale", Vector2(1.12, 1.12), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_method(set_flash, 1.0, 0.0, 0.5).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+## One short handwritten line under the Sin's plate: ability in gold, what it did in ivory. Fades away.
+func _marginalia(pt: Dictionary, ability: String, what: String) -> void:
+	_notes = _notes.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
+	while _notes.size() >= 2:  # at most two at once; the Chronicle keeps them all
+		_notes.pop_front().queue_free()
+	var w := 560.0
+	var note := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Style.C_BLACK, 0.88)
+	sb.border_color = Color(Style.SIN_COLORS[pt.sin], 0.9)
+	sb.border_width_left = 6
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(12)
+	sb.content_margin_left = 22
+	note.add_theme_stylebox_override("panel", sb)
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var text := Style.body("[color=#e9c46a]%s[/color]\n%s" % [ability, what], MIN_TEXT, Style.C_IVORY)
+	text.custom_minimum_size.x = w - 34
+	note.add_child(text)
+	var r: Rect2 = pt.col.get_global_rect()
+	var y := r.end.y + 6
+	for n in _notes:
+		y = maxf(y, n.position.y + maxf(n.size.y, 110.0) + 8)
+	note.position = Vector2(clampf(r.get_center().x - w / 2, 24.0, size.x - 24.0 - w), y - 10)
+	note.modulate.a = 0.0
+	add_child(note)
+	if _log_overlay:
+		move_child(note, _log_overlay.get_index())  # under the Chronicle
+	_notes.append(note)
+	var tw := note.create_tween()
+	tw.tween_property(note, "modulate:a", 1.0, 0.2)
+	tw.parallel().tween_property(note, "position:y", y, 0.35).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.0 if fast else 1.8)
+	tw.tween_property(note, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(note.queue_free)
 
 
 ## Puts each Sin's sigil before its name, so the log reads by shape as well as colour.
