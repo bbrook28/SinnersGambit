@@ -42,5 +42,8 @@
     ,{"asset_id": "9fa9ae7f-72b0-4e99-bbf5-24b2e47e4f47", "sha12": "5440539243eb", "label": "gluttony HD window (in use)", "file": "sins/raw/gluttony_hd_raw.png"}
     ,{"asset_id": "5ccf42ed-2f35-4351-83f1-c9e3bfcff076", "sha12": "6ed4d5cc21b5", "label": "sloth HD window (in use)", "file": "sins/raw/sloth_hd_raw.png"}
     ,{"asset_id": "b8883ea0-ecc5-4c7b-bdc2-43c90f29e0c2", "sha12": "300445c25a3d", "label": "HD candlelit table background (in use)", "file": "bg/raw/bg_hd_raw.png"}
+    ,{"asset_id": "d8ae89b1-cdc6-4af9-b767-51ff999abab7", "sha12": "f29fb993e894", "label": "Phase 3.5 painted seal sheet normal/pressed/cracked (in use)", "file": "seals/raw/seal_set_v2_raw.png"}
+    ,{"asset_id": "93099e73-8975-4c83-bd1c-28e113ed5488", "sha12": "d5629904cb65", "label": "Phase 3.5 painted ivory dice 1-6, 3x2 grid (in use)", "file": "dice/raw/dice_v2_raw.png"}
+    ,{"asset_id": "5a0dc0b6-92c4-44ad-bc28-45d8a13d2501", "sha12": "a898b0180ba0", "label": "Phase 3.5 stained-glass throw hand (in use)", "file": "extra/raw/throw_hand_v2_raw.png"}
   ]
 }

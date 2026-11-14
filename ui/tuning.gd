@@ -88,15 +88,30 @@ const VOL_MASTER := 0.0
 const VOL := {
 	"lift": -16.0, "shake": -10.0, "whoosh": -14.0,
 	"impact_light": -10.0, "impact": -8.0, "impact_heavy": -6.0,
-	"tick": -18.0, "throw": -4.0, "throw_one": -4.0,
-	"seal": -6.0, "plaque": -10.0,
-	"nail": -6.0, "nail_last": -3.0, "bell": -2.0, "crack": -6.0,
-	"coins": -4.0, "coins_small": -8.0, "buy": -6.0,
-	"banner_in": -8.0, "banner_out": -12.0,
-	"glass": -10.0, "glass_light": -10.0, "hit": -6.0, "stamp": -6.0, "card": -10.0, "win": -4.0,
+	"tick": -22.0, "throw": -4.0, "throw_one": -4.0,
+	"seal": -6.0, "plaque": -12.0,
+	"nail": -6.0, "nail_last": -3.0, "nail_toll": -10.0, "bell": -4.0, "crack": -8.0,
+	"coins": -10.0, "coins_small": -14.0, "buy": -8.0,
+	"banner_in": -10.0, "banner_out": -14.0,
+	"glass": -14.0, "glass_light": -10.0, "hit": -6.0, "stamp": -6.0, "card": -12.0, "win": -6.0,
 }
+## Base pitch per sound (Docs/AudioStyle.md: low and dark). 1.0 = as recorded / as synthesized.
+const SFX_PITCH := {
+	"lift": 0.8, "whoosh": 0.8, "banner_in": 0.75, "banner_out": 0.75, "card": 0.8,
+	"seal": 0.85, "stamp": 0.8, "nail": 0.85, "nail_last": 0.8, "crack": 0.85,
+	"impact_light": 0.9, "impact": 0.9, "impact_heavy": 0.85, "buy": 0.8, "hit": 0.8,
+	"glass_light": 0.8, "plaque": 0.9,
+}
+## Close, dry touches; everything else rings into the Nave bus (ui/sfx.gd).
+const SFX_DRY := ["plaque", "tick"]
+## The Nave bus: AudioEffectReverb plus a low-pass on everything but SFX_DRY.
+const NAVE_PREDELAY_MS := 40.0
+const NAVE_ROOM := 0.85
+const NAVE_DAMPING := 0.7
+const NAVE_WET := 0.28
+const NAVE_LOWPASS_HZ := 7000.0
 const PITCH_JITTER := 0.06          # random pitch spread so repeats don't sound identical
-const TICK_PITCH := Vector2(0.9, 1.7)  # count-up ticks rise from .x to .y across the count
+const TICK_PITCH := Vector2(0.8, 1.35) # count-up bell pings rise from .x to .y across the count
 const TICK_GAP := 0.045             # count-up ticks never come faster than this
 const SFX_GAP := 0.04               # the same sound never retriggers faster than this
 const SFX_VOICES := 16

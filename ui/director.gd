@@ -593,9 +593,7 @@ func _win(snap: Dictionary) -> void:
 	burst(_center(pt.window), 1.0, Style.C_GOLD)
 	burst(_center(pt.score), 1.0, Style.C_GOLD)
 	shake(0.8)
-	impact(1.0, "bell")
-	sfx.play("win", 1.0)
-	sfx.play("coins", 1.0)
+	impact(1.0, "win")  # one outcome gesture (Docs/AudioStyle.md): the organ chord and its bell
 	await q.wait(_hold() * 3)
 
 

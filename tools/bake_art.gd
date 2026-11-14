@@ -27,20 +27,21 @@ func _init() -> void:
 	_save(_fit_h(st[0], 160), OUT + "strike_empty.png")
 	_save(_fit_h(st[1], 200), OUT + "strike_struck.png")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "dice"))
-	# Inked ivory dice, 3x2 grid. Strikes (1 and 2) carry red ink: the art inks only the 1 red, so the 2 is re-inked.
-	var dice := _grid(_cut(_load("res://assets/art/dice/raw/dice_ink_a_raw.png")), 3, 2)
-	_red_ink(dice[1])
+	# Painted ivory dice (Phase 3.5), 3x2 grid; the art already inks both Strike faces (1 and 2) red.
+	var dice := _grid(_cut(_load("res://assets/art/dice/raw/dice_v2_raw.png")), 3, 2)
 	for i in 6:
 		_save(_fit_h(dice[i], 320), OUT + "dice/%d.png" % (i + 1))
 	# Wax seal (normal, pressed, cracked), gold-leaf numerals 1-9 (3x3 grid), marginalia throw hand.
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "seals"))
-	for state in ["normal", "pressed", "cracked"]:
-		var src: String = "seal_b" if state == "normal" else "seal_" + state
-		_save(_fit_h(_square(_cut(_load("res://assets/art/seals/raw/%s_raw.png" % src))), 512), OUT + "seals/%s.png" % state)
+	# Phase 3.5 seal sheet: normal, pressed, cracked in one row (one image, so the states match).
+	var seals := _split(_cut(_load("res://assets/art/seals/raw/seal_set_v2_raw.png")), 3)
+	var states := ["normal", "pressed", "cracked"]
+	for i in 3:
+		_save(_fit_h(_square(seals[i]), 512), OUT + "seals/%s.png" % states[i])
 	var nums := _grid(_cut(_load("res://assets/art/seals/raw/numerals_gold_b_raw.png")), 3, 3)
 	for i in 9:
 		_save(_fit_h(nums[i], 220), OUT + "seals/n%d.png" % (i + 1))
-	_save(_fit_h(_cut(_load("res://assets/art/extra/raw/throw_hand_a_raw.png")), 256), OUT + "throw_hand.png")
+	_save(_fit_h(_cut(_load("res://assets/art/extra/raw/throw_hand_v2_raw.png")), 256), OUT + "throw_hand.png")
 	# Thumb-zone page: slim vine border, marginalia only in the corners (9-sliced in ui/main.gd).
 	# The jester, pennant and skeleton are keyed out into their own sprites (they react in play,
 	# ui/director.gd) and their spots on the page are filled with plain parchment.
