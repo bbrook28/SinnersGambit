@@ -70,3 +70,10 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - `ui/action_queue.gd`: every log line, turn change and prompt is a queued beat; `view.beat()` drains the queue, so the rules never run ahead of the screen. Speed 1x/2x/4x (seal by the log strip, saved in `user://settings.cfg`). Tap = finish beat, double tap = skip to your next decision.
 - `ui/events.gd`: log line -> event kind + beat length (regex table; unknown lines get a 0.35 s log beat).
 - `main._refresh(snapshot)` draws state copied when the event happened; the per-frame live refresh is gone.
+
+## UX pass, step 2: directed presentation (2026-11-13)
+- Ben's rules: one focal point at a time, four phases per beat (anticipation 0.3, action 0.4, impact 0.15, hold 0.4), values travel source to destination then count up, full-width turn banner (0.35 in, 0.8 hold, 0.35 out), bot think 0.6 + chosen move enlarged at centre, pulse what you can tap and hint Roll after 4 s idle, bigger results get bigger staging.
+- `ui/tuning.gd`: every duration and intensity; `Tuning.speed` is the global multiplier (debug slider top right, `SHOW_DEBUG_SLIDER`; the seal steps 1x/2x/4x; saved in `user://settings.cfg`).
+- `ui/director.gd`: focus (dims other groups to `DIM`), fly / count / punch / lift / shake / burst / flash / stamp / haptic, and one handler per event kind. Anything unhandled goes through `_effects_from`, which flies every changed number from a source to its plate or the turn total.
+- `main._refresh(snap, parts)` draws only the parts a beat hasn't animated itself. Dice sit in fixed holders (`main._dice_nodes`) so they can be thrown and spun.
+- At 1x a bot turn is about 20 s. Not yet done: Sin windows reacting, light shafts, haptics checked on device.

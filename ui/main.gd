@@ -14,6 +14,8 @@ const Frame = preload("res://ui/widgets/frame.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const CANDLE_BG = preload("res://ui/shaders/candle_bg.gdshader")
 const ActionQueue = preload("res://ui/action_queue.gd")
+const Director = preload("res://ui/director.gd")
+const Tuning = preload("res://ui/tuning.gd")
 const Events = preload("res://ui/events.gd")
 const SETTINGS := "user://settings.cfg"
 const SPEEDS := [1.0, 2.0, 4.0]
@@ -75,18 +77,31 @@ var _notes: Array = []           # marginalia currently showing, oldest first
 ## Every state change plays through this, one beat at a time (Docs/UXPass.md). The board shows
 ## the snapshot taken when the event happened, never the live rules state.
 var _q: Node
+var _dir: Node                    # ui/director.gd: stages each beat
+var _fx: Control                  # flying numbers, stamps, particles, banners (above the board)
+var _board: Control               # the page root (screen shake moves it)
+var _banner: Control
+var _turn_row: Control
+var _log_row: Control
+var _thumb: Control
+var _desk: Control
+var _dice_nodes: Array = []       # the Die controls showing now, in face order
+var _last_snap := {}              # the state as of the last queued event (the next one's "before")
+var _focus_groups := {}
 var _speed_label: Label
+var _speed_slider: HSlider
 var _last_tap := -1.0
-var _fired_re := RegEx.create_from_string("^\\s+(.+?)'s (.+?): (.*)$")  # sins/sin.gd fired()
 
 
 func _ready() -> void:
 	theme = Style.make_theme()
 	_q = ActionQueue.new()
 	add_child(_q)
+	_dir = Director.new()
+	add_child(_dir)
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS) == OK:
-		_q.speed = float(cfg.get_value("ui", "speed", 1.0))
+		Tuning.speed = clampf(float(cfg.get_value("ui", "speed", 1.0)), Tuning.SPEED_MIN, Tuning.SPEED_MAX)
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var m := ShaderMaterial.new()
@@ -102,6 +117,7 @@ func _ready() -> void:
 	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	desk.modulate = Color(0.78, 0.74, 0.7)  # keep the desk behind the UI, not competing
 	add_child(desk)
+	_desk = desk
 	_build_setup()
 
 
@@ -182,7 +198,57 @@ func _build_board() -> void:
 	_build_glance(glance)
 	_build_stage(stage)
 	_build_thumb(thumb)
+	_board = _content.get_parent()
+	_fx = Control.new()
+	_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fx)
+	_dir.setup(self, _q, _fx)
+	# What the director can dim or spotlight: one entry per thing the eye might land on.
+	for i in _portraits.size():
+		_focus_groups["seat%d" % i] = _portraits[i].col
+	_focus_groups["banner"] = _banner
+	_focus_groups["dice"] = _dice_area
+	_focus_groups["throw"] = _throw_label
+	_focus_groups["turn"] = _turn_row
+	_focus_groups["log"] = _log_row
+	_focus_groups["thumb"] = _thumb
+	_focus_groups["desk"] = _desk
+	if Tuning.SHOW_DEBUG_SLIDER:
+		_build_speed_slider()
 	_build_log_overlay()
+
+
+func focus_groups() -> Dictionary:
+	return _focus_groups
+
+
+## Debug: global speed multiplier, on screen. Default 1.0 = the timings in ui/tuning.gd.
+func _build_speed_slider() -> void:
+	var box := HBoxContainer.new()
+	box.position = Vector2(size.x - 470, maxf(8.0, _safe_insets().x - 64))
+	box.size = Vector2(450, 56)
+	box.add_theme_constant_override("separation", 10)
+	var l := Style.label("", 30, Style.C_BONE, false, 6)
+	l.add_theme_font_override("font", Style.NUMERAL)
+	l.custom_minimum_size.x = 170
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_speed_slider = HSlider.new()
+	_speed_slider.min_value = Tuning.SPEED_MIN
+	_speed_slider.max_value = Tuning.SPEED_MAX
+	_speed_slider.step = 0.05
+	_speed_slider.value = Tuning.speed
+	_speed_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_speed_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_speed_slider.custom_minimum_size.y = 48
+	var show := func(v: float): l.text = "speed %.2f" % v
+	show.call(Tuning.speed)
+	_speed_slider.value_changed.connect(func(v: float):
+		show.call(v)
+		_set_speed(v))
+	box.add_child(l)
+	box.add_child(_speed_slider)
+	add_child(box)
 
 
 func _zone(ratio: float) -> VBoxContainer:
@@ -320,6 +386,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	bh.add_child(_banner_text)
 	banner.add_child(bh)
 	zone.add_child(banner)
+	_banner = banner
 
 	# Dice stage: leather in a brass rule. Shadows fall left (candle to the right).
 	var tray := Control.new()
@@ -379,11 +446,13 @@ func _build_stage(zone: VBoxContainer) -> void:
 		srow.add_child(t)
 		_strike_icons.append(t)
 	tv.add_child(srow)
+	_turn_row = srow
 	zone.add_child(tray)
 
 	# Log strip (tap = Chronicle) and the fast-bots seal, clear of every screen edge.
 	var lrow := HBoxContainer.new()
 	lrow.custom_minimum_size.y = 104
+	_log_row = lrow
 	lrow.add_theme_constant_override("separation", 14)
 	_ticker = Button.new()
 	_ticker.flat = true
@@ -431,6 +500,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 ## Darkened parchment page: the prompt line, then the seals. Roll sits under the right thumb.
 func _build_thumb(zone: VBoxContainer) -> void:
 	var page := Control.new()
+	_thumb = page
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var paper := Art.framed(Art.PAGE, [240, 50, 240, 50], 0.5)
@@ -488,18 +558,29 @@ func _build_log_overlay() -> void:
 	add_child(_log_overlay)
 
 
+## The seal steps 1x, 2x, 4x; the debug slider sets any value. Both write Tuning.speed, saved.
 func _cycle_speed() -> void:
-	_q.speed = SPEEDS[(SPEEDS.find(_q.speed) + 1) % SPEEDS.size()]
+	var i := 0
+	while i < SPEEDS.size() and SPEEDS[i] <= Tuning.speed + 0.01:
+		i += 1
+	_set_speed(SPEEDS[i % SPEEDS.size()])
+	if _speed_slider:
+		_speed_slider.set_value_no_signal(Tuning.speed)
+		_speed_slider.value_changed.emit(Tuning.speed)
+
+
+func _set_speed(v: float) -> void:
+	Tuning.speed = clampf(v, Tuning.SPEED_MIN, Tuning.SPEED_MAX)
 	_show_speed()
 	var cfg := ConfigFile.new()
 	cfg.load(SETTINGS)
-	cfg.set_value("ui", "speed", _q.speed)
+	cfg.set_value("ui", "speed", Tuning.speed)
 	cfg.save(SETTINGS)
 
 
 func _show_speed() -> void:
 	if _speed_label:
-		_speed_label.text = "%dx" % int(_q.speed)
+		_speed_label.text = ("%dx" % int(Tuning.speed)) if is_equal_approx(Tuning.speed, roundf(Tuning.speed)) else ("%.2gx" % Tuning.speed)
 
 
 ## Tap anywhere that isn't a button: finish the current beat. Double tap: skip to your next decision.
@@ -543,58 +624,79 @@ func _snapshot() -> Dictionary:
 	return s
 
 
-func _refresh(s: Dictionary) -> void:
+const ALL_PARTS := ["plates", "glow", "banner", "dice", "throw", "turn", "strikes", "prompt"]
+
+
+## Draws a snapshot. parts: only those pieces (the director animates the rest itself).
+func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 	var cur_i: int = s.cur
 	for i in game.players.size():
 		var ps: Dictionary = s.players[i]
 		var pt: Dictionary = _portraits[i]
-		pt.score.text = str(ps.score)
-		pt.dice.text = str(ps.dice)
-		var tag: String = ps.tag
-		var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
-		if pt.name.text != nm:
-			pt.name.text = nm
-			_fit_label(pt.name, MIN_TEXT, 30)
-		pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
-		var lit: bool = i == cur_i
-		pt.glow.modulate.a = 1.0 if lit else 0.35
-		var m: ShaderMaterial = pt.window.material
-		m.set_shader_parameter("glow", 0.6 if lit else 0.0)
-		m.set_shader_parameter("dim", 0.0 if lit else (0.55 if ps.purg else 0.15))
-
+		if "plates" in parts:
+			_refresh_plate(pt, ps)
+		if "glow" in parts:
+			var lit: bool = i == cur_i
+			pt.glow.modulate.a = 1.0 if lit else 0.35
+			var m: ShaderMaterial = pt.window.material
+			m.set_shader_parameter("glow", 0.6 if lit else 0.0)
+			m.set_shader_parameter("dim", 0.0 if lit else (0.55 if ps.purg else 0.15))
 	if cur_i < 0 or not s.has("turn"):
 		return
 	var cur = game.players[cur_i]
 	var t: Dictionary = s.turn
-	if not s.winner:
+	if "banner" in parts and not s.winner:
 		_set_banner("Your turn" if cur.bot == human else "%s's turn" % player_name(cur), cur)
 	var faces: Array = t.faces
-	_show_dice(faces)
-	var scorers := 0
-	for f in faces:
-		if f >= 4:
-			scorers += 1
-	var mult: float = 1.0 + game.chain * maxi(0, scorers - 1)
-	var text := ""
-	var size := SCORE_SIZE
-	if t.throws > 0:
-		var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
-		text = "+%d  x%.1f" % [pts, mult] if pts > 0 else "+0"
-	elif faces.size() > 0:
-		text = "Redemption: need a 6"
-		size = 72
-	_throw_label.text = text
-	_throw_label.add_theme_font_size_override("font_size", size)
-	if _turn_label.get_meta("pts", -1) != t.points:
-		_turn_label.set_meta("pts", t.points)
-		Style.set_body(_turn_label, "This turn %d" % t.points)
-	for i in _strike_icons.size():
-		_strike_icons[i].texture = Art.STRIKE_STRUCK if i < t.strikes else Art.STRIKE_EMPTY
-	if _waiting and not s.winner:
-		var wait_text := "%s %s at the dice." % [player_name(cur), "are" if cur.bot == human else "is"]
-		if _prompt_label.get_meta("wait", "") != wait_text:
-			_prompt_label.set_meta("wait", wait_text)
-			Style.set_body(_prompt_label, "[color=#%s]%s[/color]" % [Style.C_INK.lightened(0.2).to_html(false), wait_text])
+	if "dice" in parts:
+		_show_dice(faces)
+	if "throw" in parts:
+		var text := ""
+		var size := SCORE_SIZE
+		if t.throws > 0:
+			var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
+			text = "+%d" % pts
+		elif faces.size() > 0:
+			text = "Redemption: need a 6"
+			size = 72
+		_throw_label.text = text
+		_throw_label.add_theme_font_size_override("font_size", size)
+	if "turn" in parts:
+		set_turn_points(t.points)
+	if "strikes" in parts:
+		for i in _strike_icons.size():
+			_strike_icons[i].texture = Art.STRIKE_STRUCK if i < t.strikes else Art.STRIKE_EMPTY
+	if "prompt" in parts and _waiting and not s.winner:
+		set_waiting_text("%s %s at the dice." % [player_name(cur), "are" if cur.bot == human else "is"])
+
+
+func set_turn_points(v: int) -> void:
+	if _turn_label.get_meta("pts", -1) != v:
+		_turn_label.set_meta("pts", v)
+		Style.set_body(_turn_label, "This turn %d" % v)
+
+
+## The line on the page while it isn't your move ("Wrath is thinking...").
+func set_waiting_text(text: String) -> void:
+	if not _waiting or _prompt_label.get_meta("wait", "") == text:
+		return
+	_prompt_label.set_meta("wait", text)
+	Style.set_body(_prompt_label, "[color=#%s]%s[/color]" % [Style.C_INK.lightened(0.2).to_html(false), text])
+
+
+func show_ticker(text: String) -> void:
+	_show_log(text)
+
+
+func _refresh_plate(pt: Dictionary, ps: Dictionary) -> void:
+	pt.score.text = str(ps.score)
+	pt.dice.text = str(ps.dice)
+	var tag: String = ps.tag
+	var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
+	if pt.name.text != nm:
+		pt.name.text = nm
+		_fit_label(pt.name, MIN_TEXT, 30)
+	pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
 
 
 ## Drop cap image for the first letter, the rest in blackletter, banner tinted in the Sin's colour.
@@ -642,6 +744,7 @@ func _show_dice(faces: Array) -> void:
 	_dice_row.set_meta("key", key)
 	for c in _dice_row.get_children():
 		c.queue_free()
+	_dice_nodes.clear()
 	var n := faces.size()
 	if n == 0:
 		return
@@ -653,8 +756,18 @@ func _show_dice(faces: Array) -> void:
 	side = minf(side, (area.y - gap * (rows - 1)) / rows)
 	side = maxf(side, 60.0)
 	_dice_row.offset_top = maxf(0.0, (area.y - rows * side - (rows - 1) * gap) / 2.0)
+	# Each die sits in a fixed holder so the director can throw, lift and spin it without the flow
+	# container snapping it back.
 	for i in n:
-		_dice_row.add_child(Die.new(faces[i], int(side), i * 7 + faces[i]))
+		var holder := Control.new()
+		holder.custom_minimum_size = Vector2(side, side)
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var d = Die.new(faces[i], int(side), i * 7 + faces[i])
+		d.size = Vector2(side, side)
+		d.pivot_offset = Vector2(side, side) / 2
+		holder.add_child(d)
+		_dice_row.add_child(holder)
+		_dice_nodes.append(d)
 
 
 # ---------- Called by core/game.gd and ui/human.gd ----------
@@ -671,13 +784,10 @@ func log_line(text: String) -> void:
 		_show_log(text)
 		return
 	var snap := _snapshot()
+	var prev := _last_snap
+	_last_snap = snap
 	var ev := Events.classify(text)
-	_q.push(func():
-		_show_log(text)
-		_refresh(snap)
-		if ev.kind == "ability":
-			_ability_fired(text)
-		await _q.wait(ev.dur))
+	_q.push(func(): await _dir.play(text, ev, prev, snap))
 
 
 func _show_log(text: String) -> void:
@@ -687,22 +797,6 @@ func _show_log(text: String) -> void:
 	if _ticker_text and text.strip_edges() != "":
 		var plain := RegEx.create_from_string("\\[[^\\]]*\\]").sub(text, "", true).strip_edges()
 		_ticker_text.text = _with_sigils(Style.numbers(plain))
-
-
-## Ability log lines ("  Gluttony's Feast: feeds a 3 ...") flare that Sin's window
-## and write a line of marginalia under its plate.
-func _ability_fired(text: String) -> void:
-	if _portraits.is_empty():
-		return
-	var m := _fired_re.search(text)
-	if m == null:
-		return
-	var who := m.get_string(1)
-	for pt in _portraits:
-		if (pt.mine and who == "You") or (not pt.mine and who == pt.sin):
-			_flare(pt)
-			_marginalia(pt, m.get_string(2), m.get_string(3))
-			return
 
 
 ## Anticipation (slight draw-in), impact (white-hot, punch out), settle.
@@ -722,8 +816,9 @@ func _flare(pt: Dictionary) -> void:
 	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-## One short handwritten line under the Sin's plate: ability in gold, what it did in ivory. Fades away.
-func _marginalia(pt: Dictionary, ability: String, what: String) -> void:
+## One short handwritten line under the Sin's plate: ability in gold, what it did in ivory.
+## Returned so the director can take it away when its beat ends.
+func _marginalia(pt: Dictionary, ability: String, what: String) -> Control:
 	_notes = _notes.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
 	while _notes.size() >= 2:  # at most two at once; the Chronicle keeps them all
 		_notes.pop_front().queue_free()
@@ -753,10 +848,8 @@ func _marginalia(pt: Dictionary, ability: String, what: String) -> void:
 	_notes.append(note)
 	var tw: Tween = _q.tween(note)
 	tw.tween_property(note, "modulate:a", 1.0, 0.2)
-	tw.parallel().tween_property(note, "position:y", y, 0.35).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(1.8)
-	tw.tween_property(note, "modulate:a", 0.0, 0.4)
-	tw.tween_callback(note.queue_free)
+	tw.parallel().tween_property(note, "position:y", y, Tuning.ACTION).set_ease(Tween.EASE_OUT)
+	return note
 
 
 ## Puts each Sin's sigil before its name, so the log reads by shape as well as colour.
@@ -769,29 +862,34 @@ func _with_sigils(bb: String) -> String:
 ## Turn change: its own beat (longer when it's yours). Docs/UXPass.md #1.
 func turn_started(p) -> void:
 	var snap := _snapshot()
+	_last_snap = snap
 	var header := "[color=#e9c46a]-- %s (%d) --[/color]" % [player_name(p), p.score]
 	_q.push(func():
 		_show_log("")
 		_show_log(header)
-		_refresh(snap)
-		await _q.wait(0.9 if p.bot == human else 0.6))
+		await _dir.turn_change(p, snap))
 
 
 ## core/game.gd awaits this after a throw, a bust and at the end of a turn: let the screen catch up
 ## (and show the state as it stands now, e.g. Purgatory after a bust) before the rules go on.
 func beat(_p, _kind: String) -> void:
 	var snap := _snapshot()
-	_q.push(func(): _refresh(snap))
+	_last_snap = snap
+	_q.push(func(): _refresh(snap, ["plates", "glow", "banner", "turn", "strikes"]))
 	await _q.drain()
 
 
 ## Queued like everything else, so the buttons only appear once the board has caught up.
+## Then the director pulses what you can tap and dims the rest.
 func show_prompt(text: String, options: Array) -> void:
 	_q.push(func():
 		_q.skip_all = false  # "skip to my next decision" ends here
 		if game and not _portraits.is_empty():
-			_refresh(_snapshot())
-		_show_prompt_now(text, options))
+			_refresh(_snapshot(), ["plates", "glow", "banner", "turn", "strikes"])
+		_show_prompt_now(text, options)
+		await get_tree().process_frame  # buttons placed
+		_layout_buttons()
+		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())))
 
 
 ## Dice counts become Roll (the most dice, crimson, right thumb) plus small "fewer" seals;
@@ -834,6 +932,13 @@ func _show_prompt_now(text: String, options: Array) -> void:
 		b.add_theme_color_override("font_hover_color", Style.C_IVORY)
 		b.add_theme_color_override("font_pressed_color", Style.C_BONE)
 		b.add_theme_constant_override("line_spacing", -14)
+		# Tactile: the seal presses in under the finger and springs back.
+		b.button_down.connect(func():
+			_dir.prompt_answered()
+			b.pivot_offset = b.size / 2
+			b.create_tween().tween_property(b, "scale", Vector2.ONE * 0.9, 0.06))
+		b.button_up.connect(func():
+			b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 		b.pressed.connect(func(): human.answered.emit(o[1]))
 		_buttons.add_child(b)
 	_layout_buttons.call_deferred()
