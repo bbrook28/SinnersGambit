@@ -16,7 +16,7 @@ Plan and balance notes: `Docs/Plan.md`.
 
 ## Run the sim
 Table game (V2 vs V3, win share per Sin): `godot --headless --path . --script res://sim/check_v3.gd [-- games]`
-Run mode (`Docs/RunDesign.md`): `sim/run_sim.gd`, rebuilt in Phase 8. The old `run_sim.gd` hasn't parsed since `cf24783`.
+Run mode (`Docs/RunDesign.md` §11): `godot --headless --path . --script res://sim/run_sim.gd -- runs=20 [sin=Lust] [key=JSON cfg override]` (about 15 s a run; run one process per Sin in parallel with `out=<dir>/part_X.json`, then `-- merge=<dir>`). Smoke-test one run before going parallel: a script that fails to load pops a Windows alert per process.
 
 ## About Ben
 Game/level designer, expert in UE5/Blueprint/combat design. Reads code; Claude writes it, Ben reviews. Judges feel himself.

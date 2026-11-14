@@ -12,6 +12,7 @@ static var reduce_motion := false  # Settings: no shake, tilt, idle breathing, f
 const SPEED_MIN := 0.25
 const SPEED_MAX := 4.0
 const SHOW_DEBUG_SLIDER := false  # the on-screen speed slider (debug only)
+const TABLE_MODE := false  # debug: the old bot-table game on the menu ("Table (old)"); off in tester builds
 
 # ---- The four phases of every beat ----
 const ANTICIPATION := 0.3    # the element lifts / pulses

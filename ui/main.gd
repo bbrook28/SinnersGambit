@@ -19,6 +19,9 @@ const ActionQueue = preload("res://ui/action_queue.gd")
 const Director = preload("res://ui/director.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const Events = preload("res://ui/events.gd")
+const RunState = preload("res://run/run_state.gd")
+const RunBoard = preload("res://ui/run_board.gd")
+const Kits = preload("res://run/kits.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 2  # 2: Rules.V3 and First Game mode (a V2 save can't replay)
@@ -100,6 +103,9 @@ var _inking := {}                 # lettering label -> ink-in progress 0..1 (_se
 var _wash: ColorRect                # full-screen ink for screen transitions (_ink_wash)
 static var _wash_on_load := false   # a New game reload starts under the ink and washes it away
 static var _setup_on_load := false  # ...and opens on the Sin choice, not the menu
+static var _run_setup_on_load := false  # New run: the reload opens the run's Sin choice
+var run_rules_seen := false        # the one rules card for the run game has been shown
+var _run_board: Control
 var _starting := false
 var _save := {}                    # the game in progress, as written to SAVE
 var _replaying := false            # Continue: replaying saved answers under the ink
@@ -153,6 +159,7 @@ func _ready() -> void:
 		Tuning.music_vol = clampf(float(cfg.get_value("ui", "music", Tuning.music_vol)), 0.0, 1.0)
 		Tuning.haptics = bool(cfg.get_value("ui", "haptics", true))
 		tutorial_pending = not bool(cfg.get_value("ui", "tutorial_done", false))
+		run_rules_seen = bool(cfg.get_value("ui", "run_rules_seen", false))
 		games_finished = int(cfg.get_value("ui", "games_finished", 0))
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
@@ -186,6 +193,9 @@ func _ready() -> void:
 	if _tutorial_on_load:  # Settings > Tutorial > Play
 		_tutorial_on_load = false
 		start_tutorial(_tutorial_from_settings)
+	elif _run_setup_on_load:
+		_run_setup_on_load = false
+		_build_run_setup()
 	elif _setup_on_load:  # New game goes straight to choosing a Sin
 		_setup_on_load = false
 		_build_setup()
@@ -396,9 +406,19 @@ func _build_menu() -> void:
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(fill)
-	var saved := load_save()
-	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
-	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
+	# Play is the solo run (Docs/RunDesign.md). Continue resumes a run at its shop. The old table
+	# game is a debug seal (Tuning.TABLE_MODE).
+	var saved := {}
+	var saved_run = RunBoard.load_run()
+	var play := _menu_seal("Play", MENU_PLAY, _open_run_setup)
+	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start_run("", saved_run))
+	if saved_run == null:
+		saved = {}
+	else:
+		saved = {"run": true}
+	var table: Button = _menu_seal(RulesText.run("menu_table"), MENU_SEAL, _open_setup) if Tuning.TABLE_MODE else null
+	if table:
+		table.set_meta("kind", "table_old")
 	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
 	var rules := _menu_seal("Rulebook", MENU_SEAL, func(): open_rulebook("contents"))
 	var top_row := CenterContainer.new()
@@ -416,15 +436,17 @@ func _build_menu() -> void:
 		cont.queue_free()
 	row.add_child(rules)
 	row.add_child(settings)
+	if table:
+		row.add_child(table)
 	v.add_child(row)
 	var foot := Control.new()
 	foot.custom_minimum_size.y = 40
 	v.add_child(foot)
-	_menu_seals = [play, rules, settings] + ([cont] if not saved.is_empty() else [])
+	_menu_seals = [play, rules, settings] + ([cont] if not saved.is_empty() else []) + ([table] if table else [])
 	# Once laid out: ink the words in, bring the seals in, then let the title breathe.
 	(func():
 		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
-		_set_lettering(sub, "Choose your Sin, push your luck, and be the first to %d." % Rules.WIN_SCORE, Style.C_STRIKE)
+		_set_lettering(sub, RulesText.run("menu_sub"), Style.C_STRIKE)
 		_dir.seals_enter(_menu_seals)
 		if not Tuning.reduce_motion:
 			title.pivot_offset = title.size / 2
@@ -495,6 +517,87 @@ func _open_setup() -> void:
 	_ink_wash(false)
 
 
+# ---------- Run mode (Docs/RunDesign.md; placeholder board ui/run_board.gd) ----------
+
+## Play: the ink washes over the title page and the run's Sin choice is under it.
+func _open_run_setup() -> void:
+	if _starting:
+		return
+	_starting = true
+	await _ink_wash(true)
+	_dir._stop_pulses()
+	_free_screen()
+	_build_run_setup()
+	_starting = false
+	if _wash:
+		move_child(_wash, -1)
+	_ink_wash(false)
+
+
+## The Sin carousel, each page showing that Sin's starting kit.
+func _build_run_setup() -> void:
+	_content = _page()
+	var m := _content.get_parent() as MarginContainer
+	m.add_theme_constant_override("margin_left", int(SIDE_MIN))
+	m.add_theme_constant_override("margin_right", int(SIDE_MIN))
+	_content.add_theme_constant_override("separation", int(GAP_MIN))
+	var title := _make_lettering(100, Style.C_GOLD, true)
+	title.add_theme_constant_override("outline_size", 12)
+	title.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.01))
+	_content.add_child(title)
+	_content.add_child(Style.body(RulesText.run("setup_blurb"), 34, Style.C_BONE, 8))
+	var cfg := RunState.default_cfg()
+	var kits := {}
+	for s in Kits.ORDER:
+		kits[s] = Kits.text(s, cfg) + ("  (%d dice)" % Kits.dice_count(s, cfg) if Kits.dice_count(s, cfg) != cfg.start_dice else "")
+	var names: Array = SIN_SCRIPTS.map(func(s): return s.new().sin_name)
+	var car = SinCarousel.new(names, false, _dir.sfx, kits)
+	car.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content.add_child(car)
+	var choose := _menu_seal(RulesText.word("setup_choose"), Tuning.SELECT_CHOOSE, func(): _start_run(names[car.index]))
+	choose.set_meta("kind", "choose")
+	var cc := CenterContainer.new()
+	cc.add_child(choose)
+	_content.add_child(cc)
+	(func():
+		_set_lettering(title, RulesText.run("setup_title"), Style.C_CRIMSON)
+		_dir.seals_enter([choose])).call_deferred()
+
+
+## Starts a run as `sin`, or resumes a saved one at its shop.
+func _start_run(sin: String, saved_run = null) -> void:
+	if _starting:
+		return
+	_starting = true
+	await _ink_wash(true)
+	_free_screen()
+	_content = null
+	var run = saved_run
+	if run == null:
+		RunBoard.clear_save()
+		run = RunState.new()
+		run.start(sin, randi())
+	var board = RunBoard.new()
+	board.setup(self, run)
+	board.show_rules = not run_rules_seen and saved_run == null
+	if board.show_rules:
+		run_rules_seen = true
+		_save_settings()
+	board.to_menu.connect(_to_menu)
+	board.new_run.connect(func():
+		_wash_on_load = true
+		_run_setup_on_load = true
+		await _ink_wash(true)
+		get_tree().reload_current_scene())
+	add_child(board)
+	_run_board = board
+	_screen_root = board
+	if _wash:
+		move_child(_wash, -1)
+	_starting = false
+	_ink_wash(false)
+
+
 ## Settings turn in like a page over whatever is showing: speed, sound, Reduce Motion.
 func _open_settings() -> void:
 	var ov := Control.new()
@@ -544,9 +647,18 @@ func _open_settings() -> void:
 	_setting_row(v, "Reduce Motion", _segmented(["On", "Off"], 0 if Tuning.reduce_motion else 1, func(i: int):
 		Tuning.reduce_motion = i == 0
 		_save_settings()))
-	var tut := _segmented([RulesText.tutorial("settings_play")], -1, func(_i: int):
-		_replay_tutorial())
-	_setting_row(v, "Tutorial", tut)
+	if Tuning.TABLE_MODE:  # the old tutorial teaches the table game
+		var tut := _segmented([RulesText.tutorial("settings_play")], -1, func(_i: int):
+			_replay_tutorial())
+		_setting_row(v, "Tutorial", tut)
+	# Debug: the run log to the clipboard (and Documents where allowed); the button says how many.
+	var exp := _segmented([RulesText.run("export_log")], -1, func(_i: int): pass)
+	for b in exp.get_children():
+		b.set_meta("kind", "export_log")
+		b.pressed.connect(func():
+			var n := RunBoard.export_log()
+			b.text = RulesText.run("exported_short", {"n": n}))
+	_setting_row(v, "Run log", exp)
 	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
 	var bc := CenterContainer.new()
 	bc.add_child(back)
@@ -1509,6 +1621,7 @@ func _save_settings() -> void:
 	cfg.set_value("ui", "reduce_motion", Tuning.reduce_motion)
 	cfg.set_value("ui", "table", Tuning.table_size)
 	cfg.set_value("ui", "games_finished", games_finished)
+	cfg.set_value("ui", "run_rules_seen", run_rules_seen)
 	cfg.save(SETTINGS)
 
 

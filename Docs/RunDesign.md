@@ -1,24 +1,24 @@
-# Run design (Phase 7, revision 2, approved for Phase 8 2026-11-14)
+# Run design (revision 3: Phase 8 sim numbers, 2026-11-14; revision 2 approved for Phase 8)
 Solo roguelike runs replace the bot table. Keep: throw, push your luck, Bank, bust, all the art. Strikes are gone: you bust when a throw has nothing you can keep. Numbers are starting guesses; the Phase 8 sim sets them. Points in multiples of 5, Mult and gold in whole numbers, multipliers only "x2", no percentages.
 
 ## 1. Run structure
 - Pick a Sin (your starting kit). A run is **7 Circles** of three rounds: two trials, then the Sin who rules it. Each round: reach the target in **3 turns**. Reaching it ends the round; unused turns pay gold. Missing it ends the run.
 - Circles 1-6 are ruled by the other six Sins; only mild twists (Sloth, Greed, Envy) may rule Circles 1-2. Circle 7 is your own Sin, turned against you. The next ruling Sin and its twist are shown in the shop.
-- Targets (trial / trial / Sin; a full run takes about 22-28 minutes, §11): C1 1000 / 1500 / 2000, C2 2000 / 3000 / 4000, C3 3500 / 5000 / 7000, C4 6000 / 9000 / 12000, C5 10000 / 15000 / 20000, C6 16000 / 24000 / 32000, C7 25000 / 40000 / 50000. C1's trial is about 1.2 average turns of the start kit (820); later Circles assume relics. Aim: a good bot clears C1 95%, C4 60%, wins 40%.
+- Targets (trial / trial / Sin; tuned by the Phase 8 run sim, §11): C1 800 / 1000 / 1200, C2 2000 / 3000 / 3500, C3 3500 / 5500 / 7000, C4 7000 / 10000 / 12000, C5 10000 / 13000 / 15000, C6 14000 / 17000 / 18000, C7 17000 / 20000 / 21000. A Sin's round target is the table's times its twist factor (§2), to the nearest 100. Aim (Ben, Phase 8): the best bot clears C1 99%, C4 80%, wins 60-70%; harder play comes from Vows (§9). Late targets are nearly flat because the bot's builds stop growing after C5 (5 relic slots, 8 dice); Phase 11's bigger pool should let them ramp.
 
-## 2. Ruling Sins: one twist each (window fills the screen, twist in one line, then it shrinks to its seat)
+## 2. Ruling Sins: one twist each, in that Sin's round only (window fills the screen, twist in one line, then it shrinks to its seat). Factor = the round's target multiplier.
 | Sin | Twist | |
 |---|---|---|
-| Sloth | You throw one fewer die. | mild |
-| Greed | Each Bank costs 1 gold; with none, it scores half (to a multiple of 5). | mild |
-| Envy | Each turn, Envy takes one of your relics at random. | mild |
-| Lust | Single dice score no Points. | |
-| Wrath | Each die you leave unkept costs 10 Points (never below 0). | |
-| Pride | Each Bank must beat your last, or it scores 0. | |
-| Gluttony | Each Bank, Gluttony eats one of your dice (never below one; back after). | |
+| Sloth | You throw one fewer die. | mild, x0.9 |
+| Greed | Each Bank costs 1 gold; with none, it scores half (to a multiple of 5). | mild, x1.15 |
+| Envy | Each turn, Envy takes one of your relics at random, until the round ends. | mild, x0.7 |
+| Lust | Single dice score no Points. | x0.85 |
+| Wrath | Each die you leave unkept costs 10 Points (never below 0). | x0.75 |
+| Pride | Each Bank must beat your last Bank this round, or it scores 0. | x0.6 |
+| Gluttony | Each Bank, Gluttony eats one of your dice (never below one; back after the round). | x0.85 |
 
 ## 3. Scoring: keep and rethrow, Points x Mult
-After each throw, tap the dice to keep; you must keep at least one group. Then rethrow the rest, or Bank.
+After each throw, tap the dice to keep; you must keep at least one group. A tap keeps a die's whole group (all dice of that face); you can't split a set. Then rethrow the rest, or Bank. Tightening singles to 5 and 6 was tried in the sim and rejected (§11).
 | You can keep | Points | Mult |
 |---|---|---|
 | A single 4, 5 or 6 | 20 / 25 / 30 | +0 |
@@ -32,9 +32,9 @@ After each throw, tap the dice to keep; you must keep at least one group. Then r
 ## 4. Starting kits: passives, nothing asks "use it?"
 | Sin | Kit | Dice |
 |---|---|---|
-| Sloth (Recommended) | A bust still banks your Points, with no Mult. | 6 |
-| Wrath | A bust adds +3 Mult to your next turn. | 6 |
-| Greed | When you Bank, +5 Points for every gold you hold. | 6 |
+| Sloth (Recommended) | A bust still banks your Points, with half your Mult. | 6 |
+| Wrath | A bust adds +5 Mult to your next turn. | 6 |
+| Greed | When you Bank, +2 Points for every gold you hold. | 6 |
 | Lust | Every pair you keep adds +2 Mult, not +1. | 6 |
 | Envy | Your leftmost relic fires twice. Starts with one common relic. | 6 |
 | Pride | Bank having kept only sets, no single dice: x2 total. | 6 |
@@ -44,15 +44,15 @@ After each throw, tap the dice to keep; you must keep at least one group. Then r
 C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in Phase 11.
 | # | Relic | Effect | |
 |---|---|---|---|
-| 1 | Rosary | Each 6 you keep adds +1 Mult. | C |
+| 1 | Rosary | Each 6 you keep adds +1 Mult. | U |
 | 2 | Gilt Pip | Each 4 you keep scores 15 more Points. | C |
 | 3 | Saint's Knuckle | Each 5 you keep scores 15 more Points. | C |
 | 4 | Votive Candle | +50 Points on your first throw each turn. | C |
-| 5 | Cracked Bell | A single 3 can be kept, for 15 Points. | C |
+| 5 | Cracked Bell | A single 3 can be kept, for 15 Points. | U |
 | 6 | Collection Plate | +1 gold each time you Bank. | C |
 | 7 | Ossuary | Your first throw each turn has one extra die. | C |
 | 8 | Bone Dice | A set of 1s adds +3 more Mult. | C |
-| 9 | Reliquary | When you Bank, +10 Points per die you own. | C |
+| 9 | Reliquary | When you Bank, +5 Points per die you own. | C |
 | 10 | Psalter | Bank after a single throw: +4 Mult. | C |
 | 11 | Sexton's Key | The shop offers one more relic. | C |
 | 12 | Prayer Beads | A 4, 5 and 6 in one throw keep as a set (+2 Mult). | U |
@@ -65,10 +65,10 @@ C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in 
 | 19 | Golden Calf | +1 Mult for every 5 gold you hold. | U |
 | 20 | Twin Chalice | Your largest set each turn counts one die bigger. | U |
 | 21 | Hair Shirt | +5 Mult on every Bank, but single dice can't be kept. | U |
-| 22 | Gargoyle | +2 Mult for each throw after your second. | U |
+| 22 | Gargoyle | +1 Mult for each throw after your second. | U |
 | 23 | Tithe Box | Interest pays up to 10 gold, not 5. | U |
 | 24 | Almoner's Purse | Unused turns pay 3 gold each, not 1. | U |
-| 25 | Candelabra | +1 Mult for every relic you own. | U |
+| 25 | Candelabra | +1 Mult for every relic you own. | R |
 | 26 | Pyre | Each round you bust in adds 10 Points to your 6s. | U |
 | 27 | Halo | Bank with a set of four or more kept: x2 total. | R |
 | 28 | Mirror Shard | Copies the relic to its right. | R |
@@ -86,7 +86,7 @@ C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in 
 8. **Bone Dice + Cracked Bell:** 1s and 3s become worth keeping; you stop rethrowing low dice.
 
 ## 7. Shop and economy
-- Earn: clear a trial +5 gold, a Sin's round +10, each unused turn +1. Interest: +1 per 5 gold held at round end, up to 5.
+- Earn: clear a trial +5 gold, a Sin's round +10, each unused turn +1. Interest: +1 per 5 gold held at round end (before pay), up to 5. A run starts with 0 gold.
 - Shop (after every round): 2 relics, 1 die, 2 repaints. Reroll 2 gold, +1 each time in the same shop.
 - Prices: relic 5 / 10 / 15, sell for half; repaint 5. A die costs 10, then 20 (each die adds about 40% to the average turn, §12). Dice cap at 8.
 - Repaints (pick a die; at most two faces per die, never the 1): **Six** (a face becomes a 6), **Gild** (the face scores +15 Points when kept), **Crimson** (the face adds +1 Mult when kept).
@@ -105,15 +105,24 @@ C = common (5 gold), U = uncommon (10), R = rare (15). The pool grows to 50+ in 
 ## 10. Terms a new player must learn (8)
 Set, Bust, Bank, Points, Mult, Gold, Relic, Circle. Keep, single, round, turn, target, shop and repaint are plain words.
 
-## 11. Scratch sim (`sim/keep_sim2.gd`, one-step lookahead bot, 600 turns each) and Phase 8 plan
-| Dice | Avg turn | Throws (p95) | Decisions | First-throw bust |
-|---|---|---|---|---|
-| 5 | 500 | 2.9 (5) | 1.9 | 0% |
-| 6 | 820 | 3.1 (6) | 2.2 | 0% |
-| 7 | 1180 | 3.0 (6) | 2.4 | 0% |
-| 8 | 1670 | 3.2 (6) | 2.6 | 0% |
-| 8, two faces each repainted to 6 | 4170 | 3.4 (6); bolder bot 4.9 (7) | 2.7-3.5 | 0% |
-- A decision is a throw point with two or more legal options (keep choice x throw / Bank) within 20% of each other. Repainting two faces of one die at 6 dice: x1.5 average turn. Five dice fall under two decisions, so no kit starts there. If keeping every die returned them every time, the strongest build never stopped (95th percentile at the 40-throw cap), hence once a turn.
-- Minutes: about 5 s a throw (throw, pops, taps), 3-5 throws a turn, about 2.5 of 3 turns used a round, 30 s of shop: 21 rounds is 22-28 minutes (bolder players at the top). 4 turns a round was 29-36.
-- Phase 8 build: `run/` (rules only): `run_state.gd`, `round.gd`, `relics.gd` (hooks: on_keep, on_throw, on_bank, on_bust, on_round_end), `kits.gd`, `rulers.gd`, `shop.gd`. `ai/run_bot.gd`: keeps and throws by searching the whole turn (not one throw ahead), buys by simulating rounds with and without each offer. `sim/run_sim.gd` rebuilt. Placeholder board: today's tray and seals, Points x Mult, a relic row, a plain shop page.
-- The run sim must report: win rate and Circle reached per Sin; relic pick rate (none above twice the average; this flags broken relics, not final balance); share of winning runs holding an x2 source (above 60%: add multiplicative uncommons); throws per turn (mean, and the strongest build's 95th percentile, 8 or fewer); decisions per turn; minutes per run; whether dice 7 and 8 each raise the average turn; share of turns ending in a bust for the best bot (target 10-25%; under 10%, tighten what is keepable, e.g. singles only on 5 and 6, and re-derive the numbers; the scratch sim's 0% first-throw bust suggests this is likely). Kits are balanced by win rate in the sim, with no handicaps carried over: Gluttony's seventh die is paid for by its weaker kit, tuned until its win rate matches.
+## 11. Phase 8 run sim (`sim/run_sim.gd`, `ai/run_bot.gd`)
+The bot searches the whole turn (Monte Carlo: every legal keep scored, the best five played to the end of the turn 16 times each with a fast policy) and plays for the round: a turn's worth is the chance it clears the target. It buys by simulating 40 turns with and without each offer and estimating rounds survived over the next nine. Minutes: 5 s a throw, 30 s a shop. Pass of 420 runs (60 per Sin), 2026-11-14, before the Bell / Candelabra / Gargoyle fix; the 1,000-per-Sin report replaces these numbers.
+
+| Measure | Result | Target |
+|---|---|---|
+| Win rate (best bot) | 62% | 60-70% |
+| Clears C1 / C4 | 98% / 85% | 99% / 80% |
+| Win rate per Sin | Sloth 63, Wrath 58, Greed 58, Lust 68, Envy 55, Pride 58, Gluttony 70 | within ±5 (only if it survives 1,000 per Sin) |
+| Turns ending in a bust | 6.0% playing to the target; 22-30% playing for points (plain dice) | 10-25%: accepted as is (Ben, Phase 8) |
+| Throws per turn | mean 3.3, p95 7; strongest fifth of C7 builds p95 8 | p95 of strongest ≤ 8 |
+| Decisions per turn | 2.49 in runs; 2.45 at 6 plain dice | 2 or more |
+| Minutes per run | 19.0 all, 21.9 winning (p10 18.4, p90 25.2) | 20-30 |
+| Winning runs holding an x2 source | 28% (relics alone 16%) | under 60%: no multiplicative uncommons needed |
+| Relic pick rate | average 22%; Cracked Bell 63%, Gargoyle 46% flagged | none above twice the average |
+
+- Plain dice, playing for points (avg turn / bust / throws / decisions): 5 dice 619 / 26% / 3.9 / 2.0; 6 dice 907 / 30% / 4.2 / 2.5; 7 dice 1421 / 24% / 4.5 / 2.8; 8 dice 2032 / 22% / 4.8 / 3.2. Dice 7 and 8 each raise the average turn (x1.57, x1.43).
+- Singles on 5 and 6 only (tried): bust 20% but decisions 0.8 a turn, turns halve, C1 clears 46%. Rejected; 4/5/6 stay.
+- What changed from revision 2: targets (§1), twist factors (§2), whole-group keeping (§3), Sloth half Mult, Wrath +5, Greed +2 (§4), Rosary uncommon, Reliquary +5 per die, then Cracked Bell uncommon, Candelabra rare, Gargoyle +1 (§5).
+- Sin rounds still decide most runs (late builds plateau near 25k a round at p50); trials fail 0-5%.
+- A decision is a throw point where the best two options (keep choice x throw / Bank, by expected turn score) are within 20%.
+- Run it: `godot --headless --path . --script res://sim/run_sim.gd -- runs=20 [sin=Lust] [key=JSON]`; parallel parts with `out=`, then `merge=`. Phase 7's scratch pre-screen stays in `sim/keep_sim2.gd`.

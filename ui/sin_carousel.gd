@@ -19,6 +19,7 @@ var names: Array = []           # Sin names, in page order
 var greater := true             # show the Greater ability line (off in First Game)
 var sfx                         # ui/sfx.gd
 var index := 0
+var kits := {}                  # run mode: Sin -> its kit line, shown in place of the table abilities
 
 var _view: Control              # clips the track; takes the swipe
 var _track: Control             # the pages side by side
@@ -30,7 +31,8 @@ var _dragging := false
 var _snap: Tween
 
 
-func _init(sin_names: Array, show_greater: bool, sound) -> void:
+func _init(sin_names: Array, show_greater: bool, sound, kit_lines := {}) -> void:
+	kits = kit_lines
 	names = sin_names
 	greater = show_greater
 	sfx = sound
@@ -116,6 +118,9 @@ func _make_page(n: String) -> Control:
 			tag.position = Vector2((win.size.x - tag.size.x) / 2, win.size.y - tag.size.y - 18))
 	var title := Style.label("%s, %s" % [n, RulesText.SINS[n].epithet], 62, col.lightened(0.45), true, 10)
 	page.add_child(title)
+	if kits.has(n):
+		page.add_child(Style.body(kits[n], 34, Style.C_IVORY, 8))
+		return page
 	var play := Style.body("[i]%s[/i]" % RulesText.SINS[n].play, 34, Style.C_BONE, 8)
 	page.add_child(play)
 	for g in ([false, true] if greater else [false]):  # "Name: text", the name in gold leaf
