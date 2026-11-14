@@ -13,6 +13,19 @@ var _running := false
 var _skip_beat := false   # finish the current beat now (one tap)
 var skip_all := false     # skip every beat until the player's next decision (double tap)
 var _tweens: Array[Tween] = []
+## Held while the rulebook or an explanation card is open: no new beat starts, waits don't count
+## down and the beat's tweens stop where they are.
+var paused := false
+
+
+func set_paused(on: bool) -> void:
+	paused = on
+	for tw in _tweens:
+		if tw.is_valid():
+			if on:
+				tw.pause()
+			else:
+				tw.play()
 
 
 ## action: a Callable that may await. It plays one beat (use wait() for its timing).
@@ -39,6 +52,8 @@ func drain() -> void:
 func _run() -> void:
 	_running = true
 	while not _actions.is_empty():
+		while paused:
+			await get_tree().process_frame
 		var a: Callable = _actions.pop_front()
 		_skip_beat = false
 		await a.call()
@@ -54,7 +69,8 @@ func wait(seconds: float) -> void:
 	var left := Tuning.t(seconds)
 	while left > 0.0 and not skipping():
 		await get_tree().process_frame
-		left -= get_process_delta_time()
+		if not paused:
+			left -= get_process_delta_time()
 
 
 ## A tween that runs at the global speed and jumps to its end when the beat is skipped.

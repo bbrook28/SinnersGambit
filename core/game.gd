@@ -387,17 +387,17 @@ func _try_escape(p) -> bool:
 		p.score -= cost
 		p.in_purgatory = false
 		if view:
-			say("%s pays the Indulgence (%d) and leaves Purgatory." % [pname(p), cost])
+			say("%s pays the Indulgence (%d) and leaves Purgatory." % [pname(p), cost])  # V2 only (sim)
 		return true
 	# Redemption: any 6 frees you.
 	var faces := Rules.roll(rng, p.dice)
 	if view:
 		turn.redeem_faces = faces  # display only: last_throw stays as the rules have it
-		say("%s rolls for Redemption: %s" % [pname(p), _faces_str(faces)])
+		say("%s rolls for Redemption: %s" % [pname(p), _faces_str(faces)])  # V2 only (sim)
 	if 6 in faces:
 		p.in_purgatory = false
 		if view:
-			say("  A 6! Redeemed.")
+			say("  A 6! Redeemed.")  # V2 only (sim)
 		return true
 	if view:
 		say("  No 6. Still in Purgatory.")

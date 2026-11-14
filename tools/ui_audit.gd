@@ -34,6 +34,13 @@ func _initialize() -> void:
 	await _check("settings")
 	main._settings.queue_free()
 	main._settings = null
+	# The rulebook: a few page kinds (contents, an illustrated page, the Sins, the glossary).
+	main.open_rulebook("contents")
+	for id in ["contents", "scoring", "purgatory", "all_sins", "glossary"]:
+		main._overlay.show_page(main.RulesText.page_index(id))
+		await _settle(30)
+		await _check("rulebook %s" % id)
+	_close_overlay()
 	await main._open_setup()
 	await _settle(30)
 	await _check("setup")
@@ -62,6 +69,21 @@ func _initialize() -> void:
 			await _settle(4)
 			await _check("chronicle")
 			main._log_overlay.visible = false
+		if prompts == 3 and not seen.has("explain"):
+			seen["explain"] = true
+			main._explain_sin(main.game.players.find(main.human_player()))  # tap your own window
+			await _settle(30)
+			await _check("explain: your Sin")
+			_close_overlay()
+			main._explain_at(main._turn_row.get_global_rect().get_center())  # tap the Strikes
+			await _settle(30)
+			await _check("explain: Strikes")
+			_close_overlay()
+			main.open_rulebook(main._context_page())  # the "?" button
+			await _settle(30)
+			await _check("rulebook from ? (%s)" % main.RulesText.PAGES[main._overlay.page].id)
+			_close_overlay()
+			await _settle(4)
 		prompts += 1
 		Engine.time_scale = 40.0
 		bs[randi() % bs.size()].pressed.emit()
@@ -99,6 +121,13 @@ func _settle(frames: int) -> void:
 	await process_frame
 
 
+func _close_overlay() -> void:
+	if main._overlay and is_instance_valid(main._overlay):
+		main._overlay.queue_free()
+	main._overlay = null
+	main._q.set_paused(false)
+
+
 func _prompt_buttons() -> Array:
 	if main._buttons == null:
 		return []
@@ -108,10 +137,20 @@ func _prompt_buttons() -> Array:
 func _all_buttons(n: Node) -> Array:
 	var r := []
 	for c in n.get_children():
-		if c is BaseButton and c.is_visible_in_tree() and not c.is_queued_for_deletion() and c.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		if c is BaseButton and c.is_visible_in_tree() and not c.is_queued_for_deletion() and c.mouse_filter != Control.MOUSE_FILTER_IGNORE and not _scrolled_away(c):
 			r.append(c)
 		r.append_array(_all_buttons(c))
 	return r
+
+
+## Inside a ScrollContainer and not wholly in its view (the rulebook's long pages): not on screen.
+func _scrolled_away(c: Control) -> bool:
+	var p := c.get_parent()
+	while p:
+		if p is ScrollContainer:
+			return not (p as Control).get_global_rect().encloses(c.get_global_rect())
+		p = p.get_parent()
+	return false
 
 
 func _name(b: Control) -> String:
@@ -136,6 +175,8 @@ func _check(screen: String) -> void:
 		bs = _all_buttons(main._log_overlay)
 	if main._settings and is_instance_valid(main._settings):
 		bs = _all_buttons(main._settings)
+	if main._overlay and is_instance_valid(main._overlay):
+		bs = _all_buttons(main._overlay)
 	var n := 0
 	for i in bs.size():
 		var a: Control = bs[i]

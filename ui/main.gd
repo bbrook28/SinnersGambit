@@ -40,19 +40,12 @@ const SIN_SCRIPTS := [
 	preload("res://sins/gluttony.gd"),
 	preload("res://sins/sloth.gd"),
 ]
-const SIN_TITLES := {
-	"Wrath": "the Avenger", "Greed": "the Hoarder", "Lust": "the Temptress", "Envy": "the Mirror",
-	"Pride": "the Untouchable", "Gluttony": "the Devourer", "Sloth": "the Delayer",
-}
-const SIN_TEXT := {
-	"Wrath": ["Spark of Rage: gain 40 whenever another player busts.", "Fury: once a round, make an opponent reroll their three best dice right after they throw."],
-	"Greed": ["The Vig: when an opponent buys a die, 17 of its price goes to you.", "Interest: bank and buy nothing to gain 8% of your score, up to 60."],
-	"Lust": ["Whisper of Desire: once a turn, turn a 3 or 2 into the previous player's best die.", "Binding Pact: pick an opponent; you take 15% of the next turn they bank."],
-	"Envy": ["Green-Eyed Glance: once a turn, add a copy of the previous player's best die to this throw.", "Mimicry: once a round, add two copies of the previous player's best die to this throw."],
-	"Pride": ["Hubris: before throwing, bet 100, 150 or 200: bank at least that for x1.5, else 0.", "Untouchable: once a round, the first ability used against you hits its user instead."],
-	"Gluttony": ["Feast: once a turn, sacrifice a thrown die for 50; a sacrificed Strike doesn't count.", "Gorge: your first die each turn costs 70 instead of 100."],
-	"Sloth": ["Lazy Bones: your first Strike each turn doesn't count.", "Drag: pick an opponent; next turn they throw 3 fewer dice (never under 1)."],
-}
+## Every rule, term and ability sentence lives in ui/rules_text.gd (numbers from the config).
+const RulesText = preload("res://ui/rules_text.gd")
+const Rulebook = preload("res://ui/rulebook.gd")
+const ExplainCard = preload("res://ui/explain_card.gd")
+const LONG_PRESS := 0.45          # hold this long anywhere to explain what's under your finger
+const PRESS_SLOP := 30.0          # px a press may drift and still count as a tap / hold
 
 ## Sizes in px (viewport 1080 wide = 393pt). Brief: text >= 13pt, small seals >= 44pt, Roll/Bank >= 88pt, dice >= 64pt.
 const MIN_TEXT := 36
@@ -135,6 +128,12 @@ var _tut: Control                  # the tutorial overlay while it shows
 var _music: AudioStreamPlayer
 var _screen_root: Control          # the menu scene (freed when leaving it)
 var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
+var _overlay: Control              # the rulebook or an explanation card while open (the queue waits)
+var _help: Button                  # "?" on the game screen: the rulebook at the page for this moment
+var _explain_targets: Array = []   # [control, Callable]: what a tap / hold explains (_register_explain_targets)
+var _press_at := Vector2.INF       # where the current press started (INF: none, or on a button)
+var _press_t := 0.0
+var _long_fired := false           # this press already explained (a hold)
 
 
 func _ready() -> void:
@@ -221,7 +220,7 @@ func _build_menu() -> void:
 	# The seven windows, centred across the wall, each lit from behind (menu_glass: cloud light and a
 	# passing sheen), with a halo, a shaft of its colour onto the table, motes in the shaft and a pool
 	# of coloured light where the shaft lands.
-	var names: Array = SIN_TITLES.keys()
+	var names: Array = RulesText.SIN_ORDER
 	var gap := 14.0
 	var margin := vp.x * Tuning.MENU_WINDOW_MARGIN
 	var ww := (vp.x - margin * 2.0 - gap * (names.size() - 1)) / names.size()
@@ -395,6 +394,7 @@ func _build_menu() -> void:
 	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
 	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
 	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
+	var rules := _menu_seal("Rulebook", MENU_SEAL, func(): open_rulebook("contents"))
 	var top_row := CenterContainer.new()
 	top_row.add_child(play)
 	v.add_child(top_row)
@@ -408,16 +408,17 @@ func _build_menu() -> void:
 		row.add_child(cont)
 	else:
 		cont.queue_free()
+	row.add_child(rules)
 	row.add_child(settings)
 	v.add_child(row)
 	var foot := Control.new()
 	foot.custom_minimum_size.y = 40
 	v.add_child(foot)
-	_menu_seals = [play, settings] + ([cont] if not saved.is_empty() else [])
+	_menu_seals = [play, rules, settings] + ([cont] if not saved.is_empty() else [])
 	# Once laid out: ink the words in, bring the seals in, then let the title breathe.
 	(func():
 		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
-		_set_lettering(sub, "Choose your Sin, push your luck, and be the first to 1000.", Style.C_STRIKE)
+		_set_lettering(sub, "Choose your Sin, push your luck, and be the first to %d." % Rules.WIN_SCORE, Style.C_STRIKE)
 		_dir.seals_enter(_menu_seals)
 		if not Tuning.reduce_motion:
 			title.pivot_offset = title.size / 2
@@ -679,9 +680,9 @@ func _build_setup() -> void:
 	row.visible = not first  # First Game: always a table of 4
 	var show := func():
 		if first:
-			Style.set_body(blurb, "Choose thy Sin. Three others shall face thee. First to 1000. Win or lose, finishing unlocks Greater abilities and the Table of 7.")
+			Style.set_body(blurb, "Choose thy Sin. Three others shall face thee. First to %d. Win or lose, finishing unlocks Greater abilities and the Table of 7." % Rules.WIN_SCORE)
 			return
-		Style.set_body(blurb, "Choose thy Sin. %s shall face thee. First to 1000." % ("Three others" if Tuning.table_size == 4 else "Six others"))
+		Style.set_body(blurb, "Choose thy Sin. %s shall face thee. First to %d." % ["Three others" if Tuning.table_size == 4 else "Six others", Rules.WIN_SCORE])
 		for b in pills:
 			b.modulate = Color.WHITE if b.get_meta("n") == Tuning.table_size else Color(0.55, 0.5, 0.48)
 	for n in Tuning.TABLE_SIZES:
@@ -710,8 +711,8 @@ func _build_setup() -> void:
 		var v := VBoxContainer.new()
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.add_theme_constant_override("separation", 2)
-		v.add_child(Style.label("%s, %s" % [sname, SIN_TITLES[sname]], 50, Style.C_IVORY, true, 10))
-		for line in (SIN_TEXT[sname].slice(0, 1) if first else SIN_TEXT[sname]):  # First Game: Basic only
+		v.add_child(Style.label("%s, %s" % [sname, RulesText.SINS[sname].epithet], 50, Style.C_IVORY, true, 10))
+		for line in ([RulesText.ability(sname, false)] if first else [RulesText.ability(sname, false), RulesText.ability(sname, true)]):  # First Game: Basic only
 			v.add_child(Style.body(line, 26, Style.C_IVORY, 10))
 		box.add_child(v)
 		g.add_child(box)
@@ -822,8 +823,8 @@ func _tutorial_prompt() -> void:
 	var steps := []
 	if _tut_stage == 0 and of.call("roll").size != Vector2.ZERO:
 		if of.call("num").size != Vector2.ZERO:
-			steps.append([of.call("num"), "Choose how many dice to throw. More dice, more points, more risk."])
-		steps.append([of.call("roll"), "Throw all your dice. Throw as often as you like."])
+			steps.append([of.call("num"), "Choose how many dice to throw."])  # dice choice only (not in V3)
+		steps.append([of.call("roll"), RulesText.tutorial("throw")])
 		_tut_stage = 1
 	elif _tut_stage == 1 and of.call("bank").size != Vector2.ZERO:
 		var nails := Rect2()
@@ -835,15 +836,15 @@ func _tutorial_prompt() -> void:
 			table = pt.col.get_global_rect() if table.size == Vector2.ZERO else table.merge(pt.col.get_global_rect())
 			if pt.mine:
 				mine = pt.col
-		steps.append([_dice_area.get_global_rect(), "4, 5 and 6 score five times their face. 3 does nothing."])
-		steps.append([_dice_area.get_global_rect(), "Scoring several dice in one throw is worth more."])
-		steps.append([nails, "1s and 2s are Strikes. They add up all turn."])
-		steps.append([nails, "Bust: a third Strike loses this turn's points and starts your next turn in Purgatory."])
-		steps.append([of.call("bank"), "Bank to keep this turn's points, or throw again to push your luck."])
+		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("scoring")])
+		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("multiplier")])
+		steps.append([nails, RulesText.tutorial("strikes")])
+		steps.append([nails, RulesText.tutorial("bust")])
+		steps.append([of.call("bank"), RulesText.tutorial("bank")])
 		if mine:
 			var me = human_player()
-			steps.append([mine.get_global_rect(), "Your Sin bends the rules: %s" % SIN_TEXT[me.sin.sin_name][0]])
-		steps.append([table, "First to 1000 wins."])
+			steps.append([mine.get_global_rect(), RulesText.tutorial("sin") + RulesText.ability(me.sin.sin_name, false)])
+		steps.append([table, RulesText.tutorial("goal")])
 		_tut_stage = 2
 	if steps.is_empty():
 		return
@@ -914,6 +915,7 @@ func _build_board() -> void:
 	if Tuning.SHOW_DEBUG_SLIDER:
 		_build_speed_slider()
 	_build_log_overlay()
+	_register_explain_targets()
 
 
 func focus_groups() -> Dictionary:
@@ -1074,6 +1076,19 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_banner_text.anchor_bottom = 0.5
 	_banner_text.grow_vertical = Control.GROW_DIRECTION_BOTH
 	banner.add_child(_banner_text)
+	# "?": the rulebook, opened at the page for this moment (Purgatory while you're in it, and so on).
+	_help = Button.new()
+	_help.set_meta("kind", "help")
+	_help.custom_minimum_size = Vector2(TARGET_MIN, TARGET_MIN) * 1.05
+	Art.skin(_help, Art.SEAL)
+	_caption(_help, "?", 64)
+	_help.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	_help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_help.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_help.offset_right = -int(SIDE_MIN)
+	_help.button_down.connect(func(): _dir.sfx.play("seal", 0.4, 1.1, true))
+	_help.pressed.connect(func(): open_rulebook(_context_page()))  # not _seal_feel: the prompt's pulses stay
+	banner.add_child(_help)
 	zone.add_child(banner)
 	_banner = banner
 
@@ -1167,7 +1182,9 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_ticker_text.add_theme_font_size_override("normal_font_size", MIN_TEXT + 2)
 	_ticker_text.add_theme_color_override("default_color", Style.C_BONE_DARK)
 	_ticker.add_child(_ticker_text)
-	_ticker.pressed.connect(func(): _page_turn(_log_overlay, true))
+	_ticker.pressed.connect(func():
+		if not _long_fired:  # a hold explains the line instead (_check_long_press)
+			_page_turn(_log_overlay, true))
 	_ticker.button_down.connect(func(): _dir.sfx.play("plaque", 0.3, 1.0, true))
 	lrow.add_child(_ticker)
 	var fv := VBoxContainer.new()
@@ -1335,24 +1352,204 @@ func _show_speed() -> void:
 		_speed_label.text = _speed_text()
 
 
-## Tap anywhere that isn't a button: finish the current beat. Double tap: skip to your next decision.
+## During a bot's beats, tap anywhere that isn't a button: finish the current beat; double tap: skip
+## to your next decision. When nothing is playing, a tap explains what's under it. A hold (LONG_PRESS)
+## explains at any time, bot turns included (the ticker too).
 func _input(event: InputEvent) -> void:
-	if game == null or not _q.busy() or _tut != null:
+	if game == null or _tut != null or _overlay != null or _settings != null or (_log_overlay and _log_overlay.visible):
+		_press_at = Vector2.INF
 		return
-	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
 		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if event.pressed:
+		_long_fired = false
+		var b := _hovered_button()
+		_press_at = Vector2.INF if (b != null and b != _ticker) else event.position
+		_press_t = now
+		return
+	if _press_at == Vector2.INF:
+		return
+	var at := _press_at
+	_press_at = Vector2.INF
+	if _long_fired or event.position.distance_to(at) > PRESS_SLOP or _hovered_button() == _ticker:
+		return  # explained already, a drag, or the ticker's own tap (the Chronicle)
+	if _q.busy():
+		if now - _last_tap < DOUBLE_TAP:
+			_show_skip(false)
+			_q.skip_to_decision()
+		else:
+			_q.skip_beat()
+		_last_tap = now
+	else:
+		_explain_at(at)
+
+
+func _hovered_button() -> Button:
 	var c := get_viewport().gui_get_hovered_control()
 	while c:
 		if c is Button:
-			return
+			return c
 		c = c.get_parent() as Control
-	var now := Time.get_ticks_msec() / 1000.0
-	if now - _last_tap < DOUBLE_TAP:
-		_show_skip(false)
-		_q.skip_to_decision()
+	return null
+
+
+func _check_long_press() -> void:
+	if _press_at == Vector2.INF or _long_fired:
+		return
+	if Time.get_ticks_msec() / 1000.0 - _press_t < LONG_PRESS:
+		return
+	if get_viewport().get_mouse_position().distance_to(_press_at) > PRESS_SLOP:
+		_press_at = Vector2.INF
+		return
+	_long_fired = true
+	if _explain_at(_press_at):
+		_dir.haptic(0.3)
+
+
+# ---------- Rulebook and tap-to-explain (text: ui/rules_text.gd) ----------
+
+## Opens the rulebook at a page (id from RulesText.PAGES). The game waits while it's open.
+func open_rulebook(id: String) -> void:
+	var rb = Rulebook.new(id, _safe_insets(), _dir.sfx)
+	rb.closed.connect(_close_overlay)
+	_show_overlay(rb)
+
+
+## A card explaining one thing, with a link to its rulebook page.
+func explain(title: String, paras: Array, page_id: String) -> void:
+	var card = ExplainCard.new(title, paras, page_id, _safe_insets())
+	card.closed.connect(_close_overlay)
+	card.open_page.connect(open_rulebook)
+	_show_overlay(card)
+	_dir.sfx.play("plaque", 0.35, 1.0, true)
+
+
+func explain_term(name: String) -> void:
+	explain(name, [RulesText.term(name)], RulesText.term_page(name))
+
+
+func _show_overlay(o: Control) -> void:
+	if _overlay and is_instance_valid(_overlay):
+		_overlay.queue_free()
+	_overlay = o
+	add_child(o)
+	_q.set_paused(true)
+	(func(): if is_instance_valid(o): _page_turn(o, true)).call_deferred()
+
+
+func _close_overlay() -> void:
+	var o := _overlay
+	_overlay = null
+	if o and is_instance_valid(o):
+		await _page_turn(o, false)
+		o.queue_free()
+	if _overlay == null:
+		_q.set_paused(false)
+
+
+## The rulebook page that fits the moment (the "?" button).
+func _context_page() -> String:
+	if game == null:
+		return "contents"
+	var me = human_player()
+	var t = game.turn
+	var mine: bool = me != null and game.current == me
+	if me and (me.in_purgatory or (mine and t and t.throws == 0 and not t.redeem_faces.is_empty())):
+		return "purgatory"
+	var prompt := _prompt_label.get_parsed_text() if _prompt_label else ""
+	if prompt.begins_with("Buy"):
+		return "buying"
+	if mine and t and t.strikes > 0:
+		return "strikes"
+	if mine and t and t.throws > 0:
+		return "banking"
+	if me and _t2_ready(me):
+		return "sins"
+	return "turn"
+
+
+## Everything on the board that explains itself: [control, Callable]. The smallest hit wins.
+func _register_explain_targets() -> void:
+	_explain_targets.clear()
+	for i in _portraits.size():
+		var pt: Dictionary = _portraits[i]
+		var seat := i
+		_explain_targets.append([pt.window, func(): _explain_sin(seat)])
+		_explain_targets.append([pt.name, func(): _explain_sin(seat)])
+		_explain_targets.append([pt.score, func(): explain_term("Score")])
+		_explain_targets.append([pt.dice.get_parent(), func(): explain_term("Dice")])
+	_explain_targets.append([_banner, func():
+		if game.current:
+			_explain_sin(game.players.find(game.current))])
+	_explain_targets.append([_turn_row, func(): explain_term("Strikes")])
+	_explain_targets.append([_turn_label, func(): explain_term("This turn")])
+	_explain_targets.append([_throw_label, func(): explain_term("Multiplier")])
+	_explain_targets.append([_dice_area, func(): explain_term("Scoring")])
+	_explain_targets.append([_ticker, _explain_ticker])
+
+
+func _explain_at(pos: Vector2) -> bool:
+	var best = null
+	var best_area := INF
+	for e in _explain_targets:
+		var c: Control = e[0]
+		if not is_instance_valid(c) or not c.is_visible_in_tree():
+			continue
+		var r := c.get_global_rect()
+		if r.has_point(pos) and r.get_area() < best_area:
+			best = e
+			best_area = r.get_area()
+	if best == null:
+		return false
+	best[1].call()
+	return true
+
+
+## A Sin's card: playstyle, both abilities (with where the Greater one stands), any status, score.
+func _explain_sin(seat: int) -> void:
+	var p = game.players[seat]
+	var s: String = p.sin.sin_name
+	var info: Dictionary = RulesText.SINS[s]
+	var paras := ["[i]%s[/i]" % info.play]
+	paras.append("[b]%s[/b] (Basic): %s" % [RulesText.ability_name(s, false), RulesText.ability_text(s, false)])
+	var state := ""
+	if not game.tier2:
+		state = "Not in a First Game."
+	elif p.t2_unlocked:
+		state = "Ready this round." if p.t2_ready else "Used; ready again at the start of their turn."
 	else:
-		_q.skip_beat()
-	_last_tap = now
+		state = "Unlocks at %d points." % Rules.TIER2_SCORE
+	paras.append("[b]%s[/b] (Greater): %s %s" % [RulesText.ability_name(s, true), RulesText.ability_text(s, true), state])
+	if p.in_purgatory:
+		paras.append("[b]Purgatory[/b]: %s" % RulesText.term("Purgatory"))
+	if p.drag > 0:
+		paras.append("[b]Dragged[/b]: %s" % RulesText.term("Dragged"))
+	if p.pact_by != null:
+		paras.append("[b]Pact[/b]: %s" % RulesText.term("Pact"))
+	paras.append("Score %d · Dice %d" % [p.score, p.dice])
+	var who := " (you)" if p.bot == human else ""
+	explain("%s, %s%s" % [s, info.epithet, who], paras, "all_sins")
+
+
+## The ticker line: explain the game terms in it (abilities first), or the Chronicle if none.
+func _explain_ticker() -> void:
+	var line := _ticker_text.get_parsed_text()
+	var g := RulesText.glossary()
+	var found := []
+	var names: Array = g.keys()
+	names.sort_custom(func(a, b): return a.length() > b.length())  # "Strikes" before "Strike"
+	for n in names:
+		if line.findn(n) >= 0 and not found.any(func(f): return f.findn(n) >= 0):
+			found.append(n)
+	if found.is_empty():
+		_page_turn(_log_overlay, true)
+		return
+	found.sort_custom(func(a, b): return int(RulesText.ability_owner(b).size() > 0) < int(RulesText.ability_owner(a).size() > 0))
+	var paras := []
+	for n in found.slice(0, 2):
+		paras.append("[b]%s[/b]: %s" % [n, g[n][0]])
+	explain(found[0], paras, g[found[0]][1])
 
 
 ## What the board shows, copied from the rules at the moment an event happened.
@@ -2124,6 +2321,7 @@ func _fit_caption(b: Button, d: float) -> void:
 ## Device tilt moves the candle pool on the parchment and slides the page a few px.
 ## No accelerometer (desktop, web): a slow drift so the page still feels alive.
 func _process(delta: float) -> void:
+	_check_long_press()
 	for r in _inking.keys():
 		if not is_instance_valid(r):
 			_inking.erase(r)
