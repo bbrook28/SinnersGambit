@@ -1,6 +1,7 @@
 # Sinners' Gambit (mobile)
 
 Mobile version of Ben's tabletop dice game. Rulebook (source of truth): https://docs.google.com/document/d/1r0ERJOlG5mu3WL8cB2oxrmZPyZi7m6XqGyExo0bSn7w
+**Start here:** `Docs/UXPlan.md` (current phase plan, standing rules, open bugs).
 Plan and balance notes: `Docs/Plan.md`.
 
 ## Decided
