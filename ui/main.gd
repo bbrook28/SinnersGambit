@@ -918,7 +918,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 		throw_b = Button.new()
 		throw_b.set_meta("kind", "roll")
 		Art.skin(throw_b, Art.SEAL_L)
-		_caption(throw_b, "Throw\n%d" % most, 62)
+		_seal_face(throw_b, most, true)
 		throw_b.set_meta("value", counts.filter(func(o): return int(o[0]) == most)[0][1])
 		_seal_feel(throw_b, "roll", func(): human.answered.emit(throw_b.get_meta("value")))
 	for o in options:
@@ -937,7 +937,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				# Selected: the wax brightens and a gold ring circles it (toggled on = "pressed" style).
 				for st in ["pressed", "hover_pressed"]:
 					b.add_theme_stylebox_override(st, _seal_style(Art.SEAL_S[0], Color(1.2, 1.1, 1.0)))
-				_caption(b, o[0], 62)
+				_seal_face(b, int(o[0]), false)
 				b.toggle_mode = true
 				b.button_group = group
 				b.button_pressed = int(o[0]) == most
@@ -947,11 +947,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				b.toggled.connect(func(on: bool):
 					if on and throw_b:
 						throw_b.set_meta("value", cv)
-						for c in throw_b.get_children():
-							if c is CenterContainer:
-								c.queue_free()
-						_caption(throw_b, "Throw\n%d" % n, 62)
-						_layout_buttons())
+						_seal_face(throw_b, n, true))
 				_seal_feel(b, "num", Callable())
 				_buttons.add_child(b)
 				continue
@@ -1188,3 +1184,38 @@ func _caption_size(b: Button, size: int) -> void:
 	for r in b.find_children("*", "RichTextLabel", true, false):
 		r.add_theme_font_size_override("normal_font_size", size)
 		r.add_theme_constant_override("line_separation", -int(size * 0.25))
+
+
+## A seal's face: the gold-leaf numeral in the wax (Throw adds the marginalia hand above it).
+## Numbers past 9 fall back to a text caption. Replaces any face already on the seal.
+func _seal_face(b: Button, n: int, hand: bool) -> void:
+	for c in b.get_children():
+		if c.has_meta("face"):
+			c.queue_free()
+	var tex := Art.numeral(n)
+	if tex == null:
+		_caption(b, ("Throw\n%d" if hand else "%d") % n, 62)
+		b.get_child(b.get_child_count() - 1).set_meta("face", true)
+		return
+	var face := Control.new()
+	face.set_meta("face", true)
+	face.set_anchors_preset(Control.PRESET_FULL_RECT)
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Fractions of the seal: the wax recess is about the middle 60%. Throw's hand is ink on
+	# parchment, so it sits outside, in the margin to the seal's upper right, tossing the dice.
+	var parts := [[tex, Rect2(0.27, 0.22, 0.46, 0.5)]]
+	if hand:
+		parts.append([Art.THROW_HAND, Rect2(0.78, -0.12, 0.5, 0.62)])
+	for p in parts:
+		var t := TextureRect.new()
+		t.texture = p[0]
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var r: Rect2 = p[1]
+		t.anchor_left = r.position.x
+		t.anchor_top = r.position.y
+		t.anchor_right = r.end.x
+		t.anchor_bottom = r.end.y
+		face.add_child(t)
+	b.add_child(face)

@@ -19,9 +19,17 @@ const PAGE := preload("res://assets/art/ui/prompt_page.png")
 const LOG_STRIP := preload("res://assets/art/ui/log_strip.png")
 const YOU_TAB := preload("res://assets/art/ui/you_tab.png")
 const ICON_DIE := preload("res://assets/art/ui/icon_die.png")
-const SEAL_L := [preload("res://assets/art/ui/seal_large_normal.png"), preload("res://assets/art/ui/seal_large_pressed.png"), preload("res://assets/art/ui/seal_large_disabled.png")]
-const SEAL_S := [preload("res://assets/art/ui/seal_small_normal.png"), preload("res://assets/art/ui/seal_small_pressed.png"), preload("res://assets/art/ui/seal_small_disabled.png")]
+## Painted wax seal: normal, pressed, cracked (used as disabled). Same art for big and small seals.
+const SEAL := [preload("res://assets/art/runtime/seals/normal.png"), preload("res://assets/art/runtime/seals/pressed.png"), preload("res://assets/art/runtime/seals/cracked.png")]
+const SEAL_L := SEAL
+const SEAL_S := SEAL
+const THROW_HAND := preload("res://assets/art/runtime/throw_hand.png")
 const SEAL_FAST := preload("res://assets/art/ui/seal_fast.png")
+
+
+## Gold-leaf blackletter numeral 1-9 (null outside that range).
+static func numeral(n: int) -> Texture2D:
+	return load(RT + "seals/n%d.png" % n) if n >= 1 and n <= 9 else null
 
 
 static func window(sin_name: String) -> Texture2D:
