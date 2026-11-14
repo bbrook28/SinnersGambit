@@ -5,6 +5,12 @@ extends SceneTree
 
 const SINS := ["pride", "greed", "wrath", "envy", "gluttony", "lust", "sloth"]
 const OUT := "res://assets/art/runtime/"
+## Corner figures on page_b_b_raw.png: [rect in raw px, darkest parchment luminance, extra flood seeds].
+const MARGINALIA := {
+	"jester": [Rect2i(62, 84, 166, 148), 0.40, []],
+	"pennant": [Rect2i(1835, 65, 160, 165), 0.30, []],
+	"skeleton": [Rect2i(1798, 872, 162, 192), 0.30, [Vector2i(30, 100), Vector2i(35, 60), Vector2i(30, 150), Vector2i(60, 160), Vector2i(50, 175)]],
+}
 
 
 func _init() -> void:
@@ -36,7 +42,27 @@ func _init() -> void:
 		_save(_fit_h(nums[i], 220), OUT + "seals/n%d.png" % (i + 1))
 	_save(_fit_h(_cut(_load("res://assets/art/extra/raw/throw_hand_a_raw.png")), 256), OUT + "throw_hand.png")
 	# Thumb-zone page: slim vine border, marginalia only in the corners (9-sliced in ui/main.gd).
-	var page := _cut(_load("res://assets/art/ui/raw/page_b_b_raw.png"))
+	# The jester, pennant and skeleton are keyed out into their own sprites (they react in play,
+	# ui/director.gd) and their spots on the page are filled with plain parchment.
+	var page := _load("res://assets/art/ui/raw/page_b_b_raw.png")
+	var probe: Image = page.duplicate()
+	for y in probe.get_height():
+		for x in probe.get_width():
+			var c := probe.get_pixel(x, y)
+			c.a = 1.0 if c.a > 0.6 else 0.0
+			probe.set_pixel(x, y, c)
+	var used := probe.get_used_rect()  # what _cut keeps
+	var k := 1600.0 / used.size.x
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "marginalia"))
+	for name in MARGINALIA:
+		var m: Array = MARGINALIA[name]
+		var fig := _key_parchment(page, m[0], m[1], m[2])
+		var box := fig.get_used_rect()
+		var sprite := fig.get_region(box)
+		sprite.resize(roundi(sprite.get_width() * k), roundi(sprite.get_height() * k), Image.INTERPOLATE_LANCZOS)
+		_save(sprite, OUT + "marginalia/%s.png" % name)
+		print("%s at %s size %s" % [name, (Vector2(m[0].position + box.position - used.position) * k).round(), sprite.get_size()])
+	page = _cut(page)
 	page.resize(1600, 900, Image.INTERPOLATE_LANCZOS)
 	_save(page, OUT + "page.png")
 	var bg := _load("res://assets/art/bg/raw/bg_b_raw.png")
@@ -102,6 +128,107 @@ func _split(im: Image, n: int) -> Array:
 		out.append(part.get_region(part.get_used_rect()))
 		left = c
 	return out
+
+
+## Floods parchment in from the rect's border (stopping at dark ink and saturated colour) and returns
+## the rest as a figure the size of the rect. On `page` the figure (grown 3 px) is replaced with
+## parchment: colours diffused in from around it, plus grain borrowed from the plain page centre.
+func _key_parchment(page: Image, r: Rect2i, dark: float, seeds: Array) -> Image:
+	var w := r.size.x
+	var h := r.size.y
+	var bg := PackedByteArray()
+	bg.resize(w * h)
+	var stack: Array[Vector2i] = []
+	for x in w:
+		stack.append(Vector2i(x, 0)); stack.append(Vector2i(x, h - 1))
+	for y in h:
+		stack.append(Vector2i(0, y)); stack.append(Vector2i(w - 1, y))
+	stack.append_array(seeds)
+	while not stack.is_empty():
+		var p: Vector2i = stack.pop_back()
+		if p.x < 0 or p.y < 0 or p.x >= w or p.y >= h or bg[p.y * w + p.x] == 1:
+			continue
+		var c := page.get_pixelv(r.position + p)
+		if c.get_luminance() <= dark or c.h <= 0.03 or c.h >= 0.17 or c.s >= 0.8:
+			continue
+		bg[p.y * w + p.x] = 1
+		stack.append(p + Vector2i.RIGHT); stack.append(p + Vector2i.LEFT); stack.append(p + Vector2i.DOWN); stack.append(p + Vector2i.UP)
+	# Specks: figure islands under 60 px go back to parchment.
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	for i in w * h:
+		if bg[i] == 1 or seen[i] == 1:
+			continue
+		var island: Array[int] = []
+		var todo: Array[int] = [i]
+		seen[i] = 1
+		while not todo.is_empty():
+			var j: int = todo.pop_back()
+			island.append(j)
+			var jx := j % w
+			for nb in [j - 1 if jx > 0 else -1, j + 1 if jx < w - 1 else -1, j - w, j + w]:
+				if nb >= 0 and nb < w * h and bg[nb] == 0 and seen[nb] == 0:
+					seen[nb] = 1
+					todo.append(nb)
+		if island.size() < 60:
+			for j in island:
+				bg[j] = 1
+	var fig := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var c := page.get_pixel(r.position.x + x, r.position.y + y)
+			if bg[y * w + x] == 1:
+				c.a = 0.0
+			fig.set_pixel(x, y, c)
+	# Hole = figure grown 3 px. Fill it onion-style from the outside in.
+	var hole := PackedByteArray()
+	hole.resize(w * h)
+	for y in h:
+		for x in w:
+			if bg[y * w + x] == 1:
+				continue
+			for dy in range(-3, 4):
+				for dx in range(-3, 4):
+					var xx := x + dx
+					var yy := y + dy
+					if xx >= 0 and yy >= 0 and xx < w and yy < h:
+						hole[yy * w + xx] = 1
+	var centre := page.get_size() / 2
+	var mean := Color(0, 0, 0)
+	for y in 32:
+		for x in 32:
+			mean += page.get_pixel(centre.x + x, centre.y + y) / 1024.0
+	# Each hole pixel: the parchment found along 8 rays, weighted by nearness, plus real grain
+	# from the plain page centre so the patch isn't smooth.
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1)]
+	var fills := {}
+	for y in h:
+		for x in w:
+			if hole[y * w + x] == 0:
+				continue
+			var sum := Color(0, 0, 0, 0)
+			var wsum := 0.0
+			for d in dirs:
+				var q: Vector2i = Vector2i(x, y) + d
+				for step in 400:
+					var inside := q.x >= 0 and q.y >= 0 and q.x < w and q.y < h
+					if not inside or hole[q.y * w + q.x] == 0:
+						var qc := page.get_pixelv(r.position + q)
+						if qc.get_luminance() > 0.35 and qc.h > 0.03 and qc.h < 0.17 and qc.s < 0.8 and qc.a > 0.6:
+							var wt := 1.0 / float(step + 1)
+							sum += qc * wt
+							wsum += wt
+							break
+					q += d
+					var pq := r.position + q
+					if pq.x < 0 or pq.y < 0 or pq.x >= page.get_width() or pq.y >= page.get_height():
+						break
+			var base: Color = sum / wsum if wsum > 0.0 else mean
+			var grain := page.get_pixel(centre.x + x, centre.y + y) - mean
+			fills[Vector2i(x, y)] = Color(base.r + grain.r, base.g + grain.g, base.b + grain.b, 1.0)
+	for p in fills:
+		page.set_pixelv(r.position + p, fills[p])
+	return fig
 
 
 func _save(im: Image, path: String) -> void:

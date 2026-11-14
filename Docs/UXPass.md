@@ -81,3 +81,17 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 7. Abilities and attacks (#4, #7, #8, #13, #14, #21–#24).
 8. Input feel (seals, haptics, dice inspect, target glow).
 9. Win (#16).
+
+## Polish pass (2026-11-13): text and animation, no beat-timing changes
+1. Prompts as manuscript lettering (illuminated capital, blackletter, about 30% larger, red flourish under, no banner).
+2. Prompts ink in left to right.
+3. Banners only for turn changes.
+4. Bank/Throw seals a fixed size; only the number row reflows.
+5. Springs (overshoot and settle) on every scale and position change.
+6. Squash and stretch: seals on press and release, dice on landing.
+7. Seal rows enter 40 ms apart.
+8. Material shaders: wax glint, gold shimmer, parchment that shifts with tilt. **Done** (`ui/shaders`, § Materials).
+9. Dice tumble, bounce, dust, shadow, settle wobble.
+10. Page-turn or ink-wash screen transitions.
+11. Marginalia react: jester flinches on bust, skeleton and pennant cheer on bank. **Done** (`runtime/marginalia`, `director.flinch/cheer`).
+12. Idle: seals breathe, selected ring pulses, candle flicker.

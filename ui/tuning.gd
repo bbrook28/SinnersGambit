@@ -74,6 +74,17 @@ const TICK_GAP := 0.045             # count-up ticks never come faster than this
 const SFX_GAP := 0.04               # the same sound never retriggers faster than this
 const SFX_VOICES := 16
 
+# ---- Materials (ui/shaders) ----
+const GLINT_PERIOD := 5.5        # seconds between specular sweeps across a seal
+const GLINT_STRENGTH := 0.45
+const GLINT_STAGGER := 0.06       # sweep phase between neighbouring seals, so the glint travels along the row
+const SHIMMER_PERIOD := 3.2       # gold numerals catch the light this often
+const SHIMMER_STRENGTH := 0.6
+const PAGE_LIGHT := 0.14          # how much the candle pool brightens the parchment
+const TILT_PX := 7.0              # the page slides this far at full tilt
+const TILT_SMOOTH := 4.0          # higher = follows the phone faster
+const TILT_DRIFT := 0.35          # desktop / no accelerometer: slow drift amplitude (in tilt units)
+
 # ---- Text ----
 const FLY_FONT := 72
 const STAMP_FONT := 150

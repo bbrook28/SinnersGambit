@@ -88,6 +88,9 @@ var _banner: Control
 var _turn_row: Control
 var _log_row: Control
 var _thumb: Control
+var marginalia := {}               # jester / pennant / skeleton TextureRects on the thumb page (director reacts with them)
+var _paper: Control               # thumb-zone parchment (slides and catches light with tilt)
+var _tilt := Vector2.ZERO
 var _desk: Control
 var _dice_nodes: Array = []       # the Die controls showing now, in face order
 var _last_snap := {}              # the state as of the last queued event (the next one's "before")
@@ -515,6 +518,31 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Only the plain vine edges stretch; the corner marginalia keep their shape.
 	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
+	paper.material = Art.page_light_material()  # candle pool that slides with tilt (_process)
+	_paper = paper
+	# The corner figures are their own sprites so the director can make them react (jester, skeleton, pennant).
+	for nm in Art.MARGINALIA:
+		var md: Array = Art.MARGINALIA[nm]
+		var tex: Texture2D = md[0]
+		var corner: Vector2 = md[2]
+		var sz := tex.get_size() * 0.55
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.use_parent_material = true
+		tr.anchor_left = corner.x
+		tr.anchor_right = corner.x
+		tr.anchor_top = corner.y
+		tr.anchor_bottom = corner.y
+		var p: Vector2 = (md[1] - corner * Vector2(Art.PAGE.get_size())) * 0.55
+		tr.offset_left = p.x
+		tr.offset_top = p.y
+		tr.offset_right = p.x + sz.x
+		tr.offset_bottom = p.y + sz.y
+		tr.pivot_offset = sz * (md[3] as Vector2)
+		paper.add_child(tr)
+		marginalia[nm] = tr
 	paper.modulate = Color(0.8, 0.72, 0.62)
 	page.add_child(paper)
 	var pv := VBoxContainer.new()
@@ -923,6 +951,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 		_seal_face(throw_b, most, true)
 		throw_b.set_meta("value", counts.filter(func(o): return int(o[0]) == most)[0][1])
 		_seal_feel(throw_b, "roll", func(): human.answered.emit(throw_b.get_meta("value")))
+		throw_b.material = Art.glint_material(-Tuning.GLINT_STAGGER * (most + 1))
 	for o in options:
 		var kind := "pill"
 		if o[0].is_valid_int():
@@ -944,6 +973,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				b.button_group = group
 				b.button_pressed = int(o[0]) == most
 				_selected_ring(b)
+				b.material = Art.glint_material(-Tuning.GLINT_STAGGER * int(o[0]))  # glints travel along the row
 				var n := int(o[0])
 				var cv = o[1]
 				b.toggled.connect(func(on: bool):
@@ -1211,6 +1241,8 @@ func _seal_face(b: Button, n: int, hand: bool) -> void:
 	for p in parts:
 		var t := TextureRect.new()
 		t.texture = p[0]
+		if p[0] == tex:
+			t.material = Art.shimmer_material(n * 0.137)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1238,3 +1270,20 @@ func _fit_caption(b: Button, d: float) -> void:
 		size = minf(size, recess / maxf(0.01, w))
 	size = minf(size, recess / (lines.size() * 0.82))
 	_caption_size(b, int(maxf(20.0, size)))
+
+
+## Device tilt moves the candle pool on the parchment and slides the page a few px.
+## No accelerometer (desktop, web): a slow drift so the page still feels alive.
+func _process(delta: float) -> void:
+	if _paper == null or not is_instance_valid(_paper):
+		return
+	var g := Input.get_gravity()
+	var want: Vector2
+	if g.length() > 0.5:
+		want = Vector2(clampf(g.x / 9.8, -1, 1), clampf(-g.z / 9.8, -1, 1))
+	else:
+		var t := Time.get_ticks_msec() / 1000.0
+		want = Vector2(sin(t * 0.31), cos(t * 0.23)) * Tuning.TILT_DRIFT
+	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
+	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
+	_paper.position = _tilt * Tuning.TILT_PX

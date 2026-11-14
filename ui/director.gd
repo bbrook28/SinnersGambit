@@ -311,6 +311,7 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	stamp("BUST", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 1.0)
 	shake(1.0)
 	impact(1.0, "bell")
+	flinch(1.0)
 	sfx.play("crack", 1.0)
 	burst(_center(m._turn_label), 1.0, Style.C_STRIKE)
 	await q.wait(T.IMPACT)
@@ -341,6 +342,7 @@ func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	burst(_center(pt.score), k, Style.C_GOLD)
 	shake(k * 0.5)
 	impact(k * 0.7, "coins")
+	cheer(k)
 	await q.wait(T.IMPACT)
 	await q.wait(maxf(T.HOLD, T.COUNT_UP - T.IMPACT))
 	m._refresh(snap, ["plates"])
@@ -723,6 +725,52 @@ func _punch(node: Control, k: float) -> void:
 	tw.tween_property(node, "scale", base, T.IMPACT * 1.6).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
+## Marginalia react (no beat waits on them): the jester flinches from a bust, the skeleton
+## hops and the pennant is raised on a bank. Bigger k, bigger reaction.
+func flinch(k: float) -> void:
+	var j: Control = m.marginalia.get("jester")
+	if j == null or not is_instance_valid(j) or _reacting(j):
+		return
+	var tw: Tween = q.tween(j)
+	j.set_meta("react", tw)
+	var a := deg_to_rad(-12.0 - 8.0 * k)
+	tw.tween_property(j, "rotation", a, T.IMPACT * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(j, "scale", Vector2(1.1, 0.86), T.IMPACT * 0.5)
+	for i in 3:  # cowering shiver
+		tw.tween_property(j, "rotation", a * 0.8, 0.05)
+		tw.tween_property(j, "rotation", a, 0.05)
+	tw.tween_property(j, "rotation", 0.0, T.HOLD * 1.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(j, "scale", Vector2.ONE, T.HOLD * 1.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+func cheer(k: float) -> void:
+	var s: Control = m.marginalia.get("skeleton")
+	if s != null and is_instance_valid(s) and not _reacting(s):
+		var y: float = s.position.y
+		var tw: Tween = q.tween(s)
+		s.set_meta("react", tw)
+		tw.tween_property(s, "scale", Vector2(1.08, 0.9), T.ANTICIPATION * 0.4)  # crouch
+		tw.tween_property(s, "position:y", y - 14.0 - 12.0 * k, T.IMPACT * 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(s, "scale", Vector2(0.94, 1.1), T.IMPACT * 1.5)
+		tw.parallel().tween_property(s, "rotation", deg_to_rad(6.0), T.IMPACT * 1.5)
+		tw.tween_property(s, "position:y", y, T.IMPACT * 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(s, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(s, "rotation", 0.0, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	var p: Control = m.marginalia.get("pennant")
+	if p != null and is_instance_valid(p) and not _reacting(p):
+		var y2: float = p.position.y
+		var tw2: Tween = q.tween(p)
+		p.set_meta("react", tw2)
+		tw2.tween_property(p, "position:y", y2 - 10.0 - 10.0 * k, T.IMPACT * 1.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(p, "scale", Vector2.ONE * (1.1 + 0.08 * k), T.IMPACT * 1.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		for i in 2:  # wave
+			tw2.tween_property(p, "rotation", deg_to_rad(-8.0), 0.12).set_trans(Tween.TRANS_SINE)
+			tw2.tween_property(p, "rotation", deg_to_rad(5.0), 0.12).set_trans(Tween.TRANS_SINE)
+		tw2.tween_property(p, "rotation", 0.0, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(p, "position:y", y2, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(p, "scale", Vector2.ONE, T.HOLD).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
 ## Anticipation: lift (and optionally tint) an element, holding until the beat moves on.
 func _lift(node: Control, dur: float, tint := Color.WHITE, snd := "lift") -> void:
 	if node == null or not is_instance_valid(node):
@@ -885,3 +933,11 @@ func _strike_count(s: Dictionary) -> int:
 
 func _score_of(s: Dictionary, seat: int) -> int:
 	return s.players[seat].score if s.has("players") else 0
+
+
+## A marginalia figure still mid-reaction ignores the next one (it would start from a moved pose).
+func _reacting(n: Node) -> bool:
+	if not n.has_meta("react"):
+		return false
+	var tw = n.get_meta("react")
+	return tw is Tween and (tw as Tween).is_valid() and (tw as Tween).is_running()
