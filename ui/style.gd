@@ -28,6 +28,10 @@ const SIN_COLORS := {
 
 const BLACKLETTER := preload("res://assets/fonts/PirataOne-Regular.ttf")
 const SERIF := preload("res://assets/fonts/IMFellEnglish-Regular.ttf")
+## Numbers and small names: one clear display serif (Cinzel Bold). Blackletter is for words only.
+const NUMERAL := preload("res://assets/fonts/cinzel_bold.tres")
+const GOLD_LEAF := preload("res://ui/shaders/gold_leaf.gdshader")
+
 const GLASS_SHADER := preload("res://ui/shaders/stained_glass.gdshader")
 const GRAIN_SHADER := preload("res://ui/shaders/grain.gdshader")
 
@@ -111,7 +115,7 @@ static func label(text: String, size: int, color: Color, blackletter := false, o
 	return l
 
 
-## Body text (IM Fell) with every number set in Pirata One: Fell only has old-style figures,
+## Body text (IM Fell) with every number set in Cinzel: Fell only has old-style figures,
 ## and numbers must read at a glance. Returns a centred, wrapping RichTextLabel.
 static func body(text: String, size: int, color: Color, outline := 0) -> RichTextLabel:
 	var r := RichTextLabel.new()
@@ -136,4 +140,19 @@ static func set_body(r: RichTextLabel, text: String) -> void:
 
 static func numbers(text: String) -> String:
 	# Skip digits inside bbcode tags (colour hex, font_size=) and inside words.
-	return RegEx.create_from_string("(?<![#=\\w])(x?[+-]?\\d+(?:\\.\\d+)?%?)").sub(text, "[font=%s]$1[/font]" % BLACKLETTER.resource_path, true)
+	return RegEx.create_from_string("(?<![#=\\w])(x?[+-]?\\d+(?:\\.\\d+)?%?)").sub(text, "[font=%s]$1[/font]" % NUMERAL.resource_path, true)
+
+
+## A number in Cinzel, gold-leaf shaded, with a shadow falling left (candle on the right).
+static func number(text: String, size: int, outline := 8) -> Label:
+	var l := label(text, size, C_GOLD, false, outline)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.add_theme_font_override("font", NUMERAL)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	l.add_theme_constant_override("shadow_offset_x", -int(size * 0.04))
+	l.add_theme_constant_override("shadow_offset_y", int(size * 0.05))
+	var m := ShaderMaterial.new()
+	m.shader = GOLD_LEAF
+	l.material = m
+	l.resized.connect(func(): m.set_shader_parameter("box", l.size))
+	return l

@@ -17,11 +17,12 @@ func _choose(text: String, options: Array):
 	return v
 
 
-func dice_to_roll(p, game, turn_points: int, strikes: int) -> int:
+func dice_to_roll(p, game, turn_points: int, _strikes: int) -> int:
 	var most: int = game._max_throw(p)
-	var text := "Turn: %d pts, %d/3 Strikes. Throw how many dice?" % [turn_points, strikes]
+	# Turn points and Strikes are on the stage; the prompt only asks.
+	var text := "Throw again, or bank?"
 	if game.turn.throws == 0:
-		text = "Your turn. Throw how many dice?"
+		text = "Throw how many dice?"
 	if p.drag > 0:
 		text += " (Dragged: max %d)" % most
 	if game.turn.min_points >= 0:

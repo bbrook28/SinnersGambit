@@ -38,7 +38,7 @@ const SIN_TEXT := {
 
 ## Sizes in px (viewport 1080 wide = 393pt). Brief: text >= 13pt, small seals >= 44pt, Roll/Bank >= 88pt, dice >= 64pt.
 const MIN_TEXT := 36
-const SEAL_SMALL := 124
+const SEAL_SMALL := 140
 const SEAL_BIG := 250
 const DIE_MAX := 176
 const SCORE_SIZE := 160
@@ -57,10 +57,9 @@ var _banner_text: Label
 var _dice_area: Control
 var _dice_row: HFlowContainer
 var _throw_label: Label
-var _turn_label: Label
+var _turn_label: RichTextLabel
 var _strike_icons: Array = []
 var _prompt_label: RichTextLabel
-var _fewer_label: Label
 var _buttons: Control             # holds only prompt Buttons (tests/ui_autoplay.gd presses them)
 var _ticker: Button
 var _ticker_text: RichTextLabel
@@ -193,9 +192,11 @@ func _build_glance(zone: VBoxContainer) -> void:
 		gt.fill = GradientTexture2D.FILL_RADIAL
 		gt.fill_from = Vector2(0.5, 0.5)
 		gt.fill_to = Vector2(0.5, 0.0)
+		# Backlight: every pane is lit from behind; the current Sin's burns brighter (see _refresh).
 		var gr := Gradient.new()
-		gr.set_color(0, Color(Style.SIN_COLORS[sname], 0.85))
-		gr.set_color(1, Color(Style.SIN_COLORS[sname], 0.0))
+		var light: Color = _backlight(sname)
+		gr.set_color(0, Color(light, 0.9))
+		gr.set_color(1, Color(light, 0.0))
 		gt.gradient = gr
 		glow.texture = gt
 		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -212,6 +213,8 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		win.set_anchors_preset(Control.PRESET_FULL_RECT)
 		win.material = Art.flare_material()
+		if sname == "Greed":
+			win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))  # cold silver, not grey
 		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		win_box.add_child(win)
 
@@ -235,13 +238,16 @@ func _build_glance(zone: VBoxContainer) -> void:
 			var tab := Art.framed(Art.YOU_TAB, [24, 20, 24, 20], 0.55)
 			tab.offset_left = 10
 			tab.offset_right = -10
+			tab.material = Art.tint_material(Style.SIN_COLORS[sname].darkened(0.2))  # your Sin's colour, as the banner
 			name_box.add_child(tab)
-		var name_l := Style.label("You" if mine else sname, MIN_TEXT, Style.C_BONE, true, 6)
+		var name_l := Style.label("You" if mine else sname, MIN_TEXT - 2, Style.C_BONE, false, 6)
+		name_l.add_theme_font_override("font", Style.NUMERAL)
+		name_l.resized.connect(_fit_label.bind(name_l, MIN_TEXT - 2, 24))
 		name_l.set_anchors_preset(Control.PRESET_FULL_RECT)
 		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_box.add_child(name_l)
 		pv.add_child(name_box)
-		var score_l := Style.label("0", 56, Style.C_GOLD, true, 10)
+		var score_l := Style.number("0", 54)
 		pv.add_child(score_l)
 		var dice_row := HBoxContainer.new()
 		dice_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -253,7 +259,8 @@ func _build_glance(zone: VBoxContainer) -> void:
 		die_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		die_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		dice_row.add_child(die_icon)
-		var dice_l := Style.label("", MIN_TEXT + 4, Style.C_BONE, true, 6)
+		var dice_l := Style.label("", MIN_TEXT + 2, Style.C_BONE, false, 6)
+		dice_l.add_theme_font_override("font", Style.NUMERAL)
 		dice_row.add_child(dice_l)
 		pv.add_child(dice_row)
 		for l in [name_l, score_l, dice_l]:
@@ -275,7 +282,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	var bh := HBoxContainer.new()
 	bh.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bh.alignment = BoxContainer.ALIGNMENT_CENTER
-	bh.add_theme_constant_override("separation", 4)
+	bh.add_theme_constant_override("separation", -4)
 	bh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_banner_cap = TextureRect.new()
 	_banner_cap.custom_minimum_size = Vector2(96, 96)
@@ -324,10 +331,10 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_dice_row.add_theme_constant_override("v_separation", 16)
 	_dice_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dice_area.add_child(_dice_row)
-	_throw_label = Style.label("", SCORE_SIZE, Style.C_GOLD, true, 16)
+	_throw_label = Style.number("", SCORE_SIZE, 14)
 	_throw_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tv.add_child(_throw_label)
-	_turn_label = Style.label("", 44, Style.C_BONE, false, 8)
+	_turn_label = Style.body("", 44, Style.C_BONE, 8)
 	tv.add_child(_turn_label)
 	var srow := HBoxContainer.new()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -349,7 +356,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 
 	# Log strip (tap = Chronicle) and the fast-bots seal, clear of every screen edge.
 	var lrow := HBoxContainer.new()
-	lrow.custom_minimum_size.y = 130
+	lrow.custom_minimum_size.y = 104
 	lrow.add_theme_constant_override("separation", 14)
 	_ticker = Button.new()
 	_ticker.flat = true
@@ -357,7 +364,9 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_ticker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for st in ["normal", "hover", "pressed", "focus"]:
 		_ticker.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	_ticker.add_child(Art.framed(Art.LOG_STRIP, [70, 36, 70, 36], 0.6))
+	var strip := Art.framed(Art.LOG_STRIP, [70, 36, 70, 36], 0.5)
+	strip.modulate = Color(0.42, 0.36, 0.3)  # a quiet margin note, not a bright bar
+	_ticker.add_child(strip)
 	_ticker_text = RichTextLabel.new()
 	_ticker_text.bbcode_enabled = true
 	_ticker_text.scroll_active = false
@@ -366,10 +375,12 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_ticker_text.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_ticker_text.offset_left = 56
 	_ticker_text.offset_right = -40
-	_ticker_text.offset_top = 38
+	_ticker_text.offset_top = 28
+	_ticker_text.add_theme_constant_override("outline_size", 6)
+	_ticker_text.add_theme_color_override("font_outline_color", Style.C_BLACK)
 	_ticker_text.add_theme_font_override("normal_font", Style.SERIF)
 	_ticker_text.add_theme_font_size_override("normal_font_size", MIN_TEXT + 2)
-	_ticker_text.add_theme_color_override("default_color", Style.C_INK)
+	_ticker_text.add_theme_color_override("default_color", Style.C_BONE_DARK)
 	_ticker.add_child(_ticker_text)
 	_ticker.pressed.connect(func(): _log_overlay.visible = true)
 	lrow.add_child(_ticker)
@@ -393,21 +404,18 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var paper := Art.framed(Art.PAGE, [240, 50, 240, 50], 0.5)
-	paper.modulate = Color(0.66, 0.58, 0.5)
+	paper.modulate = Color(0.8, 0.72, 0.62)
 	page.add_child(paper)
 	var pv := VBoxContainer.new()
 	pv.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pv.offset_left = 110
-	pv.offset_right = -110
+	pv.offset_left = 150
+	pv.offset_right = -150
 	pv.offset_top = 24
 	pv.offset_bottom = -22
 	pv.add_theme_constant_override("separation", 6)
 	page.add_child(pv)
-	_prompt_label = Style.body("", 40, Style.C_INK)
+	_prompt_label = Style.body("", 44, Style.C_INK.darkened(0.4))
 	pv.add_child(_prompt_label)
-	_fewer_label = Style.label("or throw fewer", MIN_TEXT, Style.C_INK.lightened(0.15))
-	_fewer_label.visible = false
-	pv.add_child(_fewer_label)
 	_buttons = Control.new()
 	_buttons.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_buttons.resized.connect(_layout_buttons)
@@ -471,13 +479,16 @@ func _refresh() -> void:
 			tag = "Pact"
 		elif _t2_ready(p):
 			tag = "II ready"
-		pt.name.text = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
+		var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
+		if pt.name.text != nm:
+			pt.name.text = nm
+			_fit_label(pt.name, MIN_TEXT - 2, 24)
 		pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if p.in_purgatory else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
 		var lit: bool = p == cur
-		pt.glow.visible = lit
+		pt.glow.modulate.a = 1.0 if lit else 0.35
 		var m: ShaderMaterial = pt.window.material
 		m.set_shader_parameter("glow", 0.6 if lit else 0.0)
-		m.set_shader_parameter("dim", 0.0 if lit else (0.75 if p.in_purgatory else 0.4))
+		m.set_shader_parameter("dim", 0.0 if lit else (0.55 if p.in_purgatory else 0.15))
 
 	var t = game.turn
 	if cur == null or t == null:
@@ -501,7 +512,9 @@ func _refresh() -> void:
 		size = 72
 	_throw_label.text = text
 	_throw_label.add_theme_font_size_override("font_size", size)
-	_turn_label.text = "This turn %d" % t.points
+	if _turn_label.get_meta("pts", -1) != t.points:
+		_turn_label.set_meta("pts", t.points)
+		Style.set_body(_turn_label, "This turn %d" % t.points)
 	for i in _strike_icons.size():
 		_strike_icons[i].texture = Art.STRIKE_STRUCK if i < t.strikes else Art.STRIKE_EMPTY
 	if _waiting and game.winner == null:
@@ -521,6 +534,20 @@ func _set_banner(text: String, p) -> void:
 	_banner_cap.visible = cap != null
 	_banner_text.text = text.substr(1) if cap else text
 	_banner_frame.material = Art.tint_material(Style.SIN_COLORS[p.sin.sin_name].darkened(0.2))
+
+
+## Shrinks a one-line label until its text fits its width ("Gluttony" on a narrow plate).
+func _fit_label(l: Label, size: int, floor_size: int) -> void:
+	var font: Font = l.get_theme_font("font")
+	var s := size
+	while s > floor_size and font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x > l.size.x - 8:
+		s -= 1
+	l.add_theme_font_size_override("font_size", s)
+
+
+## Light behind a Sin's window. Greed's silver glass gets a cold blue-white candle so it glows.
+func _backlight(sname: String) -> Color:
+	return Color("bcd8ff") if sname == "Greed" else Style.SIN_COLORS[sname].lightened(0.15)
 
 
 func _t2_ready(p) -> bool:
@@ -617,28 +644,28 @@ func show_prompt(text: String, options: Array) -> void:
 		b.set_meta("kind", kind)
 		match kind:
 			"roll":
-				b.text = "Roll\n%s" % o[0]
 				Art.skin(b, Art.SEAL_L)
-				b.add_theme_font_size_override("font_size", 64)
+				_caption(b, "Roll\n%s" % o[0], 62)
 			"bank":
-				b.text = o[0].replace(" ", "\n")
 				_bronze_seal(b)
-				b.add_theme_font_size_override("font_size", 56)
+				_caption(b, o[0].replace(" ", "\n"), 56)
 			"num":
-				b.text = o[0]
 				Art.skin(b, Art.SEAL_S)
-				b.add_theme_font_size_override("font_size", 60)
+				_caption(b, o[0], 62)
 			_:
-				b.text = o[0]
 				Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
-				b.add_theme_font_size_override("font_size", 42)
+				b.set_meta("w", Style.BLACKLETTER.get_string_size(o[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 42).x + 70)
+				if RegEx.create_from_string("\\d").search(o[0]):
+					_caption(b, o[0], 42)
+				else:
+					b.text = o[0]
+					b.add_theme_font_size_override("font_size", 42)
 		b.add_theme_color_override("font_color", Style.C_IVORY)
 		b.add_theme_color_override("font_hover_color", Style.C_IVORY)
 		b.add_theme_color_override("font_pressed_color", Style.C_BONE)
 		b.add_theme_constant_override("line_spacing", -14)
 		b.pressed.connect(func(): human.answered.emit(o[1]))
 		_buttons.add_child(b)
-	_fewer_label.visible = options.any(func(o): return o[0].is_valid_int() and int(o[0]) != most)
 	_layout_buttons.call_deferred()
 
 
@@ -646,7 +673,6 @@ func clear_prompt() -> void:
 	_waiting = true
 	_prompt_label.set_meta("wait", "")
 	Style.set_body(_prompt_label, "")
-	_fewer_label.visible = false
 	for c in _buttons.get_children():
 		c.queue_free()
 
@@ -662,22 +688,30 @@ func _layout_buttons() -> void:
 	var nums := bs.filter(func(b): return b.get_meta("kind") == "num")
 	var pills := bs.filter(func(b): return b.get_meta("kind") == "pill")
 	if not big.is_empty() or not nums.is_empty():
-		var d := minf(SEAL_BIG, h * 0.6)
+		# One cluster: Bank and Roll side by side (Roll right), the fewer-dice seals tucked in above.
+		var d := minf(SEAL_BIG, h * 0.62)
+		var gap := 24.0
+		var mid := w / 2.0
 		for b in big:
-			var cx: float = w * (0.74 if b.get_meta("kind") == "roll" else 0.26)
+			var cx: float = mid + (d + gap) / 2.0 * (1.0 if b.get_meta("kind") == "roll" else -1.0)
 			b.position = Vector2(cx - d / 2.0, h - d)
 			b.size = Vector2(d, d)
-		var s := minf(SEAL_SMALL, (w - 12.0 * (nums.size() - 1)) / maxf(1, nums.size()))
-		var total := nums.size() * s + (nums.size() - 1) * 12.0
-		var y := maxf(0.0, h - d - s - 14.0)
+		var s := float(SEAL_SMALL)
+		var g := 10.0
+		var per_row := maxi(1, int((w + g) / (s + g)))
+		var rows := ceili(float(nums.size()) / per_row)
+		var bottom := h - (d * 0.82 if not big.is_empty() else 0.0)
 		for i in nums.size():
-			nums[i].position = Vector2((w - total) / 2.0 + i * (s + 12.0), y)
+			var r := i / per_row
+			var in_row := mini(per_row, nums.size() - r * per_row)
+			var total := in_row * s + (in_row - 1) * g
+			nums[i].position = Vector2(mid - total / 2.0 + (i % per_row) * (s + g), maxf(0.0, bottom - (rows - r) * (s + g)))
 			nums[i].size = Vector2(s, s)
 	if not pills.is_empty():
 		var rows := [[]]
 		var row_w := 0.0
 		for b in pills:
-			var bw := maxf(240.0, b.get_combined_minimum_size().x + 60.0)
+			var bw := minf(w, maxf(240.0, b.get_meta("w", 240.0)))
 			if row_w + bw > w and not rows[-1].is_empty():
 				rows.append([])
 				row_w = 0.0
@@ -698,6 +732,29 @@ func _layout_buttons() -> void:
 			y += bh + 16.0
 
 
+## Button face: words in blackletter, numbers in Cinzel gold. Leaves b.text empty.
+func _caption(b: Button, text: String, size: int) -> void:
+	var nums := RegEx.create_from_string("(\\d+)").sub(text, "[font=%s][color=#%s]$1[/color][/font]" % [Style.NUMERAL.resource_path, Style.C_GOLD.to_html(false)], true)
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = true
+	r.scroll_active = false
+	r.autowrap_mode = TextServer.AUTOWRAP_OFF
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.add_theme_font_override("normal_font", Style.BLACKLETTER)
+	r.add_theme_font_size_override("normal_font_size", size)
+	r.add_theme_color_override("default_color", Style.C_IVORY)
+	r.add_theme_constant_override("line_separation", -int(size * 0.25))
+	r.add_theme_constant_override("outline_size", 8)
+	r.add_theme_color_override("font_outline_color", Style.C_BLACK)
+	r.text = "[center]%s[/center]" % nums
+	c.add_child(r)
+	b.add_child(c)
+
+
 # ---------- Helpers ----------
 
 ## Bank: the same seal recast in dark bronze, so it can't be mistaken for Roll's crimson.
@@ -711,7 +768,8 @@ func _bronze_seal(b: Button) -> void:
 	wax.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wax.show_behind_parent = true
 	wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wax.material = Art.tint_material(Color("8a6f42"))
+	wax.material = Art.tint_material(Color("e0b872"))
+	wax.modulate = Color(2.0, 1.75, 1.4)  # red wax is dark; lift it to bronze
 	b.add_child(wax)
 	b.button_down.connect(func(): wax.texture = Art.SEAL_L[1])
 	b.button_up.connect(func(): wax.texture = Art.SEAL_L[0])
