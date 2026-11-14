@@ -54,6 +54,26 @@ const PARTICLES_MAX := 48
 const HAPTIC_MS_MIN := 15
 const HAPTIC_MS_MAX := 70
 
+# ---- Sound (ui/sfx.gd) ----
+# dB per sound, 0 = as recorded. Bigger results add up to +3 dB (k = 1) or take off 3 (k = 0).
+const MUTE := false
+const VOL_MASTER := 0.0
+const VOL := {
+	"lift": -16.0, "shake": -10.0, "whoosh": -14.0,
+	"impact_light": -10.0, "impact": -8.0, "impact_heavy": -6.0,
+	"tick": -18.0, "throw": -4.0, "throw_one": -4.0,
+	"seal": -6.0, "plaque": -10.0,
+	"nail": -6.0, "nail_last": -3.0, "bell": -2.0, "crack": -6.0,
+	"coins": -4.0, "coins_small": -8.0, "buy": -6.0,
+	"banner_in": -8.0, "banner_out": -12.0,
+	"glass": -10.0, "glass_light": -10.0, "hit": -6.0, "stamp": -6.0, "card": -10.0, "win": -4.0,
+}
+const PITCH_JITTER := 0.06          # random pitch spread so repeats don't sound identical
+const TICK_PITCH := Vector2(0.9, 1.7)  # count-up ticks rise from .x to .y across the count
+const TICK_GAP := 0.045             # count-up ticks never come faster than this
+const SFX_GAP := 0.04               # the same sound never retriggers faster than this
+const SFX_VOICES := 16
+
 # ---- Text ----
 const FLY_FONT := 72
 const STAMP_FONT := 150

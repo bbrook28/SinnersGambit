@@ -10,20 +10,28 @@ const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
 const Rules = preload("res://core/rules.gd")
 const T = Tuning
+const Sfx = preload("res://ui/sfx.gd")
 
 var m          # ui/main.gd
 var q          # ui/action_queue.gd
 var fx: Control
+var sfx: Node          # ui/sfx.gd
 var _shown := {}          # the snapshot the board currently shows
 var _prompt_gen := 0      # bumps on every prompt, so stale idle hints do nothing
 var _pulses: Array[Tween] = []
 var _line := ""             # the log line of the beat playing (shown once a bot has revealed its move)
 
 
+func _ready() -> void:
+	sfx = Sfx.new()
+	add_child(sfx)
+
+
 func setup(main, queue, layer: Control) -> void:
 	m = main
 	q = queue
 	fx = layer
+	sfx.q = queue
 
 
 # ================= Beats =================
@@ -84,6 +92,7 @@ func turn_change(p, snap: Dictionary) -> void:
 	focus(["seat%d" % seat])
 	m.show_ticker("")
 	var band := _banner_band("Your turn" if mine else "%s's turn" % m.player_name(p), col)
+	sfx.play("banner_in", 0.6 if mine else 0.3)
 	var w: float = m.size.x
 	band.position.x = -w
 	var tw: Tween = q.tween(band)
@@ -94,6 +103,7 @@ func turn_change(p, snap: Dictionary) -> void:
 	if mine:
 		haptic(0.5)
 	await q.wait(T.BANNER_HOLD)
+	sfx.play("banner_out", 0.3)
 	tw = q.tween(band)
 	tw.tween_property(band, "position:x", w, T.BANNER_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	await q.wait(T.BANNER_OUT)
@@ -151,11 +161,12 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	m._throw_label.text = ""
 	m._show_dice([])
 	# Anticipation: the tray draws breath.
-	_lift(m._dice_area, T.ANTICIPATION)
+	_lift(m._dice_area, T.ANTICIPATION, Color.WHITE, "shake")
 	await q.wait(T.ANTICIPATION)
 	# Action: the dice tumble in from the thrower's side, one after another.
 	var faces: Array = snap.turn.faces
 	m._show_dice(faces)
+	sfx.play("throw" if faces.size() > 1 else "throw_one", clampf(faces.size() / 8.0, 0.3, 1.0))
 	await get_tree().process_frame  # let the flow container place them
 	var side := signf(_center(_seat(seat).col).x - _center(m._dice_area).x)
 	var dice: Array = m._dice_nodes
@@ -181,7 +192,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	for d in dice:
 		burst(_center(d), k * 0.5, Style.C_BONE_DARK)
 	shake(k * 0.6)
-	haptic(k * 0.6)
+	impact(k * 0.6, "")  # the throw sound already lands
 	await q.wait(T.IMPACT)
 	if n == 0:  # Redemption: say what's needed
 		m._throw_label.add_theme_font_size_override("font_size", 72)
@@ -204,6 +215,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		m._throw_label.add_theme_font_size_override("font_size", m.SCORE_SIZE)
 		m._throw_label.text = "+0"
 		m._throw_label.modulate = Color(0.6, 0.55, 0.5)
+		sfx.play("impact_light", 0.0, 0.7)
 		_punch(m._throw_label, 0.3)
 		await q.wait(T.HOLD)
 		m._throw_label.modulate = Color.WHITE
@@ -239,7 +251,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 	_punch(m._throw_label, k)
 	burst(dest, k, Style.C_GOLD)
 	shake(k * 0.5)
-	haptic(k * 0.5)
+	impact(k * 0.5)
 	await q.wait(T.IMPACT)
 	await q.wait(T.HOLD * 0.5)
 	# Second action: the throw total travels to the turn total, which punches and counts up.
@@ -279,7 +291,7 @@ func _strikes(prev: Dictionary, snap: Dictionary) -> void:
 		_punch(nail, k)
 		burst(_center(nail), k * 0.6, Style.C_STRIKE)
 		shake(k * 0.5)
-		haptic(k)
+		impact(k, "nail_last" if s >= 2 else "nail")
 		await q.wait(T.IMPACT)
 	await q.wait(T.HOLD * 0.6)
 
@@ -298,7 +310,8 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	flash(Style.C_STRIKE, 0.45, T.IMPACT * 3)
 	stamp("BUST", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 1.0)
 	shake(1.0)
-	haptic(1.0)
+	impact(1.0, "bell")
+	sfx.play("crack", 1.0)
 	burst(_center(m._turn_label), 1.0, Style.C_STRIKE)
 	await q.wait(T.IMPACT)
 	m._refresh(snap, ["plates", "glow"])
@@ -327,7 +340,7 @@ func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	_punch(pt.window, k * 0.5)
 	burst(_center(pt.score), k, Style.C_GOLD)
 	shake(k * 0.5)
-	haptic(k * 0.7)
+	impact(k * 0.7, "coins")
 	await q.wait(T.IMPACT)
 	await q.wait(maxf(T.HOLD, T.COUNT_UP - T.IMPACT))
 	m._refresh(snap, ["plates"])
@@ -346,6 +359,7 @@ func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var s0 := _score_of(prev, seat)
 	var s1 := _score_of(snap, seat)
 	var away := _center(pt.score) + Vector2(0, 420)
+	sfx.play("buy", 0.5)
 	fly("-%d" % (s0 - s1), _center(pt.score), away, Style.C_BONE_DARK, T.ACTION)
 	count(pt.score, s0, s1, T.ACTION)
 	await q.wait(T.ACTION * 0.6)
@@ -354,7 +368,7 @@ func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	m._refresh(snap, ["plates"])
 	_punch(pt.dice, 0.5)
 	burst(_center(pt.dice), 0.3, Style.C_BONE)
-	haptic(0.3)
+	impact(0.3, "impact_light")
 	await q.wait(T.IMPACT + T.HOLD)
 
 
@@ -371,7 +385,7 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	var note: Control = m._marginalia(pt, ability, what)
 	await q.wait(T.ACTION)
 	m._flare(pt)
-	haptic(0.4)
+	impact(0.4, "glass")
 	burst(_center(pt.window), 0.5, Style.SIN_COLORS[pt.sin].lightened(0.3))
 	await q.wait(T.IMPACT)
 	await _effects_from(_center(pt.window), prev, snap)
@@ -388,8 +402,9 @@ func _reroll(snap: Dictionary) -> void:
 	focus(["dice"])
 	var dice: Array = m._dice_nodes
 	for d in dice:
-		_lift(d, T.ANTICIPATION, Color(1.4, 0.7, 0.6))
+		_lift(d, T.ANTICIPATION, Color(1.4, 0.7, 0.6), "shake")
 	await q.wait(T.ANTICIPATION)
+	sfx.play("throw", 0.6)
 	for d in dice:
 		var tw: Tween = q.tween(d)
 		tw.tween_property(d, "rotation", TAU, T.ACTION).set_trans(Tween.TRANS_QUAD)
@@ -400,7 +415,7 @@ func _reroll(snap: Dictionary) -> void:
 	for d in m._dice_nodes:
 		burst(_center(d), 0.3, Style.C_BONE_DARK)
 	shake(0.4)
-	haptic(0.5)
+	impact(0.5, "")
 	await q.wait(T.ACTION * 0.5 + T.IMPACT + T.HOLD)
 
 
@@ -424,6 +439,7 @@ func _bounce(text: String, prev: Dictionary, snap: Dictionary) -> void:
 	if r == null:
 		await _generic(prev, snap, -1)
 		return
+	sfx.play("glass_light", 0.7)
 	await _streak(_seat_index(r.get_string(1)), _seat_index(r.get_string(2)), prev, snap)
 
 
@@ -443,7 +459,7 @@ func _streak(a: int, b: int, prev: Dictionary, snap: Dictionary) -> void:
 	_punch(pb.col, 0.7)
 	flash(col, 0.25, T.IMPACT * 2)
 	shake(0.6)
-	haptic(0.7)
+	impact(0.7, "hit")
 	await q.wait(T.IMPACT)
 	m._refresh(snap, ["plates"])
 	await q.wait(T.HOLD)
@@ -456,14 +472,16 @@ func _hubris(paid: bool, prev: Dictionary, snap: Dictionary) -> void:
 	var before := _turn_points(prev)
 	if paid:
 		stamp("x1.6", _center(m._turn_label) + Vector2(0, -90), Style.C_GOLD, 0.8, 110)
+		sfx.play("glass", 0.8)
 		await q.wait(T.ACTION)
-		haptic(0.6)
+		impact(0.6, "coins")
 		shake(0.5)
 	else:
 		count_turn(before, 0, T.ACTION)
 		stamp("Hubris fails", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 0.8, 110)
+		sfx.play("crack", 0.8)
 		await q.wait(T.ACTION)
-		haptic(0.8)
+		impact(0.8)
 		shake(0.7)
 	await q.wait(T.IMPACT + T.HOLD)
 
@@ -477,7 +495,7 @@ func _redeem_result(freed: bool, snap: Dictionary) -> void:
 	await q.wait(T.ANTICIPATION)
 	stamp("Redeemed!" if freed else "Still in Purgatory", _center(m._dice_area),
 		Style.C_GOLD if freed else Style.C_STRIKE.lightened(0.3), 0.7, 100)
-	haptic(0.6 if freed else 0.3)
+	impact(0.6 if freed else 0.3, "glass" if freed else "")
 	if freed:
 		burst(_center(m._dice_area), 0.7, Style.C_GOLD)
 	await q.wait(T.ACTION + T.IMPACT)
@@ -501,7 +519,9 @@ func _win(snap: Dictionary) -> void:
 	burst(_center(pt.window), 1.0, Style.C_GOLD)
 	burst(_center(pt.score), 1.0, Style.C_GOLD)
 	shake(0.8)
-	haptic(1.0)
+	impact(1.0, "bell")
+	sfx.play("win", 1.0)
+	sfx.play("coins", 1.0)
 	await q.wait(T.HOLD * 3)
 
 
@@ -584,7 +604,7 @@ func _think_and_card(seat: int, text: String, kind: String) -> void:
 	t2.parallel().tween_property(card, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await q.wait(T.ACTION)
 	_punch(card, 0.4)
-	haptic(0.2)
+	impact(0.2, "card")
 	await q.wait(T.IMPACT + T.CARD_HOLD)
 	var t3: Tween = q.tween(card)
 	t3.tween_property(card, "scale", Vector2.ONE * 0.6, 0.15)
@@ -659,6 +679,7 @@ func fly(text: String, a: Vector2, b: Vector2, col: Color, dur: float, delay := 
 	var ctrl := (a + b) / 2 + Vector2(0, -T.FLY_ARC)
 	var tw: Tween = q.tween(l)
 	tw.tween_interval(delay)
+	tw.tween_callback(func(): sfx.play("whoosh", clampf(dur / T.ACTION - 0.5, 0.2, 1.0)))
 	tw.tween_property(l, "modulate:a", 1.0, 0.06)
 	tw.tween_property(l, "scale", Vector2.ONE * 1.3, 0.08)
 	tw.tween_method(func(t: float):
@@ -672,12 +693,24 @@ func fly(text: String, a: Vector2, b: Vector2, col: Color, dur: float, delay := 
 ## A label counts from a to b. fmt: "%d", "+%d".
 func count(l: Label, a: int, b: int, dur: float, fmt := "%d") -> void:
 	var tw: Tween = q.tween(l)
-	tw.tween_method(func(v: float): l.text = fmt % int(round(v)), float(a), float(b), dur)
+	tw.tween_method(func(v: float):
+		l.text = fmt % int(round(v))
+		_tick(a, b, v), float(a), float(b), dur)
 
 
 func count_turn(a: int, b: int, dur := T.COUNT_UP) -> void:
 	var tw: Tween = q.tween(m._turn_label)
-	tw.tween_method(func(v: float): m.set_turn_points(int(round(v))), float(a), float(b), dur)
+	tw.tween_method(func(v: float):
+		m.set_turn_points(int(round(v)))
+		_tick(a, b, v), float(a), float(b), dur)
+
+
+## Count-up ticks rise in pitch as the number climbs (and fall as it drains).
+func _tick(a: int, b: int, v: float) -> void:
+	if a == b or is_equal_approx(v, float(a)):
+		return
+	var t := (v - a) / float(b - a)
+	sfx.tick(t if b > a else 1.0 - t)
 
 
 func _punch(node: Control, k: float) -> void:
@@ -691,9 +724,10 @@ func _punch(node: Control, k: float) -> void:
 
 
 ## Anticipation: lift (and optionally tint) an element, holding until the beat moves on.
-func _lift(node: Control, dur: float, tint := Color.WHITE) -> void:
+func _lift(node: Control, dur: float, tint := Color.WHITE, snd := "lift") -> void:
 	if node == null or not is_instance_valid(node):
 		return
+	sfx.play(snd, 0.4)
 	node.pivot_offset = node.size / 2
 	var tw: Tween = q.tween(node)
 	tw.tween_property(node, "scale", Vector2.ONE * T.LIFT_SCALE, dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -767,7 +801,18 @@ func stamp(text: String, at: Vector2, col: Color, k: float, font := T.STAMP_FONT
 	tw.tween_interval(T.HOLD * 2)
 	tw.tween_property(l, "modulate:a", 0.0, 0.2)
 	tw.tween_callback(l.queue_free)
+	sfx.play("stamp", k)
 	shake(k * 0.4)
+
+
+## The impact phase: a tap you feel and a sound you hear, both sized by k.
+## snd: "impact" = wood on the desk sized by k; "" = haptic only; else a ui/sfx.gd sound.
+func impact(k: float, snd := "impact") -> void:
+	haptic(k)
+	if snd == "impact":
+		sfx.impact(k)
+	elif snd != "":
+		sfx.play(snd, k)
 
 
 func haptic(k: float) -> void:

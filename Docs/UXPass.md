@@ -61,6 +61,16 @@ Presentation and pacing only. No changes to `core/`, `sins/`, `ai/`, rules or ba
 ## Pace check
 A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots take about 35 s at 1x, 18 s at 2x and 9 s at 4x. Tap-to-skip covers the rest.
 
+## Part 3 (2026-11-13)
+1. Sound on every beat phase, seals, nails, bust, coins, banner. **Done** (`ui/sfx.gd`, `Tuning.VOL`).
+2. Thumb-zone layout fix plus outcome preview on the seals (projected bank, bust risk, Hubris bar).
+3. Fast-forward: hold to speed up; shorter beats for repeated events.
+4. Recap: last turn per player; restyle the Chronicle.
+5. Idle life, Sin window reactions, light shaft.
+6. Tap a die to inspect; tappable glowing Tier 2 targets.
+7. Reduce Motion, haptics on device, setup screen restyle.
+8. First-run tutorial (spotlight/dim), replayable.
+
 ## Build order (one event type at a time, Ben plays between)
 1. Queue, snapshots, speed and skip. Every event gets a generic beat (log line plus a pause). Nothing jumps any more. **Done** (`ui/action_queue.gd`, `ui/events.gd`).
 2. Turn change and glanceability (#1, #5, #12, rule 5).

@@ -77,3 +77,10 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - `ui/director.gd`: focus (dims other groups to `DIM`), fly / count / punch / lift / shake / burst / flash / stamp / haptic, and one handler per event kind. Anything unhandled goes through `_effects_from`, which flies every changed number from a source to its plate or the turn total.
 - `main._refresh(snap, parts)` draws only the parts a beat hasn't animated itself. Dice sit in fixed holders (`main._dice_nodes`) so they can be thrown and spun.
 - At 1x a bot turn is about 20 s. Not yet done: Sin windows reacting, light shafts, haptics checked on device.
+
+## UX pass part 3, step 1: sound (2026-11-13)
+- `ui/sfx.gd` (owned by the director as `_dir.sfx`): named sound sets, a 16-voice pool, random variant and pitch jitter, a per-sound retrigger gap, and silence while a beat is being skipped.
+- Sounds are hooked into the director's phase helpers, so every beat gets them: `_lift` = lift (or dice shake), `fly` = whoosh, `count`/`count_turn` = ticks rising in pitch (falling when a number drains), `stamp` = thud, and `impact(k, snd)` replaces bare `haptic()` at the impact phase (haptic plus a sound sized by k).
+- Per-event sounds: throw rattle, nails (the third is heavier), bust bell plus glass crack, bank coins, buy chips, ability glass chime, attack punch, bounce glass, Hubris chime or crack, banner page-fan in and slide out, bot card, win. Seals, plaques, the speed seal, the log strip and the setup Sins all click or press.
+- Volumes, gaps, voices and tick pitch range: `ui/tuning.gd` § Sound (`VOL` in dB per sound, `MUTE`).
+- Files: Kenney CC0 packs (Casino Audio, Impact Sounds, Interface Sounds), a chosen subset in `assets/audio` with their licences. The web build stays silent (`driver.web="Dummy"`); test sound on TestFlight. iOS uses Godot's default Ambient audio session, so the ring/silent switch mutes the game.

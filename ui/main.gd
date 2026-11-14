@@ -149,6 +149,7 @@ func _build_setup() -> void:
 		for st in ["normal", "hover", "pressed"]:
 			hit.add_theme_stylebox_override(st, StyleBoxEmpty.new())
 		hit.pressed.connect(_start.bind(s))
+		hit.button_down.connect(func(): _dir.sfx.play("seal", 0.5, 1.0, true))
 		g.add_child(hit)
 		_content.add_child(g)
 
@@ -479,6 +480,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_ticker_text.add_theme_color_override("default_color", Style.C_BONE_DARK)
 	_ticker.add_child(_ticker_text)
 	_ticker.pressed.connect(func(): _log_overlay.visible = true)
+	_ticker.button_down.connect(func(): _dir.sfx.play("plaque", 0.3, 1.0, true))
 	lrow.add_child(_ticker)
 	var fv := VBoxContainer.new()
 	fv.add_theme_constant_override("separation", -8)
@@ -488,6 +490,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	Art.skin(speed, [Art.SEAL_FAST, Art.SEAL_FAST, Art.SEAL_FAST])
 	speed.add_theme_stylebox_override("pressed", _seal_style(Art.SEAL_FAST, Color(1.25, 1.1, 0.8)))
 	speed.pressed.connect(_cycle_speed)
+	speed.button_down.connect(func(): _dir.sfx.play("seal", 0.3, 1.2, true))
 	fv.add_child(speed)
 	_speed_label = Style.label("", MIN_TEXT + 4, Style.C_BONE, false, 6)
 	_speed_label.add_theme_font_override("font", Style.NUMERAL)
@@ -935,6 +938,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 		# Tactile: the seal presses in under the finger and springs back.
 		b.button_down.connect(func():
 			_dir.prompt_answered()
+			_dir.sfx.play("plaque" if kind == "pill" else "seal", 0.7 if kind in ["roll", "bank"] else 0.4, 1.0, true)
 			b.pivot_offset = b.size / 2
 			b.create_tween().tween_property(b, "scale", Vector2.ONE * 0.9, 0.06))
 		b.button_up.connect(func():
