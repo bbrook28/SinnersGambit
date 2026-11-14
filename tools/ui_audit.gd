@@ -56,13 +56,13 @@ func _initialize() -> void:
 		bs[randi() % bs.size()].pressed.emit()
 	# Worst cases a random game may not reach: many dice, with and without Bank.
 	Engine.time_scale = 1.0
-	for n in [7, 8]:
+	for n in [5, 8]:
 		for bank in [false, true]:
 			var opts := []
 			for i in range(1, n + 1):
 				opts.append([str(i), i])
 			if bank:
-				opts.append(["Bank 150", 0])
+				opts.append(["Bank 1240", 0])
 			main._show_prompt_now("Throw again, or bank?" if bank else "Throw how many dice?", opts)
 			await _settle(6)
 			main._layout_buttons()

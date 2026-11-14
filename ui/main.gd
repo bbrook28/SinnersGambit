@@ -50,6 +50,7 @@ const SEAL_BIG := 250
 const TARGET_MIN := 44.0 * 1080.0 / 393.0   # 44 pt: smallest tappable thing (Apple HIG)
 const GAP_MIN := 13.0 * 1080.0 / 393.0      # a little over 12 pt between separate targets
 const SIDE_MIN := 17.0 * 1080.0 / 393.0     # a little over 16 pt from the screen's sides
+const SEAL_RECESS := 0.46                  # the painted seal's wax recess, as a fraction of its width
 const DIE_MAX := 280
 const SCORE_SIZE := 136
 
@@ -1047,7 +1048,7 @@ func _layout_buttons() -> void:
 				cx = mid + (d / 2.0 + gap) * (1.0 if b.get_meta("kind") == "roll" else -1.0)
 			b.position = Vector2(cx - d / 2.0, top)
 			b.size = Vector2(d, d)
-			_caption_size(b, int(clampf((62.0 if b.get_meta("kind") == "roll" else 56.0) * d / SEAL_BIG, 34.0, 62.0)))
+			_fit_caption(b, d)
 	if not pills.is_empty():
 		var rows := [[]]
 		var row_w := 0.0
@@ -1220,3 +1221,20 @@ func _seal_face(b: Button, n: int, hand: bool) -> void:
 		t.anchor_bottom = r.end.y
 		face.add_child(t)
 	b.add_child(face)
+
+
+## Sizes a seal's text caption (Bank, or a fallback) to sit inside the wax recess of a seal d px wide:
+## every line within the recess width, all lines within its height. Words in blackletter, numbers in Cinzel.
+func _fit_caption(b: Button, d: float) -> void:
+	var rs := b.find_children("*", "RichTextLabel", true, false)
+	if rs.is_empty():
+		return
+	var lines: PackedStringArray = rs[0].get_parsed_text().strip_edges().split("\n")
+	var recess := d * SEAL_RECESS
+	var size := 62.0
+	for line in lines:
+		var font: Font = Style.NUMERAL if line.is_valid_int() else Style.BLACKLETTER
+		var w := font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 100).x / 100.0  # width per px of font size
+		size = minf(size, recess / maxf(0.01, w))
+	size = minf(size, recess / (lines.size() * 0.82))
+	_caption_size(b, int(maxf(20.0, size)))
