@@ -174,7 +174,7 @@ func _zone(ratio: float) -> VBoxContainer:
 func _build_glance(zone: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", 4)
 	zone.add_child(row)
 	for p in game.players:
 		var sname: String = p.sin.sin_name
@@ -219,15 +219,15 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win_box.add_child(win)
 
 		var plate := Control.new()
-		plate.custom_minimum_size.y = 168
+		plate.custom_minimum_size.y = 172
 		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(Art.framed(Art.TRAY, [48, 40, 48, 40], 0.42))
 		var pv := VBoxContainer.new()
 		pv.set_anchors_preset(Control.PRESET_FULL_RECT)
 		pv.offset_top = 10
-		pv.offset_bottom = -10
+		pv.offset_bottom = -16
 		pv.alignment = BoxContainer.ALIGNMENT_CENTER
-		pv.add_theme_constant_override("separation", -6)
+		pv.add_theme_constant_override("separation", 0)
 		pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(pv)
 		var mine: bool = p.bot == human
@@ -240,13 +240,13 @@ func _build_glance(zone: VBoxContainer) -> void:
 			tab.offset_right = -10
 			tab.material = Art.tint_material(Style.SIN_COLORS[sname].darkened(0.2))  # your Sin's colour, as the banner
 			name_box.add_child(tab)
-		var name_l := Style.label("You" if mine else sname, MIN_TEXT - 2, Style.C_BONE, false, 6)
-		name_l.add_theme_font_override("font", Style.NUMERAL)
-		name_l.resized.connect(_fit_label.bind(name_l, MIN_TEXT - 2, 24))
+		var name_l := Style.label("You" if mine else sname, MIN_TEXT, Style.C_BONE, false, 6)
+		name_l.add_theme_font_override("font", Style.SERIF)
+		name_l.resized.connect(_fit_label.bind(name_l, MIN_TEXT, 30))
 		name_l.set_anchors_preset(Control.PRESET_FULL_RECT)
 		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_box.add_child(name_l)
-		pv.add_child(name_box)
+		col.add_child(name_box)  # above the frame: names get the full column width
 		var score_l := Style.number("0", 54)
 		pv.add_child(score_l)
 		var dice_row := HBoxContainer.new()
@@ -255,11 +255,11 @@ func _build_glance(zone: VBoxContainer) -> void:
 		dice_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var die_icon := TextureRect.new()
 		die_icon.texture = Art.ICON_DIE
-		die_icon.custom_minimum_size = Vector2(34, 34)
+		die_icon.custom_minimum_size = Vector2(42, 42)
 		die_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		die_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		dice_row.add_child(die_icon)
-		var dice_l := Style.label("", MIN_TEXT + 2, Style.C_BONE, false, 6)
+		var dice_l := Style.label("", MIN_TEXT + 6, Style.C_BONE, false, 6)
 		dice_l.add_theme_font_override("font", Style.NUMERAL)
 		dice_row.add_child(dice_l)
 		pv.add_child(dice_row)
@@ -482,7 +482,7 @@ func _refresh() -> void:
 		var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
 		if pt.name.text != nm:
 			pt.name.text = nm
-			_fit_label(pt.name, MIN_TEXT - 2, 24)
+			_fit_label(pt.name, MIN_TEXT, 30)
 		pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if p.in_purgatory else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
 		var lit: bool = p == cur
 		pt.glow.modulate.a = 1.0 if lit else 0.35
@@ -540,7 +540,7 @@ func _set_banner(text: String, p) -> void:
 func _fit_label(l: Label, size: int, floor_size: int) -> void:
 	var font: Font = l.get_theme_font("font")
 	var s := size
-	while s > floor_size and font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x > l.size.x - 8:
+	while s > floor_size and font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x > l.size.x - 4:
 		s -= 1
 	l.add_theme_font_size_override("font_size", s)
 
