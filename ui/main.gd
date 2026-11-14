@@ -512,13 +512,14 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	_thumb = page
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var paper := Art.framed(Art.PAGE, [240, 50, 240, 50], 0.4)
+	# Only the plain vine edges stretch; the corner marginalia keep their shape.
+	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
 	paper.modulate = Color(0.8, 0.72, 0.62)
 	page.add_child(paper)
 	var pv := VBoxContainer.new()
 	pv.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pv.offset_left = 104
-	pv.offset_right = -104
+	pv.offset_left = 64
+	pv.offset_right = -64
 	pv.offset_top = 24
 	pv.offset_bottom = -22
 	pv.add_theme_constant_override("separation", 6)

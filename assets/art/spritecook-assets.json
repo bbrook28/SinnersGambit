@@ -30,5 +30,7 @@
     ,{"asset_id": "33e048ba-a31c-442b-856f-a7ca57196e86", "sha12": "daab915aae6c", "label": "marginalia throw hand variant b", "file": "extra/raw/throw_hand_b_raw.png"}
     ,{"asset_id": "bb00e7d8-32ed-4c9a-804a-6fc9e4a31e8f", "sha12": "b7ca2d943161", "label": "gold-leaf numerals 1-9, 3x3 grid (picked)", "file": "seals/raw/numerals_gold_b_raw.png"}
     ,{"asset_id": "b4503838-ff6e-4360-9f14-6eac1af1df0e", "sha12": "f7af36234ded", "label": "gold-leaf numerals variant a (smoky haze in bg)", "file": "seals/raw/numerals_gold_a_raw.png"}
+    ,{"asset_id": "761a39e5-9f22-4622-aa1b-6c403be5a06c", "sha12": "3bf978e0bc71", "label": "thumb-zone page, slim vine border, corner marginalia (in use)", "file": "ui/raw/page_b_b_raw.png"}
+    ,{"asset_id": "9e4c82f4-e007-4a24-ac5e-088da2fef1e9", "sha12": "b60cdccfba19", "label": "thumb-zone page variant a (boxed corners)", "file": "ui/raw/page_b_a_raw.png"}
   ]
 }

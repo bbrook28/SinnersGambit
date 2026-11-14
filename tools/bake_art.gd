@@ -35,6 +35,10 @@ func _init() -> void:
 	for i in 9:
 		_save(_fit_h(nums[i], 220), OUT + "seals/n%d.png" % (i + 1))
 	_save(_fit_h(_cut(_load("res://assets/art/extra/raw/throw_hand_a_raw.png")), 256), OUT + "throw_hand.png")
+	# Thumb-zone page: slim vine border, marginalia only in the corners (9-sliced in ui/main.gd).
+	var page := _cut(_load("res://assets/art/ui/raw/page_b_b_raw.png"))
+	page.resize(1600, 900, Image.INTERPOLATE_LANCZOS)
+	_save(page, OUT + "page.png")
 	var bg := _load("res://assets/art/bg/raw/bg_b_raw.png")
 	bg.resize(1080, 1920, Image.INTERPOLATE_LANCZOS)
 	_save(bg, OUT + "bg.png")
