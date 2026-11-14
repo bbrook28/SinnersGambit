@@ -55,12 +55,27 @@ func dice_to_roll(p, game, turn_points: int, _strikes: int) -> int:
 	if p.drag > 0:
 		text += " (Dragged: max %d)" % most
 	if game.turn.min_points >= 0:
-		text += "\nHubris: bank more than %d or score 0." % game.turn.min_points
+		text += "\nHubris: bank at least %d or score 0." % game.turn.min_points
 	var options := []
 	for n in range(1, most + 1):
 		options.append([str(n), n])
 	if game.turn.throws > 0:
 		options.append(["Bank %d" % turn_points, 0])
+	return await _choose(text, options)
+
+
+## Throw-all mode (Rules.V3): one Throw seal for all your dice, plus Bank after the first throw.
+## (The dice count is the seal's only number option, so main shows the Throw seal alone.)
+func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
+	var n: int = game._max_throw(p)
+	var text := "Throw your dice." if game.turn.throws == 0 else "Throw again, or bank?"
+	if p.drag > 0:
+		text += " (Dragged: %d dice)" % n
+	if game.turn.min_points >= 0:
+		text += "\nHubris: bank at least %d or score 0." % game.turn.min_points
+	var options := [[str(n), true]]
+	if game.turn.throws > 0:
+		options.append(["Bank %d" % turn_points, false])
 	return await _choose(text, options)
 
 
@@ -71,11 +86,12 @@ func dice_to_buy(p, game) -> int:
 	var options := [["Buy none", 0]]
 	for n in range(1, most + 1):
 		options.append(["Buy %d (%d)" % [n, game._buy_price(p, n)], n])
-	return await _choose("Gambit: buy dice? You have %d dice, score %d. Supply %d." % [p.dice, p.score, game.supply], options)
+	return await _choose("Buy dice? You have %d dice and %d points." % [p.dice, p.score], options)
 
 
-func wants_indulgence(p, game) -> bool:
-	return await _choose("You're in Purgatory.", [["Pay Indulgence (%d)" % game.indulgence_cost(p), true], ["Roll for Redemption (need a 6)", false]])
+## Pick one of several labelled answers ([label, value] pairs).
+func pick(_game, text: String, options: Array):
+	return await _choose(text, options)
 
 
 ## Yes/no for an ability.

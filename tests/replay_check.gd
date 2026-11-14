@@ -53,6 +53,7 @@ func _main():
 	var m = load("res://ui/main.tscn").instantiate()
 	m.save_enabled = false
 	m.tutorial_enabled = false
+	m.first_game_enabled = randi() % 2 == 0  # the save must carry First Game mode
 	root.add_child(m)
 	await process_frame
 	return m

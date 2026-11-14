@@ -39,6 +39,8 @@ const CARD_HOLD := 0.5       # the chosen move (attacks only), enlarged at centr
 # Pacing: a bot's turn should come in under 4 s at 1x (tests/bot_pace.gd measures it).
 static var pace := 1.0       # set per beat by the director: 1 on your turn, BOT_PACE on a bot's
 const BOT_PACE := 2.25       # a bot's beats play this much faster than yours
+const FIRST_GAME_BOT_PACE := 0.5  # First Game: bots play at half that speed, so you can follow them
+static var bot_pace_scale := 1.0  # set by main._start
 const BOT_THINK := 0.5       # "thinking" before a bot's first throw of the turn only (scaled by BOT_PACE)
 const BOT_BANNER_HOLD := 0.3 # turn-change band hold for a bot (yours: BANNER_HOLD)
 const BOT_ANTICIPATION := 0.0  # a bot's beats skip the wait before the action (the lift still plays under it)

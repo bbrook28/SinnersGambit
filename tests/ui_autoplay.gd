@@ -28,6 +28,7 @@ func _next() -> void:
 	root.add_child(main)
 	main.save_enabled = false
 	main.tutorial_enabled = false
+	main.first_game_enabled = sin_i % 3 == 0  # every third game is a First Game (no Greater, table of 4)
 	Tuning.table_size = Tuning.TABLE_SIZES[sin_i % Tuning.TABLE_SIZES.size()]  # both table sizes
 	main._start(main.SIN_SCRIPTS[sin_i])
 	sin_i += 1

@@ -27,6 +27,12 @@ var face_mult := 10
 var die_cost := Rules.DIE_COST
 ## tier2: Tier 2 Sin abilities are on (unlock at Rules.TIER2_SCORE, once per round).
 var tier2 := false
+## throw_all: every throw uses all your dice (minus Drag); after each safe throw, throw again or bank.
+## auto_purgatory: Purgatory is a free throw of all your dice at the start of your turn: any 6 frees you,
+## otherwise you pay purgatory_cost (nothing if you can't afford it). Either way you then play your turn.
+var throw_all := false
+var auto_purgatory := false
+var purgatory_cost := Rules.INDULGENCE_COST
 
 var players: Array = []
 var supply: int
@@ -66,7 +72,10 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	rng.seed = seed_value
 	finish_round = options.get("finish_round", false)
 	dice_choice = options.get("dice_choice", false)
-	press = options.get("press", false) or dice_choice
+	throw_all = options.get("throw_all", false) and not dice_choice
+	press = options.get("press", false) or dice_choice or throw_all
+	auto_purgatory = options.get("auto_purgatory", false)
+	purgatory_cost = options.get("purgatory_cost", Rules.INDULGENCE_COST)
 	seat_bonus = options.get("seat_bonus", 0)
 	indulgence_pct = options.get("indulgence_pct", 0)
 	chain = options.get("chain", 0.0)
@@ -225,6 +234,9 @@ func take_turn(p) -> void:
 	var count: int = p.dice
 	if dice_choice:
 		count = clampi(await p.bot.dice_to_roll(p, self, 0, 0), 1, _max_throw(p))
+	elif throw_all:
+		await p.bot.wants_throw(p, self, 0, 0)  # the first throw is never optional; you tap Throw
+		count = _max_throw(p)
 	while count > 0:
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
@@ -258,6 +270,8 @@ func take_turn(p) -> void:
 			break
 		if dice_choice:
 			count = clampi(await p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, _max_throw(p))
+		elif throw_all:
+			count = _max_throw(p) if await p.bot.wants_throw(p, self, turn.points, turn.strikes) else 0
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
 		if count > 0:
@@ -348,6 +362,24 @@ func _resolve_finish() -> void:
 
 ## Returns true if the player is free to take the rest of the turn.
 func _try_escape(p) -> bool:
+	if auto_purgatory:
+		var throw := Rules.roll(rng, p.dice)
+		p.in_purgatory = false
+		if view:
+			turn.redeem_faces = throw  # display only: last_throw stays as the rules have it
+			say("%s throws to leave Purgatory: %s" % [pname(p), _faces_str(throw)])
+		if 6 in throw:
+			if view:
+				say("  A 6! Free.")
+		else:
+			var paid := purgatory_cost if p.score >= purgatory_cost else 0
+			p.score -= paid
+			if view:
+				if paid > 0:
+					say("  No 6: %s pays %d to leave Purgatory." % [pname(p), paid])
+				else:
+					say("  No 6, and %s can't pay: free anyway." % pname(p))
+		return true
 	# Indulgence. Rulebook doesn't say what happens if you can't pay; we fall back to Redemption.
 	var cost := indulgence_cost(p)
 	# (Affordability is checked first so the human is only asked when paying is possible; bots don't care.)

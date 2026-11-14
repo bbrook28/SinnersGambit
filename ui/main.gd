@@ -20,7 +20,7 @@ const Tuning = preload("res://ui/tuning.gd")
 const Events = preload("res://ui/events.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2  # 2: Rules.V3 and First Game mode (a V2 save can't replay)
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
 const MENU_SEAL := 230
@@ -43,13 +43,13 @@ const SIN_TITLES := {
 	"Pride": "the Untouchable", "Gluttony": "the Devourer", "Sloth": "the Delayer",
 }
 const SIN_TEXT := {
-	"Wrath": ["Spark of Rage: +40 whenever another player busts.", "Fury: once a round, make an opponent reroll their 3 best dice."],
-	"Greed": ["The Vig: +17 for every die another player buys.", "Interest: buy no dice, gain 8% of your score (max 60)."],
-	"Lust": ["Whisper: once a turn, swap a 3 (or a 2) for the last player's best face.", "Binding Pact: take 15% of an opponent's next banked turn."],
-	"Envy": ["Glance: once a turn, add a copy of the last player's best face.", "Mimicry: borrow the last player's Tier 1 for your turn."],
-	"Pride": ["Hubris: call it before rolling. Beat the last turn (min 50) for x1.6, or score 0.", "Untouchable: bounce the first attack on you each round."],
-	"Gluttony": ["Feast: once a turn, feed a die to the Supply for +90. A Strike die cancels its Strike.", "Gorge: the first die you buy each turn costs 70."],
-	"Sloth": ["Lazy Bones: your first Strike each turn doesn't count.", "Drag: an opponent throws 3 fewer dice next turn."],
+	"Wrath": ["Spark of Rage: gain 40 whenever another player busts.", "Fury: once a round, make an opponent reroll their three best dice right after they throw."],
+	"Greed": ["The Vig: when an opponent buys a die, 17 of its price goes to you.", "Interest: bank and buy nothing to gain 8% of your score, up to 60."],
+	"Lust": ["Whisper of Desire: once a turn, turn a 3 or 2 into the previous player's best die.", "Binding Pact: pick an opponent; you take 15% of the next turn they bank."],
+	"Envy": ["Green-Eyed Glance: once a turn, add a copy of the previous player's best die to this throw.", "Mimicry: once a round, add two copies of the previous player's best die to this throw."],
+	"Pride": ["Hubris: before throwing, bet 100, 150 or 200: bank at least that for x1.5, else 0.", "Untouchable: once a round, the first ability used against you hits its user instead."],
+	"Gluttony": ["Feast: once a turn, sacrifice a thrown die for 50; a sacrificed Strike doesn't count.", "Gorge: your first die each turn costs 70 instead of 100."],
+	"Sloth": ["Lazy Bones: your first Strike each turn doesn't count.", "Drag: pick an opponent; next turn they throw 3 fewer dice (never under 1)."],
 }
 
 ## Sizes in px (viewport 1080 wide = 393pt). Brief: text >= 13pt, small seals >= 44pt, Roll/Bank >= 88pt, dice >= 64pt.
@@ -108,6 +108,15 @@ var _save := {}                    # the game in progress, as written to SAVE
 var _replaying := false            # Continue: replaying saved answers under the ink
 var save_enabled := true           # tests turn this off
 var tutorial_enabled := true       # tests turn this off too
+## First Game mode until a game is finished: table of 4, Basic abilities only, bots at half speed.
+## Finishing a game unlocks Greater abilities and the Table of 7. Saved in settings.cfg.
+var games_finished := 0
+var first_game_enabled := true     # tests choose per game
+var _first_game := false           # the game in progress is a First Game
+
+
+func is_first_game() -> bool:
+	return first_game_enabled and games_finished == 0
 var _menu_seals: Array = []
 var _settings: Control            # the Settings page while open
 var _desk: Control
@@ -141,6 +150,7 @@ func _ready() -> void:
 		Tuning.music_vol = clampf(float(cfg.get_value("ui", "music", Tuning.music_vol)), 0.0, 1.0)
 		Tuning.haptics = bool(cfg.get_value("ui", "haptics", true))
 		tutorial_pending = not bool(cfg.get_value("ui", "tutorial_done", false))
+		games_finished = int(cfg.get_value("ui", "games_finished", 0))
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
 		Tuning.table_size = ts if ts in Tuning.TABLE_SIZES else Tuning.TABLE_SIZES[0]
@@ -600,7 +610,12 @@ func _build_setup() -> void:
 	row.add_theme_constant_override("separation", int(GAP_MIN * 1.5))
 	_content.add_child(row)
 	var pills := []
+	var first := is_first_game()
+	row.visible = not first  # First Game: always a table of 4
 	var show := func():
+		if first:
+			Style.set_body(blurb, "Choose thy Sin. Three others shall face thee. First to 1000. Win or lose, finishing unlocks Greater abilities and the Table of 7.")
+			return
 		Style.set_body(blurb, "Choose thy Sin. %s shall face thee. First to 1000." % ("Three others" if Tuning.table_size == 4 else "Six others"))
 		for b in pills:
 			b.modulate = Color.WHITE if b.get_meta("n") == Tuning.table_size else Color(0.55, 0.5, 0.48)
@@ -631,7 +646,7 @@ func _build_setup() -> void:
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.add_theme_constant_override("separation", 2)
 		v.add_child(Style.label("%s, %s" % [sname, SIN_TITLES[sname]], 50, Style.C_IVORY, true, 10))
-		for line in SIN_TEXT[sname]:
+		for line in (SIN_TEXT[sname].slice(0, 1) if first else SIN_TEXT[sname]):  # First Game: Basic only
 			v.add_child(Style.body(line, 26, Style.C_IVORY, 10))
 		box.add_child(v)
 		g.add_child(box)
@@ -661,13 +676,16 @@ func _start(my_sin: Script, saved := {}) -> void:
 	var order := []  # [sin index, is human] per seat
 	if saved.is_empty():
 		# You plus (table size - 1) other Sins, drawn at random.
+		_first_game = is_first_game()
 		var others := SIN_SCRIPTS.filter(func(s): return s != my_sin)
 		others.shuffle()
 		order.append([SIN_SCRIPTS.find(my_sin), true])
-		for s in others.slice(0, clampi(Tuning.table_size, 2, SIN_SCRIPTS.size()) - 1):
+		var size: int = 4 if _first_game else Tuning.table_size
+		for s in others.slice(0, clampi(size, 2, SIN_SCRIPTS.size()) - 1):
 			order.append([SIN_SCRIPTS.find(s), false])
 		order.shuffle()
 	else:
+		_first_game = bool(saved.get("first", false))
 		for e in saved.seats:
 			order.append([int(e[0]), bool(e[1])])
 	var bots := []
@@ -675,12 +693,13 @@ func _start(my_sin: Script, saved := {}) -> void:
 	for e in order:
 		bots.append(human if e[1] else bot)
 		sins.append(SIN_SCRIPTS[e[0]].new())
-	var options := Rules.V2.duplicate()
-	options["tier2"] = true
+	var options := Rules.V3.duplicate()
+	options["tier2"] = not _first_game
+	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
 	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
 	game = Game.new(bots, seed_value, options, sins)
 	game.view = self
-	_save = {"v": SAVE_VERSION, "seed": seed_value, "seats": order, "choices": human.record}
+	_save = {"v": SAVE_VERSION, "seed": seed_value, "seats": order, "choices": human.record, "first": _first_game}
 	human.on_answer = _save_game
 	_build_board()
 	if _wash:
@@ -693,6 +712,9 @@ func _start(my_sin: Script, saved := {}) -> void:
 		_q.skip_all = true  # every beat jumps to its end; show_prompt lifts the ink
 	var w = await game.play()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))  # a finished game can't be continued
+	if save_enabled:  # tests don't unlock anything
+		games_finished += 1  # the first one unlocks Greater abilities and the Table of 7
+		_save_settings()
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
 	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
@@ -736,7 +758,7 @@ func _tutorial_prompt() -> void:
 	if _tut_stage == 0 and of.call("roll").size != Vector2.ZERO:
 		if of.call("num").size != Vector2.ZERO:
 			steps.append([of.call("num"), "Choose how many dice to throw. More dice, more points, more risk."])
-		steps.append([of.call("roll"), "Then seal it with Throw."])
+		steps.append([of.call("roll"), "Throw all your dice. Throw as often as you like."])
 		_tut_stage = 1
 	elif _tut_stage == 1 and of.call("bank").size != Vector2.ZERO:
 		var nails := Rect2()
@@ -748,9 +770,10 @@ func _tutorial_prompt() -> void:
 			table = pt.col.get_global_rect() if table.size == Vector2.ZERO else table.merge(pt.col.get_global_rect())
 			if pt.mine:
 				mine = pt.col
-		steps.append([_dice_area.get_global_rect(), "4, 5 and 6 score 20, 25 and 30. Each extra scorer adds x0.5."])
+		steps.append([_dice_area.get_global_rect(), "4, 5 and 6 score five times their face. 3 does nothing."])
+		steps.append([_dice_area.get_global_rect(), "Scoring several dice in one throw is worth more."])
 		steps.append([nails, "1s and 2s are Strikes. They add up all turn."])
-		steps.append([nails, "Three Strikes and you bust: the turn's points are lost and you go to Purgatory."])
+		steps.append([nails, "Bust: a third Strike loses this turn's points and starts your next turn in Purgatory."])
 		steps.append([of.call("bank"), "Bank to keep this turn's points, or throw again to push your luck."])
 		if mine:
 			var me = human_player()
@@ -1238,6 +1261,7 @@ func _save_settings() -> void:
 	cfg.set_value("ui", "tutorial_done", not tutorial_pending)
 	cfg.set_value("ui", "reduce_motion", Tuning.reduce_motion)
 	cfg.set_value("ui", "table", Tuning.table_size)
+	cfg.set_value("ui", "games_finished", games_finished)
 	cfg.save(SETTINGS)
 
 
@@ -1278,7 +1302,7 @@ func _snapshot() -> Dictionary:
 		elif p.pact_by != null:
 			tag = "Pact"
 		elif _t2_ready(p):
-			tag = "II ready"
+			tag = "Greater ready"
 		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag})
 	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null}
 	var t = game.turn
@@ -1321,7 +1345,7 @@ func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 			var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
 			text = "+%d" % pts
 		elif faces.size() > 0:
-			text = "Redemption: need a 6"
+			text = "Purgatory: a 6 frees you"
 			size = 72
 		_throw_label.text = text
 		_throw_label.add_theme_font_size_override("font_size", size)

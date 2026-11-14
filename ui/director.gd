@@ -45,7 +45,7 @@ func setup(main, queue, layer: Control) -> void:
 ## One rules log line. prev: what the board showed before; snap: the state after this line.
 func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> void:
 	_line = text
-	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE
+	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE * T.bot_pace_scale
 	if not (ev.kind in ["throw", "bank", "buy", "attack", "redemption"]):
 		m.show_ticker(text)
 	var mt: RegExMatch = ev.match
@@ -55,7 +55,7 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 		"throw":
 			await _throw(mt.get_string(1), int(mt.get_string(2)), prev, snap, "Throw %s" % mt.get_string(2))
 		"redemption":
-			await _throw(mt.get_string(1).trim_suffix(" rolls for"), 0, prev, snap, "Redemption")
+			await _throw(mt.get_string(1).trim_suffix(" rolls for"), 0, prev, snap, "Purgatory")
 		"score":
 			await _score(prev, snap)
 		"bust":
@@ -93,7 +93,7 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 func turn_change(p, snap: Dictionary) -> void:
 	var seat: int = snap.cur
 	var mine: bool = p.bot == m.human
-	T.pace = 1.0 if mine else T.BOT_PACE
+	T.pace = 1.0 if mine else T.BOT_PACE * T.bot_pace_scale
 	_bot_thought = false
 	turn_shown.emit(seat, mine)
 	var col: Color = Style.SIN_COLORS[p.sin.sin_name]
@@ -239,7 +239,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	await q.wait(T.IMPACT)
 	if n == 0:  # Redemption: say what's needed
 		m._throw_label.add_theme_font_size_override("font_size", 72)
-		m._throw_label.text = "Redemption: need a 6"
+		m._throw_label.text = "Purgatory: a 6 frees you"
 	await q.wait(_hold())
 
 
@@ -547,7 +547,7 @@ func _redeem_result(freed: bool, snap: Dictionary) -> void:
 			if snap.turn.faces[i] == 6:
 				_lift(m._dice_nodes[i], T.ANTICIPATION, Color(1.4, 1.25, 0.8))
 	await q.wait(_ant())
-	stamp("Redeemed!" if freed else "Still in Purgatory", _center(m._dice_area),
+	stamp("Free!" if freed else "Still in Purgatory", _center(m._dice_area),
 		Style.C_GOLD if freed else Style.C_STRIKE.lightened(0.3), 0.7, 100)
 	impact(0.6 if freed else 0.3, "glass" if freed else "")
 	if freed:

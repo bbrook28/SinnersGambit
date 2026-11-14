@@ -19,8 +19,10 @@ const TABLE := [
 	["bounce", " is Untouchable: ", 0.5],
 	["attack_effect", "^\\s+.+ (must reroll|gives \\d+% of|throws at most)", 0.4],
 	["indulgence", " pays the Indulgence ", 0.5],
+	["indulgence", "^\\s+No 6(:|, and) ", 0.5],  # V3: pays (or can't) and plays on
 	["redemption", "^(.+?) rolls for Redemption: ", 0.6],
-	["redeemed", "^\\s+A 6! Redeemed", 0.4],
+	["redemption", "^(.+?) throws to leave Purgatory: ", 0.6],  # V3
+	["redeemed", "^\\s+A 6! (Redeemed|Free)", 0.4],
 	["still_purgatory", "^\\s+No 6\\. Still in Purgatory", 0.4],
 	["win", " WINS? with ", 1.5],
 ]

@@ -20,6 +20,19 @@ const V2 := {
 	"supply_per_player": 8,
 }
 
+## Phase 0 simplification (2026-11-13): the default game. Pass to Game.new() as options.
+## First Game mode (UI) = V3 with "tier2" off at a table of 4.
+const V3 := {
+	"throw_all": true,      # every throw uses all your dice; after a safe throw, throw again or bank
+	"chain": 0.5,           # +x0.5 per extra scoring die in one throw
+	"face_mult": 5,         # 4/5/6 = 20/25/30
+	"die_cost": 100,
+	"seat_bonus": 20,       # seat N starts with 20 x (N-1)
+	"supply_per_player": 8,
+	"auto_purgatory": true, # turn starts in Purgatory: free throw of all dice, any 6 frees you,
+	"purgatory_cost": 50,   # otherwise you pay this (nothing if you can't); then play the turn as normal
+}
+
 
 static func roll(rng: RandomNumberGenerator, count: int) -> Array[int]:
 	var faces: Array[int] = []

@@ -96,3 +96,6 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 10. Page-turn or ink-wash screen transitions. **Done** (`_ink_wash`, `_page_turn`).
 11. Marginalia react: jester flinches on bust, skeleton and pennant cheer on bank. **Done** (`runtime/marginalia`, `director.flinch/cheer`).
 12. Idle: seals breathe, selected ring pulses, candle flicker. **Done**.
+
+## Second quality pass (2026-11-13)
+Phase 0 rules (Rules.V3, First Game mode) built: the throw prompt is now one Throw seal for all dice plus Bank; Purgatory is automatic. Docs/Handoff.md § Phase 0.

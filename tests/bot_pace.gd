@@ -34,6 +34,7 @@ func _next() -> void:
 	root.add_child(main)
 	main.save_enabled = false
 	main.tutorial_enabled = false
+	main.first_game_enabled = false
 	main._dir.turn_shown.connect(_on_turn)
 	started = false
 	main._start(main.SIN_SCRIPTS[6 - games % 7])
