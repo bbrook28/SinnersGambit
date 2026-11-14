@@ -183,3 +183,19 @@ const SELECT_LIGHT_FADE := 0.35    # it cross-fades to the next Sin's colour thi
 const SELECT_LIGHT_BREATHE := 0.7  # and breathes down to this much (off with Reduce Motion)
 const SELECT_LIGHT_PERIOD := 4.0
 const SELECT_CHOOSE := 260         # the Choose seal
+
+# ---- Game layout (Phase 5) ----
+const ZONE_GLANCE := 24.0          # stretch ratios of the board's three zones: windows and plates,
+const ZONE_TRAY := 46.0            # the tray (about 40% of the screen with the safe areas),
+const ZONE_THUMB := 30.0           # the parchment page (prompts, seals, the bot-turn summary)
+const WINDOW_CROP := 1.8           # board windows show the arch and figure: height = width x this
+const WINDOW_CROP_TOP := {}        # per Sin, where the crop starts (fraction of the height; default 0)
+const CROWN_SIZE := Vector2(64, 44)  # the leader's crown over their window
+const BADGE_SIZE := 46.0           # status badges down a window's right edge
+const BADGES := {                  # badge colours, in the order they stack
+	"purg": Color("9a1b1b"), "greater": Color("e0b042"), "drag": Color("2a58c8"), "pact": Color("c02c78"),
+}
+const PAUSE_ITEM_W := 560          # the pause menu's buttons
+const SUMMARY_FONT := 34           # the bot-turn summary lines
+const SUMMARY_ROWS := 6            # at most this many bot turns listed (fewer when they don't fit: _summary_fit)
+const SUMMARY_NAME := {"Greed": Color("3d4a5c")}  # a Sin name too pale to read on parchment, darker

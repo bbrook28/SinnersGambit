@@ -302,8 +302,30 @@ const WORDS := {
 	"setup_table": "Table of {n}",
 	"setup_recommended": "Recommended",
 	"setup_choose": "Choose",
+	# Pause menu (Phase 5).
+	"pause_title": "Paused",
+	"pause_resume": "Resume",
+	"pause_rulebook": "Rulebook",
+	"pause_sins": "Sin abilities",
+	"pause_chronicle": "Chronicle",
+	"pause_settings": "Settings",
+	"pause_menu": "Main menu",
+	# Bot-turn summary (Phase 5): "Wrath: banked 120 (now 540)".
+	"sum_playing": "at the dice",
+	"sum_bank": "banked {n} (now {score})",
+	"sum_bust": "went bust, lost {n}",
+	"sum_buy_one": "bought a die",
+	"sum_buy": "bought {n} dice",
+	"sum_ability": "{ability}",
+	"sum_attack": "{ability} on {target}",
+	"sum_freed": "left Purgatory",
+	"sum_stuck": "stays in Purgatory",
 }
 
+## Bot-turn summary: an attack line's verb (an Events "attack" line) -> the ability's name.
+const ATTACK_NAMES := {"unleashes Fury on": "Fury", "binds a Pact on": "Binding Pact", "Drags": "Drag"}
+## Status badge -> the glossary term a tap on it explains.
+const BADGE_TERMS := {"purg": "Purgatory", "greater": "Greater ready", "drag": "Dragged", "pact": "Pact"}
 
 static func word(key: String, args := {}) -> String:
 	var v := vals()

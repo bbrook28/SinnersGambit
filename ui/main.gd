@@ -76,8 +76,8 @@ var _strike_icons: Array = []   # the Strike candles
 var _result_label: Label          # one line under the throw total: what scored (result_line)
 var _prompt_label: RichTextLabel
 var _buttons: Control             # holds only prompt Buttons (tests/ui_autoplay.gd presses them)
-var _ticker: Button
-var _ticker_text: RichTextLabel
+var _summary: Button               # bot-turn summary on the thumb page (tap: the Chronicle)
+var _summary_rows: VBoxContainer
 var _waiting := true              # no human prompt showing
 var _log_lines: Array[String] = []
 var _log_overlay: Control
@@ -91,7 +91,7 @@ var _fx: Control                  # flying numbers, stamps, particles, banners (
 var _board: Control               # the page root (screen shake moves it)
 var _banner: Control
 var _turn_row: Control
-var _log_row: Control
+var _summary_parts: Array = []      # what the bot at the dice has done this turn (_summary_event)
 var _thumb: Control
 var marginalia := {}               # jester / pennant / skeleton TextureRects on the thumb page (director reacts with them)
 var _paper: Control               # thumb-zone parchment (slides and catches light with tilt)
@@ -132,7 +132,7 @@ var _music: AudioStreamPlayer
 var _screen_root: Control          # the menu scene (freed when leaving it)
 var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
 var _overlay: Control              # the rulebook or an explanation card while open (the queue waits)
-var _help: Button                  # "?" on the game screen: the rulebook at the page for this moment
+var _pause: Button                 # the pause seal in the tray: Rulebook, Sin abilities, Chronicle, Settings, menu
 var _explain_targets: Array = []   # [control, Callable]: what a tap / hold explains (_register_explain_targets)
 var _press_at := Vector2.INF       # where the current press started (INF: none, or on a button)
 var _press_t := 0.0
@@ -844,8 +844,8 @@ func start_tutorial(from_settings: bool) -> void:
 	_tutor = TutorialGame.new(self, from_settings)
 	_tutor.finished.connect(_end_tutorial)
 	_build_board()
-	if _help:
-		_help.visible = false  # the script explains; the rulebook waits for a real game
+	if _pause:
+		_pause.visible = false  # the script explains; the pause menu waits for a real game
 	add_child(_tutor.overlay)
 	_ink_wash(false)
 	await game.play()
@@ -917,9 +917,9 @@ func _on_new_game_wait() -> void:
 func _build_board() -> void:
 	_content = _page()
 	_content.add_theme_constant_override("separation", 14)
-	var glance := _zone(25)
-	var stage := _zone(45)
-	var thumb := _zone(30)
+	var glance := _zone(Tuning.ZONE_GLANCE)
+	var stage := _zone(Tuning.ZONE_TRAY)
+	var thumb := _zone(Tuning.ZONE_THUMB)
 	_build_glance(glance)
 	_build_stage(stage)
 	_build_thumb(thumb)
@@ -936,7 +936,6 @@ func _build_board() -> void:
 	_focus_groups["dice"] = _dice_area
 	_focus_groups["throw"] = _throw_label
 	_focus_groups["turn"] = _turn_row
-	_focus_groups["log"] = _log_row
 	_focus_groups["thumb"] = _thumb
 	_focus_groups["desk"] = _desk
 	if Tuning.SHOW_DEBUG_SLIDER:
@@ -986,17 +985,22 @@ func _zone(ratio: float) -> VBoxContainer:
 	return z
 
 
-## Seven windows in seat order, each over a brass-framed plate: name, score, dice. Look-only.
+## One column per seat: the window cropped to its arch and figure (Phase 5), the name, then a
+## brass-framed plate with score and dice. Status badges sit on the window's corner, the leader
+## wears a crown over theirs, and your whole column has a gold frame. Look-only.
 func _build_glance(zone: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 4)
+	row.add_theme_constant_override("separation", 6)
 	zone.add_child(row)
 	for p in game.players:
 		var sname: String = p.sin.sin_name
+		var mine: bool = p.bot == human
 		var col := VBoxContainer.new()
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_theme_constant_override("separation", 4)
+		if mine:  # you: a gold frame round the whole column, drawn behind it
+			col.draw.connect(_draw_you_frame.bind(col, sname))
 		row.add_child(col)
 
 		var win_box := Control.new()
@@ -1024,7 +1028,7 @@ func _build_glance(zone: VBoxContainer) -> void:
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		win_box.add_child(glow)
 		var win := TextureRect.new()
-		win.texture = Art.window(sname)
+		win.texture = Art.window_crop(sname, Tuning.WINDOW_CROP, Tuning.WINDOW_CROP_TOP.get(sname, 0.0))
 		win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		win.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1034,9 +1038,28 @@ func _build_glance(zone: VBoxContainer) -> void:
 			win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))  # cold silver, not grey
 		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		win_box.add_child(win)
+		# The leader's crown, over the top of the arch (_refresh_marks).
+		var crown := Control.new()
+		crown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		crown.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		crown.offset_left = -Tuning.CROWN_SIZE.x / 2
+		crown.offset_right = Tuning.CROWN_SIZE.x / 2
+		crown.offset_top = -Tuning.CROWN_SIZE.y * 0.45
+		crown.offset_bottom = Tuning.CROWN_SIZE.y * 0.55
+		crown.draw.connect(_draw_crown.bind(crown))
+		crown.visible = false
+		win_box.add_child(crown)
+		# Status badges, down the window's right edge (_refresh_marks).
+		var badges := VBoxContainer.new()
+		badges.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badges.add_theme_constant_override("separation", 4)
+		badges.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		badges.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		badges.offset_top = Tuning.CROWN_SIZE.y * 0.6
+		win_box.add_child(badges)
 
 		var plate := Control.new()
-		plate.custom_minimum_size.y = 172  # caption, score, dice row (tight: the windows keep their height)
+		plate.custom_minimum_size.y = 172  # caption, score, dice row
 		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(Art.framed(Art.TRAY, [48, 40, 48, 40], 0.42))
 		var pv := VBoxContainer.new()
@@ -1047,7 +1070,6 @@ func _build_glance(zone: VBoxContainer) -> void:
 		pv.add_theme_constant_override("separation", -6)  # caption lines sit close to their numbers
 		pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(pv)
-		var mine: bool = p.bot == human
 		var name_box := Control.new()
 		name_box.custom_minimum_size.y = 46
 		name_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1057,9 +1079,9 @@ func _build_glance(zone: VBoxContainer) -> void:
 			tab.offset_right = -10
 			tab.material = Art.tint_material(Style.SIN_COLORS[sname].darkened(0.2))  # your Sin's colour, as the banner
 			name_box.add_child(tab)
-		var name_l := Style.label("You" if mine else sname, MIN_TEXT, Style.C_BONE, false, 6)
+		var name_l := Style.label("You" if mine else sname, MIN_TEXT, Style.C_GOLD if mine else Style.C_BONE, false, 6)
 		name_l.add_theme_font_override("font", Style.SERIF)
-		name_l.resized.connect(_fit_label.bind(name_l, MIN_TEXT, 30))
+		name_l.resized.connect(_fit_label.bind(name_l, MIN_TEXT, 26))
 		name_l.set_anchors_preset(Control.PRESET_FULL_RECT)
 		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_box.add_child(name_l)
@@ -1080,7 +1102,68 @@ func _build_glance(zone: VBoxContainer) -> void:
 			l.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_l.clip_text = true
 		col.add_child(plate)
-		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname, "mine": mine, "col": col})
+		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname,
+			"mine": mine, "col": col, "crown": crown, "badges": badges})
+
+
+## Your column: a gold frame round window, name and plate, over a wash of your Sin's colour.
+func _draw_you_frame(col: Control, sname: String) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Style.SIN_COLORS[sname].darkened(0.6), 0.35)
+	sb.border_color = Style.C_GOLD
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(16)
+	col.draw_style_box(sb, Rect2(Vector2(-3, -6), col.size + Vector2(6, 8)))
+
+
+## The leader's crown: a gold three-point crown with a dark edge, drawn to fit its control.
+func _draw_crown(c: Control) -> void:
+	var w := c.size.x
+	var h := c.size.y
+	var pts := PackedVector2Array([Vector2(0.08, 0.92), Vector2(0.02, 0.22), Vector2(0.3, 0.55), Vector2(0.5, 0.05),
+		Vector2(0.7, 0.55), Vector2(0.98, 0.22), Vector2(0.92, 0.92)])
+	for i in pts.size():
+		pts[i] *= Vector2(w, h)
+	c.draw_colored_polygon(pts, Style.C_GOLD)
+	var edge := pts.duplicate()
+	edge.append(pts[0])
+	c.draw_polyline(edge, Color(0.2, 0.1, 0.02), 3.0, true)
+	for x in [0.02, 0.5, 0.98]:  # a jewel on each point
+		c.draw_circle(Vector2(x * w, (0.05 if x == 0.5 else 0.22) * h), h * 0.09, Style.C_CRIMSON)
+
+
+## A status badge: a disc in the status colour with a small drawn sign. kind: purg / greater /
+## drag / pact (colours: Tuning.BADGES).
+func _badge(kind: String) -> Control:
+	var b := Control.new()
+	b.set_meta("kind", kind)
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.custom_minimum_size = Vector2.ONE * Tuning.BADGE_SIZE
+	b.draw.connect(_draw_badge.bind(b, kind))
+	return b
+
+
+func _draw_badge(b: Control, kind: String) -> void:
+	var r := b.size.x / 2.0
+	var c := b.size / 2.0
+	b.draw_circle(c, r, Color(0.08, 0.04, 0.02))
+	b.draw_circle(c, r - 3.0, Tuning.BADGES[kind])
+	var ink := Style.C_IVORY
+	match kind:
+		"purg":  # a flame
+			b.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r * 0.6), c + Vector2(r * 0.38, r * 0.05),
+				c + Vector2(r * 0.25, r * 0.5), c + Vector2(-r * 0.25, r * 0.5), c + Vector2(-r * 0.38, r * 0.05)]), ink)
+		"greater":  # a four-point star
+			var s := PackedVector2Array()
+			for i in 8:
+				var a := i * PI / 4.0 - PI / 2.0
+				s.append(c + Vector2(cos(a), sin(a)) * r * (0.62 if i % 2 == 0 else 0.22))
+			b.draw_colored_polygon(s, Color(0.25, 0.12, 0.02))
+		"drag":  # a down chevron
+			b.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.4, -r * 0.15), c + Vector2(0, r * 0.3), c + Vector2(r * 0.4, -r * 0.15)]), ink, 5.0, true)
+		"pact":  # two linked rings
+			b.draw_arc(c + Vector2(-r * 0.18, 0), r * 0.3, 0, TAU, 20, ink, 3.5, true)
+			b.draw_arc(c + Vector2(r * 0.18, 0), r * 0.3, 0, TAU, 20, ink, 3.5, true)
 
 
 ## A small word on a player plate ("Score", "Dice") so the numbers say what they count.
@@ -1092,39 +1175,9 @@ func _plate_caption(text: String) -> Label:
 	return l
 
 
-## Turn banner (in the current Sin's colour), the leather dice stage with the score as hero, then the log.
+## The tray (about 40% of the screen, Phase 5): leather in a brass rule holding whose turn it is,
+## the pause seal, the dice, the throw total and result line, then This turn and the Strikes.
 func _build_stage(zone: VBoxContainer) -> void:
-	# Whose turn, as manuscript lettering straight on the page: no banner behind it (banners are
-	# only for the transient turn-change announcement, director._banner_band).
-	var banner := Control.new()
-	banner.custom_minimum_size.y = 110
-	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_banner_text = _make_lettering(60, Style.C_BONE, false)
-	_banner_text.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_banner_text.add_theme_constant_override("outline_size", 10)
-	_banner_text.add_theme_color_override("font_outline_color", Style.C_BLACK)
-	_banner_text.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
-	_banner_text.anchor_top = 0.5
-	_banner_text.anchor_bottom = 0.5
-	_banner_text.grow_vertical = Control.GROW_DIRECTION_BOTH
-	banner.add_child(_banner_text)
-	# "?": the rulebook, opened at the page for this moment (Purgatory while you're in it, and so on).
-	_help = Button.new()
-	_help.set_meta("kind", "help")
-	_help.custom_minimum_size = Vector2(TARGET_MIN, TARGET_MIN) * 1.05
-	Art.skin(_help, Art.SEAL)
-	_caption(_help, "?", 64)
-	_help.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_help.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_help.offset_right = -int(SIDE_MIN)
-	_help.button_down.connect(func(): _dir.sfx.play("seal", 0.4, 1.1, true))
-	_help.pressed.connect(func(): open_rulebook(_context_page()))  # not _seal_feel: the prompt's pulses stay
-	banner.add_child(_help)
-	zone.add_child(banner)
-	_banner = banner
-
-	# Dice stage: leather in a brass rule. Shadows fall left (candle to the right).
 	var tray := Control.new()
 	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1142,11 +1195,41 @@ func _build_stage(zone: VBoxContainer) -> void:
 	tv.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tv.offset_left = 30
 	tv.offset_right = -30
-	tv.offset_top = 26
+	tv.offset_top = 22
 	tv.offset_bottom = -22
 	tv.add_theme_constant_override("separation", 0)
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tray.add_child(tv)
+	# Whose turn, as manuscript lettering at the top of the tray, the pause seal at its right.
+	var banner := Control.new()
+	banner.custom_minimum_size.y = maxf(100.0, TARGET_MIN * 1.15)
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner_text = _make_lettering(58, Style.C_BONE, false)
+	_banner_text.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_banner_text.add_theme_constant_override("outline_size", 10)
+	_banner_text.add_theme_color_override("font_outline_color", Style.C_BLACK)
+	_banner_text.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
+	_banner_text.anchor_top = 0.5
+	_banner_text.anchor_bottom = 0.5
+	_banner_text.grow_vertical = Control.GROW_DIRECTION_BOTH
+	banner.add_child(_banner_text)
+	_pause = Button.new()
+	_pause.set_meta("kind", "pause")
+	_pause.custom_minimum_size = Vector2(TARGET_MIN, TARGET_MIN) * 1.05
+	Art.skin(_pause, Art.SEAL)
+	var bars := Control.new()  # the pause sign: two ivory bars in the wax
+	bars.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bars.draw.connect(_draw_pause_bars.bind(bars))
+	_pause.add_child(bars)
+	_pause.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	_pause.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_pause.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_pause.button_down.connect(func(): _dir.sfx.play("seal", 0.4, 1.1, true))
+	_pause.pressed.connect(_open_pause)  # not _seal_feel: the prompt's pulses stay
+	banner.add_child(_pause)
+	tv.add_child(banner)
+	_banner = banner
 	_dice_area = Control.new()
 	_dice_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_dice_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1193,62 +1276,17 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_turn_row = srow
 	zone.add_child(tray)
 
-	# Log strip (tap = Chronicle) and the fast-bots seal, clear of every screen edge.
-	var lrow := HBoxContainer.new()
-	lrow.custom_minimum_size.y = 104
-	_log_row = lrow
-	lrow.add_theme_constant_override("separation", int(GAP_MIN))
-	_ticker = Button.new()
-	_ticker.flat = true
-	_ticker.clip_contents = true
-	_ticker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for st in ["normal", "hover", "pressed", "focus"]:
-		_ticker.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	var strip := Art.framed(Art.LOG_STRIP, [70, 36, 70, 36], 0.5)
-	strip.modulate = Color(0.42, 0.36, 0.3)  # a quiet margin note, not a bright bar
-	_ticker.add_child(strip)
-	_ticker_text = RichTextLabel.new()
-	_ticker_text.bbcode_enabled = true
-	_ticker_text.scroll_active = false
-	_ticker_text.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_ticker_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ticker_text.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_ticker_text.offset_left = 56
-	_ticker_text.offset_right = -40
-	_ticker_text.offset_top = 28
-	_ticker_text.add_theme_constant_override("outline_size", 6)
-	_ticker_text.add_theme_color_override("font_outline_color", Style.C_BLACK)
-	_ticker_text.add_theme_font_override("normal_font", Style.SERIF)
-	_ticker_text.add_theme_font_size_override("normal_font_size", MIN_TEXT + 2)
-	_ticker_text.add_theme_color_override("default_color", Style.C_BONE_DARK)
-	_ticker.add_child(_ticker_text)
-	_ticker.pressed.connect(func():
-		if not _long_fired:  # a hold explains the line instead (_check_long_press)
-			_page_turn(_log_overlay, true))
-	_ticker.button_down.connect(func(): _dir.sfx.play("plaque", 0.3, 1.0, true))
-	lrow.add_child(_ticker)
-	var fv := VBoxContainer.new()
-	fv.add_theme_constant_override("separation", -8)
-	# One global speed for every beat: 1x, 2x, 4x. Remembered between sessions.
-	var speed := Button.new()
-	speed.custom_minimum_size = Vector2(SEAL_SMALL, SEAL_SMALL) * 0.86
-	Art.skin(speed, [Art.SEAL_FAST, Art.SEAL_FAST, Art.SEAL_FAST])
-	speed.add_theme_stylebox_override("pressed", _seal_style(Art.SEAL_FAST, Color(1.25, 1.1, 0.8)))
-	speed.pressed.connect(_cycle_speed)
-	speed.button_down.connect(func(): _dir.sfx.play("seal", 0.3, 1.2, true))
-	fv.add_child(speed)
-	_speed_label = Style.label("", MIN_TEXT + 4, Style.C_BONE, false, 6)
-	_speed_label.add_theme_font_override("font", Style.NUMERAL)
-	fv.add_child(_speed_label)
-	_show_speed()
-	lrow.add_child(fv)
-	# Clear of the screen sides (the zone margin alone is under 16 pt).
-	var lpad := _margin(24, 0)
-	lpad.add_child(lrow)
-	zone.add_child(lpad)
+
+func _draw_pause_bars(bars: Control) -> void:
+	var c := bars.size / 2.0
+	var bw := bars.size.x * 0.09
+	var bh := bars.size.y * 0.3
+	for dx in [-1.0, 1.0]:
+		bars.draw_rect(Rect2(c + Vector2(dx * bw * 1.1 - bw / 2, -bh / 2), Vector2(bw, bh)), Style.C_IVORY)
 
 
-## Darkened parchment page: the prompt line, then the seals. Roll sits under the right thumb.
+## Darkened parchment page: the prompt line, then the seals (Roll under the right thumb). During
+## bot turns: the summary of each bot turn since yours (tap: the Chronicle) and Skip to my turn.
 func _build_thumb(zone: VBoxContainer) -> void:
 	var page := Control.new()
 	_thumb = page
@@ -1272,8 +1310,8 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	page.add_child(pv)
 	_prompt_label = _make_lettering(Tuning.PROMPT_FONT, Style.C_INK.darkened(0.4), true)
 	# The words stay clear of the corner boxes (the seals below may use the full width).
-	var lm := MarginContainer.new()
 	var side := maxi(0, roundi(Art.PAGE_MARGINS[0] * 0.55) - 64 + 28)
+	var lm := MarginContainer.new()
 	lm.add_theme_constant_override("margin_left", side)
 	lm.add_theme_constant_override("margin_right", side)
 	lm.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1283,18 +1321,39 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	_buttons.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_buttons.resized.connect(_layout_buttons)
 	pv.add_child(_buttons)
+	# The bot-turn summary: one line per bot turn, inked on the page between the corner boxes.
+	_summary = Button.new()
+	_summary.set_meta("kind", "summary")
+	_summary.flat = true
+	_summary.clip_contents = true
+	for st in ["normal", "hover", "pressed", "focus"]:
+		_summary.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	_summary.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_summary.offset_left = 64 + side
+	_summary.offset_right = -64 - side
+	_summary.offset_top = Tuning.PROMPT_FONT * 2.5  # under the prompt and its flourish
+	_summary.offset_bottom = -(TARGET_MIN * 1.2 + 40 + GAP_MIN)
+	_summary_rows = VBoxContainer.new()
+	_summary_rows.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_summary_rows.alignment = BoxContainer.ALIGNMENT_END
+	_summary_rows.add_theme_constant_override("separation", 2)
+	_summary_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_summary.add_child(_summary_rows)
+	_summary.button_down.connect(func(): _dir.sfx.play("plaque", 0.3, 1.0, true))
+	_summary.pressed.connect(func(): _page_turn(_log_overlay, true))
+	_summary.visible = false
+	page.add_child(_summary)
 	# During bot turns: skip everything up to your next decision (same as a double tap).
 	_skip = Button.new()
 	_skip.set_meta("kind", "skip")
 	Art.skin(_skip, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
 	_skip.text = "Skip to my turn"
 	_skip.add_theme_font_size_override("font_size", 44)
-	_skip.custom_minimum_size = Vector2(520, TARGET_MIN * 1.4)
-	_skip.set_anchors_preset(Control.PRESET_CENTER)
+	_skip.custom_minimum_size = Vector2(520, TARGET_MIN * 1.2)
+	_skip.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_skip.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_skip.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_skip.offset_top = 30
-	_skip.offset_bottom = 30
+	_skip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_skip.offset_bottom = -40
 	_skip.visible = false
 	_seal_feel(_skip, "pill", func():
 		_show_skip(false)
@@ -1355,15 +1414,67 @@ func _build_log_overlay() -> void:
 	add_child(_log_overlay)
 
 
-## The seal steps 1x, 2x, 4x; the debug slider sets any value. Both write Tuning.speed, saved.
-func _cycle_speed() -> void:
-	var i := 0
-	while i < SPEEDS.size() and SPEEDS[i] <= Tuning.speed + 0.01:
-		i += 1
-	_set_speed(SPEEDS[i % SPEEDS.size()])
-	if _speed_slider:
-		_speed_slider.set_value_no_signal(Tuning.speed)
-		_speed_slider.value_changed.emit(Tuning.speed)
+## The pause menu (Phase 5): a page over the board while the game waits. Rulebook (at the page
+## for this moment), the abilities of the Sins at this table, the Chronicle, Settings (Speed is
+## there), back to the title page. Settings opens over it; the others replace it.
+func _open_pause() -> void:
+	if _overlay != null or _settings != null:
+		return
+	var ov := Control.new()
+	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ov.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(Style.C_BLACK, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ov.add_child(dim)
+	var holder := _margin(int(SIDE_MIN) + 40, 0)
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var safe := _safe_insets()
+	holder.add_theme_constant_override("margin_top", int(safe.x) + 120)
+	holder.add_theme_constant_override("margin_bottom", int(safe.y) + 120)
+	ov.add_child(holder)
+	var page := Control.new()
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
+	paper.modulate = Color(0.86, 0.78, 0.68)
+	_add_marginalia(paper)
+	page.add_child(paper)
+	holder.add_child(page)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 130
+	v.offset_right = -130
+	v.offset_top = 100
+	v.offset_bottom = -100
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", int(GAP_MIN * 1.3))
+	page.add_child(v)
+	var title := _make_lettering(80, Style.C_INK.darkened(0.3), true)
+	v.add_child(title)
+	var names: Array = game.players.map(func(p): return p.sin.sin_name)
+	var items := [
+		["pause_resume", func(): _close_overlay()],
+		["pause_rulebook", func(): open_rulebook(_context_page())],
+		["pause_sins", func(): open_rulebook("all_sins", names)],
+		["pause_chronicle", func():
+			await _close_overlay()
+			_page_turn(_log_overlay, true)],
+		["pause_settings", _open_settings],
+		["pause_menu", _to_menu],
+	]
+	for it in items:
+		var b := Button.new()
+		b.set_meta("kind", "pause_item")
+		b.text = RulesText.word(it[0])
+		b.custom_minimum_size = Vector2(Tuning.PAUSE_ITEM_W, TARGET_MIN * 1.15)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		b.add_theme_font_size_override("font_size", 44)
+		Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
+		b.button_down.connect(func(): _dir.sfx.play("plaque", 0.5, 1.0, true))
+		b.pressed.connect(it[1])
+		v.add_child(b)
+	_show_overlay(ov)
+	(func(): _set_lettering(title, RulesText.word("pause_title"), Style.C_CRIMSON)).call_deferred()
 
 
 func _set_speed(v: float) -> void:
@@ -1405,15 +1516,15 @@ func _input(event: InputEvent) -> void:
 	if event.pressed:
 		_long_fired = false
 		var b := _hovered_button()
-		_press_at = Vector2.INF if (b != null and b != _ticker) else event.position
+		_press_at = Vector2.INF if (b != null and b != _summary) else event.position
 		_press_t = now
 		return
 	if _press_at == Vector2.INF:
 		return
 	var at := _press_at
 	_press_at = Vector2.INF
-	if _long_fired or event.position.distance_to(at) > PRESS_SLOP or _hovered_button() == _ticker:
-		return  # explained already, a drag, or the ticker's own tap (the Chronicle)
+	if _long_fired or event.position.distance_to(at) > PRESS_SLOP or _hovered_button() == _summary:
+		return  # explained already, a drag, or the summary's own tap (the Chronicle)
 	if _q.busy():
 		if now - _last_tap < DOUBLE_TAP:
 			_show_skip(false)
@@ -1450,8 +1561,9 @@ func _check_long_press() -> void:
 # ---------- Rulebook and tap-to-explain (text: ui/rules_text.gd) ----------
 
 ## Opens the rulebook at a page (id from RulesText.PAGES). The game waits while it's open.
-func open_rulebook(id: String) -> void:
+func open_rulebook(id: String, only_sins: Array = []) -> void:
 	var rb = Rulebook.new(id, _safe_insets(), _dir.sfx)
+	rb.only_sins = only_sins  # the Sins page shows just these (the pause menu: this table's)
 	rb.closed.connect(_close_overlay)
 	_show_overlay(rb)
 
@@ -1526,7 +1638,12 @@ func _register_explain_targets() -> void:
 	_explain_targets.append([_turn_label, func(): explain_term("This turn")])
 	_explain_targets.append([_throw_label, func(): explain_term("Multiplier")])
 	_explain_targets.append([_dice_area, func(): explain_term("Scoring")])
-	_explain_targets.append([_ticker, _explain_ticker])
+	for i in _portraits.size():  # a badge explains its status
+		var pt: Dictionary = _portraits[i]
+		_explain_targets.append([pt.badges, func():
+			for b in pt.badges.get_children():
+				explain_term(RulesText.BADGE_TERMS[b.get_meta("kind")])
+				return])
 
 
 func _explain_at(pos: Vector2) -> bool:
@@ -1572,26 +1689,6 @@ func _explain_sin(seat: int) -> void:
 	explain("%s, %s%s" % [s, info.epithet, who], paras, "all_sins")
 
 
-## The ticker line: explain the game terms in it (abilities first), or the Chronicle if none.
-func _explain_ticker() -> void:
-	var line := _ticker_text.get_parsed_text()
-	var g := RulesText.glossary()
-	var found := []
-	var names: Array = g.keys()
-	names.sort_custom(func(a, b): return a.length() > b.length())  # "Strikes" before "Strike"
-	for n in names:
-		if line.findn(n) >= 0 and not found.any(func(f): return f.findn(n) >= 0):
-			found.append(n)
-	if found.is_empty():
-		_page_turn(_log_overlay, true)
-		return
-	found.sort_custom(func(a, b): return int(RulesText.ability_owner(b).size() > 0) < int(RulesText.ability_owner(a).size() > 0))
-	var paras := []
-	for n in found.slice(0, 2):
-		paras.append("[b]%s[/b]: %s" % [n, g[n][0]])
-	explain(found[0], paras, g[found[0]][1])
-
-
 ## What the board shows, copied from the rules at the moment an event happened.
 func _snapshot() -> Dictionary:
 	var ps := []
@@ -1605,7 +1702,16 @@ func _snapshot() -> Dictionary:
 			tag = "Pact"
 		elif _t2_ready(p):
 			tag = "Greater ready"
-		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag})
+		var badges := []  # in this order down the window (Tuning.BADGES)
+		if p.in_purgatory:
+			badges.append("purg")
+		if _t2_ready(p):
+			badges.append("greater")
+		if p.drag > 0:
+			badges.append("drag")
+		if p.pact_by != null:
+			badges.append("pact")
+		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag, "badges": badges})
 	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null}
 	var t = game.turn
 	if t:
@@ -1620,6 +1726,8 @@ const ALL_PARTS := ["plates", "glow", "banner", "dice", "throw", "turn", "strike
 ## Draws a snapshot. parts: only those pieces (the director animates the rest itself).
 func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 	var cur_i: int = s.cur
+	if "plates" in parts:
+		_refresh_crowns(s)
 	for i in game.players.size():
 		var ps: Dictionary = s.players[i]
 		var pt: Dictionary = _portraits[i]
@@ -1781,19 +1889,39 @@ func set_waiting_text(text: String) -> void:
 	_set_lettering(_prompt_label, text, Style.C_STRIKE, text.rstrip(". "))  # the dots don't re-ink
 
 
-func show_ticker(text: String) -> void:
-	_show_log(text)
-
-
+## Score, dice and status badges (Phase 5: the name stays; a status is a badge on the window).
 func _refresh_plate(pt: Dictionary, ps: Dictionary) -> void:
 	pt.score.text = str(ps.score)
 	pt.dice.text = str(ps.dice)
-	var tag: String = ps.tag
-	var nm: String = tag if tag != "" and not pt.mine else ("You" if pt.mine else pt.sin)
-	if pt.name.text != nm:
-		pt.name.text = nm
-		_fit_label(pt.name, MIN_TEXT, 30)
-	pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
+	pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if pt.mine else Style.C_BONE))
+	var want: Array = ps.badges
+	var have: Array = pt.badges.get_children().filter(func(b): return not b.is_queued_for_deletion()).map(func(b): return b.get_meta("kind"))
+	if want == have:
+		return
+	for b in pt.badges.get_children():
+		b.queue_free()
+	for k in want:
+		var b := _badge(k)
+		pt.badges.add_child(b)
+		if not have.has(k) and not Tuning.reduce_motion:  # a new badge springs on
+			b.pivot_offset = Vector2.ONE * Tuning.BADGE_SIZE / 2
+			b.scale = Vector2.ONE * 0.3
+			b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+
+
+## The crown sits over every player on the top score (none while all are at 0).
+func _refresh_crowns(s: Dictionary) -> void:
+	var best := 0
+	for ps in s.players:
+		best = maxi(best, int(ps.score))
+	for i in _portraits.size():
+		var on: bool = best > 0 and int(s.players[i].score) == best
+		var c: Control = _portraits[i].crown
+		if on and not c.visible and not Tuning.reduce_motion:
+			c.pivot_offset = c.size / 2
+			c.scale = Vector2.ONE * 0.4
+			c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		c.visible = on
 
 
 ## Whose turn: the capital is illuminated in that player's Sin colour.
@@ -1886,9 +2014,6 @@ func _show_log(text: String) -> void:
 	_log_lines.append(text)
 	if _log:
 		_log.append_text(_with_sigils(Style.numbers(text)) + "\n")
-	if _ticker_text and text.strip_edges() != "":
-		var plain := RegEx.create_from_string("\\[[^\\]]*\\]").sub(text, "", true).strip_edges()
-		_ticker_text.text = _with_sigils(Style.numbers(plain))
 
 
 ## Anticipation (slight draw-in), impact (white-hot, punch out), settle.
@@ -1963,7 +2088,88 @@ func turn_started(p) -> void:
 		_show_log("")
 		_show_log(header)
 		_show_skip(p.bot != human and not _q.skip_all)
+		_summary_turn(p)
 		await _dir.turn_change(p, snap))
+
+
+# ---------- Bot-turn summary (Phase 5; words: RulesText.WORDS sum_*) ----------
+
+## A turn starts: yours clears the summary; a bot's adds its line ("Wrath: ...").
+func _summary_turn(p) -> void:
+	if _summary_rows == null or _tutor != null:  # the tutorial explains its own bot turns
+		return
+	_summary_parts = []
+	if p.bot == human:
+		for r in _summary_rows.get_children():
+			r.queue_free()
+		_summary.visible = false
+		return
+	var r := Style.body("", Tuning.SUMMARY_FONT, Style.C_INK.darkened(0.35))
+	r.set_meta("sin", p.sin.sin_name)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_summary_rows.add_child(r)
+	while _summary_rows.get_child_count() > Tuning.SUMMARY_ROWS:
+		var old := _summary_rows.get_child(0)
+		_summary_rows.remove_child(old)
+		old.queue_free()
+	_summary_write(r)
+	_summary.visible = _waiting
+
+
+## Called by the director after each beat of a bot's turn: what it did, in a few words.
+func summary_event(kind: String, mt: RegExMatch, text: String, prev: Dictionary, snap: Dictionary) -> void:
+	if _summary_rows == null or _summary_rows.get_child_count() == 0:
+		return
+	var part := ""
+	match kind:
+		"bank":
+			part = RulesText.word("sum_bank", {"n": int(mt.get_string(2)), "score": int(mt.get_string(3))})
+		"bust":
+			part = RulesText.word("sum_bust", {"n": int(prev.get("turn", {}).get("points", 0))})
+		"buy":
+			var n := int(mt.get_string(2))
+			part = RulesText.word("sum_buy_one" if n == 1 else "sum_buy", {"n": n})
+		"ability":
+			part = RulesText.word("sum_ability", {"ability": mt.get_string(2)})
+		"attack":
+			var target := text.substr(mt.get_end()).strip_edges().get_slice(" ", 0).rstrip(".,:;")
+			var ability: String = RulesText.ATTACK_NAMES.get(mt.get_string(1), mt.get_string(1))
+			part = RulesText.word("sum_attack", {"ability": ability, "target": "you" if target == "You" else target})
+		"redeemed":
+			part = RulesText.word("sum_freed")
+		"still_purgatory":
+			part = RulesText.word("sum_stuck")
+	if part == "":
+		return
+	_summary_parts.append(part)
+	_summary_write(_summary_rows.get_child(_summary_rows.get_child_count() - 1))
+
+
+func _summary_write(r: RichTextLabel) -> void:
+	var sname: String = r.get_meta("sin")
+	var who := "[color=#%s]%s[/color]" % [Tuning.SUMMARY_NAME.get(sname, Style.SIN_COLORS[sname].darkened(0.45)).to_html(false), sname]
+	var said := ", ".join(_summary_parts) if not _summary_parts.is_empty() else RulesText.word("sum_playing")
+	Style.set_body(r, "%s: %s" % [who, said])
+	_summary_fit.call_deferred()
+
+
+## Oldest lines go once the summary would overflow its space on the page (the newest stay).
+func _summary_fit() -> void:
+	if _summary == null or not is_instance_valid(_summary_rows) or _summary.size.x <= 0.0:
+		return
+	# Counted in wrapped lines from the text width (a fresh label's own height isn't laid out yet).
+	var room := int(_summary.size.y / (Tuning.SUMMARY_FONT * 1.3))
+	var used := 0
+	var rows := _summary_rows.get_children()
+	for i in range(rows.size() - 1, -1, -1):
+		var r: RichTextLabel = rows[i]
+		var w := Style.SERIF.get_string_size(r.get_parsed_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, Tuning.SUMMARY_FONT).x
+		used += maxi(1, ceili(w / _summary.size.x))
+		if used > room and i < rows.size() - 1:
+			for j in i + 1:
+				_summary_rows.remove_child(rows[j])
+				rows[j].queue_free()
+			return
 
 
 ## core/game.gd awaits this after a throw, a bust and at the end of a turn: let the screen catch up
@@ -2005,6 +2211,8 @@ func show_prompt(text: String, options: Array) -> void:
 func _show_prompt_now(text: String, options: Array) -> void:
 	clear_prompt()
 	_waiting = false
+	if _summary:
+		_summary.visible = false  # the prompt has the page
 	_set_lettering(_prompt_label, text)
 	var counts := options.filter(func(o): return o[0].is_valid_int())
 	var most := 0
@@ -2122,6 +2330,8 @@ func clear_prompt() -> void:
 	_set_lettering(_prompt_label, "")
 	for c in _buttons.get_children():
 		c.queue_free()
+	if _summary:  # the bot turns so far come back on the page
+		_summary.visible = _summary_rows.get_child_count() > 0
 
 
 ## Places the prompt buttons inside _buttons by hand (it holds only Buttons, see tests/ui_autoplay.gd).

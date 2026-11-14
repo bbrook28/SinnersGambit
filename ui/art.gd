@@ -73,6 +73,24 @@ static func window(sin_name: String) -> Texture2D:
 	return load(RT + "sins/%s.png" % sin_name.to_lower())
 
 
+## A Sin's window cropped to the arch and figure (about 1:1.8) for the small board windows.
+## top: a fraction of the height to start at (Tuning.WINDOW_CROP_TOP per Sin). Cached.
+static var _crops := {}
+static func window_crop(sin_name: String, ratio: float, top := 0.0) -> Texture2D:
+	var key := "%s %.2f %.3f" % [sin_name, ratio, top]
+	if not _crops.has(key):
+		var img: Image = window(sin_name).get_image()
+		if img == null:  # headless (dummy renderer): no pixels to crop, use the whole window
+			return window(sin_name)
+		if img.is_compressed():
+			img.decompress()
+		var w := img.get_width()
+		var h := mini(img.get_height(), roundi(w * ratio))
+		var y := clampi(roundi(img.get_height() * top), 0, img.get_height() - h)
+		_crops[key] = ImageTexture.create_from_image(img.get_region(Rect2i(0, y, w, h)))
+	return _crops[key]
+
+
 static func sigil_path(sin_name: String) -> String:
 	return RT + "sigils/%s.png" % sin_name.to_lower()
 

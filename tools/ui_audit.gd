@@ -1,7 +1,7 @@
 ## Touch-target audit: walks the setup screen, every prompt layout in a game and the Chronicle,
 ## checks every visible Button against the rules below, and saves a screenshot of each layout.
 ## Windowed (not headless), phone size with fake notch / home insets:
-## godot --path . --resolution 1080x2341 --script res://tools/ui_audit.gd -- <out_dir>
+## godot --path . --resolution 1080x2341 --script res://tools/ui_audit.gd -- <out_dir> [table size]
 extends SceneTree
 
 const PT := 1080.0 / 393.0      # px per iPhone point
@@ -28,6 +28,8 @@ func _initialize() -> void:
 	main.first_game_enabled = false
 	root.add_child(main)
 	await _settle(40)
+	if args.size() > 1:  # a table size to audit (after _ready, which loads the saved one)
+		main.Tuning.table_size = int(args[1])
 	await _check("menu")
 	main._open_settings()
 	await _settle(30)
@@ -52,6 +54,12 @@ func _initialize() -> void:
 	while prompts < 60:
 		await process_frame
 		var bs := _prompt_buttons()
+		if not seen.has("summary") and main._summary != null and main._summary.visible and main._summary_rows.get_child_count() >= 2:
+			seen["summary"] = true  # the bot-turn summary, once two bots have played
+			Engine.time_scale = 1.0
+			await _settle(8)
+			await _check("bot-turn summary")
+			Engine.time_scale = 40.0
 		if bs.is_empty() or main._q.busy():
 			continue
 		Engine.time_scale = 1.0
@@ -72,6 +80,13 @@ func _initialize() -> void:
 			await _settle(4)
 			await _check("chronicle")
 			main._log_overlay.visible = false
+		if prompts == 2 and not seen.has("pause"):
+			seen["pause"] = true
+			main._open_pause()
+			await _settle(30)
+			await _check("pause menu")
+			_close_overlay()
+			await _settle(4)
 		if prompts == 3 and not seen.has("explain"):
 			seen["explain"] = true
 			main._explain_sin(main.game.players.find(main.human_player()))  # tap your own window
@@ -82,9 +97,9 @@ func _initialize() -> void:
 			await _settle(30)
 			await _check("explain: Strikes")
 			_close_overlay()
-			main.open_rulebook(main._context_page())  # the "?" button
+			main.open_rulebook(main._context_page())  # the pause menu's Rulebook
 			await _settle(30)
-			await _check("rulebook from ? (%s)" % main.RulesText.PAGES[main._overlay.page].id)
+			await _check("rulebook from pause (%s)" % main.RulesText.PAGES[main._overlay.page].id)
 			_close_overlay()
 			await _settle(4)
 		prompts += 1

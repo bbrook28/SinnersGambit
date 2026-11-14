@@ -22,7 +22,6 @@ var _shown := {}          # the snapshot the board currently shows
 var _prompt_gen := 0      # bumps on every prompt, so stale idle hints do nothing
 var _pulses: Array[Tween] = []
 var _entering: Array[Control] = []  # seals mid-entry (my_turn)
-var _line := ""             # the log line of the beat playing (shown once a bot has revealed its move)
 var _bot_thought := false   # the bot has had its one "thinking" pause this turn
 
 var _dot := Art.soft_dot(64)  # soft round particle (no square pixels)
@@ -46,10 +45,7 @@ func setup(main, queue, layer: Control) -> void:
 
 ## One rules log line. prev: what the board showed before; snap: the state after this line.
 func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> void:
-	_line = Events.say(text, m.player_name(m.game.players[snap.cur]) if snap.cur >= 0 else "")
 	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE * T.bot_pace_scale
-	if not (ev.kind in ["throw", "bank", "buy", "attack", "redemption"]):
-		m.show_ticker(_line)
 	var mt: RegExMatch = ev.match
 	match ev.kind:
 		"blank":
@@ -90,6 +86,8 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 			await _generic(prev, snap, -1)
 	if not (ev.kind in ["bank", "buy"]):  # those tag their scores at the moment they count
 		cause_tags(_cause(ev), prev, snap)
+	if snap.cur >= 0 and not _is_mine(snap.cur):
+		m.summary_event(ev.kind, ev.match, text, prev, snap)
 	_shown = snap
 
 
@@ -104,7 +102,6 @@ func turn_change(p, snap: Dictionary) -> void:
 	while m._dice_area.size.y <= 0.0:  # the first turn starts the frame the board is built
 		await get_tree().process_frame
 	focus(["seat%d" % seat])
-	m.show_ticker("")
 	var band := _banner_band(RulesText.word("your_turn") if mine else RulesText.word("their_turn", {"name": m.player_name(p)}), col)
 	sfx.play("banner_in", 0.6 if mine else 0.3)
 	var w: float = m.size.x
@@ -188,7 +185,6 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	if not _is_mine(seat) and not _bot_thought:
 		_bot_thought = true
 		await _think(seat, T.BOT_THINK)
-	m.show_ticker(_line)
 	focus(["dice", "seat%d" % seat], T.DIM, {"throw": T.DIM})
 	m._refresh(snap, ["glow", "banner", "plates", "turn", "strikes"])
 	m._throw_label.text = ""
@@ -391,7 +387,6 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 ## The turn total travels to the plate; the plate punches and counts up.
 func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var seat := _seat_index(who)
-	m.show_ticker(_line)
 	var pt: Dictionary = _seat(seat)
 	focus(["turn", "seat%d" % seat])
 	m._throw_label.text = ""
@@ -420,7 +415,6 @@ func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 ## The price leaves the plate; new dice drop onto it.
 func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var seat := _seat_index(who)
-	m.show_ticker(_line)
 	var pt: Dictionary = _seat(seat)
 	focus(["seat%d" % seat])
 	_lift(pt.col, T.ANTICIPATION)
@@ -504,7 +498,6 @@ func _attack(text: String, prev: Dictionary, snap: Dictionary) -> void:
 	var verb: String = {"unleashes Fury on": "Fury", "binds a Pact on": "Binding Pact", "Drags": "Drag"}[r.get_string(2)]
 	if not _is_mine(a):
 		await _think_and_card(a, "%s: %s" % [verb, r.get_string(3)], "pill")
-	m.show_ticker(_line)
 	await _streak(a, b, prev, snap)
 
 

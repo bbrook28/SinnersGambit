@@ -23,6 +23,7 @@ const SWIPE := 140.0
 var page := 0
 var sfx = null                # ui/sfx.gd, for page sounds (optional)
 var safe := Vector2.ZERO      # top / bottom insets from main
+var only_sins: Array = []     # the Sins page lists only these (the pause menu: the Sins at this table)
 var _title: Label
 var _scroll: ScrollContainer
 var _body: VBoxContainer
@@ -158,7 +159,7 @@ func _contents() -> void:
 
 
 func _all_sins() -> void:
-	for s in T.SIN_ORDER:
+	for s in (only_sins if not only_sins.is_empty() else T.SIN_ORDER):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 22)
 		var win := TextureRect.new()
