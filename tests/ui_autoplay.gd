@@ -27,6 +27,7 @@ func _next() -> void:
 	main = load("res://ui/main.tscn").instantiate()
 	root.add_child(main)
 	main.save_enabled = false
+	main.tutorial_enabled = false
 	Tuning.table_size = Tuning.TABLE_SIZES[sin_i % Tuning.TABLE_SIZES.size()]  # both table sizes
 	main._start(main.SIN_SCRIPTS[sin_i])
 	sin_i += 1

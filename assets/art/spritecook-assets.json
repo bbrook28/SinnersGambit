@@ -34,5 +34,13 @@
     ,{"asset_id": "b053ccc5-b69c-4f42-83d8-9ff97d026f74", "sha12": "e68244bf6808", "label": "thumb-zone page, larger corner boxes (in use; figures cut into runtime/marginalia)", "file": "ui/raw/page_c_a_raw.png"}
     ,{"asset_id": "28954491-9a75-49b4-b944-890a7fce5a03", "sha12": "2108f7488577", "label": "thumb-zone page larger corners, variant b", "file": "ui/raw/page_c_b_raw.png"}
     ,{"asset_id": "9e4c82f4-e007-4a24-ac5e-088da2fef1e9", "sha12": "b60cdccfba19", "label": "thumb-zone page variant a (boxed corners)", "file": "ui/raw/page_b_a_raw.png"}
+    ,{"asset_id": "333d3ebc-0380-423b-bd3b-b7db80c03ff1", "sha12": "7b97ef90c231", "label": "wrath HD window (in use, style anchor for the HD set)", "file": "sins/raw/wrath_hd_raw.png"}
+    ,{"asset_id": "f5012dd4-0f2e-48cf-9dcc-13d276756998", "sha12": "58d4ff71fdf7", "label": "greed HD window (in use)", "file": "sins/raw/greed_hd_raw.png"}
+    ,{"asset_id": "1971f8f9-cf64-4cbc-bc86-e14e003b2b5d", "sha12": "98878c7733d1", "label": "lust HD window (in use)", "file": "sins/raw/lust_hd_raw.png"}
+    ,{"asset_id": "d0db466b-a081-4f87-b0a0-5b79a051c092", "sha12": "be7a3f8d1b81", "label": "envy HD window (in use)", "file": "sins/raw/envy_hd_raw.png"}
+    ,{"asset_id": "2420ab5b-5405-4954-96d7-7c02670d390e", "sha12": "8db6e8def2bc", "label": "pride HD window (in use)", "file": "sins/raw/pride_hd_raw.png"}
+    ,{"asset_id": "9fa9ae7f-72b0-4e99-bbf5-24b2e47e4f47", "sha12": "5440539243eb", "label": "gluttony HD window (in use)", "file": "sins/raw/gluttony_hd_raw.png"}
+    ,{"asset_id": "5ccf42ed-2f35-4351-83f1-c9e3bfcff076", "sha12": "6ed4d5cc21b5", "label": "sloth HD window (in use)", "file": "sins/raw/sloth_hd_raw.png"}
+    ,{"asset_id": "b8883ea0-ecc5-4c7b-bdc2-43c90f29e0c2", "sha12": "300445c25a3d", "label": "HD candlelit table background (in use)", "file": "bg/raw/bg_hd_raw.png"}
   ]
 }

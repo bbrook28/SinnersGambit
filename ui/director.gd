@@ -23,6 +23,8 @@ var _entering: Array[Control] = []  # seals mid-entry (my_turn)
 var _line := ""             # the log line of the beat playing (shown once a bot has revealed its move)
 var _bot_thought := false   # the bot has had its one "thinking" pause this turn
 
+var _dot := Art.soft_dot(64)  # soft round particle (no square pixels)
+
 signal turn_shown(seat: int, mine: bool)  # a turn-change beat starts (tests/bot_pace.gd times turns with it)
 
 
@@ -877,8 +879,10 @@ func burst(at: Vector2, k: float, col: Color) -> void:
 	p.initial_velocity_min = 180.0
 	p.initial_velocity_max = 420.0 + 300.0 * k
 	p.gravity = Vector2(0, 900)
-	p.scale_amount_min = 4.0
-	p.scale_amount_max = 9.0 + 6.0 * k
+	p.texture = _dot
+	p.material = Art.additive()
+	p.scale_amount_min = 0.15
+	p.scale_amount_max = 0.3 + 0.2 * k
 	var g := Gradient.new()
 	g.set_color(0, col.lightened(0.3))
 	g.set_color(1, Color(col, 0.0))
@@ -933,7 +937,7 @@ func impact(k: float, snd := "impact") -> void:
 
 
 func haptic(k: float) -> void:
-	if OS.has_feature("mobile"):
+	if OS.has_feature("mobile") and T.haptics:
 		Input.vibrate_handheld(int(lerpf(T.HAPTIC_MS_MIN, T.HAPTIC_MS_MAX, clampf(k, 0.0, 1.0))), clampf(0.3 + k * 0.7, 0.0, 1.0))
 
 

@@ -52,6 +52,7 @@ func _check(n: int) -> int:
 func _main():
 	var m = load("res://ui/main.tscn").instantiate()
 	m.save_enabled = false
+	m.tutorial_enabled = false
 	root.add_child(m)
 	await process_frame
 	return m

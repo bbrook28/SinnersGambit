@@ -33,6 +33,7 @@ func _next() -> void:
 	main = load("res://ui/main.tscn").instantiate()
 	root.add_child(main)
 	main.save_enabled = false
+	main.tutorial_enabled = false
 	main._dir.turn_shown.connect(_on_turn)
 	started = false
 	main._start(main.SIN_SCRIPTS[6 - games % 7])

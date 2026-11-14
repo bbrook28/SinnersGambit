@@ -74,7 +74,7 @@ func play(name: String, k := 0.5, pitch := 1.0, force := false) -> void:
 	_next = (_next + 1) % _voices.size()
 	var list: Array = _streams[name]
 	p.stream = list[randi() % list.size()]
-	p.volume_db = T.VOL_MASTER + float(T.VOL.get(name, -6.0)) + 6.0 * (clampf(k, 0.0, 1.0) - 0.5)
+	p.volume_db = T.VOL_MASTER + float(T.VOL.get(name, -6.0)) + 6.0 * (clampf(k, 0.0, 1.0) - 0.5) + linear_to_db(maxf(T.sfx_vol, 0.001))
 	p.pitch_scale = pitch * randf_range(1.0 - T.PITCH_JITTER, 1.0 + T.PITCH_JITTER)
 	p.play()
 

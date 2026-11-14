@@ -16,10 +16,10 @@ const MARGINALIA := {
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "sins"))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "sigils"))
+	# HD painted windows on black (sins/raw/*_hd_raw.png): the black outside the frame is keyed out.
 	for s in SINS:
-		var src: String = "greed_silver" if s == "greed" else s
-		var im := _cut(_load("res://assets/art/sins/raw/%s_glass_raw.png" % src))
-		_save(_fit_h(im, 760), OUT + "sins/%s.png" % s)
+		var im := _key_black(_load("res://assets/art/sins/raw/%s_hd_raw.png" % s))
+		_save(_fit_h(im.duplicate(), 760), OUT + "sins/%s.png" % s)
 	var sig := _split(_cut(_load("res://assets/art/extra/raw/sigils_raw.png")), 7)
 	for i in SINS.size():
 		_save(_fit_h(sig[i], 96), OUT + "sigils/%s.png" % SINS[i])
@@ -65,7 +65,7 @@ func _init() -> void:
 	page = _cut(page)
 	page.resize(1600, 900, Image.INTERPOLATE_LANCZOS)
 	_save(page, OUT + "page.png")
-	var bg := _load("res://assets/art/bg/raw/bg_b_raw.png")
+	var bg := _load("res://assets/art/bg/raw/bg_hd_raw.png")
 	bg.resize(1080, 1920, Image.INTERPOLATE_LANCZOS)
 	_save(bg, OUT + "bg.png")
 	var lea := _load("res://assets/art/extra/raw/leather_raw.png")
@@ -87,6 +87,51 @@ func _cut(im: Image) -> Image:
 			var c := im.get_pixel(x, y)
 			c.a = 1.0 if c.a > 0.6 else 0.0
 			im.set_pixel(x, y, c)
+	return im.get_region(im.get_used_rect())
+
+
+## Floods in from the image border over near-black pixels and makes them transparent (the black
+## lead lines inside the frame aren't reached). A 2 px soft edge, then crop to what's left.
+func _key_black(im: Image, thresh := 0.09) -> Image:
+	var w := im.get_width()
+	var h := im.get_height()
+	var out := PackedByteArray()
+	out.resize(w * h)
+	var stack: Array[int] = []
+	for x in w:
+		stack.append(x)
+		stack.append((h - 1) * w + x)
+	for y in h:
+		stack.append(y * w)
+		stack.append(y * w + w - 1)
+	while not stack.is_empty():
+		var i: int = stack.pop_back()
+		if out[i] == 1:
+			continue
+		var c := im.get_pixel(i % w, i / w)
+		if maxf(c.r, maxf(c.g, c.b)) > thresh:
+			continue
+		out[i] = 1
+		var x := i % w
+		if x > 0: stack.append(i - 1)
+		if x < w - 1: stack.append(i + 1)
+		if i >= w: stack.append(i - w)
+		if i < w * (h - 1): stack.append(i + w)
+	for y in h:
+		for x in w:
+			var i := y * w + x
+			if out[i] == 1:
+				im.set_pixel(x, y, Color(0, 0, 0, 0))
+			else:
+				var n := 0  # keyed neighbours within 2 px: fade the rim
+				for d in [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+					var p: Vector2i = Vector2i(x, y) + d
+					if p.x >= 0 and p.y >= 0 and p.x < w and p.y < h and out[p.y * w + p.x] == 1:
+						n += 1
+				if n > 0:
+					var c := im.get_pixel(x, y)
+					c.a = 1.0 - n / 8.0
+					im.set_pixel(x, y, c)
 	return im.get_region(im.get_used_rect())
 
 

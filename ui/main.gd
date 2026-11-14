@@ -10,6 +10,7 @@ const Human = preload("res://ui/human.gd")
 const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
 const Glass = preload("res://ui/widgets/glass.gd")
+const Tutorial = preload("res://ui/tutorial.gd")
 const Frame = preload("res://ui/widgets/frame.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const CANDLE_BG = preload("res://ui/shaders/candle_bg.gdshader")
@@ -20,9 +21,12 @@ const Events = preload("res://ui/events.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 1
-const MENU_TITLE := 120          # the title page: name, Play seal, Continue / Settings seals
-const MENU_PLAY := 340
-const MENU_SEAL := 250
+const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
+const MENU_PLAY := 400
+const MENU_SEAL := 230
+const MUSIC := "res://assets/audio/music/menu.ogg"
+const PANEL_FROM := 0.94          # panels (Settings, Chronicle) open from this scale
+const CANDLE_RAW := Vector2(1065, 150) / Vector2(1152, 2048)  # the flame on bg_hd_raw.png, as a fraction
 const SPEEDS := [1.0, 2.0, 4.0]
 const DOUBLE_TAP := 0.35
 const SIN_SCRIPTS := [
@@ -103,6 +107,7 @@ var _starting := false
 var _save := {}                    # the game in progress, as written to SAVE
 var _replaying := false            # Continue: replaying saved answers under the ink
 var save_enabled := true           # tests turn this off
+var tutorial_enabled := true       # tests turn this off too
 var _menu_seals: Array = []
 var _settings: Control            # the Settings page while open
 var _desk: Control
@@ -113,6 +118,13 @@ var _speed_label: Label
 var _speed_slider: HSlider
 var _last_tap := -1.0
 var _skip: Button                 # "Skip to my turn", on the thumb page during bot turns
+static var tutorial_pending := true  # first game (or Settings > Tutorial): explain the first turn
+var _tut_stage := 0                # 0: nothing shown, 1: throwing explained, 2: done
+var _tut: Control                  # the tutorial overlay while it shows
+var _music: AudioStreamPlayer
+var _screen_root: Control          # the menu scene (freed when leaving it)
+var _parallax: Array = []          # [node, rest position, px at full tilt]: layers that shift with tilt
+var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
 
 
 func _ready() -> void:
@@ -124,7 +136,11 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS) == OK:
 		Tuning.speed = clampf(float(cfg.get_value("ui", "speed", 1.0)), Tuning.SPEED_MIN, Tuning.SPEED_MAX)
-		Tuning.muted = not bool(cfg.get_value("ui", "sound", true))
+		Tuning.sfx_vol = clampf(float(cfg.get_value("ui", "sfx", 1.0 if bool(cfg.get_value("ui", "sound", true)) else 0.0)), 0.0, 1.0)
+		Tuning.muted = Tuning.sfx_vol <= 0.01
+		Tuning.music_vol = clampf(float(cfg.get_value("ui", "music", Tuning.music_vol)), 0.0, 1.0)
+		Tuning.haptics = bool(cfg.get_value("ui", "haptics", true))
+		tutorial_pending = not bool(cfg.get_value("ui", "tutorial_done", false))
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
 		Tuning.table_size = ts if ts in Tuning.TABLE_SIZES else Tuning.TABLE_SIZES[0]
@@ -144,6 +160,16 @@ func _ready() -> void:
 	desk.modulate = Color(0.78, 0.74, 0.7)  # keep the desk behind the UI, not competing
 	add_child(desk)
 	_desk = desk
+	# Music: one loop from launch, under everything (Settings: Music).
+	_music = AudioStreamPlayer.new()
+	if ResourceLoader.exists(MUSIC):
+		_music.stream = load(MUSIC)
+		if _music.stream is AudioStreamOggVorbis:
+			_music.stream.loop = true
+	add_child(_music)
+	_apply_music()
+	if _music.stream:
+		_music.play()
 	if _setup_on_load:  # New game goes straight to choosing a Sin
 		_setup_on_load = false
 		_build_setup()
@@ -160,56 +186,201 @@ func _ready() -> void:
 ## play, the corner figures, and three wax seals (Play, Continue, Settings) that enter and breathe
 ## like the gameplay seals. Continue is cracked (disabled) when there is no game to continue.
 func _build_menu() -> void:
+	var vp := get_viewport_rect().size
+	var safe := _safe_insets()
+	var scene := Control.new()
+	scene.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scene)
+	_screen_root = scene
+	_parallax.clear()
+	# The far wall: darkness over the top of the table, where the seven windows hang.
+	var wall := TextureRect.new()
+	var wg := Gradient.new()
+	wg.set_color(0, Color(0.02, 0.012, 0.01, 0.95))
+	wg.set_color(1, Color(0.02, 0.012, 0.01, 0.0))
+	var wt := GradientTexture2D.new()
+	wt.gradient = wg
+	wt.fill_from = Vector2(0.5, 0.0)
+	wt.fill_to = Vector2(0.5, 1.0)
+	wall.texture = wt
+	wall.position = Vector2(-40, -40)
+	wall.size = Vector2(vp.x + 80, vp.y * 0.42 + 40)
+	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scene.add_child(wall)
+	# The seven windows, left of the candle, each lit from behind and casting a shaft of its colour.
+	var names: Array = SIN_TITLES.keys()
+	var left := 34.0
+	var right := vp.x * 0.80
+	var gap := 12.0
+	var ww := (right - left - gap * (names.size() - 1)) / names.size()
+	var wh := ww / 0.295
+	var top := safe.x + 46.0
+	var windows := Control.new()
+	windows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scene.add_child(windows)
+	_parallax.append([windows, Vector2.ZERO, 5.0])
+	for i in names.size():
+		var col: Color = Style.SIN_COLORS[names[i]]
+		var holder := Control.new()
+		holder.position = Vector2(left + i * (ww + gap), top)
+		holder.size = Vector2(ww, wh)
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		windows.add_child(holder)
+		# The shaft: a widening beam of the glass colour falling onto the table.
+		var shaft := Polygon2D.new()
+		var w0 := ww * 0.7
+		var len := vp.y * 0.38
+		var drift := (holder.position.x + ww / 2.0 - vp.x * 0.4) * 0.35
+		shaft.polygon = PackedVector2Array([Vector2(ww / 2 - w0 / 2, wh * 0.6), Vector2(ww / 2 + w0 / 2, wh * 0.6),
+			Vector2(ww / 2 + w0 * 1.6 + drift, wh + len), Vector2(ww / 2 - w0 * 1.6 + drift, wh + len)])
+		var c0 := Color(col.lightened(0.2), 0.16)
+		var c1 := Color(col, 0.0)
+		shaft.vertex_colors = PackedColorArray([c0, c0, c1, c1])
+		shaft.material = Art.additive()
+		holder.add_child(shaft)
+		var glow := TextureRect.new()
+		glow.texture = Art.soft_dot(128, col.lightened(0.15))
+		glow.material = Art.additive()
+		glow.position = Vector2(-ww * 0.6, -wh * 0.1)
+		glow.size = Vector2(ww * 2.2, wh * 1.2)
+		glow.modulate.a = 0.45
+		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(glow)
+		var win := TextureRect.new()
+		win.texture = Art.window(names[i])
+		win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		win.size = holder.size
+		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(win)
+		# Slow light: each window brightens and dims on its own slow breath, as clouds pass outside.
+		if not Tuning.reduce_motion:
+			var tw := holder.create_tween().set_loops()
+			var per := 4.0 + fmod(i * 1.7, 2.5)
+			tw.tween_interval(fmod(i * 0.9, per))
+			tw.tween_property(holder, "modulate", Color(1.15, 1.12, 1.08), per / 2).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(holder, "modulate", Color(0.78, 0.76, 0.74), per / 2).set_trans(Tween.TRANS_SINE)
+	# The candle's light pool (the flame is painted on the table; this makes it breathe).
+	var glow := TextureRect.new()
+	glow.texture = Art.soft_dot(256, Color(1.0, 0.72, 0.38))
+	glow.material = Art.additive()
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.size = Vector2(620, 620)
+	glow.pivot_offset = glow.size / 2
+	glow.position = _desk_point(CANDLE_RAW) - glow.size / 2
+	scene.add_child(glow)
+	_candle_glow = glow
+	# Drifting dust motes, in front of everything else.
+	var dust := CPUParticles2D.new()
+	dust.texture = Art.soft_dot(32)
+	dust.material = Art.additive()
+	dust.amount = 0 if Tuning.reduce_motion else 46
+	dust.lifetime = 9.0
+	dust.preprocess = 9.0
+	dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	dust.emission_rect_extents = vp / 2
+	dust.position = vp / 2
+	dust.direction = Vector2(0.2, -1)
+	dust.spread = 50.0
+	dust.gravity = Vector2(0, -4)
+	dust.initial_velocity_min = 6.0
+	dust.initial_velocity_max = 22.0
+	dust.scale_amount_min = 0.12
+	dust.scale_amount_max = 0.42
+	var dg := Gradient.new()
+	dg.set_color(0, Color(1.0, 0.85, 0.6, 0.0))
+	dg.set_color(1, Color(1.0, 0.85, 0.6, 0.0))
+	dg.add_point(0.3, Color(1.0, 0.85, 0.6, 0.32))
+	dg.add_point(0.7, Color(1.0, 0.85, 0.6, 0.22))
+	dust.color_ramp = dg
+	if dust.amount > 0:
+		scene.add_child(dust)
+	# The words and seals.
 	_content = _page()
-	var cover := Control.new()
-	cover.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_content.add_child(cover)
-	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
-	paper.material = Art.page_light_material()
-	paper.modulate = Color(0.86, 0.78, 0.68)
-	_paper = paper
-	marginalia = _add_marginalia(paper)
-	cover.add_child(paper)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 150
-	v.offset_right = -150
-	v.offset_top = 160
-	v.offset_bottom = -150
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", int(GAP_MIN * 1.4))
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cover.add_child(v)
-	var title := _make_lettering(MENU_TITLE, Style.C_INK.darkened(0.3), true)
+	var m := _content.get_parent()
+	remove_child(m)
+	scene.add_child(m)
+	scene.move_child(m, dust.get_index() if dust.get_parent() else -1)
+	_parallax.append([m, Vector2.ZERO, -3.0])
+	var v := _content
+	v.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var space := Control.new()
+	space.custom_minimum_size.y = top + wh - safe.x + 24
+	v.add_child(space)
+	var title := _make_lettering(MENU_TITLE, Style.C_GOLD, true)
+	title.add_theme_constant_override("outline_size", 14)
+	title.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.01))
 	v.add_child(title)
-	var sub := _make_lettering(46, Style.C_INK, false)
+	var sub := _make_lettering(44, Style.C_BONE, false)
+	sub.add_theme_constant_override("outline_size", 10)
+	sub.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.01))
 	v.add_child(sub)
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 90
-	v.add_child(gap)
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(fill)
 	var saved := load_save()
 	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
 	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
-	cont.disabled = saved.is_empty()
-	if cont.disabled:  # cracked and dimmed: nothing to continue
-		cont.modulate = Color(0.55, 0.5, 0.48)
 	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
-	var top := CenterContainer.new()
-	top.add_child(play)
-	v.add_child(top)
+	var top_row := CenterContainer.new()
+	top_row.add_child(play)
+	v.add_child(top_row)
+	var sep := Control.new()
+	sep.custom_minimum_size.y = GAP_MIN * 1.2
+	v.add_child(sep)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(GAP_MIN * 2.0))
-	row.add_child(cont)
+	if not saved.is_empty():  # nothing to continue: no Continue seal at all
+		row.add_child(cont)
+	else:
+		cont.queue_free()
 	row.add_child(settings)
 	v.add_child(row)
-	_menu_seals = [play, cont, settings]
-	# Once laid out: ink the words in, bring the seals in one by one.
+	var foot := Control.new()
+	foot.custom_minimum_size.y = 40
+	v.add_child(foot)
+	_menu_seals = [play, settings] + ([cont] if not saved.is_empty() else [])
+	# Once laid out: ink the words in, bring the seals in, then let the title breathe.
 	(func():
 		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
-		_set_lettering(sub, "Seven Sins at one table. First to 1000.", Style.C_STRIKE)
-		_dir.seals_enter(_menu_seals)).call_deferred()
+		_set_lettering(sub, "Seven Sins. One table. First to 1000.", Style.C_STRIKE)
+		_dir.seals_enter(_menu_seals)
+		if not Tuning.reduce_motion:
+			title.pivot_offset = title.size / 2
+			var tw := title.create_tween().set_loops()
+			tw.tween_property(title, "scale", Vector2.ONE * 1.025, 2.4).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(title, "scale", Vector2.ONE, 2.4).set_trans(Tween.TRANS_SINE)).call_deferred()
+	for e in _parallax:
+		(func(): e[1] = e[0].position).call_deferred()
+
+
+## A point on the painted desk (fraction of bg_hd_raw.png) in screen pixels: the desk is drawn
+## covering the screen, centred.
+func _desk_point(f: Vector2) -> Vector2:
+	var vp := get_viewport_rect().size
+	var tex: Vector2 = Art.BG.get_size()
+	var s := maxf(vp.x / tex.x, vp.y / tex.y)
+	var drawn := tex * s
+	return (vp - drawn) / 2 + f * drawn
+
+
+## Frees whatever screen is showing (the menu scene, or a page).
+func _free_screen() -> void:
+	if _screen_root and is_instance_valid(_screen_root):
+		_screen_root.queue_free()
+	elif _content:
+		_content.get_parent().queue_free()
+	_screen_root = null
+	_parallax.clear()
+	_candle_glow = null
+
+
+func _apply_music() -> void:
+	if _music:
+		_music.volume_db = linear_to_db(maxf(Tuning.music_vol, 0.001)) - 8.0
+		_music.stream_paused = Tuning.music_vol <= 0.01
 
 
 func _menu_seal(text: String, size: int, on_press: Callable) -> Button:
@@ -230,7 +401,7 @@ func _open_setup() -> void:
 	_starting = true
 	await _ink_wash(true)
 	_dir._stop_pulses()
-	_content.get_parent().queue_free()
+	_free_screen()
 	_build_setup()
 	_starting = false
 	if _wash:
@@ -250,8 +421,8 @@ func _open_settings() -> void:
 	var holder := _margin(60, 0)
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var safe := _safe_insets()
-	holder.add_theme_constant_override("margin_top", int(safe.x) + 220)
-	holder.add_theme_constant_override("margin_bottom", int(safe.y) + 220)
+	holder.add_theme_constant_override("margin_top", int(safe.x) + 150)
+	holder.add_theme_constant_override("margin_bottom", int(safe.y) + 150)
 	ov.add_child(holder)
 	var paper := Art.framed(Art.PAGE, Art.PAGE_MARGINS, 0.55)
 	paper.modulate = Color(0.86, 0.78, 0.68)
@@ -271,31 +442,29 @@ func _open_settings() -> void:
 	page.add_child(v)
 	var title := _make_lettering(80, Style.C_INK.darkened(0.3), true)
 	v.add_child(title)
-	var rows := [
-		[func(): return "Speed: %s" % _speed_text(), func():
-			_set_speed(SPEEDS[(SPEEDS.find(Tuning.speed) + 1) % SPEEDS.size()])],
-		[func(): return "Sound: %s" % ("Off" if Tuning.muted else "On"), func():
-			Tuning.muted = not Tuning.muted
-			_save_settings()],
-		[func(): return "Reduce Motion: %s" % ("On" if Tuning.reduce_motion else "Off"), func():
-			Tuning.reduce_motion = not Tuning.reduce_motion
-			_save_settings()],
-	]
-	for r in rows:
-		var b := Button.new()
-		b.set_meta("kind", "setting")
-		Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
-		b.custom_minimum_size = Vector2(620, SEAL_SMALL)
-		b.add_theme_font_size_override("font_size", 46)
-		b.text = r[0].call()
-		var label_fn: Callable = r[0]
-		var act: Callable = r[1]
-		_seal_feel(b, "pill", func():
-			act.call()
-			b.text = label_fn.call())
-		var c := CenterContainer.new()
-		c.add_child(b)
-		v.add_child(c)
+	_setting_row(v, "Music", _slider(Tuning.music_vol, func(x: float):
+		Tuning.music_vol = x
+		_apply_music()))
+	_setting_row(v, "Sound", _slider(Tuning.sfx_vol, func(x: float):
+		Tuning.sfx_vol = x
+		Tuning.muted = x <= 0.01))
+	_setting_row(v, "Haptics", _segmented(["On", "Off"], 0 if Tuning.haptics else 1, func(i: int):
+		Tuning.haptics = i == 0
+		_save_settings()
+		if Tuning.haptics:
+			_dir.haptic(0.4)))
+	_setting_row(v, "Speed", _segmented(SPEEDS.map(func(s): return "%dx" % int(s)), maxi(0, SPEEDS.find(Tuning.speed)), func(i: int):
+		_set_speed(SPEEDS[i])))
+	_setting_row(v, "Reduce Motion", _segmented(["On", "Off"], 0 if Tuning.reduce_motion else 1, func(i: int):
+		Tuning.reduce_motion = i == 0
+		_save_settings()))
+	var tut := _segmented(["Next game" if tutorial_pending else "Replay"], 0 if tutorial_pending else -1, func(_i: int):
+		tutorial_pending = true
+		_tut_stage = 0
+		_save_settings())
+	var tb: Button = tut.get_child(0)
+	tb.pressed.connect(func(): tb.text = "Next game")
+	_setting_row(v, "Tutorial", tut)
 	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
 	var bc := CenterContainer.new()
 	bc.add_child(back)
@@ -308,9 +477,108 @@ func _open_settings() -> void:
 
 
 func _close_settings(ov: Control) -> void:
+	_save_settings()
 	await _page_turn(ov, false)
 	ov.queue_free()
 	_settings = null
+
+
+## One Settings line: the name on the left in ink, its control on the right.
+func _setting_row(v: VBoxContainer, label: String, ctrl: Control) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	var l := Style.label(label, 46, Style.C_INK.darkened(0.3), true, 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(l)
+	ctrl.custom_minimum_size.x = 440
+	ctrl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ctrl)
+	v.add_child(row)
+
+
+## A volume slider: an inked groove, a crimson fill, a wax-red knob. Saves when let go.
+func _slider(value: float, on_change: Callable) -> HSlider:
+	var s := HSlider.new()
+	s.set_meta("kind", "setting")
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = 0.05
+	s.value = value
+	s.custom_minimum_size.y = TARGET_MIN
+	var groove := StyleBoxFlat.new()
+	groove.bg_color = Color(0.2, 0.12, 0.08, 0.55)
+	groove.set_corner_radius_all(8)
+	groove.content_margin_top = 7
+	groove.content_margin_bottom = 7
+	var fill := groove.duplicate()
+	fill.bg_color = Style.C_CRIMSON
+	s.add_theme_stylebox_override("slider", groove)
+	s.add_theme_stylebox_override("grabber_area", fill)
+	s.add_theme_stylebox_override("grabber_area_highlight", fill)
+	var kg := Gradient.new()  # a wax drop: bright centre, darker rim, hard edge
+	kg.offsets = PackedFloat32Array([0.0, 0.85, 0.93, 1.0])
+	kg.colors = PackedColorArray([Color(0.72, 0.12, 0.08), Color(0.45, 0.05, 0.03), Color(0.3, 0.03, 0.02), Color(0.3, 0.03, 0.02, 0.0)])
+	var knob := GradientTexture2D.new()
+	knob.gradient = kg
+	knob.fill = GradientTexture2D.FILL_RADIAL
+	knob.fill_from = Vector2(0.45, 0.4)
+	knob.fill_to = Vector2(0.45, 0.0)
+	knob.width = 72
+	knob.height = 72
+	s.add_theme_icon_override("grabber", knob)
+	s.add_theme_icon_override("grabber_highlight", knob)
+	s.value_changed.connect(func(x: float): on_change.call(x))
+	s.drag_ended.connect(func(_c: bool):
+		_save_settings()
+		_dir.sfx.play("seal", 0.4, 1.0, true))
+	return s
+
+
+## Choices side by side in one inked frame; the chosen one is filled crimson.
+func _segmented(options: Array, selected: int, on_pick: Callable) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 0)
+	var group := ButtonGroup.new()
+	for i in options.size():
+		var b := Button.new()
+		b.set_meta("kind", "setting")
+		b.toggle_mode = true
+		b.button_group = group
+		b.text = options[i]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = TARGET_MIN * 1.1
+		b.add_theme_font_size_override("font_size", 40)
+		var off := StyleBoxFlat.new()
+		off.bg_color = Color(0.25, 0.14, 0.08, 0.12)
+		off.border_color = Color(0.25, 0.12, 0.06, 0.8)
+		off.set_border_width_all(3)
+		var first := i == 0
+		var last := i == options.size() - 1
+		off.corner_radius_top_left = 14 if first else 0
+		off.corner_radius_bottom_left = 14 if first else 0
+		off.corner_radius_top_right = 14 if last else 0
+		off.corner_radius_bottom_right = 14 if last else 0
+		if not first:
+			off.border_width_left = 0
+		var on := off.duplicate()
+		on.bg_color = Style.C_CRIMSON
+		on.border_color = Color(0.3, 0.04, 0.03)
+		for st in ["normal", "hover", "focus"]:
+			b.add_theme_stylebox_override(st, off)
+		for st in ["pressed", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, on)
+		b.add_theme_color_override("font_color", Style.C_INK.darkened(0.2))
+		b.add_theme_color_override("font_hover_color", Style.C_INK.darkened(0.2))
+		b.add_theme_color_override("font_pressed_color", Style.C_IVORY)
+		b.add_theme_color_override("font_hover_pressed_color", Style.C_IVORY)
+		b.button_pressed = i == selected
+		b.pressed.connect(func():
+			_dir.sfx.play("plaque", 0.5, 1.0, true)
+			on_pick.call(i))
+		row.add_child(b)
+	return row
 
 
 func _speed_text() -> String:
@@ -385,7 +653,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 	_starting = true
 	if _content:
 		await _ink_wash(true)
-		_content.get_parent().queue_free()
+		_free_screen()
 		_content = null
 	human = Human.new()
 	human.view = self
@@ -448,6 +716,76 @@ static func load_save() -> Dictionary:
 	if not (d is Dictionary) or int(d.get("v", 0)) != SAVE_VERSION or not d.has("seats") or not d.has("choices"):
 		return {}
 	return d
+
+
+# ---------- Tutorial (first game, or Settings > Tutorial) ----------
+
+## At your prompts during the tutorial: the first throw prompt explains choosing and throwing;
+## the first prompt with Bank explains scoring, Strikes, busting, banking, your Sin and the goal.
+func _tutorial_prompt() -> void:
+	if not tutorial_pending or not tutorial_enabled or _replaying or game == null:
+		return
+	var bs: Array = _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
+	var of := func(kind: String) -> Rect2:
+		var r := Rect2()
+		for b in bs:
+			if b.get_meta("kind", "") == kind:
+				r = b.get_global_rect() if r.size == Vector2.ZERO else r.merge(b.get_global_rect())
+		return r
+	var steps := []
+	if _tut_stage == 0 and of.call("roll").size != Vector2.ZERO:
+		if of.call("num").size != Vector2.ZERO:
+			steps.append([of.call("num"), "Choose how many dice to throw. More dice, more points, more risk."])
+		steps.append([of.call("roll"), "Then seal it with Throw."])
+		_tut_stage = 1
+	elif _tut_stage == 1 and of.call("bank").size != Vector2.ZERO:
+		var nails := Rect2()
+		for n in _strike_icons:
+			nails = n.get_global_rect() if nails.size == Vector2.ZERO else nails.merge(n.get_global_rect())
+		var mine: Control = null
+		var table := Rect2()
+		for pt in _portraits:
+			table = pt.col.get_global_rect() if table.size == Vector2.ZERO else table.merge(pt.col.get_global_rect())
+			if pt.mine:
+				mine = pt.col
+		steps.append([_dice_area.get_global_rect(), "4, 5 and 6 score 20, 25 and 30. Each extra scorer adds x0.5."])
+		steps.append([nails, "1s and 2s are Strikes. They add up all turn."])
+		steps.append([nails, "Three Strikes and you bust: the turn's points are lost and you go to Purgatory."])
+		steps.append([of.call("bank"), "Bank to keep this turn's points, or throw again to push your luck."])
+		if mine:
+			var me = human_player()
+			steps.append([mine.get_global_rect(), "Your Sin bends the rules: %s" % SIN_TEXT[me.sin.sin_name][0]])
+		steps.append([table, "First to 1000 wins."])
+		_tut_stage = 2
+	if steps.is_empty():
+		return
+	_tut = Tutorial.new(self)
+	add_child(_tut)
+	for s in steps:
+		await _tut.step(s[0], s[1])
+	await _tut.finish()
+	_tut = null
+	if _tut_stage == 2:
+		tutorial_pending = false
+		_save_settings()
+
+
+func human_player():
+	for p in game.players:
+		if p.bot == human:
+			return p
+	return null
+
+
+## Chronicle -> Main menu: the ink covers the board and the title page loads under it.
+func _to_menu() -> void:
+	if _starting:
+		return
+	_starting = true
+	await _ink_wash(true)
+	_wash_on_load = true
+	_setup_on_load = false
+	get_tree().reload_current_scene()
 
 
 func _on_new_game_wait() -> void:
@@ -854,7 +1192,19 @@ func _build_log_overlay() -> void:
 	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	Art.skin(close, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
 	close.pressed.connect(func(): _page_turn(_log_overlay, false))
-	v.add_child(close)
+	# Back to the title page. The game is saved after every answer, so Continue picks it up.
+	var to_menu := Button.new()
+	to_menu.text = "Main menu"
+	to_menu.custom_minimum_size = Vector2(340, SEAL_SMALL)
+	Art.skin(to_menu, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
+	to_menu.pressed.connect(_to_menu)
+	var brow := HBoxContainer.new()
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	brow.add_theme_constant_override("separation", int(GAP_MIN * 1.5))
+	close.size_flags_horizontal = Control.SIZE_FILL
+	brow.add_child(to_menu)
+	brow.add_child(close)
+	v.add_child(brow)
 	_log_overlay.add_child(f)
 	_log_overlay.visible = false
 	add_child(_log_overlay)
@@ -882,6 +1232,10 @@ func _save_settings() -> void:
 	cfg.load(SETTINGS)
 	cfg.set_value("ui", "speed", Tuning.speed)
 	cfg.set_value("ui", "sound", not Tuning.muted)
+	cfg.set_value("ui", "sfx", Tuning.sfx_vol)
+	cfg.set_value("ui", "music", Tuning.music_vol)
+	cfg.set_value("ui", "haptics", Tuning.haptics)
+	cfg.set_value("ui", "tutorial_done", not tutorial_pending)
 	cfg.set_value("ui", "reduce_motion", Tuning.reduce_motion)
 	cfg.set_value("ui", "table", Tuning.table_size)
 	cfg.save(SETTINGS)
@@ -894,7 +1248,7 @@ func _show_speed() -> void:
 
 ## Tap anywhere that isn't a button: finish the current beat. Double tap: skip to your next decision.
 func _input(event: InputEvent) -> void:
-	if game == null or not _q.busy():
+	if game == null or not _q.busy() or _tut != null:
 		return
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
 		return
@@ -1269,7 +1623,8 @@ func show_prompt(text: String, options: Array) -> void:
 		_show_prompt_now(text, options)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
-		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())))
+		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
+		await _tutorial_prompt())
 
 
 ## Dice counts become one row of small seals that only select (the most dice starts selected),
@@ -1694,7 +2049,14 @@ func _process(delta: float) -> void:
 			_inking.erase(r)
 		else:
 			_inking[r] = t
-	if _paper == null or not is_instance_valid(_paper):
+	var has_paper := _paper != null and is_instance_valid(_paper)
+	if _candle_glow and is_instance_valid(_candle_glow):
+		# Candle flicker: two quick wobbles over a slow sway.
+		var ct := Time.get_ticks_msec() / 1000.0
+		var f := 0.62 if Tuning.reduce_motion else 0.62 + 0.1 * sin(ct * 11.0) * sin(ct * 6.7) + 0.06 * sin(ct * 2.3)
+		_candle_glow.modulate.a = f
+		_candle_glow.scale = Vector2.ONE * (0.97 + f * 0.05)
+	if not has_paper and _parallax.is_empty():
 		return
 	var g := Input.get_gravity()
 	var want: Vector2
@@ -1706,6 +2068,11 @@ func _process(delta: float) -> void:
 		var t := Time.get_ticks_msec() / 1000.0
 		want = Vector2(sin(t * 0.31), cos(t * 0.23)) * Tuning.TILT_DRIFT
 	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
+	for e in _parallax:  # menu layers: further back moves less (or the other way)
+		if is_instance_valid(e[0]):
+			e[0].position = e[1] + _tilt * e[2]
+	if not has_paper:
+		return
 	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
 	_paper.position = _tilt * Tuning.TILT_PX
 
@@ -1766,14 +2133,15 @@ func _ink_wash(cover: bool, origin := Vector2(0.5, 0.5)) -> void:
 
 ## The Chronicle turns in like a page: it swings open from the left edge, shaded as it turns.
 func _page_turn(node: Control, open: bool) -> void:
-	node.pivot_offset = Vector2(0, node.size.y / 2.0)
+	# Panels fade and scale uniformly from the centre (never squashed on one axis).
+	node.pivot_offset = node.size / 2.0
 	if open:
 		node.visible = true
-		node.scale = Vector2(0.02, 1.0)
-		node.modulate = Color(0.35, 0.3, 0.28)
+		node.scale = Vector2.ONE * PANEL_FROM
+		node.modulate.a = 0.0
 	var tw := create_tween()
-	tw.tween_property(node, "scale:x", 1.0 if open else 0.02, Tuning.PAGE_TURN).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT if open else Tween.EASE_IN)
-	tw.parallel().tween_property(node, "modulate", Color.WHITE if open else Color(0.35, 0.3, 0.28), Tuning.PAGE_TURN)
+	tw.tween_property(node, "scale", Vector2.ONE if open else Vector2.ONE * PANEL_FROM, Tuning.PAGE_TURN).set_trans(Tween.TRANS_SPRING if open else Tween.TRANS_SINE).set_ease(Tween.EASE_OUT if open else Tween.EASE_IN)
+	tw.parallel().tween_property(node, "modulate:a", 1.0 if open else 0.0, Tuning.PAGE_TURN * 0.8)
 	await tw.finished
 	if not open:
 		node.visible = false

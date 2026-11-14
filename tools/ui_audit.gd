@@ -24,6 +24,7 @@ func _initialize() -> void:
 	main = load("res://ui/main.tscn").instantiate()
 	main.debug_safe = SAFE
 	main.save_enabled = false
+	main.tutorial_enabled = false
 	root.add_child(main)
 	await _settle(40)
 	await _check("menu")

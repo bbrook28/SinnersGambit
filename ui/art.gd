@@ -46,6 +46,29 @@ static func numeral(n: int) -> Texture2D:
 	return load(RT + "seals/n%d.png" % n) if n >= 1 and n <= 9 else null
 
 
+## A soft round light (radial falloff to nothing), for dust, embers, glows and particles.
+static func soft_dot(size := 64, col := Color.WHITE) -> GradientTexture2D:
+	var g := Gradient.new()
+	g.set_color(0, col)
+	g.set_color(1, Color(col, 0.0))
+	g.add_point(0.35, Color(col, 0.55))
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(0.5, 0.0)
+	t.width = size
+	t.height = size
+	return t
+
+
+## A material that adds light instead of covering (glows, shafts, dust).
+static func additive() -> CanvasItemMaterial:
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	return m
+
+
 static func window(sin_name: String) -> Texture2D:
 	return load(RT + "sins/%s.png" % sin_name.to_lower())
 

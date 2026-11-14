@@ -4,11 +4,14 @@
 extends RefCounted
 
 static var speed := 1.0
-static var muted := false          # Settings: sound off
+static var muted := false          # sound effects off (Settings: Sound slider at 0)
+static var sfx_vol := 1.0          # Settings: Sound, 0..1
+static var music_vol := 0.7        # Settings: Music, 0..1
+static var haptics := true         # Settings: Haptics
 static var reduce_motion := false  # Settings: no shake, tilt, idle breathing, flicker or figure reactions
 const SPEED_MIN := 0.25
 const SPEED_MAX := 4.0
-const SHOW_DEBUG_SLIDER := true
+const SHOW_DEBUG_SLIDER := false  # the on-screen speed slider (debug only)
 
 # ---- The four phases of every beat ----
 const ANTICIPATION := 0.3    # the element lifts / pulses

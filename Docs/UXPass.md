@@ -70,7 +70,7 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 5. Idle life, Sin window reactions, light shaft.
 6. Tap a die to inspect; tappable glowing Tier 2 targets.
 7. Reduce Motion, haptics on device, setup screen restyle.
-8. First-run tutorial (spotlight/dim), replayable.
+8. First-run tutorial (spotlight/dim), replayable. **Done** (2026-11-13, `ui/tutorial.gd`).
 
 ## Build order (one event type at a time, Ben plays between)
 1. Queue, snapshots, speed and skip. Every event gets a generic beat (log line plus a pause). Nothing jumps any more. **Done** (`ui/action_queue.gd`, `ui/events.gd`).
