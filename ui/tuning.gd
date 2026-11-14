@@ -170,7 +170,7 @@ const CAUSE_FADE := 0.25       # its fade in and out
 const CAUSE_SIZE := 32         # its text size
 const RESULT_SIZE := 38        # the one-line throw result under the throw total
 const PLATE_CAPTION := 24      # "Score" / "Dice" captions on the player plates
-const CANDLE_SIZE := Vector2(52, 150)  # each Strike candle
+const CANDLE_SIZE := Vector2(40, 110)  # each Strike candle (shorter in Phase 6, so the dice get the height)
 const SNUFF := 0.25            # a candle going out
 
 # ---- Sin select (Phase 4: ui/sin_carousel.gd) ----
@@ -185,8 +185,8 @@ const SELECT_LIGHT_PERIOD := 4.0
 const SELECT_CHOOSE := 260         # the Choose seal
 
 # ---- Game layout (Phase 5) ----
-const ZONE_GLANCE := 24.0          # stretch ratios of the board's three zones: windows and plates,
-const ZONE_TRAY := 46.0            # the tray (about 40% of the screen with the safe areas),
+const ZONE_GLANCE := 21.0          # stretch ratios of the board's three zones: windows and plates,
+const ZONE_TRAY := 49.0            # the tray (about 44% of the screen with the safe areas; Phase 5 was 24 / 46 / 30),
 const ZONE_THUMB := 30.0           # the parchment page (prompts, seals, the bot-turn summary)
 const WINDOW_CROP := 1.8           # board windows show the arch and figure: height = width x this
 const WINDOW_CROP_TOP := {}        # per Sin, where the crop starts (fraction of the height; default 0)
@@ -199,3 +199,14 @@ const PAUSE_ITEM_W := 560          # the pause menu's buttons
 const SUMMARY_FONT := 34           # the bot-turn summary lines
 const SUMMARY_ROWS := 6            # at most this many bot turns listed (fewer when they don't fit: _summary_fit)
 const SUMMARY_NAME := {"Greed": Color("3d4a5c")}  # a Sin name too pale to read on parchment, darker
+
+# ---- Feedback (Phase 6) ----
+const DIE_SIZE := 150.0            # largest a die is drawn; the real size is what fits TRAY_DICE with TRAY_MARGIN (main.die_side), the same at any count
+const DIE_GAP := 18.0              # between dice, both ways
+const TRAY_MARGIN := 16.0          # clear leather round the block of dice
+const DIE_MIN := 110.0             # tools/ui_audit.gd flags a tray whose dice come out smaller than this
+const DICE_PER_ROW := 6
+const TRAY_DICE := 18              # the tray always fits this many (12 bought plus added, with room)
+const NOTE_SIZE := 46              # an ability note in the score strip ("Hubris  bets 100")
+const ADDED_TINT := 0.45           # an ability-added die: its face washed this much toward the Sin's colour
+const ADDED_RIM := 0.08            # and a glow of that colour this far round it (fraction of the die)

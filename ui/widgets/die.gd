@@ -3,6 +3,8 @@
 ## soft shadow; 3s and Strikes sit sunk into the leather, darker, with a tight shadow. Candle on the right.
 extends Control
 
+const Tuning = preload("res://ui/tuning.gd")
+
 const FACES := [
 	preload("res://assets/art/runtime/dice/1.png"), preload("res://assets/art/runtime/dice/2.png"),
 	preload("res://assets/art/runtime/dice/3.png"), preload("res://assets/art/runtime/dice/4.png"),
@@ -11,6 +13,11 @@ const FACES := [
 
 var face := 1
 var tilt := 0.0  # small per-die rotation so a row doesn't look stamped
+## An ability-added die (Envy's copies): washed in the Sin's colour with a glow of it round the edge.
+var tint := Color(0, 0, 0, 0):
+	set(v):
+		tint = v
+		queue_redraw()
 ## px above the leather while thrown (ui/director.gd): the shadow stays on the ground, fainter and wider.
 var height := 0.0:
 	set(v):
@@ -44,5 +51,12 @@ func _draw() -> void:
 		var ground := Vector2(-height * 0.25, height).rotated(-tilt - rotation) / maxf(scale.y, 0.1)
 		var off := Vector2(-reach, reach * 1.1) * k + Vector2(0, lift) + ground
 		draw_texture_rect(tex, Rect2(r.position + off, r.size), false, Color(0, 0, 0, (0.32 if raised else 0.5) / passes * (passes - i) * (1.0 - 0.7 * air)))
-	draw_texture_rect(tex, r, false, Color(1.1, 1.06, 0.98) if raised else Color(0.62, 0.58, 0.54))
+	var col := Color(1.1, 1.06, 0.98) if raised else Color(0.62, 0.58, 0.54)
+	if tint.a > 0.0:
+		var g := d * Tuning.ADDED_RIM
+		for i in 3:  # the rim: the die's silhouette, larger, in the Sin's colour
+			var e := g * float(3 - i) / 3.0
+			draw_texture_rect(tex, r.grow(e), false, Color(tint.lightened(0.3), 0.35))
+		col = col * Color.WHITE.lerp(tint.lightened(0.25), Tuning.ADDED_TINT)
+	draw_texture_rect(tex, r, false, col)
 	draw_set_transform(Vector2.ZERO)

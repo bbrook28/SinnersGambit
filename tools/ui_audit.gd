@@ -119,11 +119,45 @@ func _initialize() -> void:
 			main._layout_buttons()
 			await process_frame
 			await _check("synthetic %d dice%s" % [n, " + Bank" if bank else ""])
+	await _audit_tray()
 	await _audit_tutorial()
 	var f := FileAccess.open(out.path_join("audit.txt"), FileAccess.WRITE)
 	f.store_string("\n".join(report))
 	print("\n".join(report))
 	quit()
+
+
+## Phase 6: the tray holds Tuning.TRAY_DICE dice at the fixed size (the last three ability-added,
+## tinted), inside the leather with a margin and clear of the score strip; then an ability note
+## in the strip. Screenshots both.
+func _audit_tray() -> void:
+	main.clear_prompt()
+	var faces := []
+	for i in main.Tuning.TRAY_DICE:
+		faces.append(i % 6 + 1)
+	main._show_dice(faces, 3, main.Style.SIN_COLORS["Envy"])
+	main._throw_label.text = "+45  x1.5"
+	main.set_result("Sample: 4, 5 and 6 score 15, x1.5 = 22.")
+	await _settle(6)
+	await _check("tray: %d dice (3 added), die %d px" % [faces.size(), int(main.die_side())])
+	var area: Rect2 = main._dice_area.get_global_rect()
+	var strip: Rect2 = main._score_zone.get_global_rect()
+	var side: float = main.die_side()
+	if side < main.Tuning.DIE_MIN:
+		report.append("- dice: drawn at %.0f px, under Tuning.DIE_MIN %.0f (tray too small)" % [side, main.Tuning.DIE_MIN])
+	var bad := 0
+	for d in main._dice_nodes:
+		var r: Rect2 = d.get_global_rect()
+		if not area.grow(1.0 - main.Tuning.TRAY_MARGIN).encloses(r) or r.intersects(strip):
+			bad += 1
+	if bad > 0:
+		report.append("- dice: %d of %d inside the tray margin or over the score strip" % [bad, faces.size()])
+	main._marginalia(main._portraits[0], "Hubris", "bets 100")
+	await _settle(30)
+	await _check("ability note in the score strip")
+	main.reset_strip()
+	main._show_dice([])
+	await _settle(2)
 
 
 func _settle(frames: int) -> void:

@@ -13,6 +13,7 @@ const T = Tuning
 const RulesText = preload("res://ui/rules_text.gd")
 const Events = preload("res://ui/events.gd")
 const Sfx = preload("res://ui/sfx.gd")
+const Pride = preload("res://sins/pride.gd")  # read only: Hubris's multiplier
 
 var m          # ui/main.gd
 var q          # ui/action_queue.gd
@@ -187,6 +188,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 		await _think(seat, T.BOT_THINK)
 	focus(["dice", "seat%d" % seat], T.DIM, {"throw": T.DIM})
 	m._refresh(snap, ["glow", "banner", "plates", "turn", "strikes"])
+	m.reset_strip()
 	m._throw_label.text = ""
 	m.set_result("")
 	m._show_dice([])
@@ -195,43 +197,14 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	await q.wait(_ant())
 	# Action: the dice tumble in from the thrower's side, one after another.
 	var faces: Array = snap.turn.faces
-	m._show_dice(faces)
+	m.show_turn_dice(snap.turn)
 	sfx.play("throw" if faces.size() > 1 else "throw_one", clampf(faces.size() / 8.0, 0.3, 1.0))
 	await get_tree().process_frame  # let the flow container place them
 	var side := signf(_center(_seat(seat).col).x - _center(m._dice_area).x)
 	var dice: Array = m._dice_nodes
 	for i in dice.size():
 		var d = dice[i]  # ui/widgets/die.gd (has height)
-		var to: Vector2 = d.position
-		var from := to + Vector2(side * 520.0 + randf_range(-60, 60), randf_range(-40, 40))
-		var h0 := 300.0 + randf_range(-50, 50)  # thrown from this high above the leather
-		var spin := randf_range(-3.0, 3.0)
-		var bounces := 2.5 + randf_range(-0.3, 0.3)  # half-arcs: the drop, then two shrinking hops
-		d.position = from - Vector2(0, h0)
-		d.rotation = spin
-		d.scale = Vector2.ONE * 0.55
-		d.modulate.a = 0.0
-		d.height = h0
-		var tw: Tween = q.tween(d)
-		tw.tween_interval(T.STAGGER * i)
-		tw.tween_property(d, "modulate:a", 1.0, 0.08)
-		# Tumble: travel eases out along the leather while the height bounces down to rest.
-		tw.parallel().tween_method(func(p: float):
-			var ground := from.lerp(to, 1.0 - pow(1.0 - p, 2.0))
-			var hgt := h0 * pow(1.0 - p, 2.0) * absf(cos(p * PI * bounces))
-			d.height = hgt
-			d.position = ground - Vector2(0, hgt)
-			d.rotation = spin * pow(1.0 - p, 1.6), 0.0, 1.0, T.ACTION)
-		tw.parallel().tween_property(d, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
-		# Landing: squash, a puff of dust, then a settle wobble.
-		tw.tween_callback(func():
-			d.height = 0.0
-			d.position = to
-			burst(_center(d), T.DUST_K, Style.C_BONE_DARK))
-		tw.tween_property(d, "scale", Vector2(1.14, 0.86), T.IMPACT * 0.4)
-		tw.parallel().tween_property(d, "rotation", deg_to_rad(T.SETTLE_DEG), T.IMPACT * 0.4)
-		tw.tween_property(d, "scale", Vector2.ONE, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(d, "rotation", 0.0, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		_tumble(d, d.position + Vector2(side * 520.0 + randf_range(-60, 60), randf_range(-40, 40)), T.STAGGER * i)
 	await q.wait(T.ACTION + T.STAGGER * maxi(0, dice.size() - 1))
 	# Impact: shake and a tap you feel, scaled to the number of dice (each die puffed its own dust).
 	var k := clampf(dice.size() / 8.0, T.K_MIN, 1.0)
@@ -242,6 +215,40 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 		m._throw_label.add_theme_font_size_override("font_size", 72)
 		m._throw_label.text = RulesText.word("purgatory_need")
 	await q.wait(_hold())
+
+
+## One die thrown onto the leather from `from` (its parent's space): it drops from above, travels
+## easing out while its height bounces down, lands with a squash and a puff of dust, then settles.
+func _tumble(d, from: Vector2, delay: float) -> void:
+	var to: Vector2 = d.position
+	var h0 := 300.0 + randf_range(-50, 50)  # thrown from this high above the leather
+	var spin := randf_range(-3.0, 3.0)
+	var bounces := 2.5 + randf_range(-0.3, 0.3)  # half-arcs: the drop, then two shrinking hops
+	d.position = from - Vector2(0, h0)
+	d.rotation = spin
+	d.scale = Vector2.ONE * 0.55
+	d.modulate.a = 0.0
+	d.height = h0
+	var tw: Tween = q.tween(d)
+	tw.tween_interval(delay)
+	tw.tween_property(d, "modulate:a", 1.0, 0.08)
+	# Tumble: travel eases out along the leather while the height bounces down to rest.
+	tw.parallel().tween_method(func(p: float):
+		var ground := from.lerp(to, 1.0 - pow(1.0 - p, 2.0))
+		var hgt := h0 * pow(1.0 - p, 2.0) * absf(cos(p * PI * bounces))
+		d.height = hgt
+		d.position = ground - Vector2(0, hgt)
+		d.rotation = spin * pow(1.0 - p, 1.6), 0.0, 1.0, T.ACTION)
+	tw.parallel().tween_property(d, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	# Landing: squash, a puff of dust, then a settle wobble.
+	tw.tween_callback(func():
+		d.height = 0.0
+		d.position = to
+		burst(_center(d), T.DUST_K, Style.C_BONE_DARK))
+	tw.tween_property(d, "scale", Vector2(1.14, 0.86), T.IMPACT * 0.4)
+	tw.parallel().tween_property(d, "rotation", deg_to_rad(T.SETTLE_DEG), T.IMPACT * 0.4)
+	tw.tween_property(d, "scale", Vector2.ONE, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(d, "rotation", 0.0, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
 ## Strikes snuff their candles one by one, then the scoring dice send their points to the throw total and on to the turn.
@@ -257,13 +264,11 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 			scorers.append(i)
 	focus(["dice", "throw", "turn"])
 	if pts <= 0 or scorers.is_empty():
-		m._throw_label.add_theme_font_size_override("font_size", m.SCORE_SIZE)
-		m._throw_label.text = "+0"
-		m._throw_label.modulate = Color(0.6, 0.55, 0.5)
+		# Nothing scored: no "+0". The result line already says it; it gives a small knock.
+		m._throw_label.text = ""
 		sfx.play("impact_light", 0.0, 0.7)
-		_punch(m._throw_label, 0.3)
+		_punch(m._result_label, 0.3)
 		await q.wait(_hold())
-		m._throw_label.modulate = Color.WHITE
 		m._refresh(snap, ["turn"])
 		return
 	var k := T.k_of(pts)
@@ -286,7 +291,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		return
 	# Action: each die's points fly to the throw total, which counts up as they land.
 	m._throw_label.add_theme_font_size_override("font_size", m.SCORE_SIZE)
-	m._throw_label.text = "+0"
+	m._throw_label.text = ""  # the first die's points write it; it never reads "+0"
 	var base := 0
 	var dest := _center(m._throw_label)
 	var act := T.ACTION * (1.0 + T.ACTION_STRETCH * k)
@@ -297,15 +302,21 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 		base += v
 		var tw := fly("+%d" % v, _center(dice[i]), dest, Style.C_GOLD, act, T.STAGGER * j)
 		tw.tween_callback(func():
-			count(m._throw_label, from, from + v, T.IMPACT, "+%d")
+			if from == 0:
+				m._throw_label.text = "+%d" % v
+			else:
+				count(m._throw_label, from, from + v, T.IMPACT, "+%d")
 			_punch(m._throw_label, 0.3))
 	# Wait until the last flight has landed and its count has finished, or it would overwrite the multiplied total.
 	await q.wait(T.STAGGER * (scorers.size() - 1) + FLY_LEAD + act + T.IMPACT)
-	# The chain multiplier brands the total.
+	# The chain multiplier joins the line as one fixed number ("+9  x1.5"), then the total snaps to
+	# the product: no fractions ticking past.
 	if pts != base:
-		var mult := float(pts) / base
-		stamp("x%.1f" % mult, _center(m._throw_label) + Vector2(260, -10), Style.C_GOLD, 0.6, 90)
-		count(m._throw_label, base, pts, T.IMPACT * 2, "+%d")
+		m._throw_label.text = "+%d  %s" % [base, RulesText._mult(1.0 + m.game.chain * (scorers.size() - 1))]
+		_punch(m._throw_label, 0.5)
+		sfx.play("stamp", 0.5)
+		await q.wait(T.IMPACT * 2)
+		m._throw_label.text = "+%d" % pts
 	# Impact.
 	_punch(m._throw_label, k)
 	burst(dest, k, Style.C_GOLD)
@@ -326,6 +337,10 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 
 ## New Strikes since the last beat: each Strike die flashes red and its ember snuffs a candle.
 func _strikes(prev: Dictionary, snap: Dictionary) -> void:
+	# An ability changed this throw's dice after its own beat (Envy adds a die, then the throw scores):
+	# show them land first, from the thrower's window.
+	if prev.has("turn") and str(prev.turn.faces) != str(snap.turn.faces) and not m._dice_nodes.is_empty() and snap.cur >= 0:
+		await _change_dice(_center(_seat(snap.cur).window), prev, snap, 0.0)
 	var had := _strike_count(prev)
 	var now: int = snap.turn.strikes
 	if now <= had:
@@ -373,7 +388,7 @@ func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	m.set_result(RulesText.word("res_bust"))
 	await q.wait(T.ACTION * 1.5)
 	flash(Style.C_STRIKE, 0.45, T.IMPACT * 3)
-	stamp("BUST", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 1.0)
+	stamp("BUST", _above_tray(), Style.C_STRIKE.lightened(0.2), 1.0)
 	shake(1.0)
 	impact(1.0, "bell")
 	flinch(1.0)
@@ -458,11 +473,8 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	await q.wait(T.IMPACT)
 	await _effects_from(_center(pt.window), prev, snap)
 	await q.wait(_hold() * 1.5)
-	if is_instance_valid(note):
-		var tw: Tween = q.tween(note)
-		tw.tween_property(note, "modulate:a", 0.0, 0.2)
-		tw.tween_callback(note.queue_free)
-		await q.wait(0.2)
+	m.clear_note(note)
+	await q.wait(0.2)
 
 
 ## Fury: the targeted dice jump, spin, and land on new faces.
@@ -478,7 +490,7 @@ func _reroll(snap: Dictionary) -> void:
 		tw.tween_property(d, "rotation", TAU, T.ACTION).set_trans(Tween.TRANS_QUAD)
 		tw.tween_callback(func(): d.rotation = 0.0)
 	await q.wait(T.ACTION * 0.5)
-	m._show_dice(snap.turn.faces)
+	m.show_turn_dice(snap.turn)
 	await get_tree().process_frame
 	for d in m._dice_nodes:
 		burst(_center(d), 0.3, Style.C_BONE_DARK)
@@ -538,14 +550,14 @@ func _hubris(paid: bool, prev: Dictionary, snap: Dictionary) -> void:
 	await q.wait(_ant())
 	var before := _turn_points(prev)
 	if paid:
-		stamp("x1.6", _center(m._turn_label) + Vector2(0, -90), Style.C_GOLD, 0.8, 110)
+		stamp(RulesText._mult(Pride.MULT), _above_tray(), Style.C_GOLD, 0.8, 110)
 		sfx.play("glass", 0.8)
 		await q.wait(T.ACTION)
 		impact(0.6, "coins")
 		shake(0.5)
 	else:
 		count_turn(before, 0, T.ACTION)
-		stamp("Hubris fails", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 0.8, 110)
+		stamp("Hubris fails", _above_tray(), Style.C_STRIKE.lightened(0.2), 0.8, 110)
 		sfx.play("crack", 0.8)
 		await q.wait(T.ACTION)
 		impact(0.8)
@@ -560,7 +572,7 @@ func _redeem_result(freed: bool, snap: Dictionary) -> void:
 			if snap.turn.faces[i] == 6:
 				_lift(m._dice_nodes[i], T.ANTICIPATION, Color(1.4, 1.25, 0.8))
 	await q.wait(_ant())
-	stamp("Free!" if freed else "Still in Purgatory", _center(m._dice_area),
+	stamp("Free!" if freed else "Still in Purgatory", _above_tray(),
 		Style.C_GOLD if freed else Style.C_STRIKE.lightened(0.3), 0.7, 100)
 	impact(0.6 if freed else 0.3, "glass" if freed else "")
 	if freed:
@@ -625,19 +637,37 @@ func _effects_from(src: Vector2, prev: Dictionary, snap: Dictionary) -> void:
 			_punch(m._turn_label, T.k_of(dp)))
 		moved = true
 	if snap.has("turn") and prev.has("turn") and str(snap.turn.faces) != str(prev.turn.faces) and not m._dice_nodes.is_empty():
-		await q.wait(T.ACTION * 0.6)
-		m._show_dice(snap.turn.faces)
-		await get_tree().process_frame
-		for d in m._dice_nodes:
-			_punch(d, 0.3)
-		burst(_center(m._dice_area), 0.4, Style.C_BONE)
+		await _change_dice(src, prev, snap)
 		moved = true
-		await q.wait(T.ACTION * 0.4)
 	elif moved:
 		await q.wait(T.ACTION)
 	if moved:
 		await q.wait(T.COUNT_UP)
 		m._refresh(snap, ["plates", "turn"])
+
+
+## The dice on the leather change to this snapshot's. Dice added at the end (Envy's copies) are
+## thrown in from src (the Sin's window), tinted its colour; any other change punches them all.
+func _change_dice(src: Vector2, prev: Dictionary, snap: Dictionary, lead := 0.6) -> void:
+	if lead > 0.0:  # let flights from the same beat travel first
+		await q.wait(T.ACTION * lead)
+	var old: Array = prev.turn.faces
+	var new: Array = snap.turn.faces
+	var grew := new.size() > old.size() and str(new.slice(0, old.size())) == str(old)
+	m.show_turn_dice(snap.turn)
+	await get_tree().process_frame
+	if grew:
+		sfx.play("throw_one", 0.5)
+		for i in range(old.size(), m._dice_nodes.size()):
+			var d = m._dice_nodes[i]
+			var from: Vector2 = d.get_parent().get_global_transform().affine_inverse() * src
+			_tumble(d, from, T.STAGGER * (i - old.size()))
+		await q.wait(T.ACTION + T.STAGGER * (new.size() - old.size() - 1) + T.IMPACT)
+	else:
+		for d in m._dice_nodes:
+			_punch(d, 0.3)
+		burst(_center(m._dice_area), 0.4, Style.C_BONE)
+	await q.wait(T.ACTION * 0.4)
 
 
 # ================= Bots: think, then show the move =================
@@ -1093,6 +1123,13 @@ func _is_mine(seat: int) -> bool:
 
 func _center(c: Control) -> Vector2:
 	return c.get_global_rect().get_center() if c and is_instance_valid(c) else m.size / 2
+
+
+## Where verdict stamps land (BUST, Free!, Hubris): astride the tray's top edge, over the turn
+## lettering, never on the dice or the score strip.
+func _above_tray() -> Vector2:
+	var r: Rect2 = m._banner.get_global_rect()
+	return Vector2(_center(m._dice_area).x, r.position.y + 12.0)
 
 
 func _turn_points(s: Dictionary) -> int:

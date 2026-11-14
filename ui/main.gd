@@ -57,8 +57,7 @@ const TARGET_MIN := 44.0 * 1080.0 / 393.0   # 44 pt: smallest tappable thing (Ap
 const GAP_MIN := 13.0 * 1080.0 / 393.0      # a little over 12 pt between separate targets
 const SIDE_MIN := 17.0 * 1080.0 / 393.0     # a little over 16 pt from the screen's sides
 const SEAL_RECESS := 0.46                  # the painted seal's wax recess, as a fraction of its width
-const DIE_MAX := 280
-const SCORE_SIZE := 136
+const SCORE_SIZE := 116
 
 var game = null
 var human = null
@@ -74,6 +73,7 @@ var _throw_label: Label
 var _turn_label: RichTextLabel
 var _strike_icons: Array = []   # the Strike candles
 var _result_label: Label          # one line under the throw total: what scored (result_line)
+var _score_zone: Control          # the reserved strip holding the throw total and result line, or an ability note
 var _prompt_label: RichTextLabel
 var _buttons: Control             # holds only prompt Buttons (tests/ui_autoplay.gd presses them)
 var _summary: Button               # bot-turn summary on the thumb page (tap: the Chronicle)
@@ -1242,15 +1242,27 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_dice_row.add_theme_constant_override("v_separation", 16)
 	_dice_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dice_area.add_child(_dice_row)
+	# The score strip: a fixed-height band between the dice and the turn row, reserved for one
+	# thing at a time: the throw total over its result line, or an ability's note. Flying numbers
+	# land here, so nothing lands on the dice or the labels, and nothing reflows.
+	_score_zone = Control.new()
+	_score_zone.custom_minimum_size.y = SCORE_SIZE * 1.15 + Tuning.RESULT_SIZE + 12
+	_score_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(_score_zone)
 	_throw_label = Style.number("", SCORE_SIZE, 14)
 	_throw_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	tv.add_child(_throw_label)
+	_throw_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_throw_label.offset_bottom = SCORE_SIZE * 1.15
+	_throw_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_score_zone.add_child(_throw_label)
 	_result_label = Style.label("", Tuning.RESULT_SIZE, Style.C_BONE, false, 6)
 	_result_label.add_theme_font_override("font", Style.SERIF)
 	_result_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_result_label.custom_minimum_size.y = Tuning.RESULT_SIZE + 12  # holds its line empty, so nothing reflows
+	_result_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_result_label.offset_top = -(Tuning.RESULT_SIZE + 12)
+	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_result_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tv.add_child(_result_label)
+	_score_zone.add_child(_result_label)
 	_turn_label = Style.body("", 44, Style.C_BONE, 8)
 	var srow := HBoxContainer.new()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1716,7 +1728,12 @@ func _snapshot() -> Dictionary:
 	var t = game.turn
 	if t:
 		var faces: Array = (t.faces if t.throws > 0 else t.redeem_faces).duplicate()
-		s.turn = {"faces": faces, "throws": t.throws, "points": t.points, "strikes": t.strikes}
+		s.turn = {"faces": faces, "throws": t.throws, "points": t.points, "strikes": t.strikes, "added": 0, "tint": Color(0, 0, 0, 0)}
+		# Dice an ability added to this throw (Envy's copies) sit past the ones thrown.
+		if t.throws > 0 and game.current:
+			s.turn.added = maxi(0, faces.size() - game._max_throw(game.current))
+			if s.turn.added > 0 and game.current.sin:
+				s.turn.tint = Style.SIN_COLORS.get(game.current.sin.sin_name, Style.C_GOLD)
 	return s
 
 
@@ -1747,13 +1764,13 @@ func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 		_set_banner(RulesText.word("your_turn") if cur.bot == human else RulesText.word("their_turn", {"name": player_name(cur)}), cur)
 	var faces: Array = t.faces
 	if "dice" in parts:
-		_show_dice(faces)
+		show_turn_dice(t)
 	if "throw" in parts:
 		var text := ""
 		var size := SCORE_SIZE
 		if t.throws > 0:
 			var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
-			text = "+%d" % pts
+			text = "+%d" % pts if pts > 0 else ""  # nothing scored: the result line says so, never "+0"
 		elif faces.size() > 0:
 			text = RulesText.word("purgatory_need")
 			size = 72
@@ -1956,9 +1973,26 @@ func _me():
 	return null
 
 
-## Up to 5 dice in one row, more in two. As big as the stage allows, capped at 64pt.
-func _show_dice(faces: Array) -> void:
-	var key := str(faces)
+## The dice of a snapshot's turn, ability-added ones tinted.
+func show_turn_dice(t: Dictionary) -> void:
+	_show_dice(t.faces, t.get("added", 0), t.get("tint", Color(0, 0, 0, 0)))
+
+
+## The size every die is drawn at: Tuning.DIE_SIZE, unless the tray can't hold Tuning.TRAY_DICE at it.
+## It never depends on how many dice are out, so buying one doesn't shrink the rest.
+func die_side() -> float:
+	var per := Tuning.DICE_PER_ROW
+	var rows := ceili(float(Tuning.TRAY_DICE) / per)
+	var gap := Tuning.DIE_GAP
+	var area := _dice_area.size - Vector2.ONE * Tuning.TRAY_MARGIN * 2.0
+	var side := minf(Tuning.DIE_SIZE, (area.x - gap * (per - 1)) / per)
+	side = minf(side, (area.y - gap * (rows - 1)) / rows)
+	return floorf(maxf(side, 60.0))
+
+
+## Rows of Tuning.DICE_PER_ROW, centred in the tray. The last `added` faces were added by an ability.
+func _show_dice(faces: Array, added := 0, tint := Color(0, 0, 0, 0)) -> void:
+	var key := "%s/%d" % [str(faces), added]
 	if _dice_row.get_meta("key", "") == key:
 		return
 	_dice_row.set_meta("key", key)
@@ -1968,14 +2002,18 @@ func _show_dice(faces: Array) -> void:
 	var n := faces.size()
 	if n == 0:
 		return
-	var rows := 1 if n <= 5 else 2
-	var per_row := ceili(float(n) / rows)
-	var gap := 16.0
+	var per_row := Tuning.DICE_PER_ROW
+	var rows := ceili(float(n) / per_row)
+	var gap := Tuning.DIE_GAP
+	_dice_row.add_theme_constant_override("h_separation", int(gap))
+	_dice_row.add_theme_constant_override("v_separation", int(gap))
 	var area := _dice_area.size
-	var side := minf(DIE_MAX, (area.x - gap * (per_row - 1)) / per_row)
-	side = minf(side, (area.y - gap * (rows - 1)) / rows)
-	side = maxf(side, 60.0)
+	var side := die_side()
 	_dice_row.offset_top = maxf(0.0, (area.y - rows * side - (rows - 1) * gap) / 2.0)
+	# The row is only as wide as six dice, so a seventh wraps even on a wide screen.
+	var row_w := per_row * side + (per_row - 1) * gap
+	_dice_row.offset_left = maxf(0.0, (area.x - row_w) / 2.0)
+	_dice_row.offset_right = -_dice_row.offset_left
 	# Each die sits in a fixed holder so the director can throw, lift and spin it without the flow
 	# container snapping it back.
 	for i in n:
@@ -1985,6 +2023,8 @@ func _show_dice(faces: Array) -> void:
 		var d = Die.new(faces[i], int(side), i * 7 + faces[i])
 		d.size = Vector2(side, side)
 		d.pivot_offset = Vector2(side, side) / 2
+		if i >= n - added:
+			d.tint = tint
 		holder.add_child(d)
 		_dice_row.add_child(holder)
 		_dice_nodes.append(d)
@@ -2033,40 +2073,55 @@ func _flare(pt: Dictionary) -> void:
 	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
-## One short handwritten line under the Sin's plate: ability in gold, what it did in ivory.
-## Returned so the director can take it away when its beat ends.
+## An ability's note takes the score strip for its beat: the ability in its Sin's colour, then what
+## it did. The throw total and result line fade out under it and come back when it goes
+## (clear_note). One at a time; the Chronicle keeps them all. Returned so the director can clear it.
 func _marginalia(pt: Dictionary, ability: String, what: String) -> Control:
-	_notes = _notes.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
-	while _notes.size() >= 2:  # at most two at once; the Chronicle keeps them all
-		_notes.pop_front().queue_free()
-	var w := 560.0
-	var note := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(Style.C_BLACK, 0.88)
-	sb.border_color = Color(Style.SIN_COLORS[pt.sin], 0.9)
-	sb.border_width_left = 6
-	sb.set_corner_radius_all(10)
-	sb.set_content_margin_all(12)
-	sb.content_margin_left = 22
-	note.add_theme_stylebox_override("panel", sb)
-	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var text := Style.body("[color=#e9c46a]%s[/color]\n%s" % [ability, what], MIN_TEXT, Style.C_IVORY)
-	text.custom_minimum_size.x = w - 34
-	note.add_child(text)
-	var r: Rect2 = pt.col.get_global_rect()
-	var y := r.end.y + 6
 	for n in _notes:
-		y = maxf(y, n.position.y + maxf(n.size.y, 110.0) + 8)
-	note.position = Vector2(clampf(r.get_center().x - w / 2, 24.0, size.x - 24.0 - w), y - 10)
+		if is_instance_valid(n):
+			n.queue_free()
+	_notes.clear()
+	var col: Color = Style.SIN_COLORS[pt.sin].lightened(0.3)
+	var note := Style.body("[color=#%s]%s[/color]   %s" % [col.to_html(false), ability, what], Tuning.NOTE_SIZE, Style.C_IVORY, 10)
+	note.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
+	note.anchor_top = 0.5
+	note.anchor_bottom = 0.5
+	note.grow_vertical = Control.GROW_DIRECTION_BOTH
 	note.modulate.a = 0.0
-	add_child(note)
-	if _log_overlay:
-		move_child(note, _log_overlay.get_index())  # under the Chronicle
+	_score_zone.add_child(note)
 	_notes.append(note)
 	var tw: Tween = _q.tween(note)
 	tw.tween_property(note, "modulate:a", 1.0, 0.2)
-	tw.parallel().tween_property(note, "position:y", y, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_throw_label, "modulate:a", 0.0, 0.15)
+	tw.parallel().tween_property(_result_label, "modulate:a", 0.0, 0.15)
+	note.pivot_offset = Vector2(note.size.x / 2, 0)
+	note.scale = Vector2.ONE * 0.9
+	tw.parallel().tween_property(note, "scale", Vector2.ONE, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	return note
+
+
+## A new throw: any note still up goes at once and the strip shows the throw again.
+func reset_strip() -> void:
+	for n in _notes:
+		if is_instance_valid(n):
+			n.queue_free()
+	_notes.clear()
+	_throw_label.modulate.a = 1.0
+	_result_label.modulate.a = 1.0
+
+
+## The note leaves the strip and the throw total and result line come back.
+func clear_note(note: Control, dur := 0.2) -> void:
+	_notes.erase(note)
+	if not is_instance_valid(note) and not _notes.is_empty():
+		return
+	var tw: Tween = _q.tween(self)
+	if is_instance_valid(note):
+		tw.tween_property(note, "modulate:a", 0.0, dur)
+		tw.tween_callback(note.queue_free)
+	if _notes.is_empty():
+		tw.parallel().tween_property(_throw_label, "modulate:a", 1.0, dur)
+		tw.parallel().tween_property(_result_label, "modulate:a", 1.0, dur)
 
 
 ## Puts each Sin's sigil before its name, so the log reads by shape as well as colour.
