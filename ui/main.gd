@@ -71,7 +71,8 @@ var _dice_area: Control
 var _dice_row: HFlowContainer
 var _throw_label: Label
 var _turn_label: RichTextLabel
-var _strike_icons: Array = []
+var _strike_icons: Array = []   # the Strike candles
+var _result_label: Label          # one line under the throw total: what scored (result_line)
 var _prompt_label: RichTextLabel
 var _buttons: Control             # holds only prompt Buttons (tests/ui_autoplay.gd presses them)
 var _ticker: Button
@@ -772,6 +773,8 @@ func _start(my_sin: Script, saved := {}) -> void:
 		move_child(_wash, -1)  # the board was added above the ink
 	if saved.is_empty():
 		_ink_wash(false)
+		if tutorial_enabled:  # tests turn this off, so they never wait on the card
+			_opening_card()
 	else:
 		human.replay = saved.choices.duplicate()
 		_replaying = true
@@ -786,6 +789,28 @@ func _start(my_sin: Script, saved := {}) -> void:
 	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
 	show_prompt("The game is done. %s reached %d." % [player_name(w), w.score], [["New game", "new"]])
 	_on_new_game_wait()
+
+
+## Before the first turn: who you are, what your Sin does, the goal and where you sit.
+## An explain card, so the queue holds (and the game waits) until you tap Begin.
+func _opening_card() -> void:
+	var me = human_player()
+	var sname: String = me.sin.sin_name
+	var s: Dictionary = RulesText.SINS[sname]
+	var paras := ["[center][img=180x180]%s[/img][/center]" % Art.sigil_path(sname),
+		RulesText.word("open_epithet", {"sin": sname, "epithet": s.epithet, "play": s.play}),
+		"[b]%s[/b]" % RulesText.ability(sname, false)]
+	if not _first_game:
+		paras.append(RulesText.word("open_greater", {"ability": RulesText.ability(sname, true)}))
+	paras.append(RulesText.word("open_goal"))
+	var seat: int = game.players.find(me)
+	if seat == 0:
+		paras.append(RulesText.word("open_first"))
+	else:
+		paras.append(RulesText.word("open_seat" if me.score > 0 else "open_seat_plain", {"ordinal": RulesText.ordinal(seat + 1), "count": game.players.size(), "score": me.score}))
+	var card = ExplainCard.new(RulesText.word("open_title", {"sin": sname}), paras, "", _safe_insets(), RulesText.word("open_begin"))
+	card.closed.connect(_close_overlay)
+	_show_overlay(card)
 
 
 ## The save is the seed, the seats and every answer you've given (ui/human.gd records them).
@@ -827,9 +852,9 @@ func _tutorial_prompt() -> void:
 		steps.append([of.call("roll"), RulesText.tutorial("throw")])
 		_tut_stage = 1
 	elif _tut_stage == 1 and of.call("bank").size != Vector2.ZERO:
-		var nails := Rect2()
+		var candles := Rect2()
 		for n in _strike_icons:
-			nails = n.get_global_rect() if nails.size == Vector2.ZERO else nails.merge(n.get_global_rect())
+			candles = n.get_global_rect() if candles.size == Vector2.ZERO else candles.merge(n.get_global_rect())
 		var mine: Control = null
 		var table := Rect2()
 		for pt in _portraits:
@@ -838,8 +863,8 @@ func _tutorial_prompt() -> void:
 				mine = pt.col
 		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("scoring")])
 		steps.append([_dice_area.get_global_rect(), RulesText.tutorial("multiplier")])
-		steps.append([nails, RulesText.tutorial("strikes")])
-		steps.append([nails, RulesText.tutorial("bust")])
+		steps.append([candles, RulesText.tutorial("strikes")])
+		steps.append([candles, RulesText.tutorial("bust")])
 		steps.append([of.call("bank"), RulesText.tutorial("bank")])
 		if mine:
 			var me = human_player()
@@ -1009,7 +1034,7 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win_box.add_child(win)
 
 		var plate := Control.new()
-		plate.custom_minimum_size.y = 172
+		plate.custom_minimum_size.y = 208  # caption, score, dice row
 		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(Art.framed(Art.TRAY, [48, 40, 48, 40], 0.42))
 		var pv := VBoxContainer.new()
@@ -1038,17 +1063,13 @@ func _build_glance(zone: VBoxContainer) -> void:
 		name_box.add_child(name_l)
 		col.add_child(name_box)  # above the frame: names get the full column width
 		var score_l := Style.number("0", 54)
+		pv.add_child(_plate_caption(RulesText.word("score")))
 		pv.add_child(score_l)
 		var dice_row := HBoxContainer.new()
 		dice_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		dice_row.add_theme_constant_override("separation", 4)
+		dice_row.add_theme_constant_override("separation", 10)
 		dice_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var die_icon := TextureRect.new()
-		die_icon.texture = Art.ICON_DIE
-		die_icon.custom_minimum_size = Vector2(42, 42)
-		die_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		die_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		dice_row.add_child(die_icon)
+		dice_row.add_child(_plate_caption(RulesText.word("dice")))
 		var dice_l := Style.label("", MIN_TEXT + 6, Style.C_BONE, false, 6)
 		dice_l.add_theme_font_override("font", Style.NUMERAL)
 		dice_row.add_child(dice_l)
@@ -1058,6 +1079,15 @@ func _build_glance(zone: VBoxContainer) -> void:
 		name_l.clip_text = true
 		col.add_child(plate)
 		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname, "mine": mine, "col": col})
+
+
+## A small word on a player plate ("Score", "Dice") so the numbers say what they count.
+func _plate_caption(text: String) -> Label:
+	var l := Style.label(text, Tuning.PLATE_CAPTION, Style.C_BONE_DARK, false, 5)
+	l.add_theme_font_override("font", Style.SERIF)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 
 ## Turn banner (in the current Sin's colour), the leather dice stage with the score as hero, then the log.
@@ -1130,21 +1160,29 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_throw_label = Style.number("", SCORE_SIZE, 14)
 	_throw_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tv.add_child(_throw_label)
+	_result_label = Style.label("", Tuning.RESULT_SIZE, Style.C_BONE, false, 6)
+	_result_label.add_theme_font_override("font", Style.SERIF)
+	_result_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_result_label.custom_minimum_size.y = Tuning.RESULT_SIZE + 12  # holds its line empty, so nothing reflows
+	_result_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(_result_label)
 	_turn_label = Style.body("", 44, Style.C_BONE, 8)
 	var srow := HBoxContainer.new()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
 	srow.add_theme_constant_override("separation", 14)
 	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sl := Style.label("Strikes", 42, Style.C_BONE, false, 8)
+	var sl := Style.label(RulesText.word("strikes"), 42, Style.C_BONE, false, 8)
 	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_turn_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_turn_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	srow.add_child(_turn_label)  # one row with the Strikes, so the dice get the height
 	srow.add_child(sl)
+	# Strikes are three candles: each Strike this turn snuffs one (director._strikes).
 	for i in Rules.STRIKES_TO_BUST:
 		var t := TextureRect.new()
-		t.texture = Art.STRIKE_EMPTY
-		t.custom_minimum_size = Vector2(88, 88)
+		t.texture = Art.candle()
+		t.material = Art.candle_material(false)
+		t.custom_minimum_size = Tuning.CANDLE_SIZE
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		srow.add_child(t)
@@ -1596,7 +1634,7 @@ func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 	var cur = game.players[cur_i]
 	var t: Dictionary = s.turn
 	if "banner" in parts and not s.winner:
-		_set_banner("Your turn" if cur.bot == human else "%s's turn" % player_name(cur), cur)
+		_set_banner(RulesText.word("your_turn") if cur.bot == human else RulesText.word("their_turn", {"name": player_name(cur)}), cur)
 	var faces: Array = t.faces
 	if "dice" in parts:
 		_show_dice(faces)
@@ -1607,23 +1645,61 @@ func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 			var pts: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
 			text = "+%d" % pts
 		elif faces.size() > 0:
-			text = "Purgatory: a 6 frees you"
+			text = RulesText.word("purgatory_need")
 			size = 72
 		_throw_label.text = text
+		set_result(result_line(faces, Rules.count_strikes(Array(faces, TYPE_INT, "", null))) if t.throws > 0 else "")
 		_throw_label.add_theme_font_size_override("font_size", size)
 	if "turn" in parts:
 		set_turn_points(t.points)
 	if "strikes" in parts:
 		for i in _strike_icons.size():
-			_strike_icons[i].texture = Art.STRIKE_STRUCK if i < t.strikes else Art.STRIKE_EMPTY
+			set_candle(i, i < t.strikes)
 	if "prompt" in parts and _waiting and not s.winner:
-		set_waiting_text("%s %s at the dice." % [player_name(cur), "are" if cur.bot == human else "is"])
+		set_waiting_text(RulesText.word("at_dice_you") if cur.bot == human else RulesText.word("at_dice", {"name": player_name(cur)}))
 
 
 func set_turn_points(v: int) -> void:
 	if _turn_label.get_meta("pts", -1) != v:
 		_turn_label.set_meta("pts", v)
-		Style.set_body(_turn_label, "This turn %d" % v)
+		Style.set_body(_turn_label, RulesText.word("this_turn", {"n": v}))
+
+
+## Strike candle i: out (a Strike taken) or lit. The director tweens `snuffed` itself when it animates.
+func set_candle(i: int, out: bool) -> void:
+	(_strike_icons[i].material as ShaderMaterial).set_shader_parameter("snuffed", 1.0 if out else 0.0)
+
+
+## The line under the throw total: what scored and the points, and any Strikes.
+## faces: this throw; new_strikes: Strikes this throw counted.
+func result_line(faces: Array, new_strikes: int) -> String:
+	var scorers := faces.filter(func(f): return f >= 4)
+	scorers.sort()
+	scorers.reverse()
+	var text := ""
+	if scorers.is_empty():
+		text = RulesText.word("res_nothing")
+	else:
+		var sum := 0
+		for f in scorers:
+			sum += f * game.face_mult
+		var total: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
+		var names: Array = scorers.map(func(f): return str(f))
+		var list: String = names[0] if names.size() == 1 else ", ".join(names.slice(0, names.size() - 1)) + " and " + names[-1]
+		if total != sum:
+			text = RulesText.word("res_scores_mult", {"faces": list, "sum": sum, "total": total, "mult": RulesText._mult(1.0 + game.chain * (scorers.size() - 1))})
+		else:
+			text = RulesText.word("res_scores_one" if scorers.size() == 1 else "res_scores", {"faces": list, "sum": sum})
+	if new_strikes == 1:
+		text += RulesText.word("res_strike")
+	elif new_strikes > 1:
+		text += RulesText.word("res_strikes", {"count": RulesText._num_word(new_strikes).capitalize()})
+	return text
+
+
+func set_result(text: String) -> void:
+	_result_label.text = text
+	_fit_label(_result_label, Tuning.RESULT_SIZE, 26)
 
 
 ## The line on the page while it isn't your move ("Wrath is thinking...").
@@ -1877,7 +1953,8 @@ func _with_sigils(bb: String) -> String:
 func turn_started(p) -> void:
 	var snap := _snapshot()
 	_last_snap = snap
-	var header := "[color=#e9c46a]-- %s (%d) --[/color]" % [player_name(p), p.score]
+	var head := RulesText.word("chronicle_your_turn", {"score": p.score}) if p.bot == human else RulesText.word("chronicle_turn", {"name": player_name(p), "score": p.score})
+	var header := "[color=#e9c46a]%s[/color]" % head
 	_q.push(func():
 		_show_log("")
 		_show_log(header)
@@ -1967,7 +2044,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				continue
 			"bank":
 				_bronze_seal(b)
-				_caption(b, o[0].replace(" ", "\n"), 56)
+				_caption(b, RulesText.word("bank_seal", {"n": o[0].get_slice(" ", 1)}), 56)
 			_:
 				Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
 				b.set_meta("w", Style.BLACKLETTER.get_string_size(o[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 42).x + 70)
@@ -2271,8 +2348,12 @@ func _seal_face(b: Button, n: int, hand: bool) -> void:
 		if c.has_meta("face"):
 			c.queue_free()
 	var tex := Art.numeral(n)
-	if tex == null:
-		_caption(b, ("Throw\n%d" if hand else "%d") % n, 62)
+	if hand:  # Throw says what it does and with how many dice, like Bank: "Throw 3"
+		_caption(b, RulesText.word("throw_seal", {"n": n}), 62)
+		b.get_child(b.get_child_count() - 1).set_meta("face", true)
+		tex = null
+	elif tex == null:
+		_caption(b, str(n), 62)
 		b.get_child(b.get_child_count() - 1).set_meta("face", true)
 		return
 	var face := Control.new()
@@ -2281,7 +2362,7 @@ func _seal_face(b: Button, n: int, hand: bool) -> void:
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Fractions of the seal: the wax recess is about the middle 60%. Throw's hand is ink on
 	# parchment, so it sits outside, in the margin to the seal's upper right, tossing the dice.
-	var parts := [[tex, Rect2(0.27, 0.22, 0.46, 0.5)]]
+	var parts := [] if hand else [[tex, Rect2(0.27, 0.22, 0.46, 0.5)]]
 	if hand:
 		parts.append([Art.THROW_HAND, Rect2(0.78, -0.12, 0.5, 0.62)])
 	for p in parts:

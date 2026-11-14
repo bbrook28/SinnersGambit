@@ -103,6 +103,25 @@ static func framed(tex: Texture2D, margins: Array, scale := 1.0, center := true)
 	return holder
 
 
+## Strike candle (assets/art/ui/candle.png, cropped clear of the stray red at its left edge).
+## Lit means the Strike is still to come; candle_material's `snuffed` puts it out.
+const CANDLE_SRC := preload("res://assets/art/ui/candle.png")
+const CANDLE_SHADER := preload("res://ui/shaders/candle.gdshader")
+static var _candle: AtlasTexture
+
+
+static func candle() -> Texture2D:
+	if _candle == null:
+		_candle = AtlasTexture.new()
+		_candle.atlas = CANDLE_SRC
+		_candle.region = Rect2(26, 0, 192, 780)
+	return _candle
+
+
+static func candle_material(snuffed: bool) -> ShaderMaterial:
+	return _material(CANDLE_SHADER, {"snuffed": 1.0 if snuffed else 0.0})
+
+
 static func flare_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = FLARE

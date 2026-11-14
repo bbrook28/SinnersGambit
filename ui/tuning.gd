@@ -145,3 +145,12 @@ static func rate() -> float:
 ## A phase length at the current rate.
 static func t(seconds: float) -> float:
 	return maxf(MIN_PHASE, seconds / rate())
+
+# ---- Legibility (Phase 2) ----
+const CAUSE_HOLD := 1.5        # a score change's cause ("Banked", "The Vig") stays beside the score, real seconds
+const CAUSE_FADE := 0.25       # its fade in and out
+const CAUSE_SIZE := 32         # its text size
+const RESULT_SIZE := 38        # the one-line throw result under the throw total
+const PLATE_CAPTION := 30      # "Score" / "Dice" captions on the player plates
+const CANDLE_SIZE := Vector2(52, 150)  # each Strike candle
+const SNUFF := 0.25            # a candle going out

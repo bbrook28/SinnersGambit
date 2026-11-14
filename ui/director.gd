@@ -10,6 +10,8 @@ const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
 const Rules = preload("res://core/rules.gd")
 const T = Tuning
+const RulesText = preload("res://ui/rules_text.gd")
+const Events = preload("res://ui/events.gd")
 const Sfx = preload("res://ui/sfx.gd")
 
 var m          # ui/main.gd
@@ -44,10 +46,10 @@ func setup(main, queue, layer: Control) -> void:
 
 ## One rules log line. prev: what the board showed before; snap: the state after this line.
 func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> void:
-	_line = text
+	_line = Events.say(text, m.player_name(m.game.players[snap.cur]) if snap.cur >= 0 else "")
 	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE * T.bot_pace_scale
 	if not (ev.kind in ["throw", "bank", "buy", "attack", "redemption"]):
-		m.show_ticker(text)
+		m.show_ticker(_line)
 	var mt: RegExMatch = ev.match
 	match ev.kind:
 		"blank":
@@ -86,6 +88,8 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 			await q.wait(_hold())
 		_:
 			await _generic(prev, snap, -1)
+	if not (ev.kind in ["bank", "buy"]):  # those tag their scores at the moment they count
+		cause_tags(_cause(ev), prev, snap)
 	_shown = snap
 
 
@@ -101,7 +105,7 @@ func turn_change(p, snap: Dictionary) -> void:
 		await get_tree().process_frame
 	focus(["seat%d" % seat])
 	m.show_ticker("")
-	var band := _banner_band("Your turn" if mine else "%s's turn" % m.player_name(p), col)
+	var band := _banner_band(RulesText.word("your_turn") if mine else RulesText.word("their_turn", {"name": m.player_name(p)}), col)
 	sfx.play("banner_in", 0.6 if mine else 0.3)
 	var w: float = m.size.x
 	band.position.x = -w
@@ -188,6 +192,7 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	focus(["dice", "seat%d" % seat], T.DIM, {"throw": T.DIM})
 	m._refresh(snap, ["glow", "banner", "plates", "turn", "strikes"])
 	m._throw_label.text = ""
+	m.set_result("")
 	m._show_dice([])
 	# Anticipation: the tray draws breath.
 	_lift(m._dice_area, T.ANTICIPATION, Color.WHITE, "shake")
@@ -239,15 +244,16 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	await q.wait(T.IMPACT)
 	if n == 0:  # Redemption: say what's needed
 		m._throw_label.add_theme_font_size_override("font_size", 72)
-		m._throw_label.text = "Purgatory: a 6 frees you"
+		m._throw_label.text = RulesText.word("purgatory_need")
 	await q.wait(_hold())
 
 
-## Strikes nail in one by one, then the scoring dice send their points to the throw total and on to the turn.
+## Strikes snuff their candles one by one, then the scoring dice send their points to the throw total and on to the turn.
 func _score(prev: Dictionary, snap: Dictionary) -> void:
 	await _strikes(prev, snap)
 	var faces: Array = snap.turn.faces
 	var pts: int = snap.turn.points - _turn_points(prev)
+	m.set_result(m.result_line(faces, snap.turn.strikes - _strike_count(prev)))  # read while the points fly
 	var dice: Array = m._dice_nodes
 	var scorers := []
 	for i in mini(faces.size(), dice.size()):
@@ -321,7 +327,7 @@ func _score(prev: Dictionary, snap: Dictionary) -> void:
 	await q.wait(_hold())
 
 
-## New Strikes since the last beat: each Strike die flashes red and its ember drives a nail in.
+## New Strikes since the last beat: each Strike die flashes red and its ember snuffs a candle.
 func _strikes(prev: Dictionary, snap: Dictionary) -> void:
 	var had := _strike_count(prev)
 	var now: int = snap.turn.strikes
@@ -338,30 +344,36 @@ func _strikes(prev: Dictionary, snap: Dictionary) -> void:
 		_lift(d, T.ANTICIPATION, Color(1.5, 0.55, 0.5))
 	await q.wait(_ant())
 	for s in range(had, mini(now, m._strike_icons.size())):
-		var nail: Control = m._strike_icons[s]
+		var candle: Control = m._strike_icons[s]
 		var src: Vector2 = _center(strike_dice[(s - had) % strike_dice.size()]) if not strike_dice.is_empty() else _center(m._dice_area)
-		var tw := fly("✕", src, _center(nail), Style.C_STRIKE.lightened(0.3), T.ACTION * 0.7)
+		# The Strike flies to the next lit candle and snuffs it: the flame dies, a wisp of smoke rises.
+		var flame := Vector2(_center(candle).x, candle.get_global_rect().position.y + candle.size.y * 0.12)
+		fly("✕", src, flame, Style.C_STRIKE.lightened(0.3), T.ACTION * 0.7)
 		await q.wait(T.ACTION * 0.7)
-		nail.texture = Art.STRIKE_STRUCK
+		var mat: ShaderMaterial = candle.material
+		var tw: Tween = q.tween(candle)
+		tw.tween_method(func(v: float): mat.set_shader_parameter("snuffed", v), 0.0, 1.0, T.SNUFF)
 		var k := 0.45 + 0.25 * s
-		_punch(nail, k)
-		burst(_center(nail), k * 0.6, Style.C_STRIKE)
+		_punch(candle, k)
+		burst(flame, k * 0.6, Style.C_STRIKE)
+		smoke(flame, k)
 		shake(k * 0.5)
 		impact(k, "nail_last" if s >= 2 else "nail")
 		await q.wait(T.IMPACT)
 	await q.wait(_hold() * 0.6)
 
 
-## The third nail, the stage gutters, the turn total burns to nothing.
+## The third candle goes out, the stage gutters, the turn total burns to nothing.
 func _bust(prev: Dictionary, snap: Dictionary) -> void:
 	await _strikes(prev, snap)
 	focus(["dice", "turn", "throw"])
-	for nail in m._strike_icons:
-		_lift(nail, T.ANTICIPATION, Color(1.6, 0.5, 0.4))
+	for candle in m._strike_icons:
+		_lift(candle, T.ANTICIPATION, Color(1.6, 0.5, 0.4))
 	await q.wait(_ant())
 	var lost := _turn_points(prev)
 	count_turn(lost, 0, T.ACTION * 1.5)
 	m._throw_label.text = ""
+	m.set_result(RulesText.word("res_bust"))
 	await q.wait(T.ACTION * 1.5)
 	flash(Style.C_STRIKE, 0.45, T.IMPACT * 3)
 	stamp("BUST", _center(m._dice_area), Style.C_STRIKE.lightened(0.2), 1.0)
@@ -389,8 +401,10 @@ func _bank(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	var from_score := _score_of(prev, seat)
 	var tw := fly("+%d" % n, _center(m._turn_label), _center(pt.score), Style.C_GOLD, act)
 	count_turn(_turn_points(prev), 0, act)
+	m.set_result("")
 	await q.wait(act)
 	count(pt.score, from_score, _score_of(snap, seat), T.COUNT_UP)
+	cause_tags(RulesText.word("cause_bank"), prev, snap)
 	_punch(pt.score, k)
 	_punch(pt.window, k * 0.5)
 	burst(_center(pt.score), k, Style.C_GOLD)
@@ -416,6 +430,11 @@ func _buy(who: String, n: int, prev: Dictionary, snap: Dictionary) -> void:
 	sfx.play("buy", 0.5)
 	fly("-%d" % (s0 - s1), _center(pt.score), away, Style.C_BONE_DARK, T.ACTION)
 	count(pt.score, s0, s1, T.ACTION)
+	var vig := {}  # anyone else whose score moved with this buy took The Vig
+	for i in snap.players.size():
+		if i != seat:
+			vig[i] = RulesText.ability_name("Greed", false)
+	cause_tags(RulesText.word("cause_buy_one") if n == 1 else RulesText.word("cause_buy", {"n": n}), prev, snap, vig)
 	await q.wait(T.ACTION * 0.6)
 	var tw := fly("+%d" % n, away, _center(pt.dice), Style.C_BONE, T.ACTION)
 	await q.wait(T.ACTION)
@@ -891,6 +910,86 @@ func burst(at: Vector2, k: float, col: Color) -> void:
 	fx.add_child(p)
 	p.emitting = true
 	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
+
+
+## A wisp of grey smoke rising from a snuffed candle.
+func smoke(at: Vector2, k: float) -> void:
+	var p := CPUParticles2D.new()
+	p.amount = 10 + int(10 * k)
+	p.one_shot = true
+	p.explosiveness = 0.3
+	p.lifetime = 1.1
+	p.speed_scale = T.rate()
+	p.direction = Vector2(0, -1)
+	p.spread = 12.0
+	p.initial_velocity_min = 40.0
+	p.initial_velocity_max = 90.0
+	p.gravity = Vector2(0, -60)
+	p.texture = _dot
+	p.scale_amount_min = 0.2
+	p.scale_amount_max = 0.45
+	var g := Gradient.new()
+	g.set_color(0, Color(0.75, 0.72, 0.68, 0.7))
+	g.set_color(1, Color(0.5, 0.48, 0.45, 0.0))
+	p.color_ramp = g
+	p.position = at
+	fx.add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.6).timeout.connect(p.queue_free)
+
+
+## Beside a player's score for Tuning.CAUSE_HOLD real seconds: why it just changed ("Banked +120").
+## causes: seat -> cause word; a seat whose score changed without one gets the beat's cause.
+func cause_tags(cause: String, prev: Dictionary, snap: Dictionary, causes := {}) -> void:
+	if q.skip_all or m._replaying or not prev.has("players"):
+		return
+	for i in mini(prev.players.size(), snap.players.size()):
+		var d: int = snap.players[i].score - prev.players[i].score
+		if d == 0:
+			continue
+		_tag(i, "%s %s%d" % [causes.get(i, cause), "+" if d > 0 else "−", absi(d)], d > 0)
+
+
+func _tag(seat: int, text: String, gain: bool) -> void:
+	var pt: Dictionary = _seat(seat)
+	var old = pt.get("tag")
+	if old and is_instance_valid(old):
+		old.queue_free()
+	var l := Style.label(text, T.CAUSE_SIZE, Style.C_GOLD if gain else Style.C_BONE_DARK, false, 8)
+	l.add_theme_font_override("font", Style.SERIF)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.add_child(l)
+	pt["tag"] = l
+	l.size = l.get_combined_minimum_size()
+	# Above the name, over the foot of the window, centred on the column, kept on screen.
+	var plate_top: float = pt.name.get_global_rect().position.y - 4.0
+	var x := clampf(_center(pt.score).x - l.size.x / 2, 12.0, m.size.x - l.size.x - 12.0)
+	l.position = Vector2(x, plate_top - l.size.y)
+	l.modulate.a = 0.0
+	var tw := l.create_tween()  # real time, not the queue's: it never holds up a beat
+	tw.tween_property(l, "modulate:a", 1.0, T.CAUSE_FADE)
+	tw.parallel().tween_property(l, "position:y", l.position.y - 12.0, T.CAUSE_FADE)
+	tw.tween_interval(T.CAUSE_HOLD)
+	tw.tween_property(l, "modulate:a", 0.0, T.CAUSE_FADE)
+	tw.tween_callback(l.queue_free)
+
+
+## What a log line did to the scores, in a word: the cause tag beside each changed score.
+func _cause(ev: Dictionary) -> String:
+	var mt: RegExMatch = ev.match
+	match ev.kind:
+		"ability":
+			return mt.get_string(2)
+		"vig":
+			return RulesText.ability_name("Greed", false)
+		"pact_cut":
+			return RulesText.ability_name("Lust", true)
+		"indulgence":
+			return RulesText.word("cause_purgatory")
+		"hubris":
+			return RulesText.ability_name("Pride", false)
+	return RulesText.word("cause_score")
 
 
 func flash(col: Color, alpha: float, dur: float) -> void:

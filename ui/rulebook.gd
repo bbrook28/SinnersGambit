@@ -227,12 +227,13 @@ func _art(kind: String) -> Control:
 			var row := _row(18)
 			for k in 3:
 				var t := TextureRect.new()
-				t.texture = Art.STRIKE_STRUCK if k < 2 else Art.STRIKE_EMPTY
-				t.custom_minimum_size = Vector2(120, 120)
+				t.texture = Art.candle()
+				t.material = Art.candle_material(k < 2)  # two Strikes: two candles out
+				t.custom_minimum_size = Vector2(60, 160)
 				t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 				t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				row.add_child(t)
-			row.add_child(_word("Two Strikes.\nOne more is a bust.", SMALL, RED))
+			row.add_child(_word("Two Strikes: two candles out.\nOne more is a bust.", SMALL, RED))
 			return row
 		"bank":
 			var row := _row(18)

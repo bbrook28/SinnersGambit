@@ -86,7 +86,7 @@ const PAGES := [
 		"Scoring several dice in one throw is worth more: two scoring dice {x2}, three {x3}, four {x4}. The game always shows the sum for you.",
 		"Example: you throw 4, 6 and 3. The 4 and 6 score {ex_sum}, and two scorers make it {x2}: {ex_total}."]},
 	{"id": "strikes", "title": "Strikes and Busting", "art": "strikes", "body": [
-		"Every 1 and 2 you throw is a Strike. Strikes add up over your whole turn, counted beside the dice.",
+		"Every 1 and 2 you throw is a Strike. Strikes add up over your whole turn: each one snuffs a candle beside the dice.",
 		"Bust: your third Strike in a turn loses this turn's points and starts your next turn in Purgatory.",
 		"Your Strikes clear when your turn ends."]},
 	{"id": "banking", "title": "Banking", "art": "bank", "body": [
@@ -183,7 +183,7 @@ const TERMS := {
 	"Scoring": ["4, 5 and 6 score {face_mult} times their face: {f4}, {f5} and {f6}. 3 does nothing. 1 and 2 are Strikes.", "scoring"],
 	"Multiplier": ["Scoring several dice in one throw is worth more: two scoring dice {x2}, three {x3}, four {x4}. The game does the sum for you.", "scoring"],
 	"Strike": ["Every 1 or 2 you throw is a Strike. They add up over your turn. A third Strike is a bust.", "strikes"],
-	"Strikes": ["The three marks beside the dice count your Strikes this turn. All three marked is a bust.", "strikes"],
+	"Strikes": ["The three candles beside the dice: each Strike this turn snuffs one. All three out is a bust.", "strikes"],
 	"Bust": ["Your third Strike in a turn: you lose this turn's points and start your next turn in Purgatory.", "strikes"],
 	"Bank": ["Keep this turn's points: they're added to your score and your turn ends.", "banking"],
 	"Purgatory": ["Where a bust sends you. Your next turn starts with a free throw: any 6 frees you, otherwise you pay {purg_cost} (nothing if you can't). Then you play as normal.", "purgatory"],
@@ -226,7 +226,7 @@ const TUTORIAL := {
 	"throw": "Throw all your dice. Throw as often as you like.",
 	"scoring": "4, 5 and 6 score {face_mult} times their face. 3 does nothing.",
 	"multiplier": "Scoring several dice in one throw is worth more.",
-	"strikes": "1s and 2s are Strikes. They add up all turn.",
+	"strikes": "1s and 2s are Strikes. Each one snuffs a candle, and they add up all turn.",
 	"bust": "Bust: a third Strike loses this turn's points and starts your next turn in Purgatory.",
 	"bank": "Bank to keep this turn's points, or throw again to push your luck.",
 	"sin": "Your Sin bends the rules: ",
@@ -236,3 +236,99 @@ const TUTORIAL := {
 
 static func tutorial(key: String) -> String:
 	return fill(TUTORIAL[key])
+
+
+# ---------- On-screen words (Phase 2: legibility) ----------
+## Labels, seals and the lines the game writes during play. {n}, {name} and the like are filled by
+## the caller (word()); rule numbers still come from vals().
+const WORDS := {
+	"score": "Score",
+	"dice": "Dice",
+	"this_turn": "This turn {n}",
+	"strikes": "Strikes",
+	"throw_seal": "Throw\n{n}",
+	"bank_seal": "Bank\n{n}",
+	"your_turn": "Your turn",
+	"their_turn": "{name}'s turn",
+	"purgatory_need": "Purgatory: a 6 frees you",
+	"at_dice_you": "You are at the dice.",
+	"at_dice": "{name} is at the dice.",
+	"chronicle_turn": "{name}'s turn ({score})",
+	"chronicle_your_turn": "Your turn ({score})",
+	# Opening card.
+	"open_title": "You are {sin}",
+	"open_epithet": "{sin}, {epithet}: {play}",
+	"open_greater": "From {greater_at} points: {ability}",
+	"open_goal": "Be the first to {win} points.",
+	"open_first": "You throw first.",
+	"open_seat": "You throw {ordinal} of {count}, so you start with {score} points.",
+	"open_seat_plain": "You throw {ordinal} of {count}.",
+	"open_begin": "Begin",
+	# One line after each throw.
+	"res_scores_one": "{faces} scores {sum}.",
+	"res_scores": "{faces} score {sum}.",
+	"res_scores_mult": "{faces} score {sum}, {mult} = {total}.",
+	"res_nothing": "Nothing scores.",
+	"res_strike": " One Strike.",
+	"res_strikes": " {count} Strikes.",
+	"res_bust": "Third Strike: bust. This turn's points are lost.",
+	# Beside a score as it changes (1.5 s).
+	"cause_bank": "Banked",
+	"cause_buy_one": "Bought a die",
+	"cause_buy": "Bought {n} dice",
+	"cause_purgatory": "Purgatory",
+	"cause_score": "Score",
+}
+
+
+static func word(key: String, args := {}) -> String:
+	var v := vals()
+	v.merge(args, true)
+	return WORDS[key].format(v)
+
+
+static func ordinal(n: int) -> String:
+	var ends := {1: "st", 2: "nd", 3: "rd"}
+	return "%d%s" % [n, ends.get(n % 10, "th") if (n % 100) / 10 != 1 else "th"]
+
+
+## Ticker and Chronicle: each rules log line (fixed formats in core/game.gd and sins/*.gd) as a
+## player would say it. [pattern, replacement]: first match wins, $1.. are the captures, {who} is
+## whoever's turn it is. ui/events.gd applies them; a line that matches none shows as written.
+const SAY := [
+	["^(.+?) throws (\\d+): (.+)$", "$1 throws $2 dice: $3"],
+	["^(.+?) throws to leave Purgatory: (.+)$", "$1 throws to leave Purgatory: $2"],
+	["^\\s+Fury \\(bounced\\) rerolls (\\d+): (.+)$", "Fury bounces back: the best $1 dice are thrown again: $2"],
+	["^\\s+Rerolled: (.+)$", "Thrown again: $1"],
+	["^\\s+\\d+ Strikes: (.+?) BUSTS and goes to Purgatory\\.$", "Third Strike! $1 busts, off to Purgatory."],
+	["^\\s+\\+0 \\(turn (\\d+), Strikes \\d+\\)$", "{who} scores nothing ($1 this turn)."],
+	["^\\s+\\+(\\d+) \\(turn (\\d+), Strikes \\d+\\)$", "{who} scores $1 ($2 this turn)."],
+	["^\\s+Hubris pays off: (\\d+) -> (\\d+)$", "Hubris pays off: $1 becomes $2."],
+	["^\\s+Hubris fails: (\\d+) -> 0$", "Hubris fails: $1 becomes 0."],
+	["^\\s+Binding Pact: (.+?) takes (\\d+)\\.$", "Binding Pact: $1 takes $2."],
+	["^(.+?) banks (\\d+) \\(score (\\d+)\\)\\.$", "$1 banks $2. Score: $3."],
+	["^(.+?) buys 1 die for (\\d+) \\(now (\\d+) dice\\)\\.$", "$1 buys a die for $2 ($3 dice now)."],
+	["^(.+?) buys (\\d+) dice for (\\d+) \\(now (\\d+) dice\\)\\.$", "$1 buys $2 dice for $3 ($4 dice now)."],
+	["^\\s+The Vig: (.+?) takes (\\d+)\\.$", "The Vig: $1 takes $2."],
+	["^(.+?) Drags (.+?)\\.$", "$1 uses Drag on $2."],
+	["^(.+?) binds a Pact on (.+?)\\.$", "$1 binds $2 with a Binding Pact."],
+	["^\\s+(.+?) must reroll (\\d+) best dice on their next throw\\.$", "$1 must throw their $2 best dice again next throw."],
+	["^\\s+(.+?) must reroll (\\d+) best dice\\.$", "$1 must throw their $2 best dice again."],
+	["^\\s+(.+?) gives (\\d+)% of their next banked turn to (.+?)\\.$", "$1 gives $2% of their next bank to $3."],
+	["^\\s+(.+?) throws at most (\\d+) fewer dice next turn\\.$", "$1 throws $2 fewer dice next turn."],
+	["^\\s+A 6! Free\\.$", "A 6! {who} is free of Purgatory."],
+	["^\\s+No 6: (.+?) pays (\\d+) to leave Purgatory\\.$", "No 6: $1 pays $2 to leave Purgatory."],
+	["^\\s+No 6, and (.+?) can't pay: free anyway\\.$", "No 6, but $1 can't pay: $1 leaves Purgatory free."],
+	# Abilities: "  Wrath's Spark of Rage: +50 (Greed busted)" -> "Wrath's Spark of Rage: gains 50 (Greed busted)."
+	["^\\s+(.+?)'s (.+?): \\+(\\d+) \\((.+?) busted\\)$", "$1's $2: gains $3 because $4 busted."],
+	["^\\s+(.+?)'s (.+?): \\+(\\d+) for buying nothing$", "$1's $2: earns $3 for buying nothing."],
+	["^\\s+(.+?)'s (.+?): gives up a (\\d) for \\+(\\d+) \\((\\d+) dice left\\)$", "$1's $2: gives up a $3 for $4 ($5 dice left)."],
+	["^\\s+(.+?)'s (.+?): first die cost (\\d+)$", "$1's $2: the first die costs $3."],
+	["^\\s+(.+?)'s (.+?): bets (\\d+)\\. Must bank at least \\d+$", "$1's $2: bets $3. Bank at least $3, or score 0."],
+	["^\\s+(.+?)'s (.+?): (.+)$", "$1's $2: $3."],
+]
+
+## "You" as the subject of a log line: the verb that goes with it.
+const YOU_VERBS := {"throws": "throw", "busts": "bust", "banks": "bank", "buys": "buy", "uses": "use",
+	"binds": "bind", "gives": "give", "pays": "pay", "is": "are", "scores": "score", "unleashes": "unleash",
+	"leaves": "leave", "takes": "take", "must": "must", "can't": "can't"}

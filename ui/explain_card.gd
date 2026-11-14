@@ -18,9 +18,11 @@ var _title: String
 var _paras: Array
 var _page: String
 var _safe: Vector2
+var _close_text := "Close"
 
 
-func _init(title: String, paras: Array, page_id := "", safe := Vector2.ZERO) -> void:
+func _init(title: String, paras: Array, page_id := "", safe := Vector2.ZERO, close_text := "Close") -> void:
+	_close_text = close_text
 	_title = title
 	_paras = paras
 	_page = page_id
@@ -82,7 +84,7 @@ func _ready() -> void:
 	row.add_theme_constant_override("separation", 40)
 	if _page != "":
 		row.add_child(_pill("Rulebook", 330, func(): open_page.emit(_page)))
-	row.add_child(_pill("Close", 260, func(): closed.emit()))
+	row.add_child(_pill(_close_text, 260, func(): closed.emit()))
 	v.add_child(row)
 
 

@@ -55,7 +55,7 @@ func dice_to_roll(p, game, turn_points: int, _strikes: int) -> int:
 	if p.drag > 0:
 		text += " (Dragged: max %d)" % most
 	if game.turn.min_points >= 0:
-		text += "\nHubris: bank at least %d or score 0." % game.turn.min_points
+		text += "\nHubris: bank at least %d, or score 0." % game.turn.min_points
 	var options := []
 	for n in range(1, most + 1):
 		options.append([str(n), n])
@@ -72,7 +72,7 @@ func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
 	if p.drag > 0:
 		text += " (Dragged: %d dice)" % n
 	if game.turn.min_points >= 0:
-		text += "\nHubris: bank at least %d or score 0." % game.turn.min_points
+		text += "\nHubris: bank at least %d, or score 0." % game.turn.min_points
 	var options := [[str(n), true]]
 	if game.turn.throws > 0:
 		options.append(["Bank %d" % turn_points, false])

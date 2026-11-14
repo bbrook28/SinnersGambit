@@ -100,3 +100,4 @@ A typical bot turn (two throws, then bank) comes to about 6 s at 1x, so six bots
 ## Second quality pass (2026-11-13)
 Phase 0 rules (Rules.V3, First Game mode) built: the throw prompt is now one Throw seal for all dice plus Bank; Purgatory is automatic. Docs/Handoff.md § Phase 0.
 Phase 1 (rules reference) built: rulebook from menu and "?", tap / hold to explain, all rule text in ui/rules_text.gd.
+Phase 2 (legibility) built: opening card, Score/Dice captions, Strike candles, "Throw 3" / "Bank 75" seals, one-line throw result, 1.5 s score-cause tags, player-language ticker and Chronicle (rules_text SAY). No beat-timing changes. Docs/Handoff.md § Phase 2.
