@@ -185,26 +185,40 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	var side := signf(_center(_seat(seat).col).x - _center(m._dice_area).x)
 	var dice: Array = m._dice_nodes
 	for i in dice.size():
-		var d: Control = dice[i]
-		var to := d.position
-		d.position = to + Vector2(side * 520.0 + randf_range(-60, 60), -340.0 + randf_range(-60, 60))
-		d.rotation = randf_range(-3.0, 3.0)
+		var d = dice[i]  # ui/widgets/die.gd (has height)
+		var to: Vector2 = d.position
+		var from := to + Vector2(side * 520.0 + randf_range(-60, 60), randf_range(-40, 40))
+		var h0 := 300.0 + randf_range(-50, 50)  # thrown from this high above the leather
+		var spin := randf_range(-3.0, 3.0)
+		var bounces := 2.5 + randf_range(-0.3, 0.3)  # half-arcs: the drop, then two shrinking hops
+		d.position = from - Vector2(0, h0)
+		d.rotation = spin
 		d.scale = Vector2.ONE * 0.55
 		d.modulate.a = 0.0
+		d.height = h0
 		var tw: Tween = q.tween(d)
 		tw.tween_interval(T.STAGGER * i)
 		tw.tween_property(d, "modulate:a", 1.0, 0.08)
-		tw.parallel().tween_property(d, "position", to, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(d, "rotation", 0.0, T.ACTION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Tumble: travel eases out along the leather while the height bounces down to rest.
+		tw.parallel().tween_method(func(p: float):
+			var ground := from.lerp(to, 1.0 - pow(1.0 - p, 2.0))
+			var hgt := h0 * pow(1.0 - p, 2.0) * absf(cos(p * PI * bounces))
+			d.height = hgt
+			d.position = ground - Vector2(0, hgt)
+			d.rotation = spin * pow(1.0 - p, 1.6), 0.0, 1.0, T.ACTION)
 		tw.parallel().tween_property(d, "scale", Vector2.ONE, T.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
-		# Landing squash.
+		# Landing: squash, a puff of dust, then a settle wobble.
+		tw.tween_callback(func():
+			d.height = 0.0
+			d.position = to
+			burst(_center(d), T.DUST_K, Style.C_BONE_DARK))
 		tw.tween_property(d, "scale", Vector2(1.14, 0.86), T.IMPACT * 0.4)
+		tw.parallel().tween_property(d, "rotation", deg_to_rad(T.SETTLE_DEG), T.IMPACT * 0.4)
 		tw.tween_property(d, "scale", Vector2.ONE, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(d, "rotation", 0.0, T.IMPACT * 0.6).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	await q.wait(T.ACTION + T.STAGGER * maxi(0, dice.size() - 1))
-	# Impact: dust, shake and a tap you feel, scaled to the number of dice.
+	# Impact: shake and a tap you feel, scaled to the number of dice (each die puffed its own dust).
 	var k := clampf(dice.size() / 8.0, T.K_MIN, 1.0)
-	for d in dice:
-		burst(_center(d), k * 0.5, Style.C_BONE_DARK)
 	shake(k * 0.6)
 	impact(k * 0.6, "")  # the throw sound already lands
 	await q.wait(T.IMPACT)

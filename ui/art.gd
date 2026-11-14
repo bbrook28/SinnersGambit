@@ -12,6 +12,8 @@ const TINT := preload("res://ui/shaders/tint.gdshader")
 const WAX_GLINT := preload("res://ui/shaders/wax_glint.gdshader")
 const GOLD_SHIMMER := preload("res://ui/shaders/gold_shimmer.gdshader")
 const PAGE_LIGHT := preload("res://ui/shaders/page_light.gdshader")
+const INK_TEXT := preload("res://ui/shaders/ink_text.gdshader")
+const INK_WASH := preload("res://ui/shaders/ink_wash.gdshader")
 
 const BG := preload("res://assets/art/runtime/bg.png")
 const LEATHER := preload("res://assets/art/runtime/leather.png")
@@ -126,3 +128,11 @@ static func shimmer_material(phase: float) -> ShaderMaterial:
 
 static func page_light_material() -> ShaderMaterial:
 	return _material(PAGE_LIGHT, {"strength": Tuning.PAGE_LIGHT, "flicker": Tuning.CANDLE_FLICKER})
+
+
+static func ink_material() -> ShaderMaterial:
+	return _material(INK_TEXT, {"grain": Tuning.INK_GRAIN})
+
+
+static func ink_wash_material() -> ShaderMaterial:
+	return _material(INK_WASH, {"ink": Color("140d0b")})  # Style.C_BLACK

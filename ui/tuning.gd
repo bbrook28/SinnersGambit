@@ -49,6 +49,8 @@ const HINT_SCALE := 1.18
 const FLY_ARC := 120.0       # px a flying value bows upward
 const STAGGER := 0.08        # between several things doing the same job (dice landing, numbers flying)
 const COUNT_UP := 0.45       # destination counts up after the value arrives
+const DUST_K := 0.22         # dust puff where each thrown die lands
+const SETTLE_DEG := 7.0      # a landed die rocks this far before it settles
 
 # ---- Size of the outcome (rule 6) ----
 # Intensity k in [K_MIN, 1] = value / BIG_VALUE. Scales punch, shake, particles and the action phase.
@@ -95,6 +97,12 @@ const TILT_DRIFT := 0.35          # desktop / no accelerometer: slow drift ampli
 const MARGINALIA_SCALE := 1.0     # corner figures drawn this much bigger than painted on the page
 
 # ---- Text ----
+const INK_IN := 0.5           # prompts and the turn line ink in left to right over this long
+const WASH_TIME := 0.45      # screen transition: ink floods in, then draws away, each this long
+const PAGE_TURN := 0.3       # the Chronicle turns open or shut
+const INK_GRAIN := 0.35       # uneven ink density in the lettering
+const CAP_SCALE := 1.35       # the illuminated first capital, relative to the line (more steals seal room)
+const PROMPT_FONT := 57       # prompt lettering (was 44: +30%)
 const FLY_FONT := 72
 const STAMP_FONT := 150
 

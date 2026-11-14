@@ -37,7 +37,7 @@ func _process(_delta: float) -> bool:
 		return false
 	if bs[0].text == "New game":
 		games_done += 1
-		print("%s: %s" % [main.human.label, main._prompt_label.text])
+		print("%s: %s" % [main.human.label, main._prompt_label.get_parsed_text()])
 		_next()
 		return false
 	presses += 1

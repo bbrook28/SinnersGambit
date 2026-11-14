@@ -11,6 +11,11 @@ const FACES := [
 
 var face := 1
 var tilt := 0.0  # small per-die rotation so a row doesn't look stamped
+## px above the leather while thrown (ui/director.gd): the shadow stays on the ground, fainter and wider.
+var height := 0.0:
+	set(v):
+		height = v
+		queue_redraw()
 
 
 func _init(p_face := 1, side := 120, seed := 0) -> void:
@@ -30,11 +35,14 @@ func _draw() -> void:
 	draw_set_transform(c, tilt)
 	var r := Rect2(Vector2(-d, -d) / 2.0, Vector2(d, d))
 	# Soft shadow falling left and down: a few offset silhouettes.
-	var reach := s * (0.11 if raised else 0.035)
+	var air := clampf(height / (s * 2.5), 0.0, 1.0)
+	var reach := s * (0.11 if raised else 0.035) * (1.0 + 2.0 * air)
 	var passes := 4
 	for i in passes:
 		var k := float(i + 1) / passes
-		var off := Vector2(-reach, reach * 1.1) * k + Vector2(0, lift)
-		draw_texture_rect(tex, Rect2(r.position + off, r.size), false, Color(0, 0, 0, (0.32 if raised else 0.5) / passes * (passes - i)))
+		# Airborne: the shadow stays down on the leather (undo the height, in this rotated frame).
+		var ground := Vector2(-height * 0.25, height).rotated(-tilt - rotation) / maxf(scale.y, 0.1)
+		var off := Vector2(-reach, reach * 1.1) * k + Vector2(0, lift) + ground
+		draw_texture_rect(tex, Rect2(r.position + off, r.size), false, Color(0, 0, 0, (0.32 if raised else 0.5) / passes * (passes - i) * (1.0 - 0.7 * air)))
 	draw_texture_rect(tex, r, false, Color(1.1, 1.06, 0.98) if raised else Color(0.62, 0.58, 0.54))
 	draw_set_transform(Vector2.ZERO)

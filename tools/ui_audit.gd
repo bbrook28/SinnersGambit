@@ -42,7 +42,7 @@ func _initialize() -> void:
 		var sig := ",".join(bs.map(func(b): return b.get_meta("kind", "?")))
 		if not seen.has(sig):
 			seen[sig] = true
-			await _check("prompt_%d [%s] %s" % [seen.size(), sig, main._prompt_label.text.left(40).replace("\n", " ")])
+			await _check("prompt_%d [%s] %s" % [seen.size(), sig, main._prompt_label.get_parsed_text().left(40).replace("\n", " ")])
 		if bs[0].text == "New game":
 			break
 		if prompts == 6 and not seen.has("chronicle"):
@@ -56,7 +56,7 @@ func _initialize() -> void:
 		bs[randi() % bs.size()].pressed.emit()
 	# Worst cases a random game may not reach: many dice, with and without Bank.
 	Engine.time_scale = 1.0
-	for n in [5, 8]:
+	for n in [5, 8, 12]:
 		for bank in [false, true]:
 			var opts := []
 			for i in range(1, n + 1):
@@ -77,6 +77,10 @@ func _initialize() -> void:
 func _settle(frames: int) -> void:
 	for i in frames:
 		await process_frame
+	var guard := 0
+	while not main._inking.is_empty() and guard < 120:  # let the lettering finish inking in
+		await process_frame
+		guard += 1
 	if main._dir:
 		main._dir._stop_pulses()
 	for b in _all_buttons(main):

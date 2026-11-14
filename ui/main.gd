@@ -62,9 +62,7 @@ var debug_safe := Vector2.ZERO
 
 var _content: VBoxContainer
 var _portraits: Array = []        # one dict per seat: {window, glow, name, score, dice, sin}
-var _banner_frame: Control
-var _banner_cap: TextureRect
-var _banner_text: Label
+var _banner_text: RichTextLabel
 var _dice_area: Control
 var _dice_row: HFlowContainer
 var _throw_label: Label
@@ -92,6 +90,10 @@ var _thumb: Control
 var marginalia := {}               # jester / pennant / skeleton TextureRects on the thumb page (director reacts with them)
 var _paper: Control               # thumb-zone parchment (slides and catches light with tilt)
 var _tilt := Vector2.ZERO
+var _inking := {}                 # lettering label -> ink-in progress 0..1 (_set_lettering, _process)
+var _wash: ColorRect                # full-screen ink for screen transitions (_ink_wash)
+static var _wash_on_load := false   # a New game reload starts under the ink and washes it away
+var _starting := false
 var _desk: Control
 var _dice_nodes: Array = []       # the Die controls showing now, in face order
 var _last_snap := {}              # the state as of the last queued event (the next one's "before")
@@ -127,6 +129,9 @@ func _ready() -> void:
 	add_child(desk)
 	_desk = desk
 	_build_setup()
+	if _wash_on_load:
+		_wash_on_load = false
+		_ink_wash(false)
 
 
 # ---------- Setup ----------
@@ -163,7 +168,11 @@ func _build_setup() -> void:
 
 
 func _start(my_sin: Script) -> void:
+	if _starting:
+		return  # a second tap while the ink covers the setup
+	_starting = true
 	if _content:
+		await _ink_wash(true)
 		_content.get_parent().queue_free()
 		_content = null
 	human = Human.new()
@@ -183,6 +192,7 @@ func _start(my_sin: Script) -> void:
 	game = Game.new(bots, randi(), options, sins)
 	game.view = self
 	_build_board()
+	_ink_wash(false)
 	var w = await game.play()
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
@@ -193,6 +203,8 @@ func _start(my_sin: Script) -> void:
 
 func _on_new_game_wait() -> void:
 	await human.answered
+	_wash_on_load = true
+	await _ink_wash(true)
 	get_tree().reload_current_scene()
 
 
@@ -372,28 +384,20 @@ func _build_glance(zone: VBoxContainer) -> void:
 
 ## Turn banner (in the current Sin's colour), the leather dice stage with the score as hero, then the log.
 func _build_stage(zone: VBoxContainer) -> void:
+	# Whose turn, as manuscript lettering straight on the page: no banner behind it (banners are
+	# only for the transient turn-change announcement, director._banner_band).
 	var banner := Control.new()
-	banner.custom_minimum_size.y = 100
+	banner.custom_minimum_size.y = 110
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_banner_frame = Art.framed(Art.BANNER, [260, 40, 260, 40], 0.6)
-	_banner_frame.offset_left = 90
-	_banner_frame.offset_right = -90
-	banner.add_child(_banner_frame)
-	var bh := HBoxContainer.new()
-	bh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bh.alignment = BoxContainer.ALIGNMENT_CENTER
-	bh.add_theme_constant_override("separation", -4)
-	bh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_banner_cap = TextureRect.new()
-	_banner_cap.custom_minimum_size = Vector2(96, 96)
-	_banner_cap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_banner_cap.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_banner_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bh.add_child(_banner_cap)
-	_banner_text = Style.label("", 60, Style.C_BONE, true, 10)
+	_banner_text = _make_lettering(60, Style.C_BONE, false)
 	_banner_text.autowrap_mode = TextServer.AUTOWRAP_OFF
-	bh.add_child(_banner_text)
-	banner.add_child(bh)
+	_banner_text.add_theme_constant_override("outline_size", 10)
+	_banner_text.add_theme_color_override("font_outline_color", Style.C_BLACK)
+	_banner_text.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
+	_banner_text.anchor_top = 0.5
+	_banner_text.anchor_bottom = 0.5
+	_banner_text.grow_vertical = Control.GROW_DIRECTION_BOTH
+	banner.add_child(_banner_text)
 	zone.add_child(banner)
 	_banner = banner
 
@@ -487,7 +491,7 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_ticker_text.add_theme_font_size_override("normal_font_size", MIN_TEXT + 2)
 	_ticker_text.add_theme_color_override("default_color", Style.C_BONE_DARK)
 	_ticker.add_child(_ticker_text)
-	_ticker.pressed.connect(func(): _log_overlay.visible = true)
+	_ticker.pressed.connect(func(): _page_turn(_log_overlay, true))
 	_ticker.button_down.connect(func(): _dir.sfx.play("plaque", 0.3, 1.0, true))
 	lrow.add_child(_ticker)
 	var fv := VBoxContainer.new()
@@ -551,12 +555,19 @@ func _build_thumb(zone: VBoxContainer) -> void:
 	pv.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pv.offset_left = 64
 	pv.offset_right = -64
-	pv.offset_top = 24
+	pv.offset_top = 14
 	pv.offset_bottom = -22
-	pv.add_theme_constant_override("separation", 6)
+	pv.add_theme_constant_override("separation", 2)
 	page.add_child(pv)
-	_prompt_label = Style.body("", 44, Style.C_INK.darkened(0.4))
-	pv.add_child(_prompt_label)
+	_prompt_label = _make_lettering(Tuning.PROMPT_FONT, Style.C_INK.darkened(0.4), true)
+	# The words stay clear of the corner boxes (the seals below may use the full width).
+	var lm := MarginContainer.new()
+	var side := maxi(0, roundi(Art.PAGE_MARGINS[0] * 0.55) - 64 + 28)
+	lm.add_theme_constant_override("margin_left", side)
+	lm.add_theme_constant_override("margin_right", side)
+	lm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lm.add_child(_prompt_label)
+	pv.add_child(lm)
 	_buttons = Control.new()
 	_buttons.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_buttons.resized.connect(_layout_buttons)
@@ -592,7 +603,7 @@ func _build_log_overlay() -> void:
 	close.custom_minimum_size = Vector2(300, SEAL_SMALL)
 	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	Art.skin(close, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
-	close.pressed.connect(func(): _log_overlay.visible = false)
+	close.pressed.connect(func(): _page_turn(_log_overlay, false))
 	v.add_child(close)
 	_log_overlay.add_child(f)
 	_log_overlay.visible = false
@@ -718,11 +729,80 @@ func set_turn_points(v: int) -> void:
 
 
 ## The line on the page while it isn't your move ("Wrath is thinking...").
+
+
+## Manuscript lettering (polish 1, 2): an illuminated first capital (coloured, gold-edged), the rest
+## in blackletter, optionally a thin red flourish under, inked in left to right when the words change.
+func _make_lettering(size: int, color: Color, flourish: bool) -> RichTextLabel:
+	var r := Style.body("", size, color)
+	r.add_theme_font_override("normal_font", Style.BLACKLETTER)
+	r.material = Art.ink_material()
+	if flourish:
+		var pad := StyleBoxEmpty.new()
+		pad.content_margin_bottom = 16
+		r.add_theme_stylebox_override("normal", pad)
+		var f := Control.new()
+		f.name = "Flourish"
+		f.use_parent_material = true  # spans the label's width, so it inks in with the words
+		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		f.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		f.offset_top = -16
+		f.draw.connect(func(): _draw_flourish(f, r))
+		f.resized.connect(f.queue_redraw)
+		r.add_child(f)
+	return r
+
+
+## Sets lettering text. It re-inks only when `key` (default: the text) changes, so a bot's
+## "thinking..." dots don't re-ink every tick.
+func _set_lettering(r: RichTextLabel, text: String, cap_color := Style.C_STRIKE, key := "") -> void:
+	if key == "":
+		key = text
+	var body := Style.numbers(text)
+	var first := text.left(1)
+	if first != "" and first.to_upper() != first.to_lower():  # a letter (not bbcode, not a digit)
+		var size: int = r.get_theme_font_size("normal_font_size")
+		body = "[font_size=%d][color=#%s][outline_size=8][outline_color=#%s]%s[/outline_color][/outline_size][/color][/font_size]%s" % [
+			roundi(size * Tuning.CAP_SCALE), cap_color.to_html(false), Style.C_GOLD.to_html(false), first, Style.numbers(text.substr(1))]
+	r.text = "[center]%s[/center]" % body
+	var f := r.get_node_or_null("Flourish")
+	if f:
+		f.queue_redraw()
+	if r.get_meta("ink_key", "") == key:
+		return
+	r.set_meta("ink_key", key)
+	# Advanced in _process with a capped step: new words cost a long frame (glyphs rasterising),
+	# which would swallow a tween whole.
+	_inking[r] = 0.0 if text != "" else 1.0
+	(r.material as ShaderMaterial).set_shader_parameter("reveal", _inking[r])
+
+
+## A thin red pen flourish under the words: a swash that swells in the middle, curls at both ends.
+func _draw_flourish(f: Control, r: RichTextLabel) -> void:
+	if r.get_parsed_text().strip_edges() == "":
+		return
+	var w := minf(f.size.x * 0.8, maxf(160.0, r.get_content_width() * 0.7))
+	var cx := f.size.x / 2.0
+	var cy := f.size.y * 0.45
+	var pts := PackedVector2Array()
+	var n := 48
+	for i in n + 1:
+		var t := float(i) / n
+		var x := cx + (t - 0.5) * w
+		pts.append(Vector2(x, cy + sin(t * TAU * 1.5) * 4.0 * sin(t * PI)))
+	var col := Style.C_STRIKE.darkened(0.1)
+	for i in n:
+		var t := (float(i) + 0.5) / n
+		f.draw_line(pts[i], pts[i + 1], col, 1.0 + 2.6 * sin(t * PI), true)  # pen pressure: thick mid, hairline ends
+	# Curls and a lozenge at the centre.
+	for s in [-1.0, 1.0]:
+		f.draw_arc(Vector2(cx + s * (w / 2.0 + 5.0), cy - 4.0), 6.0, 0.0, TAU * 0.75, 16, col, 1.2, true)
+	f.draw_colored_polygon(PackedVector2Array([Vector2(cx, cy - 6), Vector2(cx + 5, cy), Vector2(cx, cy + 6), Vector2(cx - 5, cy)]), col)
 func set_waiting_text(text: String) -> void:
 	if not _waiting or _prompt_label.get_meta("wait", "") == text:
 		return
 	_prompt_label.set_meta("wait", text)
-	Style.set_body(_prompt_label, "[color=#%s]%s[/color]" % [Style.C_INK.lightened(0.2).to_html(false), text])
+	_set_lettering(_prompt_label, text, Style.C_STRIKE, text.rstrip(". "))  # the dots don't re-ink
 
 
 func show_ticker(text: String) -> void:
@@ -740,16 +820,11 @@ func _refresh_plate(pt: Dictionary, ps: Dictionary) -> void:
 	pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if tag != "" and not pt.mine else Style.C_BONE))
 
 
-## Drop cap image for the first letter, the rest in blackletter, banner tinted in the Sin's colour.
+## Whose turn: the capital is illuminated in that player's Sin colour.
 func _set_banner(text: String, p) -> void:
-	if _banner_text.get_meta("key", "") == text:
+	if _banner_text.get_meta("ink_key", "") == text:
 		return
-	_banner_text.set_meta("key", text)
-	var cap := Art.dropcap(text.left(1))
-	_banner_cap.texture = cap
-	_banner_cap.visible = cap != null
-	_banner_text.text = text.substr(1) if cap else text
-	_banner_frame.material = Art.tint_material(Style.SIN_COLORS[p.sin.sin_name].darkened(0.2))
+	_set_lettering(_banner_text, text, Style.SIN_COLORS[p.sin.sin_name].lightened(0.1))
 
 
 ## Shrinks a one-line label until its text fits its width ("Gluttony" on a narrow plate).
@@ -939,7 +1014,7 @@ func show_prompt(text: String, options: Array) -> void:
 func _show_prompt_now(text: String, options: Array) -> void:
 	clear_prompt()
 	_waiting = false
-	Style.set_body(_prompt_label, text)
+	_set_lettering(_prompt_label, text)
 	var counts := options.filter(func(o): return o[0].is_valid_int())
 	var most := 0
 	for o in counts:
@@ -1052,7 +1127,7 @@ func _selected_ring(b: Button) -> void:
 func clear_prompt() -> void:
 	_waiting = true
 	_prompt_label.set_meta("wait", "")
-	Style.set_body(_prompt_label, "")
+	_set_lettering(_prompt_label, "")
 	for c in _buttons.get_children():
 		c.queue_free()
 
@@ -1106,9 +1181,24 @@ func _layout_buttons() -> void:
 					break
 				s = maxf(TARGET_MIN, s - 4.0)
 			if not fits and d <= TARGET_MIN:
-				in_band = 0  # nothing fits: let it overlap rather than loop
 				break
 			d -= 8.0
+		if not fits:
+			# Last resort (10+ dice): one grid of equal 44 pt seals, Bank and Throw ending the last row.
+			var all := nums + big.filter(func(b): return b.get_meta("kind") == "bank") + big.filter(func(b): return b.get_meta("kind") == "roll")
+			var gs := TARGET_MIN
+			var gper := maxi(1, int((w + gap) / (gs + gap)))
+			var grows := ceili(float(all.size()) / gper)
+			var ggap := clampf((h - grows * gs) / maxf(1.0, grows - 1), 0.0, gap)  # squeeze rows if we must
+			for i in all.size():
+				var r := i / gper
+				var in_row := mini(gper, all.size() - r * gper)
+				var total := in_row * gs + (in_row - 1) * gap
+				all[i].position = Vector2(mid - total / 2.0 + (i % gper) * (gs + gap), r * (gs + ggap))
+				all[i].size = Vector2(gs, gs)
+				if all[i].get_meta("kind") != "num":
+					_fit_caption(all[i], gs)
+			return
 		var above := nums.size() - in_band
 		for i in above:
 			var r := i / per_row
@@ -1140,7 +1230,7 @@ func _layout_buttons() -> void:
 				row_w = 0.0
 			rows[-1].append([b, bw])
 			row_w += bw + gap
-		var bh := float(SEAL_SMALL)
+		var bh := clampf((h - gap * (rows.size() - 1)) / rows.size(), TARGET_MIN + 2.0, float(SEAL_SMALL))  # rows fit the page
 		var y := 0.0
 		for r in rows:
 			var rw := 0.0
@@ -1326,6 +1416,20 @@ func _fit_caption(b: Button, d: float) -> void:
 ## Device tilt moves the candle pool on the parchment and slides the page a few px.
 ## No accelerometer (desktop, web): a slow drift so the page still feels alive.
 func _process(delta: float) -> void:
+	for r in _inking.keys():
+		if not is_instance_valid(r):
+			_inking.erase(r)
+			continue
+		var cw: float = maxf(r.get_content_width(), 1.0)  # the words, centred: ink only across them
+		var im := r.material as ShaderMaterial
+		im.set_shader_parameter("start", (r.size.x - cw) / 2.0)
+		im.set_shader_parameter("width", cw)
+		var t: float = minf(1.0, _inking[r] + minf(delta, 1.0 / 30.0) / Tuning.INK_IN)
+		(r.material as ShaderMaterial).set_shader_parameter("reveal", smoothstep(0.0, 1.0, t))
+		if t >= 1.0:
+			_inking.erase(r)
+		else:
+			_inking[r] = t
 	if _paper == null or not is_instance_valid(_paper):
 		return
 	var g := Input.get_gravity()
@@ -1338,3 +1442,45 @@ func _process(delta: float) -> void:
 	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
 	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
 	_paper.position = _tilt * Tuning.TILT_PX
+
+
+# ---------- Screen transitions (polish 10) ----------
+
+## Ink floods over the screen (cover) or draws away from it (uncover). Await it; taps are blocked
+## while the ink is on screen.
+func _ink_wash(cover: bool, origin := Vector2(0.5, 0.5)) -> void:
+	if _wash == null:
+		_wash = ColorRect.new()
+		_wash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_wash.material = Art.ink_wash_material()
+		_wash.mouse_filter = Control.MOUSE_FILTER_STOP
+		add_child(_wash)
+	move_child(_wash, -1)
+	_wash.visible = true
+	var m := _wash.material as ShaderMaterial
+	m.set_shader_parameter("origin", origin)
+	m.set_shader_parameter("progress", 0.0 if cover else 1.0)
+	var vp := get_viewport_rect().size
+	m.set_shader_parameter("ratio", vp.y / maxf(vp.x, 1.0))
+	var tw := create_tween()
+	tw.tween_method(func(v: float): m.set_shader_parameter("progress", v), 0.0 if cover else 1.0, 1.0 if cover else 0.0, Tuning.WASH_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN if cover else Tween.EASE_OUT)
+	await tw.finished
+	if not cover:
+		_wash.visible = false
+
+
+## The Chronicle turns in like a page: it swings open from the left edge, shaded as it turns.
+func _page_turn(node: Control, open: bool) -> void:
+	node.pivot_offset = Vector2(0, node.size.y / 2.0)
+	if open:
+		node.visible = true
+		node.scale = Vector2(0.02, 1.0)
+		node.modulate = Color(0.35, 0.3, 0.28)
+	var tw := create_tween()
+	tw.tween_property(node, "scale:x", 1.0 if open else 0.02, Tuning.PAGE_TURN).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT if open else Tween.EASE_IN)
+	tw.parallel().tween_property(node, "modulate", Color.WHITE if open else Color(0.35, 0.3, 0.28), Tuning.PAGE_TURN)
+	await tw.finished
+	if not open:
+		node.visible = false
+		node.scale = Vector2.ONE
+		node.modulate = Color.WHITE
