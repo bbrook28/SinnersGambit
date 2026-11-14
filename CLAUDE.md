@@ -6,7 +6,7 @@ Plan and balance notes: `Docs/Plan.md`.
 
 ## Decided
 - Godot 4.5+ stable (standard build, not .NET), GDScript, 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad.
-- v1: solo vs bots + pass-and-play on one phone/iPad. No online play.
+- v1: solo roguelike runs (`Docs/RunDesign.md`), one player. No bot table, no pass-and-play, no online play. The bot-table code stays in `core/`, `sins/`, `ai/` as a possible side mode after ship.
 - Targets: Android and iOS (iOS export needs a Mac + Xcode).
 - Rules live in `core/` with no UI, so `sim/` can play thousands of bot games headless.
 - Scripts use `preload` consts, not `class_name`, so headless `--script` runs work without an editor import.

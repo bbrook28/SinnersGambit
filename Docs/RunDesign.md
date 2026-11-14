@@ -14,7 +14,7 @@ Its window fills the screen, the twist shows in one line, then it shrinks to its
 |---|---|
 | Sloth | You throw one fewer die. |
 | Wrath | Each Strike costs 25 Points. |
-| Greed | Each Bank costs 1 gold. No gold, no Bank. |
+| Greed | Each Bank costs 1 gold; with none, it scores half (rounded to a multiple of 5). |
 | Lust | Your best die each throw scores nothing. |
 | Envy | Envy takes your leftmost relic for this fight. |
 | Pride | Each Bank must beat your last, or it scores 0. |
@@ -110,10 +110,10 @@ C = common (5 gold), U = uncommon (10), R = rare (15).
 Strike, Bust, Bank, Points, Mult, Gold, Relic, Circle. Round, turn, target, shop and repaint are plain words.
 
 ## 11. The bot-table mode
-Cut it from v1 (and pass-and-play with it, which changes CLAUDE.md's "v1" line once approved). `core/`, `sins/`, `ai/` and `sim/check_v3.gd` stay untouched, so a table mode can return after ship if playtesters ask.
+Cut it from v1, and pass-and-play with it (agreed 2026-11-14). `core/`, `sins/`, `ai/` and `sim/check_v3.gd` stay untouched, so a table mode can return after ship if playtesters ask.
 
 ## 12. Phase 8 build plan (for review, not started)
 - New `run/` folder, rules only, no UI: `run_state.gd`, `round.gd` (turn loop on `Rules.roll`), `relics.gd` (data table plus hooks: on_die, on_throw, on_bank, on_bust, on_round_end), `kits.gd`, `rulers.gd`, `shop.gd`. Reuses `core/rules.gd` without changing it.
-- `ai/run_bot.gd` (new file in `ai/`, needs your OK): throws while the bust chance is under its nerve; buys by simulating 200 rounds with and without each offer.
-- `sim/run_sim.gd` replaced by a run sim: win rate and Circle reached per Sin, relic pick rate (none above twice the average), gold curve, turns per run.
+- `ai/run_bot.gd` (new file in `ai/`, agreed): throws while the bust chance is under its nerve; buys by simulating 200 rounds with and without each offer.
+- `sim/run_sim.gd` replaced by a run sim: win rate and Circle reached per Sin, relic pick rate (none above twice the average; this flags broken relics, it is not final balance), gold curve, turns per run.
 - Placeholder board: today's tray and seals, a Points x Mult readout, a relic row, a plain shop page.
