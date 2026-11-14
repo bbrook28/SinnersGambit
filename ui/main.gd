@@ -1034,15 +1034,15 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win_box.add_child(win)
 
 		var plate := Control.new()
-		plate.custom_minimum_size.y = 208  # caption, score, dice row
+		plate.custom_minimum_size.y = 172  # caption, score, dice row (tight: the windows keep their height)
 		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(Art.framed(Art.TRAY, [48, 40, 48, 40], 0.42))
 		var pv := VBoxContainer.new()
 		pv.set_anchors_preset(Control.PRESET_FULL_RECT)
-		pv.offset_top = 10
-		pv.offset_bottom = -16
+		pv.offset_top = 6
+		pv.offset_bottom = -12
 		pv.alignment = BoxContainer.ALIGNMENT_CENTER
-		pv.add_theme_constant_override("separation", 0)
+		pv.add_theme_constant_override("separation", -6)  # caption lines sit close to their numbers
 		pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(pv)
 		var mine: bool = p.bot == human
