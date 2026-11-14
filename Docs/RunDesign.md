@@ -2,12 +2,11 @@
 Solo roguelike runs replace the bot table. Keep: throw all your dice, push your luck, Bank, three Strikes bust, all the art. Numbers are starting guesses; the Phase 8 sim sets them. Rule for numbers: Points in multiples of 5, Mult and gold in whole numbers, multipliers only "x2", no percentages.
 
 ## 1. Run structure
-- Pick a Sin (your starting kit). A run is **7 Circles**. Each Circle is three rounds: two trials, then the Sin who rules it.
+- Pick a Sin (your starting kit). A run is **7 Circles** (21 rounds, about 25-35 minutes). Each Circle is three rounds: two trials, then the Sin who rules it.
 - Each round: reach the target in **4 turns**. Reaching it ends the round at once; unused turns pay gold. Missing it ends the run.
 - Circles 1-6 are ruled by the other six Sins in a shuffled order. Circle 7 is your own Sin, turned against you.
 - Between rounds: the shop. The next ruling Sin and its twist are always shown, so you can prepare.
 - Targets (round 1 / round 2 / Sin): C1 300 / 450 / 600, C2 500 / 750 / 1000, C3 1000 / 1500 / 2000, C4 1800 / 2700 / 3600, C5 3000 / 4500 / 6000, C6 5000 / 7500 / 10000, C7 8000 / 12000 / 16000. Aim: a good bot clears C1 95%, C4 60%, wins 40%.
-- Length: 21 rounds, about 25-35 minutes.
 
 ## 2. Ruling Sins (bosses): one twist each, no bot turns anywhere
 Its window fills the screen, the twist shows in one line, then it shrinks to its seat above the tray for the fight.
@@ -84,7 +83,6 @@ C = common (5 gold), U = uncommon (10), R = rare (15).
 7. **Censer + Gluttony:** eat the one die that didn't score so every throw is all-scoring.
 8. **Hair Shirt + Holy Water + Bone Dice:** 3s strike too, but Strikes score and the first 1 is free; play with Strikes as income.
 9. **Twin Chalice + Rosary + Six repaints:** build a dice set of 6s; every 6 is double Points and Mult.
-10. **Candelabra + Sexton's Key:** go wide with cheap commons instead of saving for rares.
 
 ## 7. Shop and economy
 - Earn: clear a trial +5 gold, a Sin's round +10, each unused turn +1. Interest: +1 per 5 gold held at round end, up to 5.
