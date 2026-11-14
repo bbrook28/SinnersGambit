@@ -9,7 +9,7 @@ Never touch `core/`, `sins/` or `ai/` without his explicit OK. Approving `Docs/R
 - **3.5 art and audio, 4 Sin carousel, 5 layout, 6 feedback: built, waiting for Ben to play** (`b99da21`, `8d77f96`, `d9fba39`, `92d9e67`). Detail in Handoff.
 
 **Rework (Ben, 2026-11-14): Balatro is the quality bar.** Phases 7-11 replace the old 7-10. One phase per session. Phase 7 and Phase 8's balance work on Opus; 9-11 fine on Sonnet.
-- **7 Run design doc: drafted, waiting for Ben's review.** `Docs/RunDesign.md`. No code until approved.
+- **7 Run design doc: revision 2 (keep-and-rethrow, no Strikes), waiting for Ben's review.** `Docs/RunDesign.md`. No code until approved.
 - **8 Core loop: on hold until Ben brings the review back.** Build the run, targets, ruling Sins, shop and relics with placeholder presentation. Needs a new run sim (`sim/run_sim.gd`, rebuilt; the old one doesn't parse) and `ai/run_bot.gd`. Report win rate per Sin and relic pick rate; pick rates only flag broken relics (none above twice the average), they are not final balance. Relic art: placeholders until Phase 9.
 - **GATE after 8:** Ben plays 10 runs and shows 5 people. No Phase 9 until he says the loop is fun; otherwise revise RunDesign and repeat 8.
 - **9 Board, text, controls: not started.** Permanent readouts (target, Points, Mult, turns left, Strikes, gold), max 4 words per label, two-line tooltips, Points gold / Mult crimson everywhere, dice twice the size, relic row, controls dim instead of vanishing, Throw seal 22%+ of width with bust chance, one painted button language, serif body text, 6-step learn-by-doing tutorial, rulebook = collection + 3 pages, new run in two taps. Relic art: state a SpriteCook credit budget before generating (32 left).
