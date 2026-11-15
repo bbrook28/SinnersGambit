@@ -12,7 +12,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 c = texture(TEXTURE, UV) * COLOR;
+	vec4 c = COLOR;  // already texture x modulate (Godot 4): never multiply by texture(TEXTURE, UV) again
 	float y = clamp(lp.y / box.y, 0.0, 1.0);
 	float f = mix(1.3, 0.6, smoothstep(0.2, 0.85, y)) + 0.3 * exp(-pow((y - 0.42) * 8.0, 2.0));
 	float run = box.x + box.y * 3.0;

@@ -2713,7 +2713,7 @@ func _bronze_seal(b: Button) -> void:
 	wax.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wax.show_behind_parent = true
 	wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wax.material = Art.tint_material(Color("e0b872"))
+	wax.material = Art.tint_material(Color("e0b872"), Tuning.BRONZE_GAIN, Tuning.BRONZE_POWER, Tuning.BRONZE_AMOUNT)
 	wax.modulate = Color(2.0, 1.75, 1.4)  # red wax is dark; lift it to bronze
 	b.add_child(wax)
 	b.button_down.connect(func(): wax.texture = Art.SEAL_L[1])

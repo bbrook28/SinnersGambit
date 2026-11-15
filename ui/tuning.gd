@@ -233,5 +233,14 @@ const DIE_MIN := 110.0             # tools/ui_audit.gd flags a tray whose dice c
 const DICE_PER_ROW := 6
 const TRAY_DICE := 18              # the tray always fits this many (12 bought plus added, with room)
 const NOTE_SIZE := 46              # an ability note in the score strip ("Hubris  bets 100")
+# Recolouring painted art (ui/shaders/tint.gdshader): new colour = tint x gain x luminance^power,
+# fitted to the look each had before the Godot 4 double-texture fix.
+const TINT_GAIN := 2.6        # the turn banner
+const TINT_POWER := 2.3
+const BRONZE_GAIN := 1.2      # the Bank seal (red wax recast in bronze)
+const BRONZE_POWER := 1.5
+const BRONZE_AMOUNT := 0.92
+const RULE_SEAL_GAIN := 1.7   # the rulebook's sample seals
+const RULE_SEAL_POWER := 1.6
 const ADDED_TINT := 0.45           # an ability-added die: its face washed this much toward the Sin's colour
 const ADDED_RIM := 0.08            # and a glow of that colour this far round it (fraction of the die)

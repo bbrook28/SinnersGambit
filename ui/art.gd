@@ -157,10 +157,14 @@ static func flare_material() -> ShaderMaterial:
 	return m
 
 
-static func tint_material(c: Color) -> ShaderMaterial:
+## gain and power keep the look each use was tuned with (Tuning.TINT_* / BRONZE_* / RULE_SEAL_*).
+static func tint_material(c: Color, gain := Tuning.TINT_GAIN, power := Tuning.TINT_POWER, amount := 0.85) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = TINT
 	m.set_shader_parameter("tint", c)
+	m.set_shader_parameter("gain", gain)
+	m.set_shader_parameter("power", power)
+	m.set_shader_parameter("amount", amount)
 	return m
 
 

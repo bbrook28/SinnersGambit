@@ -757,7 +757,7 @@ func _card(text: String, kind: String) -> Control:
 	tex.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if kind == "bank":
-		tex.material = Art.tint_material(Color("e0b872"))
+		tex.material = Art.tint_material(Color("e0b872"), Tuning.BRONZE_GAIN, Tuning.BRONZE_POWER, Tuning.BRONZE_AMOUNT)
 		tex.modulate = Color(2.0, 1.75, 1.4)
 	c.add_child(tex)
 	var l := Style.label(text.replace(" ", "\n") if big else text, 76 if big else 64, Style.C_IVORY, true, 10)

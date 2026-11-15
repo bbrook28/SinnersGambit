@@ -316,7 +316,7 @@ func _seal(text: String, wax: Color) -> Control:
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.set_anchors_preset(Control.PRESET_FULL_RECT)
 	if wax != Style.C_CRIMSON:
-		t.material = Art.tint_material(wax)
+		t.material = Art.tint_material(wax, Tuning.RULE_SEAL_GAIN, Tuning.RULE_SEAL_POWER)
 	c.add_child(t)
 	var l := Style.label(text, 34, Style.C_IVORY, true, 6)
 	l.set_anchors_preset(Control.PRESET_FULL_RECT)
