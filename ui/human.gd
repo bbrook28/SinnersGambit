@@ -89,7 +89,8 @@ func wants_temptation(game, p, from, offer: Dictionary) -> bool:
 	var lead: int = rival.score if rival else 0
 	var ctx: String = RulesText.table("tempt_context_lead" if p.score > lead else "tempt_context", {
 		"pts": game.turn.points, "strikes": "%d Strike%s" % [s, "" if s == 1 else "s"], "me": p.score, "lead": lead})
-	var card := {"sin": sname, "text": RulesText.tempt(offer.id), "tip": "", "context": ctx}
+	var card := {"sin": sname, "say": RulesText.tempt_say(offer.id), "terms": RulesText.tempt_terms(offer.id),
+		"text": RulesText.tempt(offer.id), "tip": "", "context": ctx}
 	if view and not view.tempt_tip_seen:
 		card.tip = RulesText.table("tempt_tip")
 		view.tempt_tip_seen = true

@@ -12,6 +12,7 @@ const Envy = preload("res://sins/envy.gd")
 const Pride = preload("res://sins/pride.gd")
 const Gluttony = preload("res://sins/gluttony.gd")
 const Sloth = preload("res://sins/sloth.gd")
+const Temptations = preload("res://sins/temptations.gd")
 
 const SIN_ORDER := ["Wrath", "Greed", "Lust", "Envy", "Pride", "Gluttony", "Sloth"]
 
@@ -452,37 +453,58 @@ static func run(key: String, args := {}) -> String:
 
 # ---------- The table (Rules.V4, Docs/TableDesign.md) ----------
 
-## Temptations, by id (sins/temptations.gd holds the numbers; keep them in step). 12 words max.
-const TEMPT := {
-	"w1": "Wipe a Strike. Your next Bank loses 25.",
-	"w2": "Take 60 from the leader. Start next turn with a Strike.",
-	"w3": "Throw at x2. Lose 50 now.",
-	"w4": "Two extra dice this throw. Your next Bank loses 50.",
-	"g1": "A free die. Your next Bank loses 75.",
-	"g2": "Clear a Strike. Your next Bank loses 25.",
-	"g3": "Throw at x2. Your next Bank loses 50.",
-	"g4": "Take 100 now. I take a die after this turn.",
-	"l1": "Throw at x2. One fewer die next turn.",
-	"l2": "Take 50 now. One fewer die next turn.",
-	"l3": "Two extra dice this throw. One fewer next turn.",
-	"l4": "Forget that Strike. Your next Bank loses 25.",
-	"e1": "Two extra dice this throw. Start next turn with a Strike.",
-	"e2": "Throw at x2. Start next turn with a Strike.",
-	"e3": "A free die, like theirs. Lose 75 now.",
-	"e4": "Clear a Strike. One fewer die next turn.",
-	"p1": "Throw at x2, like royalty. Your next Bank loses 50.",
-	"p2": "Two extra dice, as you deserve. One fewer next turn.",
-	"p3": "Clear a Strike. Lose 25 now.",
-	"p4": "Take 60 now. Start next turn with a Strike.",
-	"u1": "Two extra dice this throw. Lose 25 now.",
-	"u2": "Clear a Strike. I eat a die after.",
-	"u3": "Throw at x2. I eat a die after.",
-	"u4": "A free die. Start next turn with a Strike.",
-	"s1": "Take 90 now. Two fewer dice next turn.",
-	"s2": "Rest that Strike. One fewer die next turn.",
-	"s3": "A free die. Two fewer dice next turn.",
-	"s4": "Take 60 and rest. Start next turn with a Strike.",
+## Temptations, by id (sins/temptations.gd holds the numbers). Each offer is a spoken line in the Sin's
+## voice (5 words max) and its terms: one gain, one cost, worded from GAIN_TERMS / COST_TERMS so the
+## same gain or cost reads the same for every Sin.
+const TEMPT_SAY := {
+	"w1": "Wipe it clean.",
+	"w2": "Tear it from them.",
+	"w3": "Burn it all.",
+	"w4": "Hit harder.",
+	"g1": "On credit, naturally.",
+	"g2": "A small fee.",
+	"g3": "Interest applies, of course.",
+	"g4": "Cash now. Collateral later.",
+	"l1": "Twice the pleasure, darling.",
+	"l2": "Take it, darling.",
+	"l3": "More for you, sweetheart.",
+	"l4": "I'll kiss it away.",
+	"e1": "You deserve their dice.",
+	"e2": "Double, like the leader.",
+	"e3": "Their luck, for you.",
+	"e4": "They always get this.",
+	"p1": "Score like royalty.",
+	"p2": "As you deserve.",
+	"p3": "A mere trifle.",
+	"p4": "My gift to you.",
+	"u1": "Delicious, isn't it?",
+	"u2": "Feed me a die.",
+	"u3": "Twice the feast.",
+	"u4": "Fresh and juicy.",
+	"s1": "Take it and rest.",
+	"s2": "Rest that Strike.",
+	"s3": "Why bother?",
+	"s4": "Lie back. Take it.",
 }
+
+## Terms by kind ({n}: the offer's number; {count}: it as a word). "_1" and "_leader" are the variants.
+const GAIN_TERMS := {
+	"points": "Take {n} now.",
+	"points_leader": "Take {n} from the leader.",
+	"clear": "Clear a Strike.",
+	"dice": "{Count} extra dice this throw.",
+	"x2": "Throw at x2.",
+	"die": "A free die.",
+}
+const COST_TERMS := {
+	"lose": "Lose {n} now.",
+	"bank": "Your next Bank loses {n}.",
+	"strike": "Start next turn with a Strike.",
+	"fewer": "{Count} fewer dice next turn.",
+	"fewer_1": "One fewer die next turn.",
+	"die": "Lose a die after this turn.",
+}
+
 
 ## Claims, by Sin (numbers from Rules.V4).
 const CLAIMS := {
@@ -516,8 +538,28 @@ const TABLE := {
 }
 
 
+static func tempt_say(id: String) -> String:
+	return TEMPT_SAY.get(id, "")
+
+
+## The offer's terms, [gain, cost], worded from its numbers in sins/temptations.gd.
+static func tempt_terms(id: String) -> Array:
+	for sname in Temptations.OFFERS:
+		for o in Temptations.OFFERS[sname]:
+			if o.id == id:
+				var gk: String = o.gain + ("_leader" if o.get("leader", false) else "")
+				var ck: String = o.cost + ("_1" if o.cost == "fewer" and o.c == 1 else "")
+				return [_term(GAIN_TERMS[gk], o.g), _term(COST_TERMS[ck], o.c)]
+	return []
+
+
+## Both terms on one line (the log).
 static func tempt(id: String) -> String:
-	return TEMPT.get(id, id)
+	return " ".join(tempt_terms(id)) if TEMPT_SAY.has(id) else id
+
+
+static func _term(t: String, n: int) -> String:
+	return t.format({"n": n, "Count": _num_word(n).capitalize()})
 
 
 static func claim(sname: String) -> String:

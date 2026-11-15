@@ -45,7 +45,7 @@ const FEATHER := 20.0  # px, patch and keep edges
 ## vignette (darker toward the edges, less dark behind the head and shoulders), and every figure layer
 ## gets a dark lead line round its silhouette, its own image so it moves with the layer.
 const LINE := 10       # px at window size: full-strength lead line
-const LINE_SOFT := 3   # px of soft outer edge beyond it
+const LINE_SOFT := 2   # px of canvas padding beyond it (the line itself is crisp)
 const LEAD := Color("140d0b")
 const VIG_EDGE := 0.25     # extra darkening at the window's corners
 const VIG_NIMBUS := 0.35   # share of the darkening taken off at the head
@@ -376,21 +376,49 @@ func _compose(bg: Image, body: Image, body_line: Image, layers: Array, state: St
 
 # --- Figure and ground --------------------------------------------------------------------------
 
-## A dark band r px wide round im's alpha, fading over soft px more, on a canvas pad px bigger each side.
-func _line_img(im: Image, pad: int, r: int, soft: int) -> Image:
+## A dark lead line r px wide round im's alpha, on a canvas pad px bigger each side. Crisp (Ben): round
+## (near-Euclidean chamfer distance), solid to r and antialiased over its last pixel; `soft` only pads.
+func _line_img(im: Image, pad: int, r: int, _soft: int) -> Image:
 	var w := im.get_width() + pad * 2
 	var h := im.get_height() + pad * 2
-	var m := PackedByteArray()
-	m.resize(w * h)
+	var big := 1 << 20
+	var d := PackedInt32Array()
+	d.resize(w * h)
+	d.fill(big)
 	for y in im.get_height():
 		for x in im.get_width():
 			if im.get_pixel(x, y).a > 0.5:
-				m[(y + pad) * w + x + pad] = 1
-	var inner := _dil(m, w, h, r)
-	var outer := _dil(m, w, h, r + soft)
+				d[(y + pad) * w + x + pad] = 0
+	# 5-7-11 chamfer, in fifths of a pixel: forward then backward pass.
+	var fwd := [[-1, 0, 5], [0, -1, 5], [-1, -1, 7], [1, -1, 7], [-2, -1, 11], [-1, -2, 11], [1, -2, 11], [2, -1, 11]]
+	var bwd := [[1, 0, 5], [0, 1, 5], [1, 1, 7], [-1, 1, 7], [2, 1, 11], [1, 2, 11], [-1, 2, 11], [-2, 1, 11]]
+	for y in h:
+		for x in w:
+			var i := y * w + x
+			var v: int = d[i]
+			if v == 0:
+				continue
+			for k in fwd:
+				var xx: int = x + k[0]
+				var yy: int = y + k[1]
+				if xx >= 0 and xx < w and yy >= 0:
+					v = mini(v, d[yy * w + xx] + k[2])
+			d[i] = v
+	for y in range(h - 1, -1, -1):
+		for x in range(w - 1, -1, -1):
+			var i := y * w + x
+			var v: int = d[i]
+			if v == 0:
+				continue
+			for k in bwd:
+				var xx: int = x + k[0]
+				var yy: int = y + k[1]
+				if xx >= 0 and xx < w and yy < h:
+					v = mini(v, d[yy * w + xx] + k[2])
+			d[i] = v
 	var out := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	for i in w * h:
-		var a := 1.0 if inner[i] == 1 else (0.45 if outer[i] == 1 else 0.0)
+		var a := clampf(r + 0.5 - d[i] / 5.0, 0.0, 1.0)
 		if a > 0.0:
 			out.set_pixel(i % w, i / w, Color(LEAD, a))
 	return out

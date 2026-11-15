@@ -301,3 +301,11 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - **Seals:** 20 emblem seals in runtime/seals/e_*.png (`bake_art -- emblems`). Words sit under seals (ink on the page, bone on the desk), Throw's count and Bank's points are a gold numeral beside it; cracked = disabled. ui_audit: no text over a seal. Shots: Docs/review/seals/.
 - **Known audit warnings (not from this work):** 12-dice grid gaps 5 pt; a Buy-dice list of 8+ options runs past the safe area.
 - **Waiting on Ben:** voices proposal Docs/review/voices_proposal.md (not applied). Then step 3: per-Sin reactions reading parts.json.
+
+## Nov 15 (later): offer split, seal fixes
+- **Voices applied** (84fc8af): all 97 approved line changes in LINES and TableDesign §3.
+- **Offers split:** `TEMPT` is gone. `TEMPT_SAY` holds one spoken line per offer (5 words max, Ben-approved); the terms are built from `sins/temptations.gd` through `GAIN_TERMS` / `COST_TERMS` (`RulesText.tempt_terms(id)` → [gain, cost]; `tempt(id)` joins them for the log), so one gain or cost reads the same for every Sin. Greed's and Gluttony's die cost now reads "Lose a die after this turn." lines_check checks 28 spoken lines, both terms, one wording per kind and number.
+- **Offer screen:** name, then the spoken line inked on in blackletter in the Sin's colour (`_make_lettering`, `OFFER_SAY_FONT`), then the terms fade in on two lines after `INK_IN + OFFER_TERMS_GAP`, then the context line. `OFFER_DIM` 1.0: at 0.84-0.92 the board's bright text showed through behind the words.
+- **Seals:** Bank recast in bronze and Wrath's Accept in ember red at bake (`RECAST` / `_recast` in tools/bake_art.gd). New Accept emblems (32 credits, 665 left): Lust a rose, Greed a crowned coin (`emblem_accept_*_v2_raw.png`; the old ones repeated Gluttony's fangs and the Choose fleur-de-lis). Numerals beside seals are all Cinzel gold leaf (`Style.number`). After any re-bake, run `--headless --import` or the game shows the old textures.
+- **Lead lines crisp:** `_line_img` in bake_layers uses a chamfer distance, solid to LINE and antialiased over one pixel (it was a square dilation plus a 45% soft band). All seven Sins re-baked.
+- Shots: Docs/review/offer_split/.

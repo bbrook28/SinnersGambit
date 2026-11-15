@@ -24,7 +24,7 @@ const CHIP_FONT := 30      # debt chips on the plate (TableDesign §7)
 const CHIP_OVERLAP := 18.0 # chips sit over the plate's lower edge by this much
 const CHIP_BG := Color("6a1c14")
 const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # speech tabs
-const OFFER_DIM := 0.84          # a temptation dims the whole board this far (TableDesign §7)
+const OFFER_DIM := 1.0          # a temptation dims the whole board this far (TableDesign §7)
 const OFFER_PORTRAIT_W := 0.9    # its 4:5 portrait spans this share of the screen width
 const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
 # Living portrait (ui/living_portrait.gd): a Sin with baked layers breathes and makes its offer.
@@ -45,7 +45,10 @@ const FLARE_TIME := 0.45        # a Sin speaks, offers or acts: white brightenin
 const GLASS_PULSE_SPEED := 0.5  # radians a second (a swell every ~12 s)
 const GLASS_GLINT := 0.6        # glints running along the lead lines
 const OFFER_NAME_FONT := 64
-const OFFER_FONT := 60
+const OFFER_FONT := 50          # the terms: gain over cost
+const OFFER_SAY_FONT := 60      # the Sin's spoken line, blackletter in its ink
+const OFFER_TERMS_GAP := 0.15   # after the spoken line dries, the terms fade in this much later
+const OFFER_TERMS_FADE := 0.3
 const OFFER_TIP_FONT := 36
 
 # ---- The four phases of every beat ----

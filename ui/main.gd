@@ -2788,30 +2788,15 @@ func _cap_h(d: float) -> float:
 	return Style.BLACKLETTER.get_height(_cap_size(d)) + CAP_GAP
 
 
-## The gold numeral beside an emblem seal: gold leaf for 1-9, Cinzel gold past that (Bank's points).
+## The gold numeral beside an emblem seal (Throw's count, Bank's points), Cinzel in gold leaf.
 ## side: 1 right of the seal, -1 left. Placed by _place_numeral once the seal has its size.
 func _seal_numeral(b: Button, n: int, side: int) -> void:
 	for c in b.get_children():
 		if c.has_meta("numeral"):
 			c.free()
-	var c: Control
-	var tex := Art.numeral(n)
-	if tex:
-		var t := TextureRect.new()
-		t.texture = tex
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.material = Art.shimmer_material(n * 0.137)
-		c = t
-	else:
-		var l := Label.new()
-		l.text = str(n)
-		l.add_theme_font_override("font", Style.NUMERAL)
-		l.add_theme_color_override("font_color", Style.C_GOLD)
-		l.add_theme_constant_override("outline_size", 10)
-		l.add_theme_color_override("font_outline_color", Style.C_BLACK)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		c = l
+	# One face for every numeral beside a seal (Ben): Cinzel in gold leaf, as on the board.
+	var c := Style.number(str(n), 64, 10)
+	c.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	c.set_meta("numeral", true)
 	c.set_meta("side", side)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3189,7 +3174,13 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	var name_l := Style.label(sname, Tuning.OFFER_NAME_FONT, col.lightened(0.4), true, 8)
 	v.add_child(name_l)
 	var inner: float = _fx.size.x * Tuning.OFFER_PORTRAIT_W
-	var words := Style.body(offer.text, Tuning.OFFER_FONT, Style.C_IVORY, 8)
+	# The Sin speaks first, written on in its ink; then the terms appear, the gain over the cost.
+	var say := _make_lettering(Tuning.OFFER_SAY_FONT, col.lightened(0.45), false)
+	say.custom_minimum_size.x = inner
+	say.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(say)
+	var terms: Array = offer.get("terms", [offer.text])
+	var words := Style.body("\n".join(terms), Tuning.OFFER_FONT, Style.C_IVORY, 8)
 	words.custom_minimum_size.x = inner
 	words.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(words)
@@ -3206,6 +3197,14 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	root.modulate.a = 0.0
 	_fx.add_child(root)
 	_offer_card = root
+	_set_lettering(say, offer.get("say", ""), col)
+	if not Tuning.reduce_motion and offer.get("say", "") != "":
+		words.modulate.a = 0.0
+		var tt := words.create_tween()
+		tt.tween_interval(Tuning.INK_IN + Tuning.OFFER_TERMS_GAP)
+		tt.tween_property(words, "modulate:a", 1.0, Tuning.OFFER_TERMS_FADE)
+	else:
+		_inking[say] = 1.0
 	# Portrait: OFFER_PORTRAIT_W of the screen width at 4:5, shrunk only if the words would reach the seals.
 	var place := func():
 		if not is_instance_valid(root):

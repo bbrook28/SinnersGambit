@@ -101,10 +101,36 @@ func _bake_emblems() -> void:
 		"rulebook": "rulebook", "settings": "settings", "pause": "pause", "back": "back", "newgame": "newgame",
 		"bank_cracked": "bank_cracked", "throw_cracked": "throw_cracked", "choose_cracked": "choose_cracked"}
 	for s in SINS:
-		emblems["accept_" + s] = "accept_" + s + ("_v2" if s == "gluttony" else "")
+		emblems["accept_" + s] = "accept_" + s + ("_v2" if s in ["gluttony", "lust", "greed"] else "")
 	for e in emblems:
 		_save(_fit_h(_square(_cut(_load("res://assets/art/seals/raw/emblem_%s_raw.png" % emblems[e]))), 512), OUT + "seals/e_%s.png" % e)
+	# Recast wax (Ben): Bank in bronze, Wrath's Accept in ember red, so neither reads as Throw's crimson.
+	for e in RECAST:
+		var p := OUT + "seals/e_%s.png" % e
+		_save(_recast(Image.load_from_file(ProjectSettings.globalize_path(p)), RECAST[e]), p)
 	print("emblems baked: %d" % emblems.size())
+
+
+const RECAST := {"bank": "bronze", "bank_cracked": "bronze", "accept_wrath": "ember"}
+
+## Recasts the red wax (saturated pixels near red hue) in another wax; the gold ring and the dark
+## shading keep their own colour. bronze: brown-gold, duller. ember: dark red in the hollows rising to
+## hot orange on the highlights.
+func _recast(im: Image, how: String) -> Image:
+	for y in im.get_height():
+		for x in im.get_width():
+			var c := im.get_pixel(x, y)
+			if c.a == 0.0 or c.s < 0.3 or (c.h > 0.055 and c.h < 0.94):
+				continue
+			var k := clampf((c.s - 0.3) / 0.2, 0.0, 1.0)  # fade in from the edge of the band
+			var n := c
+			if how == "bronze":
+				n = Color.from_hsv(0.075, c.s * 0.62, minf(1.0, c.v * 0.9), c.a)
+			else:
+				var t := clampf((c.v - 0.2) / 0.6, 0.0, 1.0)
+				n = Color.from_hsv(fposmod(lerpf(-0.025, 0.075, pow(t, 2.6)), 1.0), lerpf(1.0, 0.9, t), minf(1.0, c.v * lerpf(0.5, 1.35, t)), c.a)
+			im.set_pixel(x, y, c.lerp(n, k))
+	return im
 
 
 func _load(path: String) -> Image:

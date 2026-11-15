@@ -105,6 +105,8 @@
     ,{"asset_id": "ebdb6ac7-42e0-4b4b-a136-82a8bd9f35e9", "sha12": "c6fb12b95c51", "label": "emblem seal: Accept Wrath, ruby wax, fist (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_wrath_raw.png"}
     ,{"asset_id": "6fb44b09-148c-41b7-94cb-1f5b9798d309", "sha12": "83e54b988c09", "label": "emblem seal: Accept Greed, silver wax, coin (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_greed_raw.png"}
     ,{"asset_id": "d23ba301-5be1-4d7e-8592-c8d93a490728", "sha12": "38743157563d", "label": "emblem seal: Accept Lust, rose wax, two dice (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_lust_raw.png"}
+    ,{"asset_id": "92be406f-46dd-480b-950d-e2e46992f37f", "label": "emblem seal: Accept Lust v2, rose wax, a rose (edit of 724cb97b; 16)", "file": "seals/raw/emblem_accept_lust_v2_raw.png"}
+    ,{"asset_id": "bb4f4b38-ed36-49f2-ba8a-39d4ae39e470", "label": "emblem seal: Accept Greed v2, silver wax, crowned coin (edit of 724cb97b; 16)", "file": "seals/raw/emblem_accept_greed_v2_raw.png"}
     ,{"asset_id": "724cb97b-554f-49fa-a038-4cdafc367b08", "sha12": "a9712622ed82", "label": "emblem seal: Accept Envy, emerald wax, eye (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_envy_raw.png"}
     ,{"asset_id": "8db37446-6064-4755-af48-b05bde0f5d34", "sha12": "5c1421061055", "label": "emblem seal: Accept Pride, amethyst wax, crowned mirror (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_pride_raw.png"}
     ,{"asset_id": "e8bf70e4-f5c6-4463-9c41-03832192d31a", "sha12": "c54a42c18e0d", "label": "emblem seal: Accept Sloth, sapphire wax, snail and moon (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_sloth_raw.png"}
