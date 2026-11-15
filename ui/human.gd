@@ -74,9 +74,20 @@ func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
 	if game.turn.min_points >= 0:
 		text += "\nHubris: bank at least %d, or score 0." % game.turn.min_points
 	var options := [[str(n), true]]
-	if game.turn.throws > 0:
+	if game.turn.throws > 0 and game.may_bank(p):  # Lust's claim (V4): no Bank before the second throw
 		options.append(["Bank %d" % turn_points, false])
 	return await _choose(text, options)
+
+
+## Rules.V4: a rival Sin's offer, Accept or Refuse. The first one you ever see carries one tip.
+func wants_temptation(_game, _p, from, offer: Dictionary) -> bool:
+	var RulesText = load("res://ui/rules_text.gd")
+	var text: String = "%s: %s" % [from.sin.sin_name, RulesText.tempt(offer.id)]
+	if view and not view.tempt_tip_seen:
+		text += "\n" + RulesText.table("tempt_tip")
+		view.tempt_tip_seen = true
+		view._save_settings()
+	return await _choose(text, [[RulesText.table("accept"), true], [RulesText.table("refuse"), false]])
 
 
 func dice_to_buy(p, game) -> int:

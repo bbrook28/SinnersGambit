@@ -34,6 +34,39 @@ const V3 := {
 }
 
 
+
+## Phase 7 table rework (Docs/TableDesign.md): V3 plus flat ability numbers, throws rounded to 5,
+## temptations, marks and claims. V3 stays as it was so its tests and saves still replay.
+const V4 := {
+	"throw_all": true,
+	"chain": 0.5,
+	"face_mult": 5,
+	"die_cost": 100,
+	"seat_bonus": 20,
+	"supply_per_player": 8,
+	"auto_purgatory": true,
+	"purgatory_cost": 50,
+	"v4": true,             # automatic Glance / Mimicry / Whisper / Untouchable / Fury; flat numbers below
+	"round5": true,         # a throw's points round down to a multiple of 5
+	# Ability numbers (sim/check_v3.gd v4: every Sin wins 20-30% at 4 seats, TableDesign Â§11)
+	"vig": 40, "interest": 75, "pact": 50, "feast": 75, "gorge": 40, "rage": 40,
+	"glance_trail": true,   # Envy's Glance only while someone is ahead of Envy
+	"hubris_targets": [150, 200, 250],
+	"fury_dice": 3, "fury_trigger": 150, "fury_grudge": 100, "drag": 3,
+	"temptations": true,
+	"tempt_chance": 1.0,    # share of turns with an offer ready (made at the first decision it fits)
+	"mark_weight": 4,       # a Sin's pick weight: 1 + this per mark of it the player holds
+	"marks_to_claim": 2,    # sim: at 3, claims came 0.1 a game (TableDesign §11)
+	"purgatory": true,      # sim: false = a bust only loses the turn
+	# Claims (sins/temptations.gd; costs measured by sim/check_v3.gd, TableDesign Â§7)
+	"claim_bust": 125,      # Wrath: each bust costs you this
+	"claim_greed": 20,      # Greed: every Bank pays Greed this
+	"claim_lust_throws": 2, # Lust: no Bank before this throw
+	"claim_envy": 25,       # Envy: while you lead, each Bank pays Envy this
+	"claim_pride_min": 200, # Pride: a Bank under this scores nothing
+	"claim_sloth_fewer": 2, # Sloth: you throw this many fewer dice
+}
+
 static func roll(rng: RandomNumberGenerator, count: int) -> Array[int]:
 	var faces: Array[int] = []
 	for i in count:

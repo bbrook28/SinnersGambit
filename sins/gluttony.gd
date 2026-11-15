@@ -24,7 +24,7 @@ func after_throw(game, me, turn) -> void:
 		for i in turn.faces.size():
 			if feed_i < 0 or turn.faces[i] < turn.faces[feed_i]:
 				feed_i = i
-		if feed_i < 0 or not await me.bot.ask(game, "Feast? Give up your %d for +%d (you lose the die for good)." % [turn.faces[feed_i], FEAST]):
+		if feed_i < 0 or not await me.bot.ask(game, "Feast? Give up your %d for +%d (you lose the die for good)." % [turn.faces[feed_i], game.opt("feast", FEAST)]):
 			return
 	else:
 		# Bot: feast when this throw would bring you to 2+ Strikes, so you can keep pressing.
@@ -36,17 +36,17 @@ func after_throw(game, me, turn) -> void:
 		if feed_i < 0 or turn.strikes + strikes_here < Rules.STRIKES_TO_BUST - 1:
 			return
 	if game.view:
-		fired(game, me, "Feast", "gives up a %d for +%d (%d dice left)" % [turn.faces[feed_i], FEAST, me.dice - 1])
+		fired(game, me, "Feast", "gives up a %d for +%d (%d dice left)" % [turn.faces[feed_i], game.opt("feast", FEAST), me.dice - 1])
 	turn.faces.remove_at(feed_i)
 	me.dice -= 1
 	game.supply += 1
-	me.score += FEAST
+	me.score += int(game.opt("feast", FEAST))
 	turn.used_t1 = true
 
 
 func buy_price(game, me, n: int) -> int:
 	if n > 0 and game.t2_available(me):
-		return GORGE_PRICE + (n - 1) * die_cost(game, me)
+		return int(game.opt("gorge", GORGE_PRICE)) + (n - 1) * die_cost(game, me)
 	return n * die_cost(game, me)
 
 
@@ -54,4 +54,4 @@ func gambit(game, me, bought: int) -> void:
 	if bought > 0:
 		game.mark_t2(me)
 		if game.view:
-			fired(game, me, "Gorge", "first die cost %d" % GORGE_PRICE)
+			fired(game, me, "Gorge", "first die cost %d" % game.opt("gorge", GORGE_PRICE))

@@ -66,5 +66,7 @@ func fired(game, me, ability: String, what: String) -> void:
 ## Human picks an opponent for a targeted Tier 2, or null to skip. Bots use bot_pick.
 func pick_target(game, me, ability: String, bot_pick):
 	if not me.bot.human:
+		if game.v4 and me.bot.has_method("pick_target"):
+			return me.bot.pick_target(game, me)
 		return bot_pick
 	return await me.bot.choose_target(game, me, ability)

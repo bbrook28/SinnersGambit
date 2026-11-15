@@ -10,3 +10,7 @@ var redeem_faces: Array[int] = []  # Redemption roll (UI)
 var used_t1 := false        # once-per-turn Tier 1 used
 var min_points := -1        # Pride's Hubris: must beat this to score (-1 = no call)
 var used_t1b := false       # once-per-turn flag for a Tier 1 Envy borrowed (Mimicry)
+var tempt_ready := false    # an offer may still be made this turn (Rules.V4)
+var x2 := false             # the next throw scores double (a temptation)
+var extra_dice := 0         # the next throw has this many more dice (a temptation)
+var lazy_used := 0         # Sloth's Lazy Bones: Strikes ignored this turn

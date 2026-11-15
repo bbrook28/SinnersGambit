@@ -31,3 +31,17 @@ var reroll_next := 0        # Wrath's Fury bounced: reroll this many best scorer
 var pact_by = null          # Lust's Binding Pact: this player takes pact_pct of your next banked turn
 var pact_pct := 0
 var drag := 0               # Sloth's Drag: throw at most dice - drag on your next turn
+
+# Temptations (Rules.V4, Docs/TableDesign.md §7).
+var marks := {}             # Sin name -> marks held now (clear at the claim)
+var marks_taken := {}       # Sin name -> marks ever taken (Solo endings, stats)
+var claims: Array = []      # Sin names whose claim binds this player for the rest of the game
+var pend_bank := 0          # your next Bank loses this much
+var pend_strike := 0        # your next turn starts with this many Strikes
+var pend_fewer := 0         # your next turn throws this many fewer dice
+var pend_die := 0           # you lose this many dice when this turn ends
+var fewer_now := 0          # this turn throws this many fewer dice (pend_fewer, moved in at turn start)
+var last_bank := -1         # Pride's claim: your last Bank this game that counted
+var grudges: Array = []     # seats that aimed an ability at you, oldest first (ai/bot_policy.gd pick_target)
+var offers_seen := 0        # sim stats
+var offers_taken := 0

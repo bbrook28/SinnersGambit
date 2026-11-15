@@ -476,6 +476,21 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	await q.wait(0.2)
 
 
+## A Sin's line (TableDesign Â§3): its window lifts and the words take the score strip for a moment.
+## Placeholder for the scroll from the window (Phase 8).
+func line(seat: int, text: String) -> void:
+	var pt: Dictionary = _seat(seat)
+	var keep: float = T.pace
+	T.pace = 1.0  # words are read at your speed, even on a bot's turn
+	_lift(pt.window, T.ANTICIPATION * 0.5)
+	var note: Control = m._marginalia(pt, pt.sin, "\u201c%s\u201d" % text)
+	_punch(pt.window, 0.3)
+	await q.wait(T.LINE_HOLD)
+	m.clear_note(note)
+	await q.wait(0.15)
+	T.pace = keep
+
+
 ## Fury: the targeted dice jump, spin, and land on new faces.
 func _reroll(snap: Dictionary) -> void:
 	focus(["dice"])
@@ -686,6 +701,8 @@ func _think(seat: int, dur: float) -> void:
 		return
 	var pt: Dictionary = _seat(seat)
 	focus(["seat%d" % seat])
+	if m.game and m.game.v4:  # the table (TableDesign §5): the window comes forward, no "thinking"
+		return
 	m.set_waiting_text("%s is thinking" % m.player_name(m.game.players[seat]))
 	var tw: Tween = q.tween(pt.window)
 	pt.window.pivot_offset = pt.window.size / 2

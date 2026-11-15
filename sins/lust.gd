@@ -24,7 +24,7 @@ func after_throw(game, me, turn) -> void:
 		i = turn.faces.find(2)
 	if i < 0:
 		return
-	if me.bot.human and not await me.bot.ask(game, "Whisper of Desire? Swap your %d for a %d (once a turn)." % [turn.faces[i], best]):
+	if me.bot.human and not game.v4 and not await me.bot.ask(game, "Whisper of Desire? Swap your %d for a %d (once a turn)." % [turn.faces[i], best]):
 		return
 	if game.view:
 		fired(game, me, "Whisper of Desire", "swaps a %d for a %d" % [turn.faces[i], best])
@@ -33,6 +33,8 @@ func after_throw(game, me, turn) -> void:
 
 
 func gambit(game, me, _bought: int) -> void:
-	var target = await pick_target(game, me, "Binding Pact (take %d%% of their next banked turn)" % PACT_PCT, game.leader_other(me))
+	var amount: int = game.opt("pact", PACT_PCT) if game.v4 else PACT_PCT
+	var what := ("take %d of their next banked turn" % amount) if game.v4 else ("take %d%% of their next banked turn" % amount)
+	var target = await pick_target(game, me, "Binding Pact (%s)" % what, game.leader_other(me))
 	if target:
-		await game.attack(me, target, "pact", PACT_PCT)
+		await game.attack(me, target, "pact", amount)

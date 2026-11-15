@@ -1,5 +1,6 @@
 ## Times bot turns in the real UI at speed 1x: from one turn-change beat to the next.
-## Target: every bot turn in 4 s or less on average, and your turn back within about 15 s at a table of 4.
+## Target (Docs/TableDesign.md Â§5): every bot turn in 2.5 s or less on average, and your turn back
+## within about 10 s at a table of 4.
 ## godot --headless --path . --script res://tests/bot_pace.gd [-- <table size>]
 extends SceneTree
 
@@ -16,11 +17,12 @@ var bot_times: Array[float] = []
 var waits: Array[float] = []   # from your turn ending to your next turn's banner
 var wait_acc := 0.0
 var in_wait := false
+var size := 4
 
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
-	Tuning.table_size = int(args[0]) if args.size() > 0 else 4
+	size = int(args[0]) if args.size() > 0 else 4
 	Tuning.speed = 1.0
 	Engine.time_scale = TIME_SCALE
 	await process_frame
@@ -35,6 +37,7 @@ func _next() -> void:
 	main.save_enabled = false
 	main.tutorial_enabled = false
 	main.first_game_enabled = false
+	Tuning.table_size = size  # after main loads the saved settings
 	main._dir.turn_shown.connect(_on_turn)
 	started = false
 	main._start(main.SIN_SCRIPTS[6 - games % 7])
@@ -74,7 +77,7 @@ func _report() -> void:
 	print("Table of %d, %d bot turns at 1x: avg %.1f s, median %.1f s, 90th pct %.1f s, max %.1f s" % [
 		Tuning.table_size, s.size(), avg, s[s.size() / 2], s[int(s.size() * 0.9)], s[-1]])
 	print("Your turn back after: avg %.1f s over %d waits" % [w_avg, waits.size()])
-	print("PACE %s" % ("PASSED" if avg <= 4.0 else "SLOW"))
+	print("PACE %s" % ("PASSED" if avg <= 2.5 else "SLOW"))
 	quit()
 
 

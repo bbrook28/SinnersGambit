@@ -92,6 +92,11 @@ func wants_throw(p, game, turn_points: int, strikes: int) -> bool:
 	var total: int = p.score + turn_points
 	if game.finish_round and game.end_triggered:
 		return total <= game.leader_score()
+	# Pride's claim (V4): a Bank that doesn't beat your last scores 0.
+	if game.v4 and game.claimed(p, "Pride") and turn_points <= p.last_bank and not game.opt("claim_pride_half", false) and game.opt("claim_pride_min", 0) == 0:
+		return true
+	if game.v4 and game.claimed(p, "Pride") and turn_points < int(game.opt("claim_pride_min", 0)):
+		return true
 	# Pride's Hubris: a bet turn scores 0 below the target, so never bank short of it.
 	if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
 		return true
@@ -99,7 +104,7 @@ func wants_throw(p, game, turn_points: int, strikes: int) -> bool:
 		return false
 	if turn_points >= bank_at:
 		return false
-	return expected_after_throw(game._max_throw(p), turn_points, Rules.STRIKES_TO_BUST - strikes, game.chain, game.face_mult) > turn_points * risk
+	return expected_after_throw(game._max_throw(p), turn_points, Rules.STRIKES_TO_BUST - strikes, game.chain, game.face_mult) > turn_points * risk_for(p, game)
 
 
 ## Throw-all mode: banking now is worth turn_points; this is the average of throwing n dice once more
@@ -140,3 +145,90 @@ func _normal_roll(p, game, turn_points: int, strikes: int) -> int:
 			return mini(cap_2_left, p.dice)
 		_:
 			return mini(cap_1_left, p.dice)
+
+
+# ---------- Rules.V4: rivalry and temptations (Docs/TableDesign.md §4, §7) ----------
+
+## Each Sin's bot plays to its nature: throws again when one more throw beats banking by this factor.
+## Below 1 pushes harder (Wrath, Lust, Gluttony), above banks sooner (Sloth, Greed).
+const SIN_RISK := {"Wrath": 0.9, "Lust": 0.9, "Gluttony": 0.9, "Sloth": 1.15, "Greed": 1.15}
+## A claim's cost in points, for the mark that would bring it on (rough; sim/check_v3.gd measures it).
+const CLAIM_COST := 100
+## Points a mark costs when it doesn't bring a claim.
+const MARK_COST := 15
+## Accept when the offer's value beats refusing by this much (tunes the accept share).
+const TEMPT_EDGE := 0.0
+
+
+func risk_for(p, game) -> float:
+	if game.v4 and p.sin:
+		return risk * SIN_RISK.get(p.sin.sin_name, 1.0)
+	return risk
+
+
+## Pact and Drag: the newest grudge, unless the leader is 200+ ahead of that seat; then the leader.
+func pick_target(game, me):
+	var lead = game.leader_other(me)
+	for i in range(me.grudges.size() - 1, -1, -1):
+		var o = game.players[me.grudges[i]]
+		if o != me and (lead == null or lead.score - o.score < 200):
+			return o
+	return lead
+
+
+## A rough value of each offer for this decision, in points. Accepts when gain - cost - mark > edge.
+## sim/check_v3.gd: offer id -> values seen (only while log_values is on).
+static var log_values := false
+static var value_log := {}
+
+
+func wants_temptation(game, p, from, offer: Dictionary) -> bool:
+	var v := offer_value(game, p, from, offer)
+	if log_values:
+		if not value_log.has(offer.id):
+			value_log[offer.id] = []
+		value_log[offer.id].append(v)
+	return v > TEMPT_EDGE
+
+
+func offer_value(game, p, from, offer: Dictionary) -> float:
+	var t = game.turn
+	var n: int = game._max_throw(p)
+	var left: int = Rules.STRIKES_TO_BUST - t.strikes
+	var ev_throw := expected_after_throw(n, t.points, left, game.chain, game.face_mult)
+	var best_now := maxf(ev_throw, float(t.points)) if game.may_bank(p) else ev_throw
+	var progress := clampf(float(game.leader_score()) / Rules.WIN_SCORE, 0.0, 1.0)
+	var die_worth := 110.0 * (1.0 - progress) + 20.0       # a die for the rest of the game
+	var base_turn: float = 45.0 * p.dice                        # a typical banked turn with these dice
+	var gain := 0.0
+	match offer.gain:
+		"points":
+			gain = offer.g
+		"clear":
+			# One Strike fewer: worth the chance it saves the turn.
+			var ev_after := expected_after_throw(n, t.points, left + 1, game.chain, game.face_mult)
+			gain = maxf(ev_after, float(t.points)) - best_now + (0.15 * t.points if t.strikes >= 2 else 0.0)
+		"dice":
+			gain = expected_after_throw(n + offer.g, t.points, left, game.chain, game.face_mult) - best_now
+		"x2":
+			gain = expected_after_throw(n, t.points, left, game.chain, game.face_mult * 2) - best_now
+		"die":
+			gain = die_worth
+	var cost := 0.0
+	var later := 1.0 - 0.5 * progress  # a later turn may never come
+	match offer.cost:
+		"lose":
+			cost = mini(offer.c, p.score)
+		"bank":
+			cost = offer.c * 0.9 * later
+		"strike":
+			cost = 0.3 * base_turn * later
+		"fewer":
+			cost = base_turn * float(offer.c) / maxf(1.0, p.dice) * later
+		"die":
+			cost = die_worth
+	var sname: String = from.sin.sin_name
+	var mark: float = MARK_COST
+	if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
+		mark = CLAIM_COST * (1.0 - progress * 0.5)
+	return gain - cost - mark

@@ -14,8 +14,34 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
+	if game.v4:
+		_glance_v4(game, me, turn)
+		return
 	await _glance(game, me, turn)
 	await _mimicry(game, me, turn)
+
+
+## Rules.V4: automatic. The first scoring throw each turn gains a copy of the last player's best die;
+## once a round (Mimicry, from 300) it gains two instead.
+func _glance_v4(game, me, turn) -> void:
+	var best: int = game.best_face_last_throw()
+	if turn.used_t1 or best < 4:
+		return
+	if game.opt("glance_first_throw", false) and turn.throws > 1:
+		return  # tuning: only the turn's first throw can gain the copy
+	if not _has_scorer(turn):
+		return
+	if game.opt("glance_trail", false) and game.leader_score() <= me.score:
+		return  # tuning: only while someone is ahead of Envy
+	var n := 1
+	if game.t2_available(me):
+		game.mark_t2(me)
+		n = int(game.opt("mimic", 2))
+	if game.view:
+		fired(game, me, "Mimicry" if n == 2 else "Green-Eyed Glance", "adds %s %d%s" % ["two" if n == 2 else "a", best, "s" if n == 2 else ""])
+	for i in n:
+		turn.faces.append(best)
+	turn.used_t1 = true
 
 
 func _has_scorer(turn) -> bool:

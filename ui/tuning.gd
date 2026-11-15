@@ -12,7 +12,11 @@ static var reduce_motion := false  # Settings: no shake, tilt, idle breathing, f
 const SPEED_MIN := 0.25
 const SPEED_MAX := 4.0
 const SHOW_DEBUG_SLIDER := false  # the on-screen speed slider (debug only)
-const TABLE_MODE := false  # debug: the old bot-table game on the menu ("Table (old)"); off in tester builds
+const RUN_MODE := false  # debug: the parked run game on the menu ("Run (old)", Docs/RunDesign.md); off in tester builds
+const BOT_SUMMARY := false  # the bot-turn summary paragraph on the thumb page (off at the table, TableDesign §5)
+const LINE_CHANCE := 0.5   # a Sin says a line on about this share of events (TableDesign §3)
+const LINE_HOLD := 0.8     # a line stays up this long, at reading speed even on a bot's turn
+const MARKS_FONT := 36     # mark pips, claims and debt chips under each window
 
 # ---- The four phases of every beat ----
 const ANTICIPATION := 0.3    # the element lifts / pulses
@@ -20,6 +24,7 @@ const ACTION := 0.4          # it moves (values travel)
 const IMPACT := 0.15         # scale punch, flash, shake, particles, haptic
 const HOLD := 0.4            # stillness so the result can be read
 const MIN_PHASE := 0.05      # no phase shrinks below this at high speed (unless skipped)
+const BOT_MIN_PHASE := 0.02  # on a bot's turn: its many short phases would otherwise add up past 2.5 s
 
 # ---- Focus ----
 const DIM := 0.4             # brightness of everything that isn't the focal point
@@ -39,7 +44,7 @@ const THINK := 0.6           # visible "thinking" before a bot's attack card
 const CARD_HOLD := 0.5       # the chosen move (attacks only), enlarged at centre, before it resolves
 # Pacing: a bot's turn should come in under 4 s at 1x (tests/bot_pace.gd measures it).
 static var pace := 1.0       # set per beat by the director: 1 on your turn, BOT_PACE on a bot's
-const BOT_PACE := 2.25       # a bot's beats play this much faster than yours
+const BOT_PACE := 6.0        # a bot's beats play this much faster than yours (table: a bot turn in 2.5 s, TableDesign §5)
 const FIRST_GAME_BOT_PACE := 0.5  # First Game: bots play at half that speed, so you can follow them
 static var bot_pace_scale := 1.0  # set by main._start
 const BOT_THINK := 0.5       # "thinking" before a bot's first throw of the turn only (scaled by BOT_PACE)
@@ -163,7 +168,7 @@ static func rate() -> float:
 
 ## A phase length at the current rate.
 static func t(seconds: float) -> float:
-	return maxf(MIN_PHASE, seconds / rate())
+	return maxf(MIN_PHASE if pace <= 1.0 else BOT_MIN_PHASE, seconds / rate())
 
 # ---- Legibility (Phase 2) ----
 const CAUSE_HOLD := 1.5        # a score change's cause ("Banked", "The Vig") stays beside the score, real seconds

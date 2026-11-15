@@ -265,3 +265,13 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Earlier run-board feedback, now moot: "Trial" rounds showed little and the word meant nothing; dice lit on 4-6 hid keepable low sets.
 - `Docs/TableDesign.md` draft 1 (101 lines): rule changes for OK (§1), pass-and-play, 315 Sin lines (9 events x 5 x 7), rivalry, 2.5 s bot turns, abilities reworded (5 automatic, no percentages), Solo ladder (7 hosts, 15 perks, 9 endings), 28 temptations with 7 claims, 8 terms, sim plan, build plan with every `core/`/`sins/`/`ai/` change listed. New values go in `Rules.V4` so V3 tests and saves still replay.
 - CLAUDE.md v1 line restored to pass-and-play. Next: Ben reviews the doc; on his OK, commit it and build 7b.
+
+## Phase 7 slice (a): V4 table vs bots (2026-11-14)
+- Ben approved draft 2 (slices; gain/cost offers; claim conditions; softer Lust) and the `core/`/`sins/`/`ai/` changes for slice (a) only.
+- `Rules.V4` (Play uses it; V2/V3 replay unchanged): flat numbers in multiples of 5, scores rounded down to 5, automatic Glance/Mimicry/Whisper/Untouchable/Fury, grudge targeting, Purgatory kept.
+- `sins/temptations.gd`: 28 offers, each one gain (points, clear, dice, x2, die) and one cost (lose, bank, strike, fewer, die). Offers come every turn from round 2, weight +4 per mark held; claim at 2 marks. No offers in a First Game. The first offer carries a tip (saved). Pending costs show as chips on the plate; marks and claims show as sigils.
+- Lines: `RulesText.LINES` (315), with half of events voiced (`Tuning.LINE_CHANCE`), shown in the marginalia note for now. Bot summary off; `Tuning.BOT_PACE` 6.0 gives 2.3 s a bot turn.
+- Menu: Play opens the table; the run game is behind `Tuning.RUN_MODE` (false).
+- Tests: table_check (1212 checks), lines_check, terms, run_check, replay, tutorial, ui_autoplay, run_ui_check, bot_pace (2.3 s) all pass. The UI audit flags only its synthetic 12-dice layout (5 pt gaps), as before.
+- Sim (§11): 4 seats balanced 21-29%; 7 seats off (Greed 29 vs 14 fair); claims 0.31 a game, under target; claim costs 18-30%.
+- Web build exported to `build/web`. Next: Ben plays five games, then slice (b).

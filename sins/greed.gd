@@ -14,14 +14,18 @@ func _init() -> void:
 
 
 func on_other_buy(_game, _me, _other, n: int) -> int:
-	return VIG * n
+	return int(game_opt(_game, "vig", VIG)) * n
 
 
 func gambit(game, me, bought: int) -> void:
 	if bought > 0:
 		return
-	var gain: int = mini(INTEREST_CAP, me.score * INTEREST_PCT / 100)
+	var gain: int = game.opt("interest", 0) if game.v4 else mini(INTEREST_CAP, me.score * INTEREST_PCT / 100)
 	me.score += gain
 	game.mark_t2(me)
 	if game.view:
 		fired(game, me, "Interest", "+%d for buying nothing" % gain)
+
+
+static func game_opt(game, key: String, default):
+	return game.opt(key, default) if game else default

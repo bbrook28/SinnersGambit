@@ -24,7 +24,7 @@ const RunBoard = preload("res://ui/run_board.gd")
 const Kits = preload("res://run/kits.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
-const SAVE_VERSION := 2  # 2: Rules.V3 and First Game mode (a V2 save can't replay)
+const SAVE_VERSION := 3  # 3: Rules.V4 with temptations (Docs/TableDesign.md); a V3 save can't replay
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
 const MENU_SEAL := 280
@@ -105,6 +105,9 @@ static var _wash_on_load := false   # a New game reload starts under the ink and
 static var _setup_on_load := false  # ...and opens on the Sin choice, not the menu
 static var _run_setup_on_load := false  # New run: the reload opens the run's Sin choice
 var run_rules_seen := false        # the one rules card for the run game has been shown
+var tempt_tip_seen := false        # the first temptation's tip has been shown (ui/human.gd)
+var _line_turn := -1               # a Sin line was said on this turn already (one a turn)
+var _lines_used := {}              # lines said this game (never twice)
 var _run_board: Control
 var _starting := false
 var _save := {}                    # the game in progress, as written to SAVE
@@ -160,6 +163,7 @@ func _ready() -> void:
 		Tuning.haptics = bool(cfg.get_value("ui", "haptics", true))
 		tutorial_pending = not bool(cfg.get_value("ui", "tutorial_done", false))
 		run_rules_seen = bool(cfg.get_value("ui", "run_rules_seen", false))
+		tempt_tip_seen = bool(cfg.get_value("ui", "tempt_tip_seen", false))
 		games_finished = int(cfg.get_value("ui", "games_finished", 0))
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
@@ -406,19 +410,14 @@ func _build_menu() -> void:
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(fill)
-	# Play is the solo run (Docs/RunDesign.md). Continue resumes a run at its shop. The old table
-	# game is a debug seal (Tuning.TABLE_MODE).
-	var saved := {}
-	var saved_run = RunBoard.load_run()
-	var play := _menu_seal("Play", MENU_PLAY, _open_run_setup)
-	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start_run("", saved_run))
-	if saved_run == null:
-		saved = {}
-	else:
-		saved = {"run": true}
-	var table: Button = _menu_seal(RulesText.run("menu_table"), MENU_SEAL, _open_setup) if Tuning.TABLE_MODE else null
+	# Play is the table game (Docs/TableDesign.md); Continue resumes it. The parked run game
+	# (Docs/RunDesign.md) is a debug seal (Tuning.RUN_MODE).
+	var saved := load_save()
+	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
+	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
+	var table: Button = _menu_seal(RulesText.run("menu_run"), MENU_SEAL, _open_run_setup) if Tuning.RUN_MODE else null
 	if table:
-		table.set_meta("kind", "table_old")
+		table.set_meta("kind", "run_old")
 	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
 	var rules := _menu_seal("Rulebook", MENU_SEAL, func(): open_rulebook("contents"))
 	var top_row := CenterContainer.new()
@@ -647,7 +646,7 @@ func _open_settings() -> void:
 	_setting_row(v, "Reduce Motion", _segmented(["On", "Off"], 0 if Tuning.reduce_motion else 1, func(i: int):
 		Tuning.reduce_motion = i == 0
 		_save_settings()))
-	if Tuning.TABLE_MODE:  # the old tutorial teaches the table game
+	if true:  # the tutorial teaches the table game
 		var tut := _segmented([RulesText.tutorial("settings_play")], -1, func(_i: int):
 			_replay_tutorial())
 		_setting_row(v, "Tutorial", tut)
@@ -658,7 +657,10 @@ func _open_settings() -> void:
 		b.pressed.connect(func():
 			var n := RunBoard.export_log()
 			b.text = RulesText.run("exported_short", {"n": n}))
-	_setting_row(v, "Run log", exp)
+	if Tuning.RUN_MODE:
+		_setting_row(v, "Run log", exp)
+	else:
+		exp.queue_free()
 	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
 	var bc := CenterContainer.new()
 	bc.add_child(back)
@@ -865,8 +867,11 @@ func _start(my_sin: Script, saved := {}) -> void:
 	for e in order:
 		bots.append(human if e[1] else bot)
 		sins.append(SIN_SCRIPTS[e[0]].new())
-	var options := Rules.V3.duplicate()
+	var options := Rules.V4.duplicate()
 	options["tier2"] = not _first_game
+	options["temptations"] = not _first_game  # no temptations in a First Game (TableDesign Â§7)
+	_line_turn = -1
+	_lines_used = {}
 	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
 	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
 	game = Game.new(bots, seed_value, options, sins)
@@ -891,6 +896,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 		_save_settings()
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
+	_end_line(w)
 	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
 	show_prompt("The game is done. %s reached %d." % [player_name(w), w.score], [["New game", "new"]])
 	_on_new_game_wait()
@@ -1214,8 +1220,15 @@ func _build_glance(zone: VBoxContainer) -> void:
 			l.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_l.clip_text = true
 		col.add_child(plate)
+		# Marks (Sin-coloured pips), claims and debts (TableDesign Â§7), over the window's foot.
+		var marks_l := Style.body("", Tuning.MARKS_FONT, Style.C_IVORY, 6)
+		marks_l.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		marks_l.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		marks_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		marks_l.fit_content = true
+		win_box.add_child(marks_l)
 		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname,
-			"mine": mine, "col": col, "crown": crown, "badges": badges})
+			"mine": mine, "col": col, "crown": crown, "badges": badges, "marks": marks_l})
 
 
 ## Your column: a gold frame round window, name and plate, over a wash of your Sin's colour.
@@ -1622,6 +1635,7 @@ func _save_settings() -> void:
 	cfg.set_value("ui", "table", Tuning.table_size)
 	cfg.set_value("ui", "games_finished", games_finished)
 	cfg.set_value("ui", "run_rules_seen", run_rules_seen)
+	cfg.set_value("ui", "tempt_tip_seen", tempt_tip_seen)
 	cfg.save(SETTINGS)
 
 
@@ -1838,7 +1852,9 @@ func _snapshot() -> Dictionary:
 			badges.append("drag")
 		if p.pact_by != null:
 			badges.append("pact")
-		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag, "badges": badges})
+		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag, "badges": badges,
+			"marks": p.marks.duplicate(), "claims": p.claims.duplicate(),
+			"debts": [p.pend_bank, p.pend_strike, p.pend_fewer, p.pend_die]})
 	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null}
 	var t = game.turn
 	if t:
@@ -2034,6 +2050,8 @@ func set_waiting_text(text: String) -> void:
 
 ## Score, dice and status badges (Phase 5: the name stays; a status is a badge on the window).
 func _refresh_plate(pt: Dictionary, ps: Dictionary) -> void:
+	if pt.has("marks") and ps.has("marks"):
+		_refresh_marks_line(pt, ps)
 	pt.score.text = str(ps.score)
 	pt.dice.text = str(ps.dice)
 	pt.name.add_theme_color_override("font_color", Style.C_STRIKE.lightened(0.4) if ps.purg else (Style.C_GOLD if pt.mine else Style.C_BONE))
@@ -2166,6 +2184,11 @@ func player_name(p) -> String:
 
 ## Every rules log line becomes one queued beat that shows the state as it was when said.
 func log_line(text: String) -> void:
+	var tm := text.find("'s temptation: ")
+	if tm >= 0:
+		text = text.substr(0, tm) + "'s %s: %s" % [RulesText.table("temptation"), RulesText.tempt(text.substr(tm + 15).strip_edges())]
+	elif text.find("'s answer: ") >= 0:
+		text = text.replace("'s answer: ", "'s %s: " % RulesText.table("answer"))
 	if _q == null or game == null or _portraits.is_empty():
 		_show_log(text)
 		return
@@ -2277,6 +2300,9 @@ func turn_started(p) -> void:
 
 ## A turn starts: yours clears the summary; a bot's adds its line ("Wrath: ...").
 func _summary_turn(p) -> void:
+	if not Tuning.BOT_SUMMARY and _summary:
+		_summary.visible = false
+		return
 	if _summary_rows == null or _tutor != null:  # the tutorial explains its own bot turns
 		return
 	_summary_parts = []
@@ -2299,6 +2325,8 @@ func _summary_turn(p) -> void:
 
 ## Called by the director after each beat of a bot's turn: what it did, in a few words.
 func summary_event(kind: String, mt: RegExMatch, text: String, prev: Dictionary, snap: Dictionary) -> void:
+	if not Tuning.BOT_SUMMARY:
+		return
 	if _summary_rows == null or _summary_rows.get_child_count() == 0:
 		return
 	var part := ""
@@ -2911,3 +2939,101 @@ func _page_turn(node: Control, open: bool) -> void:
 		node.visible = false
 		node.scale = Vector2.ONE
 		node.modulate = Color.WHITE
+
+
+# ---------- The table (Rules.V4, Docs/TableDesign.md) ----------
+
+## Under a window: the marks this player holds (small sigils), the Sins that claim them (large,
+## red), and what they still owe (chips).
+func _refresh_marks_line(pt: Dictionary, ps: Dictionary) -> void:
+	var parts := []
+	for s in ps.marks:
+		for i in int(ps.marks[s]):
+			parts.append("[img=30x30]%s[/img]" % Art.sigil_path(s))
+	for s in ps.claims:
+		parts.append("[img color=#ff7a6a width=44 height=44]%s[/img]" % Art.sigil_path(s))
+	var d: Array = ps.debts
+	if d[0] > 0:
+		parts.append(RulesText.table("chip_bank", {"n": d[0]}))
+	if d[1] > 0:
+		parts.append(RulesText.table("chip_strike"))
+	if d[2] > 0:
+		parts.append(RulesText.table("chip_fewer", {"n": d[2]}))
+	if d[3] > 0:
+		parts.append(RulesText.table("chip_die"))
+	var text := " ".join(parts)
+	if pt.marks.get_meta("text", "") != text:
+		pt.marks.set_meta("text", text)
+		Style.set_body(pt.marks, text)
+
+
+## core/game.gd calls this at a bust, a big Bank, a change of leader and an attack: about half the
+## time one Sin bot says a line about it (RulesText.LINES), at most one a turn, never one twice a game.
+func table_event(kind: String, p, other = null) -> void:
+	if game == null or not game.v4 or _tutor != null:
+		return
+	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
+	if _line_turn == turn_id:
+		return
+	var bots: Array = game.players.filter(func(o): return o.bot != human)
+	var speaker = null
+	var ev := ""
+	var about = null
+	match kind:
+		"bust":
+			var rivals: Array = bots.filter(func(o): return o != p)
+			if p.bot != human and (rivals.is_empty() or randf() < 0.5):
+				speaker = p
+				ev = "own_bust"
+			elif not rivals.is_empty():
+				var wrath := rivals.filter(func(o): return o.sin.sin_name == "Wrath")
+				speaker = wrath[0] if not wrath.is_empty() and randf() < 0.5 else rivals[randi() % rivals.size()]
+				ev = "rival_bust"
+				about = p
+		"bank":
+			if p.bot != human:
+				speaker = p
+				ev = "big_bank"
+		"lead":
+			if p.bot != human:
+				speaker = p
+				ev = "lead"
+		"attacked":  # p was hit, other aimed
+			if other.bot != human and (p.bot == human or randf() < 0.5):
+				speaker = other
+				ev = "aim"
+				about = p
+			elif p.bot != human:
+				speaker = p
+				ev = "attacked"
+				about = other
+	if speaker == null or randf() >= Tuning.LINE_CHANCE:
+		return
+	if _say_line(speaker, ev, about):
+		_line_turn = turn_id
+
+
+## Queues one line from `speaker` (a bot's PlayerState). Returns false when it has none left.
+func _say_line(speaker, ev: String, about) -> bool:
+	var sname: String = speaker.sin.sin_name
+	var pool: Array = RulesText.LINES[sname][ev].filter(func(l): return not _lines_used.has(l))
+	if pool.is_empty():
+		return false
+	var line: String = pool[randi() % pool.size()]
+	_lines_used[line] = true
+	line = line.replace("{name}", about.sin.sin_name if about else "")
+	var seat: int = game.players.find(speaker)
+	_q.push(func(): await _dir.line(seat, line))
+	return true
+
+
+## Game over: the winner, or one of the Sins that lost to you, has the last word.
+func _end_line(w) -> void:
+	if game == null or not game.v4:
+		return
+	if w.bot != human:
+		_say_line(w, "win", null)
+		return
+	var bots: Array = game.players.filter(func(o): return o.bot != human)
+	if not bots.is_empty():
+		_say_line(bots[randi() % bots.size()], "lose", w)

@@ -17,18 +17,24 @@ func _init() -> void:
 
 
 func on_other_bust(game, me, other) -> void:
-	me.score += RAGE
+	var rage: int = game.opt("rage", RAGE)
+	me.score += rage
 	if game.view:
-		fired(game, me, "Spark of Rage", "+%d (%s busted)" % [RAGE, game.pname(other)])
+		fired(game, me, "Spark of Rage", "+%d (%s busted)" % [rage, game.pname(other)])
 
 
 func on_other_throw(game, me, other, turn) -> void:
 	var pts: int = Rules.score(turn.faces, game.chain, game.face_mult)
-	if me.bot.human:
+	var fury_dice: int = game.opt("fury_dice", FURY_DICE)
+	if game.v4:  # automatic (TableDesign Â§5): lower bar on a rival who aimed at Wrath
+		var bar: int = game.opt("fury_grudge", 100) if me.grudges.has(other.seat) else game.opt("fury_trigger", FURY_TRIGGER)
+		if pts < bar:
+			return
+	elif me.bot.human:
 		if pts <= 0 or not await me.bot.ask(game, "Fury? %s's throw is worth %d. Make them reroll their %d best dice." % [game.pname(other), pts, FURY_DICE]):
 			return
 	elif pts < FURY_TRIGGER:
 		return
-	await game.attack(me, other, "reroll", FURY_DICE)
+	await game.attack(me, other, "reroll", fury_dice)
 	if game.view:
 		game.say("  Rerolled: %s" % game._faces_str(turn.faces))

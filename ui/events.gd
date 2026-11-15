@@ -17,7 +17,7 @@ const TABLE := [
 	["vig", "^\\s+The Vig: ", 0.4],
 	["attack", " (unleashes Fury on|binds a Pact on|Drags) ", 0.6],
 	["bounce", " is Untouchable: ", 0.5],
-	["attack_effect", "^\\s+.+ (must reroll|gives \\d+% of|throws at most)", 0.4],
+	["attack_effect", "^\\s+.+ (must reroll|gives \\d+%? of|throws at most)", 0.4],
 	["indulgence", " pays the Indulgence ", 0.5],
 	["indulgence", "^\\s+No 6(:|, and) ", 0.5],  # V3: pays (or can't) and plays on
 	["redemption", "^(.+?) rolls for Redemption: ", 0.6],

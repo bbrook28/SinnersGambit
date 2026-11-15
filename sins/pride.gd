@@ -17,10 +17,11 @@ func _init() -> void:
 
 
 func before_turn(game, me, turn) -> void:
-	var target: int = BOT_TARGET
+	var targets: Array = game.opt("hubris_targets", TARGETS)
+	var target: int = targets[0] if game.v4 else BOT_TARGET
 	if me.bot.human:
 		var options := [["No bet", -1]]
-		for t in TARGETS:
+		for t in targets:
 			options.append(["Bet %d" % t, t])
 		target = await me.bot.pick(game, "Hubris? Bet you'll bank at least this: x%s if you do, 0 if not." % _mult_str(), options)
 		if target < 0:
@@ -33,7 +34,9 @@ func before_turn(game, me, turn) -> void:
 func on_bank(_game, _me, turn, points: int) -> int:
 	if turn.min_points < 0:
 		return points
-	return int(points * MULT) if points >= turn.min_points else 0
+	var mult: float = _game.opt("hubris_mult", MULT) if _game else MULT
+	var out := int(points * mult) if points >= turn.min_points else 0
+	return out / 5 * 5 if _game and _game.round5 else out
 
 
 static func _mult_str() -> String:
@@ -43,6 +46,6 @@ static func _mult_str() -> String:
 func bounces(game, me, attacker, kind: String) -> bool:
 	if not game.t2_available(me):
 		return false
-	if me.bot.human:
+	if me.bot.human and not game.v4:
 		return await me.bot.ask(game, "Untouchable? Bounce %s's %s back onto them." % [game.pname(attacker), {"reroll": "Fury", "pact": "Binding Pact", "drag": "Drag"}[kind]])
 	return true

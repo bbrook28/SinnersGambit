@@ -6,8 +6,8 @@ Base rules stay `Rules.V3`: throw all your dice; 4, 5, 6 score 5x face; several 
 1. A throw's points round down to a multiple of 5 (two scorers 20+25 = 67.5 now shows 65).
 2. Nothing asks a player who isn't holding the phone: off-turn abilities (Fury, Untouchable) become automatic.
 3. Always-yes abilities become automatic: Green-Eyed Glance, Mimicry, Whisper of Desire, Untouchable (§5).
-4. No percentages: Interest is a flat 50, Binding Pact takes a flat 50, The Vig is 20 (§5).
-5. Envy nerf (win share 2.06 at 4 seats): Mimicry makes Glance add two dice, not three extra in total.
+4. No percentages: Interest is a flat 75, Binding Pact takes a flat 50, The Vig is 40 (§5).
+5. Envy nerf (win share 2.06 at 4 seats): Glance only while Envy trails the leader; Mimicry makes it two copies.
 6. "Greater" leaves the screen: the second ability reads "From 300, once a round:". First Game (Basic only) stays for your first game and Circle 1.
 7. New: temptations, marks and claims (§7), house rules and perks in Solo (§6).
 
@@ -44,11 +44,11 @@ Voices: Wrath barks and burns; Greed keeps the books; Lust wants more; Envy comp
 | Sin | Basic (new wording) | From 300, once a round |
 |---|---|---|
 | Wrath | **Spark of Rage:** +40 whenever a rival busts. | **Fury:** The first rival throw worth 150+ rerolls its three best dice. (auto) |
-| Greed | **The Vig:** When a rival buys a die, you get 20 of its price. | **Interest:** Bank and buy no dice: +50. |
-| Gluttony | **Feast:** Once a turn, tap a die to feed it for +50; a fed Strike doesn't count. | **Gorge:** Your first die each turn costs 70. |
+| Greed | **The Vig:** When a rival buys a die, you get 40 of its price. | **Interest:** Bank and buy no dice: +75. |
+| Gluttony | **Feast:** Once a turn, tap a die to feed it for +75; a fed Strike doesn't count. | **Gorge:** Your first die each turn costs 40. |
 | Lust | **Whisper of Desire:** Once a turn, your 3 or 2 becomes the last player's best die. (auto) | **Binding Pact:** Tap a rival; take 50 of the next turn they Bank. |
-| Envy | **Green-Eyed Glance:** Your first scoring throw each turn gains a copy of the last player's best die. (auto) | **Mimicry:** That throw gains two copies instead. (auto) |
-| Pride | **Hubris:** Before throwing, bet 100, 150 or 200: Bank that much for x1.5, else 0. | **Untouchable:** The first ability aimed at you bounces back. (auto) |
+| Envy | **Green-Eyed Glance:** While you trail the leader, your first scoring throw each turn gains a copy of the last player's best die. (auto) | **Mimicry:** That throw gains two copies instead. (auto) |
+| Pride | **Hubris:** Before throwing, bet 150, 200 or 250: Bank that much for x1.5, else 0. | **Untouchable:** The first ability aimed at you bounces back. (auto) |
 | Sloth | **Lazy Bones:** Your first Strike each turn doesn't count. | **Drag:** Tap a rival; they throw 3 fewer dice next turn (never below 1). |
 Choices left: Feast (which die, or none), Hubris (bet or not), Pact and Drag (which rival). Floors as now: Feast and Gorge keep you at 2 dice.
 
@@ -69,20 +69,20 @@ Perks (15): 1 Start every table with 4 dice. 2 Start every table with 100. 3 You
 **Endings** (after C7, by marks taken over the whole descent): **The Saint** (3 marks or fewer); **The Eighth Sin** (marks from all seven Sins); otherwise **Claimed**: the Sin you took the most marks from gives you its seat (7 endings, one painted scene and 3 lines each). Nine endings; the collection shows which you've seen. Endings and perk icons use placeholder art until Phase 9.
 
 ## 7. Temptations, marks, claims
-- At a throw-or-bank decision, at most once a turn, on about one turn in three (`Tuning.TEMPT_CHANCE`), never in a game's first round, a First Game or Circle 1: one rival Sin offers. Pick weight 1, +2 for each of its marks the player holds, so a Sin that has you hooked comes back. The offer is a scroll from its window, 12 words or fewer, **Accept** / **Refuse**, one tap. The first offer you ever see comes with one tip: "Accept for the gain and take its mark. Three marks, and it claims you." Bots get offers too; the table sees them accept or refuse with a line.
+- At a throw-or-bank decision, at most once a turn, from the game's second round on (never in a First Game or Circle 1): one rival Sin offers, at the first decision of the turn where one of its offers fits (`tempt_chance` 1.0: every turn that has one). Pick weight 1, +4 for each of its marks the player holds, so a Sin that has you hooked comes back. The offer is a scroll from its window, 12 words or fewer, **Accept** / **Refuse**, one tap. The first offer you ever see comes with one tip: "Accept for the gain and take its mark. Two marks, and it claims you." Bots get offers too; the table sees them accept or refuse.
 - Every offer is one gain and one cost. Gains: **points now**; **clear a Strike**; **extra dice this throw** and **x2 this throw** (accepting throws at once); **a free die** (from the Supply). Costs: **lose points now** (never below 0); **lose points from your next Bank**; **start next turn with a Strike**; **fewer dice next turn** (never below 1); **lose a die** (after this turn, never below 2, back to the Supply). A pending cost is a chip on your plate until paid; a bust doesn't pay it.
-- Accepting gives you that Sin's **mark** (Sin-coloured pips by your window). At 3 marks of one Sin, its **claim** binds you for the rest of the table and those marks clear. Sim target 0.5-1.5 claims per 4-seat game, tuned by `TEMPT_CHANCE` first, then the threshold. Solo counts every mark ever taken for the endings.
+- Accepting gives you that Sin's **mark** (its sigil by your window). At **2** marks of one Sin, its **claim** binds you for the rest of the table and those marks clear. Sim target 0.5-1.5 claims per 4-seat game; at 3 marks claims came 0.1 a game, at 2 about 0.3 (§11). Solo counts every mark ever taken for the endings.
 
-| Sin | Offers: gain, cost (when) | Claim at 3 marks |
+| Sin | Offers: gain, cost (when) | Claim at 2 marks |
 |---|---|---|
-| Wrath | (2 Strikes) Wipe a Strike. Start your next turn with one.<br>(not leading) Take 75 from the leader. Start next turn with a Strike.<br>Throw at x2. Lose 50 now.<br>Two extra dice this throw. Your next Bank loses 50. | Each bust costs you 50. |
-| Greed | A free die. Your next Bank loses 100.<br>(2 Strikes) Clear a Strike. Your next Bank loses 75.<br>Throw at x2. Your next Bank loses 75.<br>Take 100 now. I take a die after this turn. | Every Bank pays Greed 20. |
-| Lust | Throw at x2. One fewer die next turn.<br>One extra die this throw. Start next turn with a Strike.<br>Two extra dice this throw. One fewer next turn.<br>(1+ Strike) Clear a Strike. Your next Bank loses 50. | You can't Bank before your third throw. |
-| Envy | (you trail) Two extra dice this throw. Start next turn with a Strike.<br>(you trail) Throw at x2. Start next turn with a Strike.<br>(you trail) A free die. Lose 75 now.<br>(1+ Strike) Clear a Strike. Two fewer dice next turn. | While you lead, each Bank pays Envy 25. |
-| Pride | Throw at x2. Your next Bank loses 100.<br>Two extra dice this throw. Two fewer next turn.<br>(1+ Strike) Clear a Strike. Lose 50 now.<br>Take 100 now. Start next turn with a Strike. | Each Bank must beat your last, or it scores nothing. |
-| Gluttony | Two extra dice this throw. I eat one after.<br>(1+ Strike) Clear a Strike. I eat a die after.<br>Throw at x2. I eat a die after.<br>A free die. Start next turn with a Strike. | Each bust eats one of your dice (never below 2). |
-| Sloth | Take 75 now. Two fewer dice next turn.<br>(2 Strikes) Clear a Strike. One fewer die next turn.<br>A free die. Two fewer dice next turn.<br>Take 50 now. Start next turn with a Strike. | You can't throw more than three times a turn. |
-Each claim's cost is measured in win chance (§9): target 15-35%; Pride's and Lust's get reworked if above, Sloth's if below.
+| Wrath | (2 Strikes) Wipe a Strike. Your next Bank loses 25.<br>(not leading) Take 60 from the leader. Start next turn with a Strike.<br>Throw at x2. Lose 50 now.<br>(no Strikes) Two extra dice this throw. Your next Bank loses 50. | Each bust costs you 125. |
+| Greed | A free die. Your next Bank loses 75.<br>(2 Strikes) Clear a Strike. Your next Bank loses 25.<br>Throw at x2. Your next Bank loses 50.<br>Take 100 now. I take a die after this turn. | Every Bank pays Greed 20. |
+| Lust | Throw at x2. One fewer die next turn.<br>Take 50 now. One fewer die next turn.<br>(no Strikes) Two extra dice this throw. One fewer next turn.<br>(1+ Strike) Forget that Strike. Your next Bank loses 25. | You can't Bank before your second throw. |
+| Envy | (you trail, no Strikes) Two extra dice this throw. Start next turn with a Strike.<br>(you trail) Throw at x2. Start next turn with a Strike.<br>(you trail) A free die, like theirs. Lose 75 now.<br>(1+ Strike) Clear a Strike. One fewer die next turn. | While you lead, each Bank pays Envy 25. |
+| Pride | Throw at x2, like royalty. Your next Bank loses 50.<br>(no Strikes) Two extra dice, as you deserve. One fewer next turn.<br>(1+ Strike) Clear a Strike. Lose 25 now.<br>Take 60 now. Start next turn with a Strike. | A Bank under 200 scores nothing. |
+| Gluttony | (no Strikes) Two extra dice this throw. Lose 25 now.<br>(1+ Strike) Clear a Strike. I eat a die after.<br>Throw at x2. I eat a die after.<br>A free die. Start next turn with a Strike. | Each bust eats one of your dice (never below 2). |
+| Sloth | Take 90 now. Two fewer dice next turn.<br>(2 Strikes) Rest that Strike. One fewer die next turn.<br>A free die. Two fewer dice next turn.<br>Take 60 and rest. Start next turn with a Strike. | You throw two fewer dice (never below 1). |
+Claim costs in win chance (§9, relative drop, target 15-35%): Wrath 18, Greed 21, Lust 23, Envy 18, Pride 21, Gluttony 17, Sloth 30. The first drafts were Lust 56 and Pride 54 (too high; Lust was "before your third throw", Pride "beat your last Bank"), Sloth 3 and Wrath 7 (too low; "three throws a turn", "a bust costs 50").
 
 ## 8. Terms a new player learns (8)
 Strike, Bust, Bank, Purgatory, Temptation, Mark, Claim, Circle. Plain words, not terms: seat, house rule, perk, host (shown as "Wrath's table"). "Greater", "Supply", "Line", "Ladder" never appear on screen.
@@ -104,3 +104,12 @@ Strike, Bust, Bank, Purgatory, Temptation, Mark, Claim, Circle. Plain words, not
 - **New:** `ladder/ladder_state.gd` (Circles, hosts, bots, perks, marks, unlocks, save), `ladder/perks.gd`, `ui/table_setup.gd`, `ui/ladder_screen.gd` (Circle path, perk pick, ending), `tests/table_check.gd` (V4 rules, each offer and claim, house rules, perks, save), `tests/lines_check.gd` (6 words, 5 per event, no repeats).
 - **ui/:** `main.gd` / `director.gd`: menu, handoff beat, staged bot beat, line and offer scrolls, mark pips. `rules_text.gd`: all lines, offers, claims, perks, house rules, endings, ability wording. `tuning.gd`: `BOT_TURN_MAX`, `TEMPT_CHANCE`, `RUN_MODE` (off; replaces `TABLE_MODE`). `tests/bot_pace.gd` limit 4 s to 2.5 s.
 - All current tests keep passing, run-mode tests included.
+
+## 11. Slice (a) results (`check_v3.gd -- 4000 v4`, bots only)
+- **Balance, 4 seats (fair 25):** Wrath 24.0, Greed 25.1, Lust 26.7, Envy 28.5, Pride 28.2, Gluttony 21.4, Sloth 21.1. It got there through the §5 numbers (Vig 40, Interest 75, Feast 75, Gorge 40, Hubris 150/200/250, Glance only while trailing) and bot risk by Sin. **7 seats (fair 14.3) is off:** Greed 29.4; Lust 9.6, Sloth 8.2. Tune that in slice (b), when the Table setup opens up 7 seats.
+- **Pace:** 5.4 rounds, about 1.6 min with you and 3 bots. A bot turn averages 2.3 s (90th percentile 3.3 s).
+- **Temptations:** 13.7 offers a game at 4 seats, 35% accepted. Every offer is taken 7-52% of the time; w4, l3, p2 and u2 sit at 7-11% (the bot dislikes losing a die to take dice), so watch those in play.
+- **Claims: 0.31 a game, below the 0.5-1.5 target.** It's 0.1 at 3 marks. Offers already come every turn and weigh +4 a mark, and bots price a claim honestly (a 100-point loss, the ~18-20% it costs). A bot that underprices claims (60) gives 0.83. **Recommendation:** keep the bots honest and see how often you get claimed in five games. Humans accept more than bots do; if claims are still rare, drop the claim's bot price to 60.
+- **Claim cost (relative win drop):** Wrath 18, Greed 19, Lust 19, Envy 18, Pride 25, Gluttony 18, Sloth 30. All within 15-35%. For scale, losing 50/100/150 points costs 13/20/26.
+- **Purgatory:** 6.1 a game, half freed by a 6. Turning it off moves no Sin more than 2.1 points (Envy -2.1) and saves no time. Keep it for the drama; it doesn't skew balance.
+- **Placeholders in this slice:** lines and offers show in the marginalia note, not a scroll. The Feast prompt is still Yes/No. The bot values offers by heuristic, not rollouts. "Greater" still appears in the rulebook pages.

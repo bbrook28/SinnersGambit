@@ -13,18 +13,23 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
-	if turn.used_t1:
+	var allowed: int = game.opt("lazy", 1)  # Strikes ignored a turn (V4 tuning)
+	if turn.used_t1 or turn.lazy_used >= allowed:
 		return
 	for i in turn.faces.size():
 		if turn.faces[i] <= 2:
 			if game.view:
 				fired(game, me, "Lazy Bones", "ignores a Strike (%d)" % turn.faces[i])
 			turn.faces[i] = 3  # treated as a blank: no points, no Strike
-			turn.used_t1 = true
-			return
+			turn.lazy_used += 1
+			if turn.lazy_used >= allowed:
+				turn.used_t1 = true
+			if turn.lazy_used >= allowed or not game.v4:
+				return
 
 
 func gambit(game, me, _bought: int) -> void:
-	var target = await pick_target(game, me, "Drag (they throw %d fewer dice next turn)" % DRAG, game.leader_other(me))
+	var drag: int = game.opt("drag", DRAG)
+	var target = await pick_target(game, me, "Drag (they throw %d fewer dice next turn)" % drag, game.leader_other(me))
 	if target:
-		await game.attack(me, target, "drag", DRAG)
+		await game.attack(me, target, "drag", drag)

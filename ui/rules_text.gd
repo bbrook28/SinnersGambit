@@ -18,10 +18,10 @@ const SIN_ORDER := ["Wrath", "Greed", "Lust", "Envy", "Pride", "Gluttony", "Slot
 
 ## Every number the text uses, from the config.
 static func vals() -> Dictionary:
-	var r: Dictionary = Rules.V3
+	var r: Dictionary = Rules.V4  # the table game plays V4 (Docs/TableDesign.md)
 	var fm: int = r.face_mult
 	var chain: float = r.chain
-	var targets: Array = Pride.TARGETS
+	var targets: Array = r.hubris_targets
 	var tstr := ", ".join(targets.slice(0, targets.size() - 1).map(func(t): return str(t))) + " or %d" % targets[-1]
 	return {
 		"win": Rules.WIN_SCORE, "strikes": Rules.STRIKES_TO_BUST, "greater_at": Rules.TIER2_SCORE,
@@ -31,12 +31,12 @@ static func vals() -> Dictionary:
 		"x2": _mult(1.0 + chain), "x3": _mult(1.0 + chain * 2), "x4": _mult(1.0 + chain * 3),
 		# Worked example: 4, 6, 3.
 		"ex_sum": 10 * fm, "ex_total": int(10 * fm * (1.0 + chain)),
-		"rage": Wrath.RAGE, "fury_dice": _num_word(Wrath.FURY_DICE),
-		"vig": Greed.VIG, "interest_pct": Greed.INTEREST_PCT, "interest_cap": Greed.INTEREST_CAP,
-		"pact_pct": Lust.PACT_PCT, "mimic": _num_word(Envy.MIMIC_COPIES),
+		"rage": r.rage, "fury_dice": _num_word(r.fury_dice), "fury_trigger": r.fury_trigger,
+		"vig": r.vig, "interest": r.interest, "interest_pct": Greed.INTEREST_PCT, "interest_cap": Greed.INTEREST_CAP,
+		"pact": r.pact, "pact_pct": Lust.PACT_PCT, "mimic": _num_word(Envy.MIMIC_COPIES),
 		"hubris_targets": tstr, "hubris_mult": _mult(Pride.MULT),
-		"feast": Gluttony.FEAST, "gorge": Gluttony.GORGE_PRICE,
-		"drag": Sloth.DRAG,
+		"feast": r.feast, "gorge": r.gorge,
+		"drag": r.drag, "marks": _num_word(r.marks_to_claim).capitalize(),
 	}
 
 
@@ -104,6 +104,10 @@ const PAGES := [
 		"Every Sin has a Basic ability you can use from the start.",
 		"The first time you reach {greater_at} points, your Greater ability unlocks for good. You can use it once a round.",
 		"First Game: Basic abilities only, at a table of 4. Finishing a game unlocks Greater abilities and the Table of 7."]},
+	{"id": "temptations", "title": "Temptations", "art": "", "body": [
+		"Once a turn, a rival Sin may offer you a deal: a gain now for a cost later. Accept or refuse with one tap.",
+		"Accepting gives you that Sin's mark. A Sin whose mark you hold comes back to tempt you again.",
+		"{marks} marks from one Sin, and it claims you: its claim binds you for the rest of the game."]},
 	{"id": "winning", "title": "Winning", "art": "winning", "body": [
 		"The first player to reach {win} points wins the game at once."]},
 	{"id": "all_sins", "title": "The Seven Sins", "art": "", "body": []},
@@ -122,26 +126,26 @@ static func page_index(id: String) -> int:
 ## epithet, playstyle (one line), complexity (1-3), [Basic name, text], [Greater name, text].
 const SINS := {
 	"Wrath": {"epithet": "the Avenger", "play": "Profit when others fall.", "pips": 1,
-		"basic": ["Spark of Rage", "Gain {rage} whenever another player busts."],
-		"greater": ["Fury", "Once a round, make an opponent reroll their {fury_dice} best dice right after they throw."]},
+		"basic": ["Spark of Rage", "+{rage} whenever a rival busts."],
+		"greater": ["Fury", "The first rival throw worth {fury_trigger}+ rerolls its {fury_dice} best dice."]},
 	"Greed": {"epithet": "the Hoarder", "play": "Grow rich on everyone's spending.", "pips": 1,
-		"basic": ["The Vig", "When an opponent buys a die, {vig} of its price goes to you."],
-		"greater": ["Interest", "Bank and buy nothing to gain {interest_pct}% of your score, up to {interest_cap}."]},
+		"basic": ["The Vig", "When a rival buys a die, you get {vig} of its price."],
+		"greater": ["Interest", "Bank and buy no dice: +{interest}."]},
 	"Lust": {"epithet": "the Temptress", "play": "Take the best of what others throw.", "pips": 2,
-		"basic": ["Whisper of Desire", "Once a turn, turn a 3 or 2 into the previous player's best die."],
-		"greater": ["Binding Pact", "Pick an opponent; you take {pact_pct}% of the next turn they bank."]},
+		"basic": ["Whisper of Desire", "Once a turn, your 3 or 2 becomes the last player's best die."],
+		"greater": ["Binding Pact", "Pick a rival; take {pact} of the next turn they Bank."]},
 	"Envy": {"epithet": "the Mirror", "play": "Copy the previous player's best die.", "pips": 2,
-		"basic": ["Green-Eyed Glance", "Once a turn, add a copy of the previous player's best die to this throw."],
-		"greater": ["Mimicry", "Once a round, add {mimic} copies of the previous player's best die to this throw."]},
+		"basic": ["Green-Eyed Glance", "While behind, your first scoring throw each turn copies the last player's best die."],
+		"greater": ["Mimicry", "That throw gains two copies instead."]},
 	"Pride": {"epithet": "the Untouchable", "play": "Bet on yourself and win big.", "pips": 3,
-		"basic": ["Hubris", "Before throwing, bet {hubris_targets}: bank at least that for {hubris_mult}, else 0."],
-		"greater": ["Untouchable", "Once a round, the first ability used against you hits its user instead."]},
+		"basic": ["Hubris", "Before throwing, bet {hubris_targets}: Bank that much for {hubris_mult}, else 0."],
+		"greater": ["Untouchable", "The first ability aimed at you bounces back."]},
 	"Gluttony": {"epithet": "the Devourer", "play": "Trade dice for points.", "pips": 3,
-		"basic": ["Feast", "Once a turn, sacrifice a thrown die for {feast}; a sacrificed Strike doesn't count."],
-		"greater": ["Gorge", "Your first die each turn costs {gorge} instead of {die_cost}."]},
+		"basic": ["Feast", "Once a turn, feed a thrown die for +{feast}; a fed Strike doesn't count."],
+		"greater": ["Gorge", "Your first die each turn costs {gorge}."]},
 	"Sloth": {"epithet": "the Delayer", "play": "Shrug off a Strike every turn.", "pips": 1,
 		"basic": ["Lazy Bones", "Your first Strike each turn doesn't count."],
-		"greater": ["Drag", "Pick an opponent; next turn they throw {drag} fewer dice (never under 1)."]},
+		"greater": ["Drag", "Pick a rival; they throw {drag} fewer dice next turn (never below 1)."]},
 }
 
 
@@ -194,7 +198,10 @@ const TERMS := {
 	"Greater ability": ["Your Sin's second ability. It unlocks for good the first time you reach {greater_at}, and you can use it once a round.", "sins"],
 	"Greater ready": ["This player's Greater ability is unlocked and can be used this round.", "sins"],
 	"Dragged": ["Sloth's Drag: this player throws {drag} fewer dice next turn (never under 1).", "all_sins"],
-	"Pact": ["Lust's Binding Pact: Lust takes {pact_pct}% of the next turn this player banks.", "all_sins"],
+	"Pact": ["Lust's Binding Pact: Lust takes {pact} of the next turn this player banks.", "all_sins"],
+	"Temptation": ["A rival Sin's offer on your turn: a gain now for a cost later. Accepting gives you its mark.", "temptations"],
+	"Mark": ["What you take from a Sin when you accept its temptation. {marks} from one Sin, and it claims you.", "temptations"],
+	"Claim": ["A Sin's lasting rule on you once you hold {marks} of its marks. It binds you for the rest of the game.", "temptations"],
 	"First Game": ["Your first game: a table of 4, Basic abilities only, slower opponents. Finish it to unlock Greater abilities and the Table of 7.", "sins"],
 }
 
@@ -361,6 +368,9 @@ const SAY := [
 	["^\\s+(.+?) must reroll (\\d+) best dice on their next throw\\.$", "$1 must throw their $2 best dice again next throw."],
 	["^\\s+(.+?) must reroll (\\d+) best dice\\.$", "$1 must throw their $2 best dice again."],
 	["^\\s+(.+?) gives (\\d+)% of their next banked turn to (.+?)\\.$", "$1 gives $2% of their next bank to $3."],
+	["^\\s+(.+?) gives (\\d+) of their next banked turn to (.+?)\\.$", "$1 gives $2 of their next Bank to $3."],
+	["^\\s+(.+?)'s answer: (.+)$", "$1 $2."],
+	["^\\s+(.+?)'s claim: (.+?), for the rest of the game$", "$1 claims $2 for the rest of the game."],
 	["^\\s+(.+?) throws at most (\\d+) fewer dice next turn\\.$", "$1 throws $2 fewer dice next turn."],
 	["^\\s+A 6! Free\\.$", "A 6! {who} is free of Purgatory."],
 	["^\\s+No 6: (.+?) pays (\\d+) to leave Purgatory\\.$", "No 6: $1 pays $2 to leave Purgatory."],
@@ -383,7 +393,7 @@ const YOU_VERBS := {"throws": "throw", "busts": "bust", "banks": "bank", "buys":
 # ---------- Run mode (Docs/RunDesign.md), placeholder board until Phase 9 ----------
 const RUN := {
 	"menu_sub": "Seven Circles. Keep, rethrow, Bank.",
-	"menu_table": "Table (old)",
+	"menu_run": "Run (old)",
 	"setup_title": "Choose thy Sin",
 	"setup_blurb": "Your Sin is your starting kit. Clear seven Circles; the last is ruled by your own Sin.",
 	"circle": "Circle {c}",
@@ -438,3 +448,166 @@ const RUN := {
 
 static func run(key: String, args := {}) -> String:
 	return RUN[key].format(args)
+
+
+# ---------- The table (Rules.V4, Docs/TableDesign.md) ----------
+
+## Temptations, by id (sins/temptations.gd holds the numbers; keep them in step). 12 words max.
+const TEMPT := {
+	"w1": "Wipe a Strike. Your next Bank loses 25.",
+	"w2": "Take 60 from the leader. Start next turn with a Strike.",
+	"w3": "Throw at x2. Lose 50 now.",
+	"w4": "Two extra dice this throw. Your next Bank loses 50.",
+	"g1": "A free die. Your next Bank loses 75.",
+	"g2": "Clear a Strike. Your next Bank loses 25.",
+	"g3": "Throw at x2. Your next Bank loses 50.",
+	"g4": "Take 100 now. I take a die after this turn.",
+	"l1": "Throw at x2. One fewer die next turn.",
+	"l2": "Take 50 now. One fewer die next turn.",
+	"l3": "Two extra dice this throw. One fewer next turn.",
+	"l4": "Forget that Strike. Your next Bank loses 25.",
+	"e1": "Two extra dice this throw. Start next turn with a Strike.",
+	"e2": "Throw at x2. Start next turn with a Strike.",
+	"e3": "A free die, like theirs. Lose 75 now.",
+	"e4": "Clear a Strike. One fewer die next turn.",
+	"p1": "Throw at x2, like royalty. Your next Bank loses 50.",
+	"p2": "Two extra dice, as you deserve. One fewer next turn.",
+	"p3": "Clear a Strike. Lose 25 now.",
+	"p4": "Take 60 now. Start next turn with a Strike.",
+	"u1": "Two extra dice this throw. Lose 25 now.",
+	"u2": "Clear a Strike. I eat a die after.",
+	"u3": "Throw at x2. I eat a die after.",
+	"u4": "A free die. Start next turn with a Strike.",
+	"s1": "Take 90 now. Two fewer dice next turn.",
+	"s2": "Rest that Strike. One fewer die next turn.",
+	"s3": "A free die. Two fewer dice next turn.",
+	"s4": "Take 60 and rest. Start next turn with a Strike.",
+}
+
+## Claims, by Sin (numbers from Rules.V4).
+const CLAIMS := {
+	"Wrath": "Each bust costs you {claim_bust}.",
+	"Greed": "Every Bank pays Greed {claim_greed}.",
+	"Lust": "You can't Bank before your second throw.",
+	"Envy": "While you lead, each Bank pays Envy {claim_envy}.",
+	"Pride": "A Bank under {claim_pride_min} scores nothing.",
+	"Gluttony": "Each bust eats one of your dice (never below {min_dice}).",
+	"Sloth": "You throw {claim_sloth_fewer} fewer dice (never below 1).",
+}
+
+const TABLE := {
+	"tempt_tip": "Accept for the gain and take its mark. {marks} marks, and it claims you.",
+	"accept": "Accept",
+	"refuse": "Refuse",
+	"accepts": "accepts",
+	"refuses": "refuses",
+	"temptation": "Temptation",
+	"answer": "Answer",
+	"claimed": "{sin} claims you: {claim}",
+	"chip_bank": "-{n} next Bank",
+	"chip_strike": "Strike next turn",
+	"chip_fewer": "-{n} dice next turn",
+	"chip_die": "-1 die",
+}
+
+
+static func tempt(id: String) -> String:
+	return TEMPT.get(id, id)
+
+
+static func claim(sname: String) -> String:
+	return CLAIMS[sname].format(_v4_vals())
+
+
+static func table(key: String, args := {}) -> String:
+	return TABLE[key].format(args.merged(_v4_vals()))
+
+
+static func _v4_vals() -> Dictionary:
+	var r: Dictionary = Rules.V4
+	return {"claim_bust": r.claim_bust, "claim_greed": r.claim_greed, "claim_envy": r.claim_envy,
+		"claim_pride_min": r.claim_pride_min, "claim_sloth_fewer": _num_word(r.claim_sloth_fewer).capitalize().to_lower(),
+		"min_dice": Rules.MIN_DICE, "marks": _num_word(r.marks_to_claim).capitalize()}
+
+
+## Sin lines (Docs/TableDesign.md section 3; generated from the doc, keep the two in step). {name}: the rival Sin;
+## {host}, {n}: Solo (slice c). tests/lines_check.gd: 6 words max, 5 per event, no repeats.
+const LINES := {
+	"Wrath": {
+		"own_bust": ["Rrraagh! Again!", "Who cursed these dice?", "I'll burn this table.", "No. NO.", "That one stays with me."],
+		"rival_bust": ["Burn, {name}.", "Ha! Into the fire.", "Your loss feeds my rage.", "Kneel in the ashes.", "Good. Suffer."],
+		"big_bank": ["Feel that? Fury.", "Smash and take.", "Ashes for the rest.", "That's how you hit.", "Count it, cowards."],
+		"lead": ["Top of the pyre.", "Now catch me.", "Who's angry now?", "The crown smoulders. Mine.", "Step up and burn."],
+		"attacked": ["You'll pay for that.", "Big mistake, {name}.", "I remember faces.", "Oh, now it's war.", "That was your last."],
+		"aim": ["You, {name}. Now.", "Payback, {name}.", "The leader burns first.", "I never forget, {name}.", "Your turn to burn."],
+		"win": ["Everything burns. I win.", "Bow to the fire.", "Rage wins. Always.", "Told you. Ashes.", "Crawl home, all of you."],
+		"lose": ["This isn't over.", "I'll be back. Angrier.", "Next table, you burn.", "Rigged. All of it.", "Remember my name."],
+		"recall": ["{host} went easy. I won't.", "Still sore from Circle {n}.", "You burned past {host}. Not me.", "Circle {n} left you scarred.", "I heard you cheated {host}."],
+	},
+	"Greed": {
+		"own_bust": ["A poor investment.", "Write it off. Quietly.", "That cost me dearly.", "Losses. Temporary losses.", "I'll bill someone for that."],
+		"rival_bust": ["Your loss, my margin.", "Bankrupt. How sad.", "I'll buy your remains.", "Should've cashed out, {name}.", "Every bust pays someone."],
+		"big_bank": ["Interest compounds. Beautifully.", "Into the vault.", "Profit. Lovely profit.", "Count it twice.", "Now that's a return."],
+		"lead": ["Top earner. Naturally.", "The market favours me.", "Richest seat at the table.", "Buy low, lead high.", "I own this table."],
+		"attacked": ["That will cost you.", "I'm adding interest, {name}.", "Theft! Noted. Billed.", "You'll repay that. Tenfold.", "Put it on your tab."],
+		"aim": ["Your account's overdue, {name}.", "Collecting from the leader.", "Time to pay up.", "{name}, settle your debt.", "The richest pay most."],
+		"win": ["Paid in full.", "The house always wins.", "All of it. Mine.", "Pleasure doing business.", "Closing the books. Goodbye."],
+		"lose": ["Bad quarter. Nothing more.", "I want an audit.", "Keep the change.", "I'll buy this table later.", "Debts get collected, {name}."],
+		"recall": ["You still owe me, Circle {n}.", "{host} paid. Now you pay.", "Your Circle {n} winnings? Mine now.", "{host}'s losses raised my rates.", "Welcome back, valued customer."],
+	},
+	"Lust": {
+		"own_bust": ["Too much, too fast.", "Worth it, almost.", "I wanted it all.", "Again? I can't resist.", "Wanting has a price."],
+		"rival_bust": ["Couldn't stop, could you?", "Oh, you poor thing.", "I know that longing.", "You wanted more. Me too.", "Such sweet ruin, {name}."],
+		"big_bank": ["Oh, that's lovely.", "I'm only warming up.", "Can't look away, can you?", "More. Always more.", "Give me more!"],
+		"lead": ["Everyone's watching me now.", "Follow me, everyone.", "Out in front. Lovely.", "Want this? Chase me.", "Mine to lose, sweetly."],
+		"attacked": ["Ouch! How bold.", "Oh, {name}, how daring.", "You'll miss me later.", "Hands off what's mine.", "Rude, but impressive."],
+		"aim": ["Come here, {name}.", "I want what's yours.", "The leader looks lovely.", "Your turn, dearest.", "{name}, I'm coming for you."],
+		"win": ["You all wanted this.", "Simply irresistible.", "Satisfied, finally.", "Everything I wanted. Mine.", "Never enough. Except now."],
+		"lose": ["Leaving me wanting? Cruel.", "Next time, I take everything.", "You've broken my heart.", "Mm, I'll remember you.", "Unfinished business, {name}."],
+		"recall": ["Missed me since Circle {n}?", "{host} bored you. I won't.", "{host} told me about you.", "Did Circle {n} leave you wanting?", "Forget {host}. Look at me."],
+	},
+	"Envy": {
+		"own_bust": ["Of course. Only me.", "Everyone else gets lucky.", "Why is it always me?", "Their dice are better.", "Unfair. Utterly unfair."],
+		"rival_bust": ["Not so perfect now.", "Finally, someone else suffers.", "Good. Now you're me.", "How does that feel, {name}?", "Serves you right."],
+		"big_bank": ["See? I can too.", "Look at me now.", "Bet you're jealous.", "Take that, all of you.", "Copied that from {name}."],
+		"lead": ["My turn at the top.", "Now you envy me.", "How's the view from behind?", "Finally. It's mine.", "Don't you dare catch up."],
+		"attacked": ["Always me. Always.", "Why not pick {name}?", "You think you're better?", "I'll take yours too.", "Everyone hates me. Fine."],
+		"aim": ["You have too much, {name}.", "Whoever leads, I hate.", "Why do you deserve it?", "{name}, I want your luck.", "Share the crown, leader."],
+		"win": ["Now you all want this.", "Look who's on top.", "Who's jealous now?", "Mine, and never yours.", "Finally, I'm the one."],
+		"lose": ["Of course {name} won.", "It should've been me.", "Enjoy it. I won't.", "Lucky. Just lucky.", "One day, I'll have that."],
+		"recall": ["You beat {host}? Lucky.", "Everyone talks about you. Ugh.", "Why did {host} get you first?", "Circle {n} was luck. Admit it.", "Everyone beat {host}. Even you."],
+	},
+	"Pride": {
+		"own_bust": ["A test of my patience.", "The dice erred, not I.", "Beneath my notice.", "I allowed that.", "Even gods stumble. Briefly."],
+		"rival_bust": ["Know your place.", "Predictable, {name}.", "As I foresaw.", "Pitiful. Truly pitiful.", "Mortals. Always overreaching."],
+		"big_bank": ["As expected.", "Witness true greatness.", "Applause is customary.", "Effortless, naturally.", "Try to keep up."],
+		"lead": ["Where I belong.", "The throne returns to me.", "Bow, if you please.", "Order is restored.", "Look up, all of you."],
+		"attacked": ["How dare you, {name}.", "You touched the crown?", "Insolence. Noted.", "I am Untouchable.", "You'll kneel for that."],
+		"aim": ["Remember your place, {name}.", "The pretender must fall.", "No one outshines me.", "{name} forgets who rules.", "Down from my throne."],
+		"win": ["Was there any doubt?", "Kneel before your better.", "Perfection, as always.", "History will remember me.", "Of course I won."],
+		"lose": ["I let you win.", "A hollow victory, {name}.", "This changes nothing.", "Enjoy my leftovers.", "The crown is merely lent."],
+		"recall": ["{host} fell. I won't.", "I watched Circle {n}. Unimpressive.", "{host} was a warm-up act.", "You survived Circle {n}? Adorable.", "Beating {host} means nothing here."],
+	},
+	"Gluttony": {
+		"own_bust": ["Bit off too much.", "Ugh. Indigestion.", "My eyes, too big.", "Spit it out. Again.", "Still hungry, though."],
+		"rival_bust": ["More for me.", "Ooh, leftovers.", "Crumbs everywhere, {name}.", "You choked. I won't.", "Pass the plate."],
+		"big_bank": ["Delicious!", "Second helping, please.", "Mmmf. Seconds.", "That filled me up.", "Feast, feast, feast!"],
+		"lead": ["Biggest plate at the table.", "I'm getting fat on this.", "Top of the menu.", "Who's hungry? Just me.", "Belly first. Always."],
+		"attacked": ["Hands off my plate!", "You ate my dice!", "I'll swallow you, {name}.", "Now I'm angry hungry.", "Rude. I was eating."],
+		"aim": ["You look tasty, {name}.", "I'll eat the leader.", "Open wide, {name}.", "Biggest plate gets bitten.", "Dinner time, {name}."],
+		"win": ["Every last crumb. Mine.", "Burp. Thank you all.", "The whole table, eaten.", "Dessert is victory.", "Stuffed. And champion."],
+		"lose": ["Still starving.", "Leave me the scraps.", "I'll eat you next time.", "Too full to care.", "Save me a plate, {name}."],
+		"recall": ["Hungry since {host}'s table.", "You smell like Circle {n}.", "{host} was only the starter.", "Circle {n} whetted my appetite.", "Saved room for you."],
+	},
+	"Sloth": {
+		"own_bust": ["Eh. Too much effort.", "Should've stayed in bed.", "Wake me next turn.", "Worth it for the nap.", "That's what trying gets."],
+		"rival_bust": ["Shoulda just rested.", "See? Trying hurts.", "Easy there, {name}.", "Mm. Called it. Yawn.", "Lie down a while."],
+		"big_bank": ["Hm. That was easy.", "No sweat. Literally.", "Done. Nap time.", "Barely lifted a finger.", "Good enough. Bed."],
+		"lead": ["Ahead? Didn't notice.", "Wake me at the end.", "Slow and steady.", "Huh. Look at that.", "Nobody rush. Please."],
+		"attacked": ["Rude. I was napping.", "Must you, {name}?", "Ugh. Fine. Noted.", "So much effort. Why?", "I'll get you. Later."],
+		"aim": ["Slow down, {name}.", "Sit down, leader.", "Take a break, {name}.", "Rest your dice, {name}.", "Let's all relax, leader."],
+		"win": ["Wake me for the trophy.", "Didn't even try.", "Rest wins. Again.", "Can I sleep now?", "Told you. Patience."],
+		"lose": ["Eh. Tomorrow.", "Too tired to care.", "Good game. Nap time.", "Next time, maybe.", "I'll rest on it."],
+		"recall": ["Back again? Already? Ugh.", "Didn't {host} tire you out?", "Circle {n} again? So tiring.", "Five more minutes. Then you.", "You woke me for this?"],
+	},
+}
