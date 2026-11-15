@@ -23,6 +23,9 @@ var _speak_left := 0.0
 var _drawn := ""           # the signature of what's drawn (rebuild only on a change)
 var _last := {}            # what was drawn last: throws, faces, points, strikes, cur
 var _extra: Control        # the prompt's other choices, in the gap under the windows
+var _landed := ""         # the throw last landed (seat, faces, throw count)
+var _gain := 0             # its points, shown over the dice until the stake takes them
+var _gain_base := 0
 var _standings: Control
 
 
@@ -135,8 +138,17 @@ func _draw() -> void:
 		faces = []
 		strikes = 0
 		t = {"points": 0, "throws": 0}
+	# The throw's points, in gold over the dice the moment they land, until the next beat adds them
+	# to the stake (no dead wait while main's hidden board plays its scoring beat).
+	var key := "%d|%s|%d" % [cur, str(faces), int(t.throws)]
+	if int(t.throws) > 0 and faces.size() > 0 and key != _landed:
+		_landed = key
+		_gain = Rules.score(Array(faces, TYPE_INT, "", null), g.chain, g.face_mult)
+		_gain_base = int(t.points)
+	if key != _landed or int(t.points) != _gain_base or moment == "bust":
+		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
-		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null]), int(t.throws)]
+		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null]), int(t.throws) * 100000 + _gain]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -154,6 +166,24 @@ func _draw() -> void:
 	view.safe = main._safe_insets()
 	view.build()
 	_choices(others)
+	if _gain > 0:
+		var a: Rect2 = view.dice_area
+		var gl := Label.new()
+		gl.text = "+%d" % _gain
+		gl.add_theme_font_override("font", Style.NUMERAL)
+		gl.add_theme_font_size_override("font_size", 120)
+		gl.add_theme_color_override("font_color", TableBlockout.GOLD)
+		gl.add_theme_color_override("font_outline_color", TableBlockout.INK)
+		gl.add_theme_constant_override("outline_size", 14)
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		gl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		gl.size = Vector2(a.size.x, 180)
+		gl.position = Vector2(a.position.x, a.get_center().y - 90.0)
+		gl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		view.add_child(gl)
+		gl.modulate.a = 0.0
+		var k: float = 1.0 / maxf(Tuning.pace, 0.01)
+		gl.create_tween().tween_property(gl, "modulate:a", 1.0, 0.12 * k).set_delay(0.25 * k)
 	_animate(t, faces, strikes, cur, moment)
 	_last = {"throws": int(t.throws), "faces": faces.duplicate(), "points": int(t.points), "strikes": strikes, "cur": cur}
 
@@ -184,7 +214,7 @@ func _choices(others: Array) -> void:
 	var vp: Vector2 = view.get_viewport_rect().size
 	var top: float = view.page_rect.position.y - TableBlockout.UNDER_WIN + 22.0  # under my crimson bar
 	var words := Label.new()
-	words.text = _text.replace("\n", "  ")
+	words.text = "Buy dice?" if _text.begins_with("Buy dice?") else _text.replace("\n", "  ")  # Ben: just the question
 	words.add_theme_font_override("font", Style.SERIF)
 	words.add_theme_font_size_override("font_size", 36)
 	words.add_theme_color_override("font_color", TableBlockout.BONE)

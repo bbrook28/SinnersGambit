@@ -526,7 +526,7 @@ func _open_setup() -> void:
 	await _ink_wash(true)
 	_dir._stop_pulses()
 	_free_screen()
-	if tutorial_pending and tutorial_enabled:  # the first Play is the tutorial (it can be skipped)
+	if tutorial_pending and tutorial_enabled and not Tuning.table_view():  # the first Play is the tutorial (it can be skipped; never in the table build)
 		_starting = false
 		start_tutorial(false)
 		return

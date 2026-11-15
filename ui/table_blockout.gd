@@ -91,6 +91,8 @@ func build() -> void:
 			me = i
 		if seats[i].score > seats[lead].score:
 			lead = i
+	if seats[lead].score <= 0 or seats.filter(func(s): return s.score == seats[lead].score).size() > 1:
+		lead = -1  # a tie (everyone on 0 at the start): no one is crowned
 	var col: Color = Style.SIN_COLORS[seats[cur].sin]
 	var bust := moment == "bust"
 	var mine: bool = cur == me
@@ -98,29 +100,55 @@ func build() -> void:
 	var pend: Array = seats[me].get("pend", [])
 	_rect(Rect2(Vector2.ZERO, vp), BLACK)
 
-	# Track levels first (they set the band's height): rivals above the line, lowest score first, each
-	# on the lowest stem level where it clears every marker already there; the leader then stands one
-	# level above any close rival, crowned.
+	# Track heads first (they set the band's height): rivals above the line on two levels at most. Along
+	# the scores, a rival close to the one before goes on the other level; the leader is always on the
+	# top level, crowned. On each level close heads then fan sideways (stems lean from the true score).
 	var n := seats.size()
 	var order := range(n)
 	order.sort_custom(func(a, b): return seats[a].score < seats[b].score)
 	var span: float = vp.x - 48.0 - 160.0
+	var gap: float = MARK + 16.0
 	var lvl := {}
+	var head := {}  # seat -> head x, track coordinates (0 = score 0)
+	var prev := -1
 	for i in order:
-		if i == me or i == lead:
+		if i == me:
 			continue
 		var x: float = span * clampf(seats[i].score / GOAL, 0.0, 1.0)
 		var l := 0
-		while lvl.keys().any(func(j): return lvl[j] == l and absf(span * clampf(seats[j].score / GOAL, 0.0, 1.0) - x) < MARK + 8.0):
-			l += 1
+		if prev >= 0 and x - head[prev] < gap:
+			l = 1 - lvl[prev]
+		if i == lead:
+			l = 1
 		lvl[i] = l
-	if lead != me:
-		var lx: float = span * clampf(seats[lead].score / GOAL, 0.0, 1.0)
-		var top := -1
-		for j in lvl:
-			if absf(span * clampf(seats[j].score / GOAL, 0.0, 1.0) - lx) < MARK + 8.0:
-				top = maxi(top, lvl[j])
-		lvl[lead] = top + 1
+		head[i] = x
+		prev = i
+	var lo: float = 80.0 - (24.0 + 80.0)
+	var hi: float = vp.x - 80.0 - (24.0 + 80.0)
+	for l in 2:
+		var row: Array = order.filter(func(i): return lvl.has(i) and lvl[i] == l)
+		# Groups of heads, each centred on its scores' mean; touching groups merge.
+		var groups: Array = []
+		for i in row:
+			groups.append([i])
+			while groups.size() > 1:
+				var a: Array = groups[groups.size() - 2]
+				var b: Array = groups[groups.size() - 1]
+				var ca := _centre(a, span) - (a.size() - 1) * gap / 2.0
+				var ea := ca + (a.size() - 1) * gap
+				var cb := _centre(b, span) - (b.size() - 1) * gap / 2.0
+				if cb - ea >= gap:
+					break
+				groups.pop_back()
+				groups[groups.size() - 1] = a + b
+		for g in groups:
+			var x0: float = _centre(g, span) - (g.size() - 1) * gap / 2.0
+			for k in g.size():
+				head[g[k]] = x0 + k * gap
+		for k in row.size():  # keep inside the page and apart once clamped
+			head[row[k]] = maxf(head[row[k]], lo if k == 0 else head[row[k - 1]] + gap)
+		for k in range(row.size() - 1, -1, -1):
+			head[row[k]] = minf(head[row[k]], hi if k == row.size() - 1 else head[row[k + 1]] - gap)
 	var max_l: int = 0
 	for j in lvl:
 		max_l = maxi(max_l, lvl[j])
@@ -251,7 +279,7 @@ func build() -> void:
 	gl.size = Vector2(150, 60)
 	gl.position = Vector2(ax1 - 75.0, ay + 44.0)
 	var draw := order.filter(func(i): return i != me and i != lead)
-	if lead != me:
+	if lead != me and lead >= 0:
 		draw.append(lead)
 	draw.append(me)
 	var centres := {}
@@ -260,10 +288,11 @@ func build() -> void:
 		if i == me:  # mine: below the line
 			_line([Vector2(mx, ay), Vector2(mx, ay + STEM)], CRIMSON, 4.0)
 			centres[i] = Vector2(mx, ay + STEM + MARK / 2.0)
-		else:
+		else:  # a leaning stem from the true score up to the head
 			var top: float = ay - STEM - lvl[i] * LEVEL
-			_line([Vector2(mx, ay), Vector2(mx, top)], INK, 3.0)
-			centres[i] = Vector2(mx, top - MARK / 2.0)
+			var hx: float = ax0 + head[i]
+			_line([Vector2(mx, ay), Vector2(mx, ay - 8.0), Vector2(hx, top)], INK, 3.0)
+			centres[i] = Vector2(hx, top - MARK / 2.0)
 	for i in draw:
 		_marker(centres[i], i, me, lead)
 	var track := Button.new()  # the whole band is one tap target: the standings
@@ -398,7 +427,7 @@ func _dashed_box(r: Rect2, c: Color) -> void:
 			t += 30.0
 
 
-## A track marker: the Sin's sigil in ink on a bone disc. Mine in crimson ink with a crimson ring;
+## A track marker: the Sin's colour (muted) with its sigil in ink. Mine wears a crimson ring;
 ## the leader wears a gold ring and a gold crown.
 func _marker(c: Vector2, i: int, me: int, lead: int) -> void:
 	var r: float = MARK / 2.0
@@ -410,8 +439,14 @@ func _marker(c: Vector2, i: int, me: int, lead: int) -> void:
 			top + Vector2(0, -30), top + Vector2(10, -12), top + Vector2(23, -24), top + Vector2(20, 0)])
 		p.color = GOLD
 		add_child(p)
-	_disc(c, r, BONE, CRIMSON if i == me else INK)
-	_sigil(seats[i].sin, Rect2(c - Vector2(r, r) * 0.92, Vector2(r, r) * 1.84), CRIMSON if i == me else INK)
+	# Filled with the Sin's colour, muted (Ben: the one exception to the single-glass-colour rule),
+	# the sigil in dark ink on top. Mine wears a crimson ring.
+	if i == me:
+		_disc(c, r + 8.0, CRIMSON, CRIMSON)
+	var fill: Color = Style.SIN_COLORS[seats[i].sin].lerp(BONE, 0.42)
+	fill.s *= 0.8
+	_disc(c, r, fill, INK)
+	_sigil(seats[i].sin, Rect2(c - Vector2(r, r) * 0.92, Vector2(r, r) * 1.84), INK)
 
 
 ## The Sin's Accept-seal emblem as ink line (ui/shaders/ink_emblem.gdshader).
@@ -550,3 +585,11 @@ static func _ink_lines() -> ShaderMaterial:
 		_ink_mat = ShaderMaterial.new()
 		_ink_mat.shader = sh
 	return _ink_mat
+
+
+## The mean true position of a group of track heads (track coordinates).
+func _centre(g: Array, span: float) -> float:
+	var s := 0.0
+	for i in g:
+		s += span * clampf(seats[i].score / GOAL, 0.0, 1.0)
+	return s / g.size()

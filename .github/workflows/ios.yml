@@ -11,6 +11,14 @@ on:
         description: "Build with Xcode 27.1 (fills the iPhone Duo inner screen). Off: Xcode 26 on macos-15."
         type: boolean
         default: false
+      notes:
+        description: "TestFlight What to Test text (empty: leave it)"
+        type: string
+        default: ""
+      table:
+        description: "Open on the table layout (export preset \"iOS (table)\", feature table_view; blockout playtests)"
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
 
@@ -87,11 +95,15 @@ jobs:
           sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$TEAM\"/" export_presets.cfg
           sed -i '' "s/^application\/version=.*/application\/version=\"$BUILD\"/" export_presets.cfg
           echo "Build number $BUILD"
+          echo "BUILD=$BUILD" >> $GITHUB_ENV
 
       - name: Export Xcode project
         run: |
           mkdir -p build/ios
-          ~/godot/Godot.app/Contents/MacOS/Godot --headless --export-release "iOS" build/ios/SinnersGambit.ipa
+          PRESET="iOS"
+          [ "${{ inputs.table }}" = "true" ] && PRESET="iOS (table)"
+          echo "Export preset: $PRESET"
+          ~/godot/Godot.app/Contents/MacOS/Godot --headless --export-release "$PRESET" build/ios/SinnersGambit.ipa
           test -d build/ios/SinnersGambit.xcodeproj
 
       - name: Write App Store Connect key
@@ -148,6 +160,52 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER"
+
+      - name: TestFlight notes (What to Test)
+        if: inputs.notes != ''
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          # Waits for App Store Connect to list the uploaded build, then sets its
+          # "What to Test" text (en-US). Internal testing only: nothing is sent
+          # for beta or App Store review.
+          python3 -m venv "$RUNNER_TEMP/asc" && "$RUNNER_TEMP/asc/bin/pip" -q install pyjwt cryptography requests
+          "$RUNNER_TEMP/asc/bin/python" - <<'PY'
+          import os, time, jwt, requests
+          key = open(os.environ["ASC_KEY_PATH"]).read()
+          def token():
+              now = int(time.time())
+              return jwt.encode({"iss": os.environ["ISSUER"], "iat": now, "exp": now + 1100, "aud": "appstoreconnect-v1"},
+                                key, algorithm="ES256", headers={"kid": os.environ["KEY_ID"], "typ": "JWT"})
+          api = "https://api.appstoreconnect.apple.com/v1"
+          def call(method, path, **kw):
+              r = requests.request(method, api + path, headers={"Authorization": "Bearer " + token()}, timeout=60, **kw)
+              if r.status_code >= 400:
+                  raise SystemExit(f"{method} {path}: {r.status_code} {r.text[:500]}")
+              return r.json() if r.text else {}
+          app = call("GET", "/apps", params={"filter[bundleId]": "com.benbrook.sinnersgambit"})["data"][0]["id"]
+          build = None
+          for _ in range(90):  # up to 45 min for the build to appear
+              found = call("GET", "/builds", params={"filter[app]": app, "filter[version]": os.environ["BUILD"]})["data"]
+              if found:
+                  build = found[0]["id"]
+                  break
+              time.sleep(30)
+          if not build:
+              raise SystemExit("build %s never appeared in App Store Connect" % os.environ["BUILD"])
+          locs = call("GET", f"/builds/{build}/betaBuildLocalizations")["data"]
+          en = [l for l in locs if l["attributes"]["locale"] == "en-US"]
+          if en:
+              call("PATCH", f"/betaBuildLocalizations/{en[0]['id']}", json={"data": {"type": "betaBuildLocalizations",
+                   "id": en[0]["id"], "attributes": {"whatsNew": os.environ["NOTES"]}}})
+          else:
+              call("POST", "/betaBuildLocalizations", json={"data": {"type": "betaBuildLocalizations",
+                   "attributes": {"locale": "en-US", "whatsNew": os.environ["NOTES"]},
+                   "relationships": {"build": {"data": {"type": "builds", "id": build}}}}})
+          print("Notes set on build", os.environ["BUILD"])
+          PY
 
       - name: Clean up key
         if: always()
