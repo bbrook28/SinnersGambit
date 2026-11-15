@@ -27,10 +27,10 @@ const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # speech tabs
 const OFFER_DIM := 0.84          # a temptation dims the whole board this far (TableDesign §7)
 const OFFER_PORTRAIT_W := 0.9    # its 4:5 portrait spans this share of the screen width
 const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
-const PORTRAIT_BLOOM := 0.2      # the temptation portrait is painted brighter than the lancets: less glass bloom
 # Living glass (ui/shaders/flare.gdshader), every Sin window. Reduce Motion holds it still.
-const GLASS_LIGHT := 0.2        # the band of light that crosses behind the glass
-const GLASS_PULSE := 0.12       # the slow colour pulse
+const GLASS_LIGHT := 0.1        # the band of light behind the glass: at most this much brighter
+const GLASS_PULSE := 0.03       # the slow swell: this much brighter and back (brightness, not hue)
+const FLARE_TIME := 0.45        # a Sin speaks, offers or acts: white brightening, back to rest in this many seconds
 const GLASS_PULSE_SPEED := 0.5  # radians a second (a swell every ~12 s)
 const GLASS_GLINT := 0.6        # glints running along the lead lines
 const OFFER_NAME_FONT := 64

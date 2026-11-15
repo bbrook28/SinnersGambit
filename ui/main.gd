@@ -1153,8 +1153,6 @@ func _build_glance(zone: VBoxContainer) -> void:
 		win.set_anchors_preset(Control.PRESET_FULL_RECT)
 		win.material = Art.flare_material()
 		win.material.set_shader_parameter("phase", float(p.seat) * 0.37)  # shimmer out of step
-		if sname == "Greed":
-			win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))  # cold silver, not grey
 		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		win_box.add_child(win)
 		# The leader's crown, over the top of the arch (_refresh_marks).
@@ -2231,7 +2229,7 @@ func _flare(pt: Dictionary) -> void:
 	tw.tween_property(win, "scale", Vector2(0.96, 0.96), 0.06)
 	tw.tween_method(set_flash, 0.0, 1.0, 0.07)
 	tw.parallel().tween_property(win, "scale", Vector2(1.12, 1.12), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_method(set_flash, 1.0, 0.0, 0.5).set_ease(Tween.EASE_OUT)
+	tw.tween_method(set_flash, 1.0, 0.0, Tuning.FLARE_TIME - 0.07).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(win, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 
 
@@ -3053,18 +3051,14 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	win.material = Art.flare_material()
-	win.material.set_shader_parameter("bloom", Tuning.PORTRAIT_BLOOM)
-	if sname == "Greed":
-		win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))
 	win.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# A thin lead-and-gold border in the Sin's colour round the glass.
+	# A thin border in the Sin's colour round a portrait (no fill or shadow: the glass shows as painted).
+	# A Sin still on its lancet (no portrait yet) has none.
 	var frame := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0, 0, 0, 0)
 	sb.border_color = col.lightened(0.3)
-	sb.set_border_width_all(6)
-	sb.shadow_color = Color(col, 0.35)
-	sb.shadow_size = 40
+	sb.set_border_width_all(6 if win.texture.resource_path.ends_with("_portrait.png") else 0)
 	frame.add_theme_stylebox_override("panel", sb)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -3115,7 +3109,7 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	# Arrival: the board dims, the glass flares white and settles.
 	var tw := root.create_tween().set_parallel()
 	tw.tween_property(root, "modulate:a", 1.0, 0.25)
-	tw.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 1.0, 0.0, 0.9).set_ease(Tween.EASE_OUT)
+	tw.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 1.0, 0.0, Tuning.FLARE_TIME).set_ease(Tween.EASE_OUT)
 	for pt in _portraits:
 		if pt.sin == sname:
 			_flare(pt)
