@@ -35,7 +35,7 @@ const GOLD := Color("e9c46a")
 const SIDE := 40.0         # px, screen side margin
 const WIN_GAP := 12.0
 const WIN_RATIO := 1.8     # window crop height / width (as the board windows)
-const UNDER_WIN := 170.0   # the dark gap under the windows: a rival's stake, a Sin's spoken line
+const UNDER_WIN := 190.0   # the dark gap under the windows: a rival's stake, a Sin's spoken line
 const GOAL := 1000.0       # first to 1000 wins
 const SEAL := 236.0        # Bank and Throw, px (86 pt)
 const EDGE := 76.0         # seals and candles stand this far in from the page's near edge (marks below)
@@ -224,15 +224,18 @@ func build() -> void:
 		rs.position = Vector2(clampf(wr.get_center().x - 130.0 - 60.0, px0 + 20.0, px1 - 400.0), under - 22.0)
 		for s in 3:
 			_rect(Rect2(rs.position.x + 270.0 + s * 46.0, under + 30.0, 32, 48), CRIMSON if s < strikes else Color(BONE, 0.22))
-	# A Sin's spoken line, anchored under its window, in its colour.
+	# A Sin's spoken line, anchored under its window, in its colour. On a rival's turn its stake has the
+	# gap, so the line sits over the foot of the speaker's window instead.
 	if not speak.is_empty():
 		var sr: Rect2 = win_rects[int(speak.seat)]
 		var scol: Color = Style.SIN_COLORS[seats[int(speak.seat)].sin].lightened(0.15)
 		var line := _label(str(speak.line), 84, scol, BLACK, true)
 		var lw: float = Style.BLACKLETTER.get_string_size(str(speak.line), HORIZONTAL_ALIGNMENT_LEFT, -1, 84).x + 40.0
 		line.size = Vector2(lw, 110)
-		line.position = Vector2(clampf(sr.get_center().x - lw / 2.0, px0 + 20.0, px1 - 20.0 - lw), sr.end.y + 40.0)
-		_line([Vector2(sr.get_center().x, sr.end.y + 6), Vector2(sr.get_center().x, sr.end.y + 40)], scol, 5.0)
+		var ly: float = sr.end.y + 40.0 if mine else sr.end.y - 130.0
+		line.position = Vector2(clampf(sr.get_center().x - lw / 2.0, px0 + 20.0, px1 - 20.0 - lw), ly)
+		if mine:
+			_line([Vector2(sr.get_center().x, sr.end.y + 6), Vector2(sr.get_center().x, sr.end.y + 40)], scol, 5.0)
 
 	# Score track: the page's full width, 0 at the left, 1000 at the right.
 	var ax0: float = pg.position.x + 80.0

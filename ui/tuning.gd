@@ -14,6 +14,9 @@ const SPEED_MAX := 4.0
 const SHOW_DEBUG_SLIDER := false  # the on-screen speed slider (debug only)
 const RUN_MODE := false  # debug: the parked run game on the menu ("Run (old)", Docs/RunDesign.md); off in tester builds
 const BOT_SUMMARY := false  # the bot-turn summary paragraph on the thumb page (off at the table, TableDesign §5)
+const TABLE_VIEW := false  # debug (blockout 4, Ben 2026-11-15): play on the table layout (ui/table_play.gd); also on in a build with the "table_view" feature, or with -- --table
+static func table_view() -> bool:
+	return TABLE_VIEW or OS.has_feature("table_view") or OS.get_cmdline_user_args().has("--table")
 const LINE_CHANCE := 0.5   # a Sin says a line on about this share of events (TableDesign §3)
 const LINE_HOLD := 0.8     # a line stays up this long, at reading speed even on a bot's turn
 const MARKS_FONT := 36     # mark pips and claims under each window

@@ -1,7 +1,7 @@
-# Serves build/web on your home Wi-Fi so a phone can open it. Ctrl+C to stop.
-# powershell -ExecutionPolicy Bypass -File tools\serve.ps1 [-Port 8000]
-param([int]$Port = 8000)
-$Root = (Resolve-Path (Join-Path $PSScriptRoot '..\build\web')).Path
+# Serves build/web (or build/<Dir>) on your home Wi-Fi so a phone can open it. Ctrl+C to stop.
+# powershell -ExecutionPolicy Bypass -File tools\serve.ps1 [-Port 8000] [-Dir web_table]
+param([int]$Port = 8000, [string]$Dir = "web")
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\build\$Dir")).Path
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
     $_.PrefixOrigin -in 'Dhcp', 'Manual' -and $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1'
 } | Select-Object -First 1).IPAddress

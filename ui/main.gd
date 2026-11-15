@@ -23,6 +23,7 @@ const Events = preload("res://ui/events.gd")
 const RunState = preload("res://run/run_state.gd")
 const RunBoard = preload("res://ui/run_board.gd")
 const Kits = preload("res://run/kits.gd")
+const TablePlay = preload("res://ui/table_play.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 3  # 3: Rules.V4 with temptations (Docs/TableDesign.md); a V3 save can't replay
@@ -152,6 +153,7 @@ var _offer_card: Control           # a Sin's temptation, over the dice tray whil
 var _overlay: Control              # the rulebook or an explanation card while open (the queue waits)
 var _pause: Button                 # the pause seal in the tray: Rulebook, Sin abilities, Chronicle, Settings, menu
 var _explain_targets: Array = []   # [control, Callable]: what a tap / hold explains (_register_explain_targets)
+var _table = null                  # ui/table_play.gd when Tuning.table_view() (blockout 4)
 var _press_at := Vector2.INF       # where the current press started (INF: none, or on a button)
 var _press_t := 0.0
 var _long_fired := false           # this press already explained (a hold)
@@ -1081,6 +1083,10 @@ func _build_board() -> void:
 		_build_speed_slider()
 	_build_log_overlay()
 	_register_explain_targets()
+	if Tuning.table_view() and _tutor == null:  # blockout 4: the table layout over this board (ui/table_play.gd)
+		_table = TablePlay.new()
+		_board.add_child(_table)
+		_table.setup(self)
 
 
 func focus_groups() -> Dictionary:
@@ -1693,7 +1699,7 @@ func _input(event: InputEvent) -> void:
 		else:
 			_q.skip_beat()
 		_last_tap = now
-	else:
+	elif not (_table and _table.showing()):
 		_explain_at(at)
 
 
@@ -1707,7 +1713,7 @@ func _hovered_button() -> Button:
 
 
 func _check_long_press() -> void:
-	if _press_at == Vector2.INF or _long_fired:
+	if _press_at == Vector2.INF or _long_fired or (_table and _table.showing()):  # the table explains nothing yet
 		return
 	if Time.get_ticks_msec() / 1000.0 - _press_t < LONG_PRESS:
 		return
@@ -1894,6 +1900,8 @@ const ALL_PARTS := ["plates", "glow", "banner", "dice", "throw", "turn", "strike
 ## Draws a snapshot. parts: only those pieces (the director animates the rest itself).
 func _refresh(s: Dictionary, parts: Array = ALL_PARTS) -> void:
 	var cur_i: int = s.cur
+	if _table:
+		_table.show_state(s)
 	if "plates" in parts:
 		_refresh_crowns(s)
 	for i in game.players.size():
@@ -2432,6 +2440,8 @@ func show_prompt(text: String, options: Array, offer := {}) -> void:
 			_show_offer_now(text, options, offer)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
+		if _table:
+			_table.prompt(text, _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
 		if is_instance_valid(_offer_card) and _offer_card.has_meta("place"):
 			_offer_card.get_meta("place").call()
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
@@ -2565,6 +2575,8 @@ func _selected_ring(b: Button) -> void:
 
 func clear_prompt() -> void:
 	_waiting = true
+	if _table:
+		_table.prompt_cleared()
 	_prompt_label.set_meta("wait", "")
 	_set_lettering(_prompt_label, "")
 	for c in _buttons.get_children():
@@ -3293,6 +3305,8 @@ func _offer_drop() -> void:
 
 ## A Sin's line (TableDesign §3): a speech tab at the foot of the speaker's window, in its colour.
 func speech(pt: Dictionary, text: String) -> Control:
+	if _table:
+		_table.say(_portraits.find(pt), text)
 	var col: Color = Style.SIN_COLORS[pt.sin]
 	var bub := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
