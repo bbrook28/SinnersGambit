@@ -80,10 +80,16 @@ func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
 
 
 ## Rules.V4: a rival Sin's offer, Accept or Refuse. The first one you ever see carries one tip.
-func wants_temptation(_game, _p, from, offer: Dictionary) -> bool:
+func wants_temptation(game, p, from, offer: Dictionary) -> bool:
 	var RulesText = load("res://ui/rules_text.gd")
 	var sname: String = from.sin.sin_name
-	var card := {"sin": sname, "text": RulesText.tempt(offer.id), "tip": ""}
+	# One line of decision context: this turn, its Strikes, my score and the leader's.
+	var s: int = game.turn.strikes
+	var rival = game.leader_other(p)
+	var lead: int = rival.score if rival else 0
+	var ctx: String = RulesText.table("tempt_context_lead" if p.score > lead else "tempt_context", {
+		"pts": game.turn.points, "strikes": "%d Strike%s" % [s, "" if s == 1 else "s"], "me": p.score, "lead": lead})
+	var card := {"sin": sname, "text": RulesText.tempt(offer.id), "tip": "", "context": ctx}
 	if view and not view.tempt_tip_seen:
 		card.tip = RulesText.table("tempt_tip")
 		view.tempt_tip_seen = true

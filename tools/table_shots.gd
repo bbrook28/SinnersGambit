@@ -56,7 +56,7 @@ func _initialize() -> void:
 		var acc: Array = bs.filter(func(b): return b.get_meta("offer", "") == "accept")
 		if not acc.is_empty():
 			await _wait(30)
-			if not offer_shot and main._prompt_label.get_parsed_text().begins_with(want):
+			if not offer_shot and is_instance_valid(main._offer_card) and str(main._offer_card.get_meta("sin", "")).begins_with(want):
 				await _shot("offer")
 				offer_shot = true
 			acc[0].pressed.emit()

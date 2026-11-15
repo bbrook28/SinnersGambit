@@ -498,6 +498,8 @@ const CLAIMS := {
 const TABLE := {
 	"tempt_tip": "Accept for the gain and take its mark. {marks} marks, and it claims you.",
 	"tempt_prompt": "{sin} tempts you.",
+	"tempt_context": "This turn {pts}  ·  {strikes}  ·  You {me}  ·  Leader {lead}",
+	"tempt_context_lead": "This turn {pts}  ·  {strikes}  ·  You lead {me} to {lead}",
 	"accept": "Accept",
 	"refuse": "Refuse",
 	"accepts": "accepts",

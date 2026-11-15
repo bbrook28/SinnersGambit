@@ -248,7 +248,7 @@ func _ui_game() -> void:
 				ui_offers += 1
 				check(kinds.size() == 2 and "refuse" in kinds, "an offer shows Accept and Refuse only: %s" % [kinds])
 				check(is_instance_valid(main._offer_card), "an offer shows its card")
-				check(main._prompt_label.get_parsed_text().find("tempts") > 0, "the offer names its Sin")
+				check(main._offer_card.get_meta("sin", "") != "" and not main._paper.visible, "the offer is full screen and names its Sin")
 			bs[randi() % bs.size()].pressed.emit()
 		main.queue_free()
 		await process_frame

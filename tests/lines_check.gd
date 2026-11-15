@@ -34,7 +34,7 @@ func _initialize() -> void:
 		if not (id in Temptations.all_ids()):
 			fails.append("words for unknown offer %s" % id)
 	for k in T.TABLE:
-		if T.table(k, {"n": 1, "sin": "Wrath", "claim": "x"}).find("{") >= 0:
+		if T.table(k, {"n": 1, "sin": "Wrath", "claim": "x", "pts": 80, "strikes": "1 Strike", "me": 30, "lead": 665}).find("{") >= 0:
 			fails.append("table word %s unfilled" % k)
 	for f in fails:
 		print(f)

@@ -283,4 +283,9 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Portrait windows for the offer card (`Art.portrait`, falls back to the lancet): Gluttony done (24 credits, about 3:5 after the frame is cut; baked by `tools/bake_art.gd`). The other six wait for Ben's look at Gluttony. The lancets stay on the board seats and Sin select.
 - `tools/table_shots.gd`: screenshots of an offer card (optionally from one Sin), a line and debt chips.
 - **SpriteCook budget (Ben, 2026-11-14):** 1,935 credits after the Gluttony portrait. The credit limit no longer shapes the plan. Perk icons, sigils and ending scenes are painted in the slice that builds them, not deferred to Phase 9. Keep the Gluttony-first test for living glass as a quality check. State the cost before any batch over 50 credits.
-- Living glass stage 2 (Gluttony layers and gesture) waits for Ben's OK on method and cost.
+- Living glass stage 2 (Gluttony layers and gesture): see the next section.
+
+## Temptation as a full-screen moment (2026-11-14)
+- `_show_offer_now` (ui/main.gd): the board dims (`Tuning.OFFER_DIM`), the Sin's 4:5 portrait spans `OFFER_PORTRAIT_W` (90%) of the width from the top with a flare and a thin border in the Sin's colour, then its name, the offer, one context line (`tempt_context` / `tempt_context_lead`, built in `ui/human.gd`) and the first-time tip. The parchment and the prompt line hide until `clear_prompt`. Seals stay in `_buttons` with z 5 over the overlay (z 4). The portrait shrinks only if the words would reach the seals.
+- Gluttony portrait regenerated full-bleed and cropped to 4:5 at bake (`PORTRAIT_CX` in `tools/bake_art.gd`). Ben's rule: check hands, eyes and teeth on every generated portrait before showing, regenerate failures. Three tries, 64 credits: an edit of the arch (24) failed hands and eyes; a fresh one from the arch as reference (24) had good hands but one eye; an edit fixing the eyes (16) passed. 1,901 credits left.
+- Approved after Ben passes the portrait: Gluttony's four-layer animation, up to 130 credits. The other six portraits wait for his OK.

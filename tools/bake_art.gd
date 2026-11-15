@@ -5,6 +5,7 @@ extends SceneTree
 
 const SINS := ["pride", "greed", "wrath", "envy", "gluttony", "lust", "sloth"]
 const OUT := "res://assets/art/runtime/"
+const PORTRAIT_CX := {"gluttony": 0.468}  # 4:5 crop centre, as a fraction of the width
 ## Corner figures on page_c_a_raw.png: [rect in raw px, darkest parchment luminance, extra flood seeds].
 const MARGINALIA := {
 	"jester": [Rect2i(80, 84, 218, 214), 0.35, []],
@@ -20,14 +21,15 @@ func _init() -> void:
 	for s in SINS:
 		var im := _key_black(_load("res://assets/art/sins/raw/%s_hd_raw.png" % s))
 		_save(_fit_h(im.duplicate(), 760), OUT + "sins/%s.png" % s)
-	# Wide portrait windows for the offer card (sins/portrait_raw/*_portrait_raw.png, on a dark glow):
-	# the glow is keyed out up to the gold frame, then cropped to the window.
+	# Temptation portraits (sins/portrait_raw/*_portrait_raw.png): full-bleed square glass, cropped
+	# to 4:5 around PORTRAIT_CX (where that Sin's face, hands and props sit).
 	for s in SINS:
 		var src := "res://assets/art/sins/portrait_raw/%s_portrait_raw.png" % s
 		if FileAccess.file_exists(src):
-			var pim := _key_black(_load(src), 0.42)
-			pim = pim.get_region(pim.get_used_rect())
-			_save(_fit_h(pim, 900), OUT + "sins/%s_portrait.png" % s)
+			var pim := _load(src)
+			var w := roundi(pim.get_height() * 0.8)
+			var x := clampi(roundi(pim.get_width() * PORTRAIT_CX.get(s, 0.5) - w / 2.0), 0, pim.get_width() - w)
+			_save(pim.get_region(Rect2i(x, 0, w, pim.get_height())), OUT + "sins/%s_portrait.png" % s)
 	var sig := _split(_cut(_load("res://assets/art/extra/raw/sigils_raw.png")), 7)
 	for i in SINS.size():
 		_save(_fit_h(sig[i], 96), OUT + "sigils/%s.png" % SINS[i])

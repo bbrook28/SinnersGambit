@@ -18,10 +18,6 @@ uniform float glint = 0.6;
 uniform float motion = 1.0;
 uniform float bloom = 1.0;  // light-through-glass boost: 1 on the board lancets, less on brighter art
 
-float lum_at(sampler2D tex, vec2 uv) {
-	return dot(texture(tex, uv).rgb, vec3(0.299, 0.587, 0.114));
-}
-
 void fragment() {
 	float t = TIME * motion;
 	vec4 c = texture(TEXTURE, UV) * COLOR;
@@ -40,8 +36,9 @@ void fragment() {
 	c.rgb *= 1.0 + band * light + wob * (light / 0.2);
 	// Glints along the lead lines: dark pixels beside bright glass catch thin travelling highlights.
 	vec2 px = TEXTURE_PIXEL_SIZE * 1.5;
-	float edge = abs(lum_at(TEXTURE, UV + vec2(px.x, 0.0)) - lum_at(TEXTURE, UV - vec2(px.x, 0.0)))
-			+ abs(lum_at(TEXTURE, UV + vec2(0.0, px.y)) - lum_at(TEXTURE, UV - vec2(0.0, px.y)));
+	vec3 lw = vec3(0.299, 0.587, 0.114);
+	float edge = abs(dot(texture(TEXTURE, UV + vec2(px.x, 0.0)).rgb, lw) - dot(texture(TEXTURE, UV - vec2(px.x, 0.0)).rgb, lw))
+			+ abs(dot(texture(TEXTURE, UV + vec2(0.0, px.y)).rgb, lw) - dot(texture(TEXTURE, UV - vec2(0.0, px.y)).rgb, lw));
 	float lead = (1.0 - smoothstep(0.08, 0.25, lum)) * smoothstep(0.12, 0.4, edge);
 	float run = pow(max(0.0, sin((UV.y * 2.2 + UV.x * 0.9 - t * 0.23 + phase) * 6.283)), 36.0);
 	c.rgb += vec3(1.0, 0.92, 0.75) * lead * run * glint * c.a;

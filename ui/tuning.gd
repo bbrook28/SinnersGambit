@@ -23,11 +23,11 @@ const LINE_OVERLAP := 30.0 # the tab overlaps the window's foot by this much
 const CHIP_FONT := 30      # debt chips on the plate (TableDesign §7)
 const CHIP_OVERLAP := 18.0 # chips sit over the plate's lower edge by this much
 const CHIP_BG := Color("6a1c14")
-const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # the temptation card and speech tabs
-const OFFER_CARD_W := 900.0
-const OFFER_WINDOW_SHARE := 0.57  # the full window fills this share of the card's height (55-60%)
-const OFFER_PORTRAIT_W := 0.7     # ...and at most this share of its width
-const PORTRAIT_BLOOM := 0.2      # the card portrait is painted brighter than the lancets: less glass bloom
+const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # speech tabs
+const OFFER_DIM := 0.84          # a temptation dims the whole board this far (TableDesign §7)
+const OFFER_PORTRAIT_W := 0.9    # its 4:5 portrait spans this share of the screen width
+const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
+const PORTRAIT_BLOOM := 0.2      # the temptation portrait is painted brighter than the lancets: less glass bloom
 # Living glass (ui/shaders/flare.gdshader), every Sin window. Reduce Motion holds it still.
 const GLASS_LIGHT := 0.2        # the band of light that crosses behind the glass
 const GLASS_PULSE := 0.12       # the slow colour pulse

@@ -2425,6 +2425,8 @@ func show_prompt(text: String, options: Array, offer := {}) -> void:
 			_show_offer_now(text, options, offer)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
+		if is_instance_valid(_offer_card) and _offer_card.has_meta("place"):
+			_offer_card.get_meta("place").call()
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
 		if _tutor:
 			await _tutor.on_prompt())
@@ -2558,6 +2560,8 @@ func clear_prompt() -> void:
 	if is_instance_valid(_offer_card):
 		_offer_card.queue_free()
 	_offer_card = null
+	if _paper:
+		_paper.visible = true  # back after a temptation
 	if _summary:  # the bot turns so far come back on the page
 		_summary.visible = _summary_rows.get_child_count() > 0
 
@@ -3017,96 +3021,111 @@ func _chip(text: String) -> PanelContainer:
 	return chip
 
 
-## A temptation (TableDesign §7): a card over the dice tray with the offering Sin's window, its
-## name, the offer in large serif and, the first time, the tip. Accept (crimson, right thumb) and
-## Refuse (bronze, left) are the seals on the page just under it.
-func _show_offer_now(text: String, options: Array, offer: Dictionary) -> void:
+## A temptation (TableDesign §7) is a full-screen moment: the board dims, the Sin's 4:5 portrait
+## takes the top of the screen with the window flare, the offer and one line of decision context
+## sit under it, and Accept (crimson, right thumb) and Refuse (bronze, left) wait in the thumb zone.
+## The parchment and the prompt line step aside until the choice is made (clear_prompt).
+func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	clear_prompt()
 	_waiting = false
 	if _summary:
 		_summary.visible = false
-	_set_lettering(_prompt_label, text)
+	_set_lettering(_prompt_label, "")
+	_paper.visible = false
 	var sname: String = offer.sin
 	var col: Color = Style.SIN_COLORS[sname]
-	# The card is centred between the plates (scores stay visible) and the page with the seals.
-	var page_top: float = _thumb.get_global_rect().position.y
-	# Below the plates and any debt chips hanging under them.
-	var plates_end := 20.0
-	for pt in _portraits:
-		plates_end = maxf(plates_end, pt.col.get_global_rect().end.y + 16.0)
-		if pt.chips.get_child_count() > 0:
-			plates_end = maxf(plates_end, pt.chips.get_global_rect().end.y + 12.0)
-	var area := Rect2(0.0, plates_end, _fx.size.x, page_top - plates_end - 16.0)
-	var card := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Tuning.OFFER_BG
-	sb.border_color = col.lightened(0.25)
-	sb.set_border_width_all(5)
-	sb.set_corner_radius_all(28)
-	sb.set_content_margin_all(36)
-	sb.shadow_color = Color(0, 0, 0, 0.6)
-	sb.shadow_size = 30
-	card.add_theme_stylebox_override("panel", sb)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.custom_minimum_size.x = minf(area.size.x - 40.0, Tuning.OFFER_CARD_W)
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.z_index = 4  # over the board, tray and plates; the seals sit above it (z 5)
+	root.set_meta("sin", sname)
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0, 0, 0, Tuning.OFFER_DIM)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(dim)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 14)
+	v.add_theme_constant_override("separation", 18)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(v)
-	# The whole window, uncropped, over the top 55-60% of the card (the crop is for the board seats).
-	card.custom_minimum_size.y = area.size.y
+	root.add_child(v)
 	var win := TextureRect.new()
 	win.texture = Art.portrait(sname)
 	win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var asp: float = float(win.texture.get_width()) / maxf(1.0, win.texture.get_height())
-	win.custom_minimum_size.y = minf((area.size.y - 72.0) * Tuning.OFFER_WINDOW_SHARE, card.custom_minimum_size.x * Tuning.OFFER_PORTRAIT_W / asp)
 	win.material = Art.flare_material()
 	win.material.set_shader_parameter("bloom", Tuning.PORTRAIT_BLOOM)
 	if sname == "Greed":
 		win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))
 	win.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(win)
-	var card_flare := win.create_tween()
-	card_flare.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 0.9, 0.0, 0.8).set_ease(Tween.EASE_OUT)
-	for pt in _portraits:
-		if pt.sin == sname:
-			_flare(pt)
+	# A thin lead-and-gold border in the Sin's colour round the glass.
+	var frame := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = col.lightened(0.3)
+	sb.set_border_width_all(6)
+	sb.shadow_color = Color(col, 0.35)
+	sb.shadow_size = 40
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.add_child(win)
+	v.add_child(frame)
 	var name_l := Style.label(sname, Tuning.OFFER_NAME_FONT, col.lightened(0.4), true, 8)
-	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(name_l)
-	var inner: float = card.custom_minimum_size.x - 72.0
+	var inner: float = _fx.size.x * Tuning.OFFER_PORTRAIT_W
 	var words := Style.body(offer.text, Tuning.OFFER_FONT, Style.C_IVORY, 8)
 	words.custom_minimum_size.x = inner
+	words.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(words)
+	if offer.get("context", "") != "":
+		var ctx := Style.body(offer.context, Tuning.OFFER_CONTEXT_FONT, Style.C_BONE, 6)  # numbers in the gold numeral face
+		ctx.custom_minimum_size.x = inner
+		ctx.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(ctx)
 	if offer.tip != "":
 		var tip := Style.body("[i]%s[/i]" % offer.tip, Tuning.OFFER_TIP_FONT, Style.C_BONE, 6)
 		tip.custom_minimum_size.x = inner
+		tip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(tip)
-	var fill := Control.new()  # any height left over sits under the words
-	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(fill)
-	card.modulate.a = 0.0
-	_fx.add_child(card)
-	_offer_card = card
+	root.modulate.a = 0.0
+	_fx.add_child(root)
+	_offer_card = root
+	# Portrait: OFFER_PORTRAIT_W of the screen width at 4:5, shrunk only if the words would reach the seals.
 	var place := func():
-		if is_instance_valid(card):
-			card.size = card.get_combined_minimum_size()
-			card.pivot_offset = card.size / 2.0
-			card.position = Vector2(area.get_center().x - card.size.x / 2.0, maxf(20.0, area.get_center().y - card.size.y / 2.0))
-	v.minimum_size_changed.connect(place)
+		if not is_instance_valid(root):
+			return
+		var seals_top: float = _fx.size.y
+		for b in _buttons.get_children():
+			if not b.is_queued_for_deletion() and b.size.y > 0:
+				seals_top = minf(seals_top, b.get_global_rect().position.y)
+		var text_h := 0.0
+		for c in v.get_children():
+			if c != frame:
+				text_h += c.get_combined_minimum_size().y + 18.0
+		var top := 40.0
+		var asp: float = float(win.texture.get_width()) / maxf(1.0, win.texture.get_height())
+		var pw: float = _fx.size.x * Tuning.OFFER_PORTRAIT_W
+		var ph: float = minf(pw / asp, seals_top - 30.0 - top - text_h - 12.0)
+		win.custom_minimum_size = Vector2(ph * asp, ph)
+		v.position = Vector2(0, top)
+		v.size = Vector2(_fx.size.x, 0)
+	v.minimum_size_changed.connect(place, CONNECT_DEFERRED)
+	root.set_meta("place", place)  # show_prompt re-places it once the seals are laid out
 	place.call_deferred()
-	card.scale = Vector2.ONE * 0.92
-	var tw := card.create_tween().set_parallel()
-	tw.tween_property(card, "modulate:a", 1.0, 0.2)
-	tw.tween_property(card, "scale", Vector2.ONE, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	# Arrival: the board dims, the glass flares white and settles.
+	var tw := root.create_tween().set_parallel()
+	tw.tween_property(root, "modulate:a", 1.0, 0.25)
+	tw.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 1.0, 0.0, 0.9).set_ease(Tween.EASE_OUT)
+	for pt in _portraits:
+		if pt.sin == sname:
+			_flare(pt)
 	for o in options:
 		var accept: bool = o[1] == true
 		var kind := "roll" if accept else "bank"
 		var b := Button.new()
 		b.set_meta("kind", kind)
 		b.set_meta("offer", "accept" if accept else "refuse")
+		b.z_index = 5
 		if accept:
 			Art.skin(b, Art.SEAL_L)
 		else:
@@ -3117,6 +3136,7 @@ func _show_offer_now(text: String, options: Array, offer: Dictionary) -> void:
 		_seal_feel(b, kind, func(): human.answered.emit(val))
 		_buttons.add_child(b)
 	_layout_buttons.call_deferred()
+	place.call_deferred()
 
 
 ## A Sin's line (TableDesign §3): a speech tab at the foot of the speaker's window, in its colour.
