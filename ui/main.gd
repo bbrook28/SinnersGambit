@@ -447,7 +447,7 @@ func _build_menu() -> void:
 	# Once laid out: ink the words in, bring the seals in, then let the title breathe.
 	(func():
 		_set_lettering(title, "Sinners' Gambit", Style.C_CRIMSON)
-		_set_lettering(sub, RulesText.run("menu_sub"), Style.C_STRIKE)
+		_set_lettering(sub, RulesText.table("menu_sub"), Style.C_STRIKE)
 		_dir.seals_enter(_menu_seals)
 		if not Tuning.reduce_motion:
 			title.pivot_offset = title.size / 2
@@ -1952,7 +1952,7 @@ func result_line(faces: Array, new_strikes: int) -> String:
 		var sum := 0
 		for f in scorers:
 			sum += f * game.face_mult
-		var total: int = Rules.score(Array(faces, TYPE_INT, "", null), game.chain, game.face_mult)
+		var total: int = game.throw_score(faces)  # rounded as the board shows it (V4: down to 5)
 		var names: Array = scorers.map(func(f): return str(f))
 		var list: String = names[0] if names.size() == 1 else ", ".join(names.slice(0, names.size() - 1)) + " and " + names[-1]
 		if total != sum:
@@ -3118,8 +3118,6 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	var tw := root.create_tween().set_parallel()
 	tw.tween_property(root, "modulate:a", 1.0, 0.25)
 	tw.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 1.0, 0.0, Tuning.FLARE_TIME).set_ease(Tween.EASE_OUT)
-	if living:
-		tw.tween_callback(living.gesture).set_delay(Tuning.PORTRAIT_GESTURE_DELAY)
 	for pt in _portraits:
 		if pt.sin == sname:
 			_flare(pt)
@@ -3137,7 +3135,20 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 		_caption(b, o[0], 56)
 		var val = o[1]
 		b.set_meta("value", val)
-		_seal_feel(b, kind, func(): human.answered.emit(val))
+		# A living portrait reacts before the screen closes: Accept, he gulps the dice and holds the
+		# empty mouth; Refuse, the goblet lowers and the glass dims. One answer only.
+		_seal_feel(b, kind, func():
+			if root.has_meta("answered"):
+				return
+			root.set_meta("answered", true)
+			if living:
+				for s in _buttons.get_children():
+					s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var hold: float = living.accept() if accept else living.refuse()
+				if not accept:
+					root.create_tween().tween_method(func(f: float): win.material.set_shader_parameter("dim", f), 0.0, 1.0, hold * 0.8)
+				await get_tree().create_timer(hold).timeout
+			human.answered.emit(val))
 		_buttons.add_child(b)
 	_layout_buttons.call_deferred()
 	place.call_deferred()

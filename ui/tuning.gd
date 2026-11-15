@@ -31,9 +31,13 @@ const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
 const PORTRAIT_BREATH_PERIOD := 3.6  # seconds a breath
 const PORTRAIT_BREATH := 0.012       # the body swells this share taller (half that wider)
 const PORTRAIT_ARM_SWAY := 0.8       # degrees the arm rides each breath
-const PORTRAIT_GESTURE_TIME := 1.6   # the offer gesture, seconds
-const PORTRAIT_GESTURE_DEG := 9.0    # Gluttony tips the goblet to his mouth this far
-const PORTRAIT_GESTURE_DELAY := 0.3  # after the offer arrives
+const PORTRAIT_IDLE_TIP_DEG := 2.5   # while the offer is open the goblet tips this far toward his mouth and back
+const PORTRAIT_IDLE_TIP_PERIOD := 4.4
+const PORTRAIT_GULP_TIME := 0.8      # Accept: the dice fly into his mouth
+const PORTRAIT_EMPTY_HOLD := 1.0     # then the empty mouth holds this long before the screen closes
+const PORTRAIT_REFUSE_TIME := 0.8    # Refuse: the goblet lowers and the glass dims, then the screen closes
+const PORTRAIT_REFUSE_DEG := 6.0     # how far the goblet lowers
+const PORTRAIT_GESTURE_DEG := 9.0    # Accept: Gluttony tips the goblet to his mouth this far
 # Living glass (ui/shaders/flare.gdshader), every Sin window. Reduce Motion holds it still.
 const GLASS_LIGHT := 0.1        # the band of light behind the glass: at most this much brighter
 const GLASS_PULSE := 0.03       # the slow swell: this much brighter and back (brightness, not hue)

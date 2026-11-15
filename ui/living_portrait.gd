@@ -2,9 +2,11 @@
 ## body, arm and goblet, loose dice, baked by tools/bake_layers.gd into
 ## assets/art/runtime/sins/<sin>_layers/. Rendered into this viewport; the offer screen shows its
 ## texture through the flare shader like any window, so the glass light and flare still apply.
-## At rest he breathes (the body swells from its base, the arm rides with it, the dice bob).
-## gesture(): the offer. He tips the goblet toward his mouth and the dice drop in, then the dice
-## come back to his fist. Reduce Motion holds him still and skips the gesture.
+## While the offer is open he breathes (the body swells from its base, the arm rides it, the dice
+## bob) and the goblet tips a little toward his mouth and back.
+## accept(): he gulps the dice (they fly into his mouth and are gone) and holds the empty mouth.
+## refuse(): the goblet lowers. The offer screen dims the glass itself. Dice never come back within
+## an offer. Reduce Motion holds him still; accept() then just takes the dice away.
 extends SubViewport
 
 const Tuning = preload("res://ui/tuning.gd")
@@ -16,9 +18,11 @@ var dice: Array[Sprite2D] = []
 var dice_home: Array[Vector2] = []
 var dice_scale: Array[float] = []
 var mouth := Vector2.ZERO
-var t := 0.0
-var gesture_t := -1.0
 var arm_y := 0.0
+var t := 0.0
+var state := ""      # "", "accept" or "refuse"
+var state_t := 0.0   # seconds since accept() or refuse()
+var tip_from := 0.0  # the arm's lift when the answer came, so it moves on from there
 
 
 static func has_layers(sin_name: String) -> bool:
@@ -64,13 +68,35 @@ func setup(sin_name: String) -> void:
 		dice.append(s)
 		dice_home.append(s.position)
 		dice_scale.append(float(d.scale))
-	mouth = Vector2(layout.get("mouth", [490, 440])[0], layout.get("mouth", [490, 440])[1])
+	var m: Array = layout.get("mouth", [490, 440])
+	mouth = Vector2(m[0], m[1])
 
 
-## The offer: tip the goblet to the mouth, drop the dice in.
-func gesture() -> void:
-	if not Tuning.reduce_motion:
-		gesture_t = 0.0
+## Accepted: gulp the dice. Returns how long to hold the screen (the gulp, then the empty mouth).
+func accept() -> float:
+	_answer("accept")
+	if Tuning.reduce_motion:
+		for d in dice:
+			d.visible = false
+	return Tuning.PORTRAIT_GULP_TIME + Tuning.PORTRAIT_EMPTY_HOLD
+
+
+## Refused: lower the goblet. Returns how long to hold the screen.
+func refuse() -> float:
+	_answer("refuse")
+	return Tuning.PORTRAIT_REFUSE_TIME
+
+
+func _answer(s: String) -> void:
+	if state == "":
+		tip_from = _idle_tip()
+		state = s
+		state_t = 0.0
+
+
+## The goblet's slight tip while the offer is open, 0..1.
+func _idle_tip() -> float:
+	return 0.5 - 0.5 * cos(t * TAU / Tuning.PORTRAIT_IDLE_TIP_PERIOD)
 
 
 func _process(delta: float) -> void:
@@ -79,30 +105,27 @@ func _process(delta: float) -> void:
 	t += delta
 	var breath := sin(t * TAU / Tuning.PORTRAIT_BREATH_PERIOD)
 	body.scale = Vector2(1.0 + Tuning.PORTRAIT_BREATH * 0.5 * breath, 1.0 + Tuning.PORTRAIT_BREATH * breath)
-	var tip := 0.0
-	var drop := 0.0   # 0..1: the dice falling into the mouth
-	var back := 0.0   # 0..1: the dice returning to the fist
-	if gesture_t >= 0.0:
-		gesture_t += delta
-		var g := gesture_t / Tuning.PORTRAIT_GESTURE_TIME
-		tip = sin(clampf(g, 0.0, 1.0) * PI)  # up to the mouth and back
-		drop = smoothstep(0.15, 0.6, g)
-		back = smoothstep(0.75, 1.0, g)
-		if g >= 1.0:
-			gesture_t = -1.0
-	arm.rotation = deg_to_rad(Tuning.PORTRAIT_ARM_SWAY * breath + Tuning.PORTRAIT_GESTURE_DEG * tip)
+	var deg := Tuning.PORTRAIT_IDLE_TIP_DEG * _idle_tip()
+	var gulp := 0.0  # 0..1: the dice flying into his mouth
+	if state != "":
+		state_t += delta
+	if state == "accept":
+		# Up to the mouth for the gulp, then slowly back down while he holds the empty mouth.
+		var up := smoothstep(0.0, 0.35, state_t / Tuning.PORTRAIT_GULP_TIME)
+		var down := smoothstep(0.0, 1.0, (state_t - Tuning.PORTRAIT_GULP_TIME) / Tuning.PORTRAIT_EMPTY_HOLD)
+		deg = lerpf(Tuning.PORTRAIT_IDLE_TIP_DEG * tip_from, Tuning.PORTRAIT_GESTURE_DEG, up)
+		deg = lerpf(deg, 0.0, down * 0.6)
+		gulp = smoothstep(0.1, 1.0, state_t / Tuning.PORTRAIT_GULP_TIME)
+	elif state == "refuse":
+		var k := smoothstep(0.0, 1.0, state_t / (Tuning.PORTRAIT_REFUSE_TIME * 0.7))
+		deg = lerpf(Tuning.PORTRAIT_IDLE_TIP_DEG * tip_from, -Tuning.PORTRAIT_REFUSE_DEG, k)
+	arm.rotation = deg_to_rad(Tuning.PORTRAIT_ARM_SWAY * breath + deg)
 	# The arm rides the breath: its shoulder sits on the body's edge.
 	arm.position.y = arm_y - Tuning.PORTRAIT_BREATH * breath * size.y * 0.15
 	for i in dice.size():
-		var stagger := clampf(drop * 1.6 - i * 0.3, 0.0, 1.0)
+		var k := clampf(gulp * 1.6 - i * 0.3, 0.0, 1.0)  # staggered, top die first
 		var bob := Vector2(0.0, 4.0 * sin(t * 2.2 + i * 1.7))
-		var p := dice_home[i].lerp(mouth, stagger) + bob * (1.0 - stagger)
-		dice[i].position = p
-		dice[i].rotation = stagger * (1.5 + i)
-		var vanish := (1.0 - stagger * 0.7) if back == 0.0 else lerpf(0.3, 1.0, back)
-		dice[i].scale = Vector2.ONE * dice_scale[i] * vanish
-		dice[i].modulate.a = (1.0 - stagger) if back == 0.0 else back
-		if back > 0.0:
-			dice[i].position = dice_home[i] + Vector2(30.0, 60.0) * (1.0 - back)
-			dice[i].rotation = 0.0
-
+		dice[i].position = dice_home[i].lerp(mouth, k * k) + bob * (1.0 - k)
+		dice[i].rotation = k * (1.5 + i)
+		dice[i].scale = Vector2.ONE * dice_scale[i] * (1.0 - 0.7 * k)
+		dice[i].modulate.a = 1.0 - smoothstep(0.6, 1.0, k)

@@ -347,9 +347,7 @@ func take_turn(p) -> void:
 			_bust(p)
 			await beat(p, "end")
 			return
-		turn.throw_points = Rules.score(turn.faces, chain, face_mult)
-		if round5:
-			turn.throw_points = turn.throw_points / 5 * 5
+		turn.throw_points = throw_score(turn.faces)
 		if doubled:
 			turn.throw_points *= 2
 		turn.points += turn.throw_points
@@ -648,3 +646,9 @@ func _tempt(p) -> bool:
 				say("  %s's claim: %s, for the rest of the game" % [pname(from), pname(p)])
 	_check_lead()
 	return throws_now
+
+
+## A throw's points under this table's options: the chain multiplier, then V4's round down to 5.
+func throw_score(faces: Array) -> int:
+	var pts := Rules.score(Array(faces, TYPE_INT, "", null), chain, face_mult)
+	return pts / 5 * 5 if round5 else pts

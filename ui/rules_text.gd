@@ -496,6 +496,7 @@ const CLAIMS := {
 }
 
 const TABLE := {
+	"menu_sub": "Throw the dice. Bank or burn. Resist the Sins.",
 	"tempt_tip": "Accept for the gain and take its mark. {marks} marks, and it claims you.",
 	"tempt_prompt": "{sin} tempts you.",
 	"tempt_context": "This turn {pts}  ·  {strikes}  ·  You {me}  ·  Leader {lead}",
