@@ -42,7 +42,7 @@ jobs:
           # The Team ID lives in export_presets.cfg (it isn't secret); an
           # APPLE_TEAM_ID secret, if set, overrides it.
           TEAM="$TEAM_SECRET"
-          [ -z "$TEAM" ] && TEAM=$(sed -n 's/^application\/app_store_team_id="\(.*\)"/\1/p' export_presets.cfg)
+          [ -z "$TEAM" ] && TEAM=$(sed -n 's/^application\/app_store_team_id="\(.*\)"/\1/p' export_presets.cfg | head -1)  # one line per iOS preset
           echo "APPLE_TEAM=$TEAM" >> $GITHUB_ENV
           missing=""
           [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
