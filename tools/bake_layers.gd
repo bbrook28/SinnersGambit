@@ -22,8 +22,9 @@
 ##             align_to  another part: fitted to that part's raw, then carried by its transform
 ##             alt       an alternate state: not in still.png
 ##             replaces  the part an alt state stands in for (for the review sheet)
+##   body_fix rects where the body takes the portrait's own pixels (feathered).
 ##   patches full repaints (a smile, closed eyes, a drawn hood): fitted inside `rects`, then kept only
-##           inside those rects (feathered) and over the body and parts.
+##           inside those rects (feathered) and over the body and parts. rest: part of the still.
 ## Every part and patch is a PNG cropped to its bounds; parts.json gives each one's rect in the window.
 ## still.png is bg + body + parts at rest. Docs/review/layers/<sin>.png puts the portrait's window
 ## beside the still and each alternate state, for checking by eye.
@@ -49,19 +50,26 @@ const GLUTTONY := {
 
 const SINS := {
 	"envy": {
+		"body_fix": [[470, 240, 140, 110, 1]],  # the body cut left a hole above his right eye (the bg showed through)
 		"parts": {
-			# The redone edit has the head and neck in place; its coils are invented, so keep only those.
-			"serpent": {"file": "serpent_v2", "keep": [600, 280, 424, 420], "search": {"t": 24, "s": 0.06, "r": 4}},
+			# The redone edit has the head and neck in place; its coils are invented, so keep only those
+			# (from x 705: left of that it has a green smudge by his face).
+			"serpent": {"file": "serpent_v2", "keep": [705, 280, 319, 420], "search": {"t": 24, "s": 0.06, "r": 4}},
 		},
 		"patches": {"hooded": {"rects": [[347, 107, 400, 453]]}},
 	},
 	"greed": {
 		"parts": {
 			"purse": {"at": [345, 912], "s": 0.4, "search": {"t": 60, "s": 0.25, "r": 15}},
-			"coin": {"place": {"centre": [560, 430], "width": 110}},
+			# The loose coin for the drop into the purse: half size, where coinhand has it.
+			"coin": {"place": {"centre": [600, 445], "width": 48}, "alt": true},
 		},
+		# The coin pinched in his fingers, painted into the glass (an edit of the portrait).
+		"patches": {"coinhand": {"rest": true, "rects": [[560, 370, 250, 220]]}},
 	},
 	"lust": {
+		# The neckline redo (9+ rating) lands in the portrait; the body takes its chest from there.
+		"body_fix": [[300, 520, 440, 330]],
 		"parts": {
 			"arm": {"file": "armopen", "anchor": [550, 738], "at": [246, 784], "s": 0.55, "r": 40,
 				"search": {"t": 50, "s": 0.2, "r": 40, "rstep": 10}},
@@ -125,6 +133,24 @@ func _bake(s: String, cfg: Dictionary) -> void:
 	var bp := _fit(body_src, portrait, bc, {"s": 1.0, "r": 0.0, "at": bc}, {"t": 60, "s": 0.15, "r": 3}, brects)
 	print("%s body: %s" % [s, _fmt(bp)])
 	var body := _warp(body_src, to_win * _xf(bc, bp), win)
+	# body_fix: the portrait's own pixels inside feathered rects (an edit's flaw, or a portrait fix
+	# the body edit predates). The body keeps its alpha, unless the rect's fifth number is 1 (fill a
+	# hole the cut left inside the figure).
+	for r in cfg.get("body_fix", []):
+		var fr := _rect(r)
+		var fill: bool = r.size() > 4 and r[4] == 1
+		for y in range(maxi(fr.position.y, 0), mini(fr.end.y, 1024)):
+			for x in range(maxi(fr.position.x - x0, 0), mini(fr.end.x - x0, WIN_W)):
+				var d := minf(minf(x + x0 - fr.position.x, fr.end.x - x - x0), minf(y - fr.position.y, fr.end.y - y))
+				var k := clampf(d / FEATHER, 0.0, 1.0)
+				var c := body.get_pixel(x, y)
+				var pc := portrait.get_pixel(x + x0, y)
+				if fill:
+					var a := maxf(c.a, k)
+					var kc := k if c.a > 0.0 else 1.0
+					body.set_pixel(x, y, Color(lerpf(c.r, pc.r, kc), lerpf(c.g, pc.g, kc), lerpf(c.b, pc.b, kc), a))
+				elif c.a > 0.0:
+					body.set_pixel(x, y, Color(lerpf(c.r, pc.r, k), lerpf(c.g, pc.g, k), lerpf(c.b, pc.b, k), c.a))
 	_save(body, dir + "body.png")
 	var cover: Image = body.duplicate()  # alpha of everything over the bg, window space
 
@@ -178,13 +204,7 @@ func _bake(s: String, cfg: Dictionary) -> void:
 			if not pc.get("alt", false):
 				cover.blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), out.position)
 
-	var still := _compose(bg, body, layers, "")
-	_save(still, dir + "still.png")
-	var review: Array[Image] = [portrait.get_region(Rect2i(x0, 0, WIN_W, 1024)), still]
-	for l in layers:
-		if l[3]:
-			review.append(_compose(bg, body, layers, l[0]))
-
+	var patches := []  # [image, position, rest]
 	for name in cfg.get("patches", {}):
 		var pc: Dictionary = cfg.patches[name]
 		var rep := _img(s + "_layer_" + pc.get("file", name))
@@ -211,10 +231,27 @@ func _bake(s: String, cfg: Dictionary) -> void:
 				col.a *= a
 				im.set_pixel(x, y, col)
 		_save(im, dir + name + ".png")
-		layout.patches.append({"name": name, "file": name + ".png", "rect": [out.position.x, out.position.y, out.size.x, out.size.y]})
-		var st: Image = still.duplicate()
-		st.blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), out.position)
-		review.append(st)
+		layout.patches.append({"name": name, "file": name + ".png", "rect": [out.position.x, out.position.y, out.size.x, out.size.y],
+			"rest": pc.get("rest", false)})
+		patches.append([im, out.position, pc.get("rest", false)])
+
+	# Rest patches belong to the still (Greed's coin in his fingers); the others are alternate states.
+	var with_rest := func(im: Image) -> Image:
+		for pt in patches:
+			if pt[2]:
+				im.blend_rect(pt[0], Rect2i(Vector2i.ZERO, pt[0].get_size()), pt[1])
+		return im
+	var still: Image = with_rest.call(_compose(bg, body, layers, ""))
+	_save(still, dir + "still.png")
+	var review: Array[Image] = [portrait.get_region(Rect2i(x0, 0, WIN_W, 1024)), still]
+	for l in layers:
+		if l[3] and l[4] != "":
+			review.append(_compose(bg, body, layers, l[0]))
+	for pt in patches:
+		if not pt[2]:
+			var st: Image = still.duplicate()
+			st.blend_rect(pt[0], Rect2i(Vector2i.ZERO, pt[0].get_size()), pt[1])
+			review.append(st)
 
 	var f := FileAccess.open(ProjectSettings.globalize_path(dir + "parts.json"), FileAccess.WRITE)
 	f.store_string(JSON.stringify(layout, "\t"))
