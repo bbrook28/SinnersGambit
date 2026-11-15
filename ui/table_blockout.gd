@@ -49,7 +49,7 @@ const DIE_MAX_ROWS := 140.0  # two rows of dice
 const DIE_MIN := 110.0
 const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
-const GAIN_H := 110.0      # a strip between the track and the dice: a throw's points as they land
+const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -164,6 +164,8 @@ func build() -> void:
 	var px1: float = vp.x - 24.0
 	var sy: float = pb - EDGE - SEAL
 	var stake_size: int = int(lerpf(120.0, 190.0, clampf(points / 600.0, 0.0, 1.0)))  # grows as dice score
+	var gain_size: int = stake_size + 10  # at least the stake numeral
+	var gain_h: float = gain_size * 0.82 + 24.0  # the strip between the track and the dice (Cinzel's glyphs, not its line box)
 	var stake_h: float = stake_size * 1.45  # Cinzel's line box
 	var stake_top: float = sy - 8.0 - stake_h
 	var dl: float = px0 + 40.0
@@ -180,11 +182,11 @@ func build() -> void:
 	var dy: float = 0.0
 	while true:
 		dy = stake_top - 56.0 - rows * ds - (rows - 1) * 34.0
-		if dy - 40.0 - band_h - GAIN_H >= wy_min + wh_active + UNDER_WIN or ds <= DIE_MIN:
+		if dy - 40.0 - band_h - gain_h >= wy_min + wh_active + UNDER_WIN or ds <= DIE_MIN:
 			break
 		ds -= 6.0
-	var pt: float = maxf(dy - 70.0 - band_h - GAIN_H, wy_min + wh_active + UNDER_WIN)
-	pt = minf(pt, dy - 40.0 - band_h - GAIN_H)
+	var pt: float = maxf(dy - 70.0 - band_h - gain_h, wy_min + wh_active + UNDER_WIN)
+	pt = minf(pt, dy - 40.0 - band_h - gain_h)
 	var room: float = pt - UNDER_WIN - wy_min
 	var k: float = minf(1.0, room / wh_active)  # only if even the smallest dice leave no room
 	# The active window grows into spare wall above, as wide as the row allows.
@@ -323,11 +325,16 @@ func build() -> void:
 	dice_area = Rect2(dl, dy, dw, rows * ds + (rows - 1) * 34.0)
 	gain_label = null
 	if gain > 0:  # the throw's points, gold, in the strip just above the dice
-		var gain_l := _label("+%d" % gain, 80, GOLD, INK)
-		gain_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		gain_l.size = Vector2(dw, 80 * 1.45)
-		gain_l.position = Vector2(dl, dy - 4.0 - gain_l.size.y)
+		var gain_l := _label("+%d" % gain, gain_size, GAIN_GOLD, BLACK)
 		gain_l.add_theme_font_override("font", Style.NUMERAL)
+		gain_l.add_theme_constant_override("outline_size", 22)  # a dark edge
+		gain_l.add_theme_color_override("font_shadow_color", Color(BLACK, 0.7))
+		gain_l.add_theme_constant_override("shadow_offset_x", 5)
+		gain_l.add_theme_constant_override("shadow_offset_y", 7)
+		gain_l.add_theme_constant_override("shadow_outline_size", 22)
+		gain_l.size = Vector2(dw, gain_size * 1.45)
+		# Glyphs centred in the strip just above the dice (the line box overhangs it, the glyphs don't).
+		gain_l.position = Vector2(dl, dy - gain_h / 2.0 - 4.0 - gain_l.size.y / 2.0)
 		gain_label = gain_l
 	for d in slots:
 		var row: int = d / per
