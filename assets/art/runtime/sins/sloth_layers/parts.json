@@ -1,10 +1,4 @@
 {
-	"body_line": [
-		-12,
-		-12,
-		843,
-		1048
-	],
 	"grade": {
 		"cover": 0.5,
 		"dark": 0.85,
@@ -13,18 +7,10 @@
 		"mean": 0.0984923107788708,
 		"passed": false
 	},
+	"outline": 10,
 	"parts": [
 		{
 			"file": "candle.png",
-			"line": {
-				"file": "candle_line.png",
-				"rect": [
-					-12,
-					537,
-					357,
-					499
-				]
-			},
 			"name": "candle",
 			"rect": [
 				0,
@@ -35,15 +21,6 @@
 		},
 		{
 			"file": "flame.png",
-			"line": {
-				"file": "flame_line.png",
-				"rect": [
-					74,
-					432,
-					115,
-					184
-				]
-			},
 			"name": "flame",
 			"rect": [
 				86,

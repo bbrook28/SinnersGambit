@@ -107,6 +107,9 @@
     ,{"asset_id": "d23ba301-5be1-4d7e-8592-c8d93a490728", "sha12": "38743157563d", "label": "emblem seal: Accept Lust, rose wax, two dice (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_lust_raw.png"}
     ,{"asset_id": "92be406f-46dd-480b-950d-e2e46992f37f", "label": "emblem seal: Accept Lust v2, rose wax, a rose (edit of 724cb97b; 16)", "file": "seals/raw/emblem_accept_lust_v2_raw.png"}
     ,{"asset_id": "bb4f4b38-ed36-49f2-ba8a-39d4ae39e470", "label": "emblem seal: Accept Greed v2, silver wax, crowned coin (edit of 724cb97b; 16)", "file": "seals/raw/emblem_accept_greed_v2_raw.png"}
+    ,{"asset_id": "71e16f2d-b914-4fe3-874d-cf30813ec6c3", "label": "emblem seal: Accept Greed v3, silver wax, stack of plain coins (edit of bb4f4b38; 16; in use)", "file": "seals/raw/emblem_accept_greed_v3_raw.png"}
+    ,{"asset_id": "0cff2d71-0d01-4f89-ac09-a892b0a6a1ac", "label": "lust chest hand fix: thumb added; edit (gpt-image-2.6-sunburst, 29) of an opaque 360px crop of still.png (upload 92b6fac6) at window x428 y360, pasted into the body layer at raw x500 y360 by tools/paste_patch.gd (two flare tries failed: 59f0520b repainted the scene, 45e22d56 kept four digits; 16 each)", "file": "sins/portrait_raw/lust_fix_chesthand_raw.png"}
+    ,{"asset_id": "3bbb8fa6-4101-419b-a50d-b84806c9f3ba", "label": "gluttony goblet hand fix: little finger joined; edit (16) of a 340px crop of the arm layer (upload 27cc6680) at x210 y130, pasted by tools/paste_patch.gd into gluttony_layer_arm_v2_raw.png", "file": "sins/portrait_raw/gluttony_fix_gobhand_raw.png"}
     ,{"asset_id": "724cb97b-554f-49fa-a038-4cdafc367b08", "sha12": "a9712622ed82", "label": "emblem seal: Accept Envy, emerald wax, eye (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_envy_raw.png"}
     ,{"asset_id": "8db37446-6064-4755-af48-b05bde0f5d34", "sha12": "5c1421061055", "label": "emblem seal: Accept Pride, amethyst wax, crowned mirror (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_pride_raw.png"}
     ,{"asset_id": "e8bf70e4-f5c6-4463-9c41-03832192d31a", "sha12": "c54a42c18e0d", "label": "emblem seal: Accept Sloth, sapphire wax, snail and moon (edit of 6f49d932; 16)", "file": "seals/raw/emblem_accept_sloth_raw.png"}
@@ -119,5 +122,8 @@
     ,{"asset_id": "a9dee663-cc66-4233-a5bf-d671a525ca8b", "sha12": "ec46bbeca8f1", "label": "emblem seal: Bank cracked (edit of a304d2fb; 16)", "file": "seals/raw/emblem_bank_cracked_raw.png"}
     ,{"asset_id": "58e75a63-e3cc-4d55-ae14-9e919231fc78", "sha12": "aa10922cee7b", "label": "emblem seal: Throw cracked (edit of 0fac2518; 16)", "file": "seals/raw/emblem_throw_cracked_raw.png"}
     ,{"asset_id": "cfda2916-d4b3-46fe-b677-bed519921127", "sha12": "a211525155b4", "label": "emblem seal: Choose cracked (edit of d77c07b6; 16)", "file": "seals/raw/emblem_choose_cracked_raw.png"}
+    ,{"asset_id": "3454df18-bd11-4f2b-b888-df2c628ea380", "sha12": "e2a28f137bc7", "label": "table concept A, round gaming table (UI kit 6120cf24; style b8883ea0; 22)", "file": "concepts/table_concept_a.png"}
+    ,{"asset_id": "ba22b405-3cd2-4022-94ea-df27c7b69222", "sha12": "67ee108fd37d", "label": "table concept B, chapel windows and altar (UI kit abed65f6; style b8883ea0; 22)", "file": "concepts/table_concept_b.png"}
+    ,{"asset_id": "05d4c71b-6eb6-4d61-b80a-b9ee8bd3333e", "sha12": "b39683d0334c", "label": "table concept C, descent track board (UI kit d66a9de5; style b8883ea0; 22)", "file": "concepts/table_concept_c.png"}
   ]
 }

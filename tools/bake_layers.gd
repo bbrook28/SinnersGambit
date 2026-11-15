@@ -44,9 +44,12 @@ const FEATHER := 20.0  # px, patch and keep edges
 ## Figure and ground (Ben, Nov 15, version B): the bg layer is darkened and desaturated per Sin, with a
 ## vignette (darker toward the edges, less dark behind the head and shoulders), and every figure layer
 ## gets a dark lead line round its silhouette, its own image so it moves with the layer.
-const LINE := 10       # px at window size: full-strength lead line
+const LINE := 10       # px at window size: the lead line on a dark figure
+const LINE_MIN := 4    # px: on a pale one (Greed, Pride)
+const LINE_DARK_LUM := 0.12  # median figure brightness at or under which a figure gets LINE
+const LINE_PALE_LUM := 0.35  # and at or over which LINE_MIN
 const LINE_SOFT := 2   # px of canvas padding beyond it (the line itself is crisp)
-const LEAD := Color("140d0b")
+const LEAD := Color("080605")  # near-black
 const VIG_EDGE := 0.25     # extra darkening at the window's corners
 const VIG_NIMBUS := 0.35   # share of the darkening taken off at the head
 const VIG_SIGMA := 210.0   # px, the nimbus falloff
@@ -81,6 +84,9 @@ const SINS := {
 	},
 	"greed": {
 		"head": [600, 380],
+		# The robe's lower-right corner (the cut ran across it) and the back of the coin hand (the pane
+		# showed over it): portrait pixels into the body.
+		"body_fix": [[662, 860, 320, 220, 1], [650, 370, 150, 200, 2]],
 		"parts": {
 			# The strap and buckle come from the portrait (the body edit dropped them), joined to the purse.
 			"purse": {"at": [345, 912], "s": 0.4, "search": {"t": 60, "s": 0.25, "r": 15},
@@ -93,6 +99,7 @@ const SINS := {
 	},
 	"lust": {
 		"head": [520, 340],
+		"body_file": "body_v2",  # the chest hand with its thumb (crop edit pasted back by tools/paste_patch.gd)
 		"parts": {
 			"arm": {"file": "armopen", "anchor": [550, 738], "at": [246, 784], "s": 0.55, "r": 40,
 				"search": {"t": 50, "s": 0.2, "r": 40, "rstep": 10}},
@@ -102,6 +109,7 @@ const SINS := {
 	},
 	"pride": {
 		"head": [480, 360],
+		"line": 5,  # pale skin and gown read lighter than the median (Ben: thinner on Pride)
 		# v2: the mirror, reflection and holding arm kept in place (the first edit had an empty, re-shaped glass).
 		"parts": {"mirror": {"file": "mirror_v2", "search": {"t": 30, "s": 0.06, "r": 4}}},
 		# Her face and the face in the mirror.
@@ -150,7 +158,7 @@ func _bake(s: String, cfg: Dictionary) -> void:
 
 	var bg := _img(s + "_layer_bg").get_region(Rect2i(x0, 0, WIN_W, 1024))  # graded and saved below
 
-	var body_src := _cut(_img(s + "_layer_body"))
+	var body_src := _cut(_img(s + "_layer_" + cfg.get("body_file", "body")))
 	var bc := Vector2(512, 512)
 	var brects: Array[Rect2i] = []
 	for r in cfg.get("body_rects", []):
@@ -163,6 +171,9 @@ func _bake(s: String, cfg: Dictionary) -> void:
 	# hole the cut left inside the figure).
 	for r in cfg.get("body_fix", []):
 		var fr := _rect(r)
+		if r.size() > 4 and r[4] == 2:
+			_fill_skin(body, portrait, fr, x0)
+			continue
 		var fill: bool = r.size() > 4 and r[4] == 1
 		for y in range(maxi(fr.position.y, 0), mini(fr.end.y, 1024)):
 			for x in range(maxi(fr.position.x - x0, 0), mini(fr.end.x - x0, WIN_W)):
@@ -296,19 +307,14 @@ func _bake(s: String, cfg: Dictionary) -> void:
 			"rest": pc.get("rest", false)})
 		patches.append([im, out.position, pc.get("rest", false)])
 
-	# Lead lines: one per figure layer, in its own image (rect grown by the line), so it moves with it.
-	var pad := LINE + LINE_SOFT
-	var body_line := _line_img(body, pad, LINE, LINE_SOFT)
-	_save(body_line, dir + "body_line.png")
-	layout["body_line"] = [-pad, -pad, body_line.get_width(), body_line.get_height()]
-	for l in layers:
-		var li := _line_img(l[1], pad, LINE, LINE_SOFT)
-		_save(li, dir + l[0] + "_line.png")
-		l.append(li)
-		l.append(l[2] - Vector2i(pad, pad))
-		for e in layout.parts:
-			if e.name == l[0]:
-				e["line"] = {"file": l[0] + "_line.png", "rect": [l[2].x - pad, l[2].y - pad, li.get_width(), li.get_height()]}
+	# One lead line round the whole figure (Ben, Part A), drawn from the combined silhouette of every
+	# layer shown, so it is only ever on the outside edge, never at a seam. Width follows the figure's
+	# lightness (thin on pale robes, Ben). In game a CanvasGroup draws it live ("outline" px).
+	var lw: int = cfg.get("line", _line_width(body))  # "line": px, where a figure reads paler than its median
+	layout["outline"] = lw
+	for fn in DirAccess.get_files_at(dir):
+		if fn.ends_with("_line.png"):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(dir + fn))  # the old per-layer lines
 
 	# Figure at rest (no ground), to tune the ground's grade against.
 	var figure := Image.create(WIN_W, 1024, false, Image.FORMAT_RGBA8)
@@ -333,12 +339,12 @@ func _bake(s: String, cfg: Dictionary) -> void:
 			if pt[2]:
 				im.blend_rect(pt[0], Rect2i(Vector2i.ZERO, pt[0].get_size()), pt[1])
 		return im
-	var still: Image = with_rest.call(_compose(bg, body, body_line, layers, ""))
+	var still: Image = with_rest.call(_compose(bg, body, layers, "", lw))
 	_save(still, dir + "still.png")
 	var review: Array[Image] = [portrait.get_region(Rect2i(x0, 0, WIN_W, 1024)), still]
 	for l in layers:
 		if l[3] and l[4] != "":
-			review.append(with_rest.call(_compose(bg, body, body_line, layers, l[0])))
+			review.append(with_rest.call(_compose(bg, body, layers, l[0], lw)))
 	for pt in patches:
 		if not pt[2]:
 			var st: Image = still.duplicate()
@@ -352,25 +358,22 @@ func _bake(s: String, cfg: Dictionary) -> void:
 	print("%s baked in %.1f s" % [s, (Time.get_ticks_msec() - t0) / 1000.0])
 
 
-## bg, every lead line, body, then every part that isn't an alternate state; `state` swaps one alt in
-## for the part it replaces. Lines sit under all the figure layers, so they only show against the bg.
-func _compose(bg: Image, body: Image, body_line: Image, layers: Array, state: String) -> Image:
-	var out: Image = bg.duplicate()
+## bg, the figure's one lead line (lw px, round the combined silhouette), body, then every part that
+## isn't an alternate state; `state` swaps one alt in for the part it replaces.
+func _compose(bg: Image, body: Image, layers: Array, state: String, lw: int) -> Image:
 	var hide := ""
 	for l in layers:
 		if l[0] == state:
 			hide = l[4]
-	var shown := []
+	var figure := Image.create(bg.get_width(), bg.get_height(), false, Image.FORMAT_RGBA8)
+	figure.blend_rect(body, Rect2i(Vector2i.ZERO, body.get_size()), Vector2i.ZERO)
 	for l in layers:
 		if not ((l[3] and l[0] != state) or l[0] == hide):
-			shown.append(l)
-	var pad := LINE + LINE_SOFT
-	out.blend_rect(body_line, Rect2i(Vector2i.ZERO, body_line.get_size()), Vector2i(-pad, -pad))
-	for l in shown:
-		out.blend_rect(l[5], Rect2i(Vector2i.ZERO, l[5].get_size()), l[6])
-	out.blend_rect(body, Rect2i(Vector2i.ZERO, body.get_size()), Vector2i.ZERO)
-	for l in shown:
-		out.blend_rect(l[1], Rect2i(Vector2i.ZERO, l[1].get_size()), l[2])
+			figure.blend_rect(l[1], Rect2i(Vector2i.ZERO, l[1].get_size()), l[2])
+	var out: Image = bg.duplicate()
+	var line := _line_img(figure, 0, lw, LINE_SOFT)
+	out.blend_rect(line, Rect2i(Vector2i.ZERO, line.get_size()), Vector2i.ZERO)
+	out.blend_rect(figure, Rect2i(Vector2i.ZERO, figure.get_size()), Vector2i.ZERO)
 	return out
 
 
@@ -422,6 +425,62 @@ func _line_img(im: Image, pad: int, r: int, _soft: int) -> Image:
 		if a > 0.0:
 			out.set_pixel(i % w, i / w, Color(LEAD, a))
 	return out
+
+
+## Lead-line width for a figure: LINE on a dark one, LINE_MIN on a pale one, by its median brightness
+## (opaque pixels, sampled every 3 px; the edge band alone reads dark from the art's own outline).
+func _line_width(im: Image) -> int:
+	var lums := PackedFloat32Array()
+	var w := im.get_width()
+	var h := im.get_height()
+	for y in range(0, h, 3):
+		for x in range(0, w, 3):
+			var c := im.get_pixel(x, y)
+			if c.a < 0.5:
+				continue
+			lums.append(c.get_luminance())
+	lums.sort()
+	var lum: float = lums[lums.size() / 2] if lums.size() > 0 else 0.0
+	var t := clampf((lum - LINE_DARK_LUM) / (LINE_PALE_LUM - LINE_DARK_LUM), 0.0, 1.0)
+	var lw := roundi(lerpf(LINE, LINE_MIN, t))
+	print("  figure brightness %.2f: lead line %d px" % [lum, lw])
+	return lw
+
+
+## Clears line pixels that fall on the body (at = the line image's top-left in the window).
+func _clip_off(line: Image, body: Image, at: Vector2i) -> void:
+	for y in line.get_height():
+		for x in line.get_width():
+			var b := at + Vector2i(x, y)
+			if b.x >= 0 and b.y >= 0 and b.x < body.get_width() and b.y < body.get_height() and line.get_pixel(x, y).a > 0.0:
+				var ba := body.get_pixel(b.x, b.y).a
+				if ba > 0.0:
+					var c := line.get_pixel(x, y)
+					c.a *= 1.0 - ba
+					line.set_pixel(x, y, c)
+
+
+## body_fix mode 2: inside fr (portrait px), the portrait's skin pixels (and 3 px round them, for the
+## hand's own lead line) join the body at full alpha. For a hand the body cut left out, where a rect
+## fill would also take in the panes beside it.
+func _fill_skin(body: Image, portrait: Image, fr: Rect2i, x0: int) -> void:
+	var w := fr.size.x
+	var h := fr.size.y
+	var m := PackedByteArray()
+	m.resize(w * h)
+	for y in h:
+		for x in w:
+			var c := portrait.get_pixel(clampi(fr.position.x + x, 0, 1023), clampi(fr.position.y + y, 0, 1023))
+			if c.h > 0.02 and c.h < 0.14 and c.s > 0.18 and c.s < 0.75 and c.v > 0.3:
+				m[y * w + x] = 1
+	var grown := _dil(m, w, h, 3)
+	for y in h:
+		for x in w:
+			var wx := fr.position.x + x - x0
+			var wy := fr.position.y + y
+			if grown[y * w + x] == 1 and wx >= 0 and wx < WIN_W and wy >= 0 and wy < 1024 and body.get_pixel(wx, wy).a < 0.5:
+				var pc := portrait.get_pixel(fr.position.x + x, wy)
+				body.set_pixel(wx, wy, Color(pc, 1.0))
 
 
 ## Square dilation by r px, with running sums along rows then columns.
@@ -783,23 +842,23 @@ func _bake_gluttony() -> void:
 	var win := Rect2i(x0, 0, 819, 1024)
 	var bg := _img("gluttony_layer_bg").get_region(win)
 	var body := _cut(_img("gluttony_layer_body")).get_region(win)
-	var arm := _cut(_img("gluttony_layer_arm"))
+	var arm := _cut(_img("gluttony_layer_arm_v2"))  # v2: the goblet hand's little finger joined (tools/paste_patch.gd)
 	var dice := _cut(_img("gluttony_layer_dice"))
 	_save(body, dir + "body.png")
 	_save(arm, dir + "arm.png")
 	var ascale: float = cfg.arm.scale
-	# Lead lines, each the same size as its layer (dice padded, centred), so a child sprite with the
-	# layer's offset sits on it. Widths are divided by the layer's scale to land at LINE on screen.
-	var body_line := _line_img(body, 0, LINE, LINE_SOFT)
-	_save(body_line, dir + "body_line.png")
-	var arm_line := _line_img(arm, 0, roundi(LINE / ascale), roundi(LINE_SOFT / ascale))
-	_save(arm_line, dir + "arm_line.png")
+	# One lead line round the whole figure (Ben, Part A), never at a seam between layers. In game the
+	# figure layers sit in one CanvasGroup whose shader draws it live round their combined alpha
+	# (ui/living_portrait.gd, "outline" px); here the same line goes into still.png.
+	var lw := _line_width(body)
+	for f in ["body_line.png", "arm_line.png", "die_0_line.png", "die_1_line.png", "die_2_line.png"]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(dir + f))  # the old per-layer lines
 	# The loose dice: connected pieces, largest three, matched to the portrait's dice top to bottom.
 	var parts := _pieces(dice)
 	parts.sort_custom(func(a, b): return a.size.x * a.size.y > b.size.x * b.size.y)
 	parts = parts.slice(0, cfg.dice.size())
 	parts.sort_custom(func(a, b): return a.position.y < b.position.y)
-	var layout := {"window_x": x0, "arm": cfg.arm, "dice": [], "lines": true}
+	var layout := {"window_x": x0, "arm": cfg.arm, "dice": [], "outline": lw}
 	var die_ims := []
 	for i in parts.size():
 		var r: Rect2i = parts[i]
@@ -807,29 +866,21 @@ func _bake_gluttony() -> void:
 		_save(die, dir + "die_%d.png" % i)
 		var want: Array = cfg.dice[i]
 		var sc := float(want[2]) / r.size.x
-		var p := ceili((LINE + LINE_SOFT) / sc)
-		var dl := _line_img(die, p, roundi(LINE / sc), roundi(LINE_SOFT / sc))
-		_save(dl, dir + "die_%d_line.png" % i)
-		die_ims.append([die, dl, sc, Vector2i(want[0] - x0, want[1])])
-		layout.dice.append({"file": "die_%d.png" % i, "line": "die_%d_line.png" % i, "centre": [want[0] - x0, want[1]], "scale": sc})
+		die_ims.append([die, sc, Vector2i(want[0] - x0, want[1])])
+		layout.dice.append({"file": "die_%d.png" % i, "centre": [want[0] - x0, want[1]], "scale": sc})
 
-	# At rest, in window space: figure alone (to tune the ground) and its lines.
+	# At rest, in window space: the figure alone (to tune the ground), then its one outline.
 	var arm_at := Vector2i(cfg.arm.offset[0] - x0, cfg.arm.offset[1])
 	var a2: Image = arm.duplicate()
 	a2.resize(roundi(1024 * ascale), roundi(1024 * ascale), Image.INTERPOLATE_LANCZOS)
-	var al: Image = arm_line.duplicate()
-	al.resize(a2.get_width(), a2.get_height(), Image.INTERPOLATE_BILINEAR)
 	var figure := Image.create(819, 1024, false, Image.FORMAT_RGBA8)
-	var lines := Image.create(819, 1024, false, Image.FORMAT_RGBA8)
 	figure.blend_rect(body, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
-	lines.blend_rect(body_line, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
 	figure.blend_rect(a2, Rect2i(Vector2i.ZERO, a2.get_size()), arm_at)
-	lines.blend_rect(al, Rect2i(Vector2i.ZERO, al.get_size()), arm_at)
 	for d in die_ims:
-		for k in 2:
-			var im: Image = d[k].duplicate()
-			im.resize(maxi(1, roundi(im.get_width() * d[2])), maxi(1, roundi(im.get_height() * d[2])), Image.INTERPOLATE_LANCZOS)
-			(figure if k == 0 else lines).blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), d[3] - im.get_size() / 2)
+		var im: Image = d[0].duplicate()
+		im.resize(maxi(1, roundi(im.get_width() * d[1])), maxi(1, roundi(im.get_height() * d[1])), Image.INTERPOLATE_LANCZOS)
+		figure.blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), d[2] - im.get_size() / 2)
+	var lines := _line_img(figure, 0, lw, LINE_SOFT)
 	var head := Vector2(cfg.head[0] - x0, cfg.head[1])
 	var grade := _tune(bg, figure, head, 0.0)
 	print("gluttony ground: darker %d%%, less saturated %d%%; figure lighter in %d%% of edge cells, by %.2f mean" % [
@@ -846,3 +897,4 @@ func _bake_gluttony() -> void:
 	_save(still, dir + "still.png")
 	var review: Array[Image] = [_img("gluttony_portrait").get_region(win), still]
 	_save_review(review, REVIEW + "gluttony.png")
+

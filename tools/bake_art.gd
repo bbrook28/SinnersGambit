@@ -101,7 +101,7 @@ func _bake_emblems() -> void:
 		"rulebook": "rulebook", "settings": "settings", "pause": "pause", "back": "back", "newgame": "newgame",
 		"bank_cracked": "bank_cracked", "throw_cracked": "throw_cracked", "choose_cracked": "choose_cracked"}
 	for s in SINS:
-		emblems["accept_" + s] = "accept_" + s + ("_v2" if s in ["gluttony", "lust", "greed"] else "")
+		emblems["accept_" + s] = "accept_" + s + {"gluttony": "_v2", "lust": "_v2", "greed": "_v3"}.get(s, "")
 	for e in emblems:
 		_save(_fit_h(_square(_cut(_load("res://assets/art/seals/raw/emblem_%s_raw.png" % emblems[e]))), 512), OUT + "seals/e_%s.png" % e)
 	# Recast wax (Ben): Bank in bronze, Wrath's Accept in ember red, so neither reads as Throw's crimson.

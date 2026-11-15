@@ -17,7 +17,6 @@
 				440
 			],
 			"file": "die_0.png",
-			"line": "die_0_line.png",
 			"scale": 0.302816901408451
 		},
 		{
@@ -26,7 +25,6 @@
 				505
 			],
 			"file": "die_1.png",
-			"line": "die_1_line.png",
 			"scale": 0.306049822064057
 		},
 		{
@@ -35,7 +33,6 @@
 				582
 			],
 			"file": "die_2.png",
-			"line": "die_2_line.png",
 			"scale": 0.311594202898551
 		}
 	],
@@ -44,9 +41,9 @@
 		"dark": 0.85,
 		"desat": 0.2,
 		"hue": 0.0,
-		"mean": 0.224059894070935,
+		"mean": 0.238648156192411,
 		"passed": false
 	},
-	"lines": true,
+	"outline": 8,
 	"window_x": 70
 }

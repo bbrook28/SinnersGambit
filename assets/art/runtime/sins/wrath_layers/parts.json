@@ -1,10 +1,4 @@
 {
-	"body_line": [
-		-12,
-		-12,
-		843,
-		1048
-	],
 	"grade": {
 		"cover": 0.707317073170732,
 		"dark": 0.85,
@@ -13,18 +7,10 @@
 		"mean": 0.179872113177601,
 		"passed": false
 	},
+	"outline": 10,
 	"parts": [
 		{
 			"file": "arms_0.png",
-			"line": {
-				"file": "arms_0_line.png",
-				"rect": [
-					-12,
-					48,
-					284,
-					446
-				]
-			},
 			"name": "arms_0",
 			"rect": [
 				0,
@@ -35,15 +21,6 @@
 		},
 		{
 			"file": "arms_1.png",
-			"line": {
-				"file": "arms_1_line.png",
-				"rect": [
-					501,
-					4,
-					330,
-					530
-				]
-			},
 			"name": "arms_1",
 			"rect": [
 				513,
