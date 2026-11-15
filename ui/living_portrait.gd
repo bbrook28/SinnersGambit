@@ -11,10 +11,12 @@ extends SubViewport
 
 const Tuning = preload("res://ui/tuning.gd")
 const DIR := "res://assets/art/runtime/sins/%s_layers/"
+const OUTLINE = preload("res://ui/shaders/figure_outline.gdshader")
 
 var body: Sprite2D
 var arm: Sprite2D
 var dice: Array[Sprite2D] = []
+var figure: CanvasGroup  # body, arm and dice: one lead line round them all (figure_outline.gdshader)
 var dice_home: Array[Vector2] = []
 var dice_scale: Array[float] = []
 var mouth := Vector2.ZERO
@@ -26,6 +28,8 @@ var tip_from := 0.0  # the arm's lift when the answer came, so it moves on from 
 
 
 static func has_layers(sin_name: String) -> bool:
+	if sin_name in Tuning.LAYERS_PARKED:
+		return false
 	return ResourceLoader.exists((DIR % sin_name.to_lower()) + "layout.json")
 
 
@@ -40,16 +44,25 @@ func setup(sin_name: String) -> void:
 	var bg := Sprite2D.new()
 	bg.texture = bg_tex
 	bg.centered = false
-	bg.z_index = -2  # under every lead line
 	add_child(bg)
+	# The figure layers draw as one group, so its lead line goes round their combined silhouette only.
+	figure = CanvasGroup.new()
+	var w: float = float(layout.get("outline", 0))
+	if w > 0.0:
+		var mat := ShaderMaterial.new()
+		mat.shader = OUTLINE
+		mat.set_shader_parameter("width", w)
+		figure.material = mat
+		figure.fit_margin = w + 4.0
+		figure.clear_margin = w + 4.0
+	add_child(figure)
 	# Body: breathes from the middle of its base.
 	body = Sprite2D.new()
 	body.texture = load(dir + "body.png")
 	body.centered = false
 	body.position = Vector2(size.x / 2.0, size.y)
 	body.offset = -body.position
-	_line(body, dir + "body_line.png", layout)
-	add_child(body)
+	figure.add_child(body)
 	# Arm: pivots at the shoulder (off the frame, lower left), placed where the portrait has it.
 	var a: Dictionary = layout.arm
 	var pivot := Vector2(a.pivot[0], a.pivot[1])
@@ -59,17 +72,14 @@ func setup(sin_name: String) -> void:
 	arm.scale = Vector2.ONE * float(a.scale)
 	arm.offset = -pivot
 	arm.position = Vector2(a.offset[0] - float(layout.window_x), a.offset[1]) + pivot * float(a.scale)
-	_line(arm, dir + "arm_line.png", layout)
-	add_child(arm)
+	figure.add_child(arm)
 	arm_y = arm.position.y
 	for d in layout.dice:
 		var s := Sprite2D.new()
 		s.texture = load(dir + d.file)
 		s.scale = Vector2.ONE * float(d.scale)
 		s.position = Vector2(d.centre[0], d.centre[1])
-		if d.has("line"):
-			_line(s, dir + d.line, layout)
-		add_child(s)
+		figure.add_child(s)
 		dice.append(s)
 		dice_home.append(s.position)
 		dice_scale.append(float(d.scale))
@@ -135,16 +145,3 @@ func _process(delta: float) -> void:
 		dice[i].scale = Vector2.ONE * dice_scale[i] * (1.0 - 0.7 * k)
 		dice[i].modulate.a = 1.0 - smoothstep(0.6, 1.0, k)
 
-
-## The layer's lead line (tools/bake_layers.gd): a child the same size and offset as the layer, so it
-## moves, turns and breathes with it, drawn one z under the figure layers (over the bg) so it only
-## shows against the ground.
-func _line(layer: Sprite2D, path: String, layout: Dictionary) -> void:
-	if not layout.get("lines", false) or not ResourceLoader.exists(path):
-		return
-	var l := Sprite2D.new()
-	l.texture = load(path)
-	l.centered = layer.centered
-	l.offset = layer.offset
-	l.z_index = -1
-	layer.add_child(l)

@@ -92,10 +92,10 @@ static func additive() -> CanvasItemMaterial:
 
 ## The wide portrait window for the offer card, or the lancet where no portrait is painted yet.
 ## The offer portrait: the baked layers at rest (ground graded, lead lines) when there are any, else
-## the plain crop, else the lancet.
+## the plain crop, else the lancet. A parked Sin (Tuning.LAYERS_PARKED) skips its layers.
 static func portrait(sin_name: String) -> Texture2D:
 	var still := RT + "sins/%s_layers/still.png" % sin_name.to_lower()
-	if ResourceLoader.exists(still):
+	if ResourceLoader.exists(still) and not sin_name in Tuning.LAYERS_PARKED:
 		return load(still)
 	var path := RT + "sins/%s_portrait.png" % sin_name.to_lower()
 	return load(path) if ResourceLoader.exists(path) else window(sin_name)

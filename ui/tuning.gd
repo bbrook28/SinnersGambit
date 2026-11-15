@@ -25,8 +25,14 @@ const CHIP_OVERLAP := 18.0 # chips sit over the plate's lower edge by this much
 const CHIP_BG := Color("6a1c14")
 const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # speech tabs
 const OFFER_DIM := 1.0          # a temptation dims the whole board this far (TableDesign §7)
-const OFFER_PORTRAIT_W := 0.9    # its 4:5 portrait spans this share of the screen width
+const OFFER_PORTRAIT_W := 0.88   # its 4:5 portrait spans this share of the screen width
+const OFFER_GAP := 6             # between the offer's portrait, name, spoken line, terms and context
+const OFFER_SEAL_FLOOR := 28     # Accept and Refuse drop to this far above the safe area (the page is hidden)
+const OFFER_SEAL_CLEAR := 48     # the words end this far above the seals, on every screen height
 const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
+# Sins whose layers do not assemble cleanly (Ben, 2026-11-15): flat portrait with the glass light only,
+# no layers and no layer animation, until the clean-up pass (Docs/UXPlan.md, Known faults).
+const LAYERS_PARKED := ["Wrath", "Gluttony"]
 # Living portrait (ui/living_portrait.gd): a Sin with baked layers breathes and makes its offer.
 const PORTRAIT_BREATH_PERIOD := 3.6  # seconds a breath
 const PORTRAIT_BREATH := 0.012       # the body swells this share taller (half that wider)

@@ -155,6 +155,8 @@ var _explain_targets: Array = []   # [control, Callable]: what a tap / hold expl
 var _press_at := Vector2.INF       # where the current press started (INF: none, or on a button)
 var _press_t := 0.0
 var _long_fired := false           # this press already explained (a hold)
+var _clock := 0.0                  # seconds of game time (idle motion reads this, not the wall clock, so
+                                   # fixed-fps renders repeat exactly: tools/gallery.gd --check)
 
 
 func _ready() -> void:
@@ -2581,9 +2583,11 @@ func _layout_buttons() -> void:
 	if _buttons == null:
 		return
 	var bs: Array = _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
+	if is_instance_valid(_offer_card):
+		_offer_drop.call_deferred()  # after this layout: Accept and Refuse drop toward the screen's foot
 	var w := _buttons.size.x
 	var h := _buttons.size.y
-	var big := bs.filter(func(b): return b.get_meta("kind") in ["roll", "bank", "new"])
+	var big :=bs.filter(func(b): return b.get_meta("kind") in ["roll", "bank", "new"])
 	var nums := bs.filter(func(b): return b.get_meta("kind") == "num")
 	var pills := bs.filter(func(b): return b.get_meta("kind") == "pill")
 	var gap := GAP_MIN
@@ -2952,6 +2956,7 @@ func _fit_caption(b: Button, d: float) -> void:
 ## Device tilt moves the candle pool on the parchment and slides the page a few px.
 ## No accelerometer (desktop, web): a slow drift so the page still feels alive.
 func _process(delta: float) -> void:
+	_clock += delta
 	_check_long_press()
 	for r in _inking.keys():
 		if not is_instance_valid(r):
@@ -2970,7 +2975,7 @@ func _process(delta: float) -> void:
 	var has_paper := _paper != null and is_instance_valid(_paper)
 	if _candle_glow and is_instance_valid(_candle_glow):
 		# Candle flicker: two quick wobbles over a slow sway.
-		var ct := Time.get_ticks_msec() / 1000.0
+		var ct := _clock
 		var f := 0.62 if Tuning.reduce_motion else 0.62 + 0.1 * sin(ct * 11.0) * sin(ct * 6.7) + 0.06 * sin(ct * 2.3)
 		_candle_glow.modulate.a = f
 		_candle_glow.scale = Vector2.ONE * (0.97 + f * 0.05)
@@ -2983,7 +2988,7 @@ func _process(delta: float) -> void:
 	elif g.length() > 0.5:
 		want = Vector2(clampf(g.x / 9.8, -1, 1), clampf(-g.z / 9.8, -1, 1))
 	else:
-		var t := Time.get_ticks_msec() / 1000.0
+		var t := _clock
 		want = Vector2(sin(t * 0.31), cos(t * 0.23)) * Tuning.TILT_DRIFT
 	_tilt = _tilt.lerp(want, clampf(delta * Tuning.TILT_SMOOTH, 0.0, 1.0))
 	(_paper.material as ShaderMaterial).set_shader_parameter("tilt", _tilt)
@@ -3143,7 +3148,7 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(dim)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 18)
+	v.add_theme_constant_override("separation", Tuning.OFFER_GAP)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(v)
 	var win := TextureRect.new()
@@ -3209,20 +3214,24 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	var place := func():
 		if not is_instance_valid(root):
 			return
+		_offer_drop()
 		var seals_top: float = _fx.size.y
 		for b in _buttons.get_children():
 			if not b.is_queued_for_deletion() and b.size.y > 0:
-				seals_top = minf(seals_top, b.get_global_rect().position.y)
+				seals_top = minf(seals_top, (b.get_parent() as Control).global_position.y + b.position.y)  # unscaled (mid-entrance)
 		var text_h := 0.0
 		for c in v.get_children():
 			if c != frame:
-				text_h += c.get_combined_minimum_size().y + 18.0
-		var top := 40.0
+				text_h += c.get_combined_minimum_size().y + Tuning.OFFER_GAP
+		var top := maxf(40.0, _safe_insets().x + 16.0)
 		var asp: float = float(win.texture.get_width()) / maxf(1.0, win.texture.get_height())
 		var pw: float = _fx.size.x * Tuning.OFFER_PORTRAIT_W
-		var ph: float = minf(pw / asp, seals_top - 30.0 - top - text_h - 12.0)
+		# Bottom up (Ben, 2026-11-15): seals above the safe area, the words a fixed OFFER_SEAL_CLEAR above
+		# them, the portrait in all the height left (up to OFFER_PORTRAIT_W of the width), any spare on top.
+		var ph: float = maxf(0.0, minf(pw / asp, seals_top - Tuning.OFFER_SEAL_CLEAR - top - text_h))
 		win.custom_minimum_size = Vector2(ph * asp, ph)
-		v.position = Vector2(0, top)
+		var border: float = frame.get_theme_stylebox("panel").get_minimum_size().y
+		v.position = Vector2(0, maxf(top, seals_top - Tuning.OFFER_SEAL_CLEAR - text_h - ph - border))
 		v.size = Vector2(_fx.size.x, 0)
 	v.minimum_size_changed.connect(place, CONNECT_DEFERRED)
 	root.set_meta("place", place)  # show_prompt re-places it once the seals are laid out
@@ -3262,6 +3271,24 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 		_buttons.add_child(b)
 	_layout_buttons.call_deferred()
 	place.call_deferred()
+
+
+## Offer seals (Accept, Refuse): the page is hidden, so their captions sit OFFER_SEAL_FLOOR above the safe
+## area on any screen height (up or down from where the page put them), leaving the portrait the room.
+func _offer_drop() -> void:
+	var floor_y: float = _fx.size.y - _safe_insets().y - Tuning.OFFER_SEAL_FLOOR
+	var moved := false
+	for b in _buttons.get_children():
+		if b.is_queued_for_deletion() or not b.has_meta("offer") or b.size.y <= 0:
+			continue
+		# The unscaled box: the seal may be mid-entrance (scaled about its centre) when this runs.
+		var bottom: float = (b.get_parent() as Control).global_position.y + b.position.y + b.size.y
+		var shift: float = floor_y - (bottom + _cap_h(b.size.x))
+		if absf(shift) > 0.5:
+			b.position.y += shift
+			moved = true
+	if moved and is_instance_valid(_offer_card) and _offer_card.has_meta("place"):
+		_offer_card.get_meta("place").call()  # the portrait takes the room the seals left
 
 
 ## A Sin's line (TableDesign §3): a speech tab at the foot of the speaker's window, in its colour.
