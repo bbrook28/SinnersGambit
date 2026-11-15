@@ -49,5 +49,9 @@
     ,{"asset_id": "ab55f924-f613-46de-a1c2-3e13e81c6bce", "sha12": "ec3d0a2e6659", "label": "gluttony arched portrait for the old offer card (24 credits; replaced)", "file": "sins/portrait_raw/gluttony_portrait_arch_raw.png"}
     ,{"asset_id": "bd2244d5-523c-4ec5-9e03-cfff53737e05", "sha12": "1d2bbc5490ed", "label": "gluttony full-bleed temptation portrait, cropped 4:5 at bake (ref of the arch + wrath HD style 24, then an edit for both eyes 16; an edit of the arch at 24 failed the hands check; replaced: a thumb and three fingers on both hands)", "file": "(superseded)"}
     ,{"asset_id": "41066385-d9a3-4a63-b4f6-7c107e0c8b9d", "sha12": "e72502ef4b3e", "label": "gluttony temptation portrait, hands edit of bd2244d5 (thumb and four fingers on each hand; 16 credits; in use)", "file": "sins/portrait_raw/gluttony_portrait_raw.png"}
+    ,{"asset_id": "80d26b71-baa4-4657-bb06-25d2a24ab6a9", "sha12": "0f1f34714633", "label": "gluttony living-portrait layer: background glass alone (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_bg_raw.png"}
+    ,{"asset_id": "60db8973-347b-44b1-8624-5790b17e887c", "sha12": "3d2f90c5a6b1", "label": "gluttony living-portrait layer: body and head cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_body_raw.png"}
+    ,{"asset_id": "5cea89fc-583d-46cd-96c4-bf68ea43efd0", "sha12": "8607d90add3e", "label": "gluttony living-portrait layer: goblet arm cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_arm_raw.png"}
+    ,{"asset_id": "6c8aba72-8441-4340-bd0c-6bf64b395db9", "sha12": "78277a86cc54", "label": "gluttony living-portrait layer: loose dice cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_dice_raw.png"}
   ]
 }

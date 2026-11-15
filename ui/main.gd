@@ -9,6 +9,7 @@ const BotPolicy = preload("res://ai/bot_policy.gd")
 const Human = preload("res://ui/human.gd")
 const Style = preload("res://ui/style.gd")
 const Art = preload("res://ui/art.gd")
+const LivingPortrait = preload("res://ui/living_portrait.gd")
 const SinCarousel = preload("res://ui/sin_carousel.gd")
 const TutorialGame = preload("res://ui/tutorial_game.gd")
 const TutorialBot = preload("res://ui/tutorial_bot.gd")
@@ -3059,6 +3060,13 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	sb.bg_color = Color(0, 0, 0, 0)
 	sb.border_color = col.lightened(0.3)
 	sb.set_border_width_all(6 if win.texture.resource_path.ends_with("_portrait.png") else 0)
+	# A Sin with baked layers lives: it breathes, and makes its offer (ui/living_portrait.gd).
+	var living: SubViewport = null
+	if LivingPortrait.has_layers(sname):
+		living = LivingPortrait.new()
+		living.setup(sname)
+		root.add_child(living)
+		win.texture = living.get_texture()
 	frame.add_theme_stylebox_override("panel", sb)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -3110,6 +3118,8 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	var tw := root.create_tween().set_parallel()
 	tw.tween_property(root, "modulate:a", 1.0, 0.25)
 	tw.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 1.0, 0.0, Tuning.FLARE_TIME).set_ease(Tween.EASE_OUT)
+	if living:
+		tw.tween_callback(living.gesture).set_delay(Tuning.PORTRAIT_GESTURE_DELAY)
 	for pt in _portraits:
 		if pt.sin == sname:
 			_flare(pt)

@@ -27,6 +27,13 @@ const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # speech tabs
 const OFFER_DIM := 0.84          # a temptation dims the whole board this far (TableDesign §7)
 const OFFER_PORTRAIT_W := 0.9    # its 4:5 portrait spans this share of the screen width
 const OFFER_CONTEXT_FONT := 38   # the line of decision context under the offer
+# Living portrait (ui/living_portrait.gd): a Sin with baked layers breathes and makes its offer.
+const PORTRAIT_BREATH_PERIOD := 3.6  # seconds a breath
+const PORTRAIT_BREATH := 0.012       # the body swells this share taller (half that wider)
+const PORTRAIT_ARM_SWAY := 0.8       # degrees the arm rides each breath
+const PORTRAIT_GESTURE_TIME := 1.6   # the offer gesture, seconds
+const PORTRAIT_GESTURE_DEG := 9.0    # Gluttony tips the goblet to his mouth this far
+const PORTRAIT_GESTURE_DELAY := 0.3  # after the offer arrives
 # Living glass (ui/shaders/flare.gdshader), every Sin window. Reduce Motion holds it still.
 const GLASS_LIGHT := 0.1        # the band of light behind the glass: at most this much brighter
 const GLASS_PULSE := 0.03       # the slow swell: this much brighter and back (brightness, not hue)
