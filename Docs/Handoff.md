@@ -259,3 +259,9 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Sim (RunDesign §11): 62% win, C1 98%, C4 85% at 60 runs a Sin. Bust share 6% playing to target vs 22-30% for points, accepted (Ben). Singles on 5 and 6 tested and rejected (decisions 0.8). Relic fixes: Rosary U, Reliquary +5, Cracked Bell U, Candelabra R, Gargoyle +1. A 1,000-per-Sin report decides any kit change (±5 points only if the spread survives).
 - Incident: a bad `sed` blanked `sim/run_sim.gd` and 14 parallel sims each popped a Windows alert. The launcher now smoke-tests one run first.
 - Not done: the iPhone build (needs Ben's OK to push for `ios.yml`). Web build re-exported to `build/web` (`tools/serve.ps1`).
+
+## Rework Phase 7 (2): the table (2026-11-14)
+- Ben played the Phase 8 run build: solo against a score target is arithmetic, and he didn't want to play it. The table was the fun (rivals, reactions to busts, Sins as rivals). The table game (`core/`, `sins/`, `ai/`, `Rules.V3`) is the real game again; the run game is parked, kept with its tests, not extended. Balatro is the bar for polish, not structure.
+- Earlier run-board feedback, now moot: "Trial" rounds showed little and the word meant nothing; dice lit on 4-6 hid keepable low sets.
+- `Docs/TableDesign.md` draft 1 (101 lines): rule changes for OK (§1), pass-and-play, 315 Sin lines (9 events x 5 x 7), rivalry, 2.5 s bot turns, abilities reworded (5 automatic, no percentages), Solo ladder (7 hosts, 15 perks, 9 endings), 28 temptations with 7 claims, 8 terms, sim plan, build plan with every `core/`/`sins/`/`ai/` change listed. New values go in `Rules.V4` so V3 tests and saves still replay.
+- CLAUDE.md v1 line restored to pass-and-play. Next: Ben reviews the doc; on his OK, commit it and build 7b.

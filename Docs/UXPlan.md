@@ -1,21 +1,22 @@
 # Second quality pass: handoff (2026-11-14)
 
-Single starting point for a fresh session. Detail per finished phase: `Docs/Handoff.md`. Beat table: `Docs/UXPass.md`. Run design: `Docs/RunDesign.md`.
+Single starting point for a fresh session. Detail per finished phase: `Docs/Handoff.md`. Beat table: `Docs/UXPass.md`. Table design: `Docs/TableDesign.md`. Parked run design: `Docs/RunDesign.md`.
 Ben approves each phase: send a short plan, wait for his OK, build, stop for him to play. Commit locally, push only when he says.
-Never touch `core/`, `sins/` or `ai/` without his explicit OK. RunDesign was approved 2026-11-14, which gives that OK for Phase 8's changes there.
+Never touch `core/`, `sins/` or `ai/` without his explicit OK. TableDesign §10 lists every such change for his OK.
 
 ## Phases 0-6 (bot-table game)
 - **0-3 done:** V3 rules, rulebook and explain, legibility, scripted tutorial (`ad34895`).
 - **3.5 art and audio, 4 Sin carousel, 5 layout, 6 feedback: built, waiting for Ben to play** (`b99da21`, `8d77f96`, `d9fba39`, `92d9e67`). Detail in Handoff.
 
-**Rework (Ben, 2026-11-14): Balatro is the quality bar.** Phases 7-11 replace the old 7-10. One phase per session. Phase 7 and Phase 8's balance work on Opus; 9-11 fine on Sonnet.
-- **7 Run design doc: done, approved 2026-11-14.** `Docs/RunDesign.md` revision 2: keep-and-rethrow, no Strikes, 3 turns a round, 7 Circles. Scratch sim: `sim/keep_sim2.gd`.
-- **8 Core loop: built, waiting for Ben to play (gate below).** `run/` (rules), `ai/run_bot.gd` (whole-turn Monte Carlo search; buys by simulating turns with and without each offer), `sim/run_sim.gd` (rebuilt, parallel parts + merge), placeholder board `ui/run_board.gd` (Play -> Sin carousel with kits -> run; Continue resumes at the shop; relic chips tap for text; shop names the next ruling Sin and twist). First launch shows one rules card, not the old tutorial; "Table (old)" sits behind `Tuning.TABLE_MODE` (off). Every run logs to `user://run_log.jsonl`; Settings > Run log > Export copies it. Sim results and misses: RunDesign §11 and Handoff. Not done: the iPhone build (needs a push for `ios.yml`; Ben's call).
-- **GATE after 8:** Ben plays 10 runs and shows 5 people. No Phase 9 until he says the loop is fun; otherwise revise RunDesign and repeat 8.
-- **9 Board, text, controls: not started (after the gate).** Permanent readouts (target, Points, Mult, turns left, gold; the three candles show turns left this round; bust chance stays on the Throw seal; no Strikes readout, no dice-left counter), max 4 words per label, two-line tooltips, Points gold / Mult crimson everywhere, dice twice the size, relic row, controls dim instead of vanishing, Throw seal 22%+ of width with bust chance, one painted button language, serif body text, 6-step learn-by-doing tutorial, rulebook = collection + 3 pages, new run in two taps. Relic art: state a SpriteCook credit budget before generating (32 left).
-- **10 Motion: not started.** 3D rigid-body dice in a SubViewport (cost estimate first; pre-rendered tumble sheets as fallback), one-piece-at-a-time scoring with rising pitch, target-passed fire, idle wobble, background reacts to Mult, dimming no lower than 70%, ruling-Sin entrances, bust burns the page, staged win and loss.
-- **11 Meta and ship: not started.** Unlocks, collection, Vows, stats, daily run, audio limiter, app icon, tutorial on a real iPhone, 60 fps on the oldest device.
-- **Acceptance from Phase 9 on:** re-record the tour; no wait over 1.5 s without input, no sentence in the play field, no overlapping text, no empty zone on your turn, every button painted. Report failures with timestamps.
+**Rework 2 (Ben, 2026-11-14): the table is the real game.** Solo against a score target was arithmetic; the fun is the table: rivals, reactions, Sins that tempt you. Balatro is the bar for polish (dice, motion, sound, minimal text), not structure. One phase per session; Phase 7 on Opus.
+- **7 The table: doc drafted, waiting for Ben's review.** `Docs/TableDesign.md`: pass-and-play, Sin lines, rivalry, 2.5 s bot turns, ability cleanup, Solo ladder (hosts, perks, endings), temptations / marks / claims, sim plan, build plan. Then build (7b) and Ben plays.
+- **8 Text and layout: not started.** Board readouts, labels of 4 words max, two-line tooltips, dice twice the size, controls dim instead of vanishing, Throw seal 22%+ of width, one painted button language, serif body text, learn-by-doing tutorial, rulebook = collection + 3 pages.
+- **9 Motion and ship: not started.** 3D or pre-rendered dice, one-piece-at-a-time scoring with rising pitch, idle wobble, Sin entrances, bust burns the page, staged win and loss; unlocks, collection, endings gallery, stats, audio limiter, app icon, tutorial on a real iPhone, 60 fps on the oldest device.
+- **Acceptance from Phase 8 on:** re-record the tour; no wait over 1.5 s without input, no sentence in the play field, no overlapping text, no empty zone on your turn, every button painted.
+
+**Parked: the run game (Rework 1, 2026-11-14).** Kept, hidden behind `Tuning.RUN_MODE` once 7b lands; not extended.
+- **Run design doc: approved 2026-11-14.** `Docs/RunDesign.md` revision 2: keep-and-rethrow, no Strikes, 3 turns a round, 7 Circles. Scratch sim: `sim/keep_sim2.gd`.
+- **Core loop: built 2026-11-14 (`899d1c6`), played by Ben, parked.** `run/`, `ai/run_bot.gd`, `sim/run_sim.gd`, `ui/run_board.gd`, `tests/run_check.gd`, `tests/run_ui_check.gd`. Sim numbers: RunDesign §11.
 
 ## Standing rules
 - Every event is a queued beat (`ui/action_queue.gd`): anticipation, action, impact, hold. The board draws the snapshot of the last beat played, never live state. Nothing jumps.
@@ -27,9 +28,9 @@ Never touch `core/`, `sins/` or `ai/` without his explicit OK. RunDesign was app
 - Placements: main menu work, Phase 9; audio limiter and app icon, Phase 11.
 
 ## Tests to keep passing
-`tests/ui_autoplay.gd`, `tests/replay_check.gd`, `tests/terms_check.gd`, `tests/tutorial_check.gd`, `tools/ui_audit.gd` (windowed: `godot --path . --resolution 1080x2341 --script res://tools/ui_audit.gd -- <out_dir> [table size]`, at 4 and 7: 44 pt targets, 12 pt gaps, margins, safe area, screenshots; table game, needs `Tuning.TABLE_MODE` only for its menu seal). Run mode: `tests/run_check.gd` (rules, every relic, save, seeded bot runs), `tests/run_ui_check.gd` (plays a run per Sin through the board, 44 pt targets, Continue).
+`tests/ui_autoplay.gd`, `tests/replay_check.gd`, `tests/terms_check.gd`, `tests/tutorial_check.gd`, `tools/ui_audit.gd` (windowed: `godot --path . --resolution 1080x2341 --script res://tools/ui_audit.gd -- <out_dir> [table size]`, at 4 and 7: 44 pt targets, 12 pt gaps, margins, safe area, screenshots; table game, needs `Tuning.TABLE_MODE` only for its menu seal until 7b makes Play open the table). Run mode: `tests/run_check.gd` (rules, every relic, save, seeded bot runs), `tests/run_ui_check.gd` (plays a run per Sin through the board, 44 pt targets, Continue).
 
-## Legacy: the bot-table game (valid until Phase 8/9 replaces it)
+## The table game today (Phases 0-6; TableDesign changes it in 7b)
 - Rules: your buttons appear only when the queue is empty (Phase 9 replaces this with controls that dim). Bot beats run `BOT_PACE` faster, no anticipation, 30% hold; a bot turn stays under 4 s at 1x (`tests/bot_pace.gd`, hovers at 4.0-4.2 s, treat as noise).
 - Open audit items: 7+ buy pills overflow the safe area; synthetic 12-dice prompts.
 - Decision: in-game windows cropped to the arch and figure (1:1.8, `Art.window_crop`, `Tuning.WINDOW_CROP_TOP`).

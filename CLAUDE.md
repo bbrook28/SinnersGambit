@@ -6,7 +6,7 @@ Plan and balance notes: `Docs/Plan.md`.
 
 ## Decided
 - Godot 4.5+ stable (standard build, not .NET), GDScript, 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad.
-- v1: solo roguelike runs (`Docs/RunDesign.md`), one player. No bot table, no pass-and-play, no online play. The bot-table code stays in `core/`, `sins/`, `ai/` as a possible side mode after ship.
+- v1: the table game (`Docs/TableDesign.md`): Solo ladder against bot Sins, and pass-and-play (2-7 seats, humans and bots, one phone). No online play. The run game (`run/`, `Docs/RunDesign.md`) is parked behind a debug flag.
 - Targets: Android and iOS (iOS export needs a Mac + Xcode).
 - Rules live in `core/` with no UI, so `sim/` can play thousands of bot games headless.
 - Scripts use `preload` consts, not `class_name`, so headless `--script` runs work without an editor import.
@@ -16,7 +16,7 @@ Plan and balance notes: `Docs/Plan.md`.
 
 ## Run the sim
 Table game (V2 vs V3, win share per Sin): `godot --headless --path . --script res://sim/check_v3.gd [-- games]`
-Run mode (`Docs/RunDesign.md` §11): `godot --headless --path . --script res://sim/run_sim.gd -- runs=20 [sin=Lust] [key=JSON cfg override]` (about 15 s a run; run one process per Sin in parallel with `out=<dir>/part_X.json`, then `-- merge=<dir>`). Smoke-test one run before going parallel: a script that fails to load pops a Windows alert per process.
+Run mode (parked; `Docs/RunDesign.md` §11): `godot --headless --path . --script res://sim/run_sim.gd -- runs=20 [sin=Lust] [key=JSON cfg override]` (about 15 s a run; run one process per Sin in parallel with `out=<dir>/part_X.json`, then `-- merge=<dir>`). Smoke-test one run before going parallel: a script that fails to load pops a Windows alert per process.
 
 ## About Ben
 Game/level designer, expert in UE5/Blueprint/combat design. Reads code; Claude writes it, Ben reviews. Judges feel himself.
