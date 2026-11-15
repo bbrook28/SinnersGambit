@@ -53,5 +53,45 @@
     ,{"asset_id": "60db8973-347b-44b1-8624-5790b17e887c", "sha12": "3d2f90c5a6b1", "label": "gluttony living-portrait layer: body and head cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_body_raw.png"}
     ,{"asset_id": "5cea89fc-583d-46cd-96c4-bf68ea43efd0", "sha12": "8607d90add3e", "label": "gluttony living-portrait layer: goblet arm cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_arm_raw.png"}
     ,{"asset_id": "6c8aba72-8441-4340-bd0c-6bf64b395db9", "sha12": "78277a86cc54", "label": "gluttony living-portrait layer: loose dice cut out (edit of 41066385; baked by tools/bake_layers.gd; in use)", "file": "sins/portrait_raw/gluttony_layer_dice_raw.png"}
+    ,{"asset_id": "aa35c701-6844-4f8a-8013-d7314a2137ac", "sha12": "e25ee01d722f", "label": "emblem seal trial: Play, open gate (edit of bc17674f; 16)", "file": "seals/raw/emblem_play_raw.png"}
+    ,{"asset_id": "a304d2fb-2270-4aa7-8955-484af0ad268e", "sha12": "25b1c5b1a037", "label": "emblem seal trial: Bank, locked coffer (16)", "file": "seals/raw/emblem_bank_raw.png"}
+    ,{"asset_id": "78a06587-229b-4f1a-bdef-0d585ba0b5c1", "sha12": "96e3d1632edf", "label": "emblem seal trial: Throw, the throwing hand (style 6f771dea; 24)", "file": "seals/raw/emblem_throw_raw.png"}
+    ,{"asset_id": "ef764f04-d9f2-4847-9fc1-fbeeb9f8ab1b", "sha12": "45105f6ebe9c", "label": "emblem seal trial: Accept, Gluttony sigil in orange (style 146dc322; 24)", "file": "seals/raw/emblem_accept_gluttony_raw.png"}
+    ,{"asset_id": "cdfe8ef9-93b3-4496-bdbf-7021db1203a1", "sha12": "8c05b3cebd1e", "label": "emblem seal trial: Refuse, raised palm in bronze (16)", "file": "seals/raw/emblem_refuse_raw.png"}
+    ,{"asset_id": "bc17674f-3755-413b-99a6-aecf6a4db34f", "sha12": "a3b139b679b8", "label": "upload: runtime seal normal, the base for emblem edits", "file": "runtime/seals/normal.png"}
+    ,{"asset_id": "6f771dea-21e0-4c2c-91e9-42a9c341029b", "sha12": "365e19fd5e17", "label": "upload: runtime throw hand (style ref)", "file": "runtime/throw_hand.png"}
+    ,{"asset_id": "146dc322-9420-4bfe-acb8-8de1f9e842c6", "sha12": "d6a1f188897e", "label": "upload: runtime gluttony sigil (style ref)", "file": "runtime/sigils/gluttony.png"}
+    ,{"asset_id": "6e2ecbab-8995-4db8-8ff3-8d83837e6b33", "sha12": "2678b8d3b586", "label": "pride temptation portrait (ref lancet 2420ab5b + style 41066385; 24; checked)", "file": "sins/portrait_raw/pride_portrait_raw.png"}
+    ,{"asset_id": "9874c53e-ad94-475a-a36e-037753567dbb", "sha12": "bf49c34da1a4", "label": "greed temptation portrait, hands edit of 6455f5a2 (24+16; checked)", "file": "sins/portrait_raw/greed_portrait_raw.png"}
+    ,{"asset_id": "cbb7846d-85d2-43db-b119-90643534db9a", "sha12": "1688e37de600", "label": "wrath temptation portrait (24; checked)", "file": "sins/portrait_raw/wrath_portrait_raw.png"}
+    ,{"asset_id": "641e62ef-95e2-4076-8771-f4fe7a3d9e23", "sha12": "19cfaaed0648", "label": "envy temptation portrait (24; checked)", "file": "sins/portrait_raw/envy_portrait_raw.png"}
+    ,{"asset_id": "4fcbcca6-6f33-492e-93a7-6eee815d3623", "sha12": "c25278b3563e", "label": "lust temptation portrait (24; checked)", "file": "sins/portrait_raw/lust_portrait_raw.png"}
+    ,{"asset_id": "3ffbcd95-9618-4158-95e4-c87eb545dd55", "sha12": "d8e645f146f8", "label": "sloth temptation portrait (24; checked)", "file": "sins/portrait_raw/sloth_portrait_raw.png"}
+    ,{"asset_id": "13c17b8e-67ae-4494-99dd-b1e69a4356dd", "sha12": "d30d794e8fc4", "label": "pride living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/pride_layer_bg_raw.png"}
+    ,{"asset_id": "5721d5b7-2ec6-4492-98cd-5f8f4aa20669", "sha12": "0ba03484719e", "label": "pride living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/pride_layer_body_raw.png"}
+    ,{"asset_id": "d77a7ae0-b2d2-40d5-9c18-5280390d7d75", "sha12": "a9ecb7cda974", "label": "pride living-portrait layer: mirror (16; not yet baked)", "file": "sins/portrait_raw/pride_layer_mirror_raw.png"}
+    ,{"asset_id": "f2e98f48-8988-4a49-bcdf-5ea2fdab0b88", "sha12": "10d6185dc458", "label": "pride living-portrait layer: smile (16; not yet baked)", "file": "sins/portrait_raw/pride_layer_smile_raw.png"}
+    ,{"asset_id": "990beff8-83ff-43fd-95e9-08b7b96c37e9", "sha12": "649646b40cb2", "label": "wrath living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/wrath_layer_bg_raw.png"}
+    ,{"asset_id": "9479b09f-389e-43b8-b654-6c66462e716b", "sha12": "9b4ff6cdb1a5", "label": "wrath living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/wrath_layer_body_raw.png"}
+    ,{"asset_id": "f32e5df4-313a-4f8c-94be-45fd2b4c7c9d", "sha12": "a9f42da00657", "label": "wrath living-portrait layer: arms (16; not yet baked)", "file": "sins/portrait_raw/wrath_layer_arms_raw.png"}
+    ,{"asset_id": "dbcc40bf-ca04-4cba-98e0-4d884edf979e", "sha12": "09a72624b96a", "label": "wrath living-portrait layer: calm (16; not yet baked)", "file": "sins/portrait_raw/wrath_layer_calm_raw.png"}
+    ,{"asset_id": "6ed0a55d-f367-4c92-aa1e-e2991caa1a41", "sha12": "bb10fc493722", "label": "envy living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/envy_layer_bg_raw.png"}
+    ,{"asset_id": "94271319-073e-4bd4-8f06-acc232d16942", "sha12": "3a619c5b42c5", "label": "envy living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/envy_layer_body_raw.png"}
+    ,{"asset_id": "e234309f-d3e2-43d3-8ab3-8c99df2010c0", "sha12": "88f90cef1850", "label": "envy living-portrait layer: serpent (16; not yet baked)", "file": "sins/portrait_raw/envy_layer_serpent_raw.png"}
+    ,{"asset_id": "949be2a7-6131-41e5-bead-c0a05d42e638", "sha12": "4c4a6b67832a", "label": "envy living-portrait layer: hooded (16; not yet baked)", "file": "sins/portrait_raw/envy_layer_hooded_raw.png"}
+    ,{"asset_id": "08b4168e-98c7-485e-bd94-4de72f768b71", "sha12": "b7cc6a52929e", "label": "lust living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/lust_layer_bg_raw.png"}
+    ,{"asset_id": "52c87267-13f4-4a51-bd72-9a2c031a67fb", "sha12": "38c3ae1cf059", "label": "lust living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/lust_layer_body_raw.png"}
+    ,{"asset_id": "958f620a-8f82-42d6-8f20-5f7ac3c44718", "sha12": "9d043e1e367f", "label": "lust living-portrait layer: armopen (16; not yet baked)", "file": "sins/portrait_raw/lust_layer_armopen_raw.png"}
+    ,{"asset_id": "83a83f71-9de9-42fe-b56d-f72bd3034ecf", "sha12": "6aecbe601e21", "label": "lust living-portrait layer: armclosed (16; not yet baked)", "file": "sins/portrait_raw/lust_layer_armclosed_raw.png"}
+    ,{"asset_id": "a4d42243-6c30-4745-afe4-f2cef873426b", "sha12": "aaab5be4425c", "label": "lust living-portrait layer: wink (16; not yet baked)", "file": "sins/portrait_raw/lust_layer_wink_raw.png"}
+    ,{"asset_id": "2c39e61b-3369-48ec-bc0e-a49b4dbcc15e", "sha12": "10ba929fb7fa", "label": "sloth living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/sloth_layer_bg_raw.png"}
+    ,{"asset_id": "94a0166e-275c-431d-a841-44a0ebe02eff", "sha12": "cacfcc481766", "label": "sloth living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/sloth_layer_body_raw.png"}
+    ,{"asset_id": "b2d06d46-9a74-4c3a-916e-2fd286b062a2", "sha12": "51dcc8559c0a", "label": "sloth living-portrait layer: candle (16; not yet baked)", "file": "sins/portrait_raw/sloth_layer_candle_raw.png"}
+    ,{"asset_id": "d9cf3287-d68f-4d30-bd38-e654140925f0", "sha12": "459ae080dedd", "label": "sloth living-portrait layer: flame (16; not yet baked)", "file": "sins/portrait_raw/sloth_layer_flame_raw.png"}
+    ,{"asset_id": "027974fa-26e2-4b72-8007-fa28ab984703", "sha12": "6393996ff932", "label": "sloth living-portrait layer: sleep (16; not yet baked)", "file": "sins/portrait_raw/sloth_layer_sleep_raw.png"}
+    ,{"asset_id": "d3dd129d-898d-42fc-8a0f-a4c9de2b47a4", "sha12": "2bb0011484d0", "label": "greed living-portrait layer: bg (16; not yet baked)", "file": "sins/portrait_raw/greed_layer_bg_raw.png"}
+    ,{"asset_id": "8bb43588-2350-4caa-a496-ddec8ad542ec", "sha12": "b996042a7829", "label": "greed living-portrait layer: body (16; not yet baked)", "file": "sins/portrait_raw/greed_layer_body_raw.png"}
+    ,{"asset_id": "17b13c47-9ad8-4218-b527-a4c3dcbf3f08", "sha12": "8009f8c85ade", "label": "greed living-portrait layer: purse (16; not yet baked)", "file": "sins/portrait_raw/greed_layer_purse_raw.png"}
+    ,{"asset_id": "43205f84-7c4b-44f1-9f31-17d272dc193f", "sha12": "05cef3e927ba", "label": "greed living-portrait layer: coin (16; not yet baked)", "file": "sins/portrait_raw/greed_layer_coin_raw.png"}
   ]
 }
