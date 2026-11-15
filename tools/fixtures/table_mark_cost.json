@@ -1,7 +1,7 @@
 {
-	"screen": "table", "seed": 7, "moment": "decision",
+	"screen": "table", "seed": 7, "moment": "decision", "bank_loss": 50,
 	"seats": [
-		{"sin": "Lust", "you": true, "score": 340, "marks": {"Gluttony": 1}, "pend": ["die"]},
+		{"sin": "Lust", "you": true, "score": 340, "marks": {"Gluttony": 1, "Greed": 1}, "pend": ["fewer", "strike", "bank"]},
 		{"sin": "Greed", "score": 410},
 		{"sin": "Wrath", "score": 280},
 		{"sin": "Gluttony", "score": 520}
