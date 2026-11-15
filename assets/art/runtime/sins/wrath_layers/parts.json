@@ -1,0 +1,30 @@
+{
+	"parts": [
+		{
+			"file": "arms_0.png",
+			"name": "arms_0",
+			"rect": [
+				0,
+				60,
+				260,
+				422
+			]
+		},
+		{
+			"file": "arms_1.png",
+			"name": "arms_1",
+			"rect": [
+				513,
+				16,
+				306,
+				506
+			]
+		}
+	],
+	"patches": [],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 102
+}

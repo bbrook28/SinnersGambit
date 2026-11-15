@@ -1,0 +1,31 @@
+{
+	"parts": [
+		{
+			"file": "serpent.png",
+			"name": "serpent",
+			"rect": [
+				435,
+				279,
+				384,
+				423
+			]
+		}
+	],
+	"patches": [
+		{
+			"file": "hooded.png",
+			"name": "hooded",
+			"rect": [
+				183,
+				107,
+				400,
+				453
+			]
+		}
+	],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 164
+}

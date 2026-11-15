@@ -1,0 +1,41 @@
+{
+	"parts": [
+		{
+			"file": "candle.png",
+			"name": "candle",
+			"rect": [
+				0,
+				549,
+				333,
+				475
+			]
+		},
+		{
+			"file": "flame.png",
+			"name": "flame",
+			"rect": [
+				86,
+				444,
+				91,
+				160
+			]
+		}
+	],
+	"patches": [
+		{
+			"file": "sleep.png",
+			"name": "sleep",
+			"rect": [
+				349,
+				123,
+				170,
+				307
+			]
+		}
+	],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 20
+}

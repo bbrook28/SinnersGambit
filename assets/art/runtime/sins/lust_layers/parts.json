@@ -1,0 +1,41 @@
+{
+	"parts": [
+		{
+			"file": "arm.png",
+			"name": "arm",
+			"rect": [
+				14,
+				426,
+				361,
+				462
+			]
+		},
+		{
+			"file": "arm_closed.png",
+			"name": "arm_closed",
+			"rect": [
+				31,
+				425,
+				344,
+				462
+			]
+		}
+	],
+	"patches": [
+		{
+			"file": "wink.png",
+			"name": "wink",
+			"rect": [
+				481,
+				154,
+				170,
+				215
+			]
+		}
+	],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 72
+}

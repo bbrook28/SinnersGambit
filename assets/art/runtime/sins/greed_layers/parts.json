@@ -1,0 +1,30 @@
+{
+	"parts": [
+		{
+			"file": "purse.png",
+			"name": "purse",
+			"rect": [
+				129,
+				781,
+				245,
+				243
+			]
+		},
+		{
+			"file": "coin.png",
+			"name": "coin",
+			"rect": [
+				401,
+				367,
+				114,
+				125
+			]
+		}
+	],
+	"patches": [],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 102
+}

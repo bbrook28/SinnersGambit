@@ -1,0 +1,31 @@
+{
+	"parts": [
+		{
+			"file": "mirror.png",
+			"name": "mirror",
+			"rect": [
+				607,
+				74,
+				212,
+				883
+			]
+		}
+	],
+	"patches": [
+		{
+			"file": "smile.png",
+			"name": "smile",
+			"rect": [
+				285,
+				160,
+				493,
+				240
+			]
+		}
+	],
+	"size": [
+		819,
+		1024
+	],
+	"window_x": 102
+}

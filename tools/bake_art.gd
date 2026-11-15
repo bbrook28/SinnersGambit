@@ -5,7 +5,10 @@ extends SceneTree
 
 const SINS := ["pride", "greed", "wrath", "envy", "gluttony", "lust", "sloth"]
 const OUT := "res://assets/art/runtime/"
-const PORTRAIT_CX := {"gluttony": 0.468}  # 4:5 crop centre, as a fraction of the width
+## 4:5 crop centre, as a fraction of the width (tools/bake_layers.gd crops the layers the same way).
+const PORTRAIT_CX := {
+	"gluttony": 0.468, "envy": 0.56, "greed": 0.5, "lust": 0.47, "pride": 0.5, "sloth": 0.42, "wrath": 0.5,
+}
 ## Corner figures on page_c_a_raw.png: [rect in raw px, darkest parchment luminance, extra flood seeds].
 const MARGINALIA := {
 	"jester": [Rect2i(80, 84, 218, 214), 0.35, []],
