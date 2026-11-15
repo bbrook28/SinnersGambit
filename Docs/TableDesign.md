@@ -18,7 +18,7 @@ Base rules stay `Rules.V3`: throw all your dice; 4, 5, 6 score 5x face; several 
 - CLAUDE.md v1 line: solo ladder and pass-and-play, one phone; no online play.
 
 ## 3. Sin personality: lines (6 words max; `{name}` is the rival Sin)
-Voices: Wrath barks and burns; Greed keeps the books; Lust wants more; Envy compares; Pride is royal; Gluttony eats; Sloth yawns. A line shows as a scroll from the speaker's window on about half of events (`Tuning.LINE_CHANCE` 0.5), one on screen at a time, at most one per turn, never the same line twice in a game. Lines stay within a 9+ age rating: Lust wants things, not people.
+Voices: Wrath barks and burns; Greed keeps the books; Lust wants more; Envy compares; Pride is royal; Gluttony eats; Sloth yawns. A line shows as a scroll from the speaker's window on about half of events (`Tuning.LINE_CHANCE` 0.5), one on screen at a time, at most one per turn, never the same line twice in a game. Lines aim at the next rating tier up from 9+ (mild suggestive themes; teen level): innuendo and threats are fine; nothing explicit, no gore, no profanity or slurs (Ben, Nov 15; the 9+ ceiling is dropped).
 
 | Event | Wrath | Greed | Lust | Envy | Pride | Gluttony | Sloth |
 |---|---|---|---|---|---|---|---|

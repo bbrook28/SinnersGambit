@@ -19,6 +19,7 @@
 ##             keep      [x, y, w, h] in source px: only this region (feathered) is used
 ##             split     n: the n largest pieces become separate parts (name_0.. left to right)
 ##             place     {centre, width}: no fit (props the portrait doesn't have)
+##             graft     {rect, sat}: portrait pixels joined on (Greed's strap): saturated ones plus their lead
 ##             align_to  another part: fitted to that part's raw, then carried by its transform
 ##             alt       an alternate state: not in still.png
 ##             replaces  the part an alt state stands in for (for the review sheet)
@@ -40,16 +41,36 @@ const FIT_N := 2000  # samples for the hill-climb (the coarse grid uses COARSE_N
 const COARSE_N := 250
 const FEATHER := 20.0  # px, patch and keep edges
 
+## Figure and ground (Ben, Nov 15, version B): the bg layer is darkened and desaturated per Sin, with a
+## vignette (darker toward the edges, less dark behind the head and shoulders), and every figure layer
+## gets a dark lead line round its silhouette, its own image so it moves with the layer.
+const LINE := 10       # px at window size: full-strength lead line
+const LINE_SOFT := 3   # px of soft outer edge beyond it
+const LEAD := Color("140d0b")
+const VIG_EDGE := 0.25     # extra darkening at the window's corners
+const VIG_NIMBUS := 0.35   # share of the darkening taken off at the head
+const VIG_SIGMA := 210.0   # px, the nimbus falloff
+## Tuning: the lightest grade where, in greyscale, the figure's edge band is lighter than the ground
+## band beyond its lead line in TUNE_COVER of the 64 px cells along the silhouette, by TUNE_CELL each,
+## and by TUNE_MEAN overall.
+const TUNE_DARK := [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85]
+const TUNE_DESAT := [0.2, 0.3, 0.4, 0.5]
+const TUNE_COVER := 0.9
+const TUNE_CELL := 0.05
+const TUNE_MEAN := 0.15
+
 ## Gluttony: the arm's scale and offset over the portrait's arm, and the loose dice (centre and width
 ## in the portrait, 1024 space).
 const GLUTTONY := {
 	"cx": 0.468,
 	"arm": {"scale": 0.89, "offset": [-123, 4], "pivot": [60, 1024]},
 	"dice": [[530, 440, 86], [588, 505, 86], [548, 582, 86]],
+	"head": [560, 380],
 }
 
 const SINS := {
 	"envy": {
+		"head": [560, 400],  # portrait px: the vignette's nimbus (head and shoulders)
 		"body_fix": [[470, 240, 140, 110, 1]],  # the body cut left a hole above his right eye (the bg showed through)
 		"parts": {
 			# The redone edit has the head and neck in place; its coils are invented, so keep only those
@@ -59,8 +80,11 @@ const SINS := {
 		"patches": {"hooded": {"rects": [[347, 107, 400, 453]]}},
 	},
 	"greed": {
+		"head": [600, 380],
 		"parts": {
-			"purse": {"at": [345, 912], "s": 0.4, "search": {"t": 60, "s": 0.25, "r": 15}},
+			# The strap and buckle come from the portrait (the body edit dropped them), joined to the purse.
+			"purse": {"at": [345, 912], "s": 0.4, "search": {"t": 60, "s": 0.25, "r": 15},
+				"graft": {"rect": [430, 730, 130, 160], "sat": 0.28}},
 			# The loose coin for the drop into the purse: half size, where coinhand has it.
 			"coin": {"place": {"centre": [600, 445], "width": 48}, "alt": true},
 		},
@@ -68,8 +92,7 @@ const SINS := {
 		"patches": {"coinhand": {"rest": true, "rects": [[560, 370, 250, 220]]}},
 	},
 	"lust": {
-		# The neckline redo (9+ rating) lands in the portrait; the body takes its chest from there.
-		"body_fix": [[300, 520, 440, 330]],
+		"head": [520, 340],
 		"parts": {
 			"arm": {"file": "armopen", "anchor": [550, 738], "at": [246, 784], "s": 0.55, "r": 40,
 				"search": {"t": 50, "s": 0.2, "r": 40, "rstep": 10}},
@@ -78,12 +101,14 @@ const SINS := {
 		"patches": {"wink": {"rects": [[553, 154, 170, 215]]}},
 	},
 	"pride": {
+		"head": [480, 360],
 		# v2: the mirror, reflection and holding arm kept in place (the first edit had an empty, re-shaped glass).
 		"parts": {"mirror": {"file": "mirror_v2", "search": {"t": 30, "s": 0.06, "r": 4}}},
 		# Her face and the face in the mirror.
 		"patches": {"smile": {"rects": [[387, 160, 213, 240], [747, 160, 133, 187]]}},
 	},
 	"sloth": {
+		"head": [430, 360],
 		"parts": {
 			"candle": {"search": {"t": 60, "s": 0.15, "r": 4}},
 			"flame": {"at": [146, 515], "s": 0.31, "search": {"t": 40, "s": 0.25, "r": 6}},
@@ -91,6 +116,7 @@ const SINS := {
 		"patches": {"sleep": {"rects": [[369, 123, 170, 307]]}},
 	},
 	"wrath": {
+		"head": [510, 400],
 		"body_rects": [[402, 190, 210, 340]],
 		"parts": {"arms": {"split": 2, "s": 0.75, "search": {"t": 100, "s": 0.12, "r": 8}}},
 	},
@@ -122,8 +148,7 @@ func _bake(s: String, cfg: Dictionary) -> void:
 	var layout := {"window_x": x0, "size": [WIN_W, 1024], "parts": [], "patches": []}
 	var layers := []  # [name, image, position in the window, alt, replaces]
 
-	var bg := _img(s + "_layer_bg").get_region(Rect2i(x0, 0, WIN_W, 1024))
-	_save(bg, dir + "bg.png")
+	var bg := _img(s + "_layer_bg").get_region(Rect2i(x0, 0, WIN_W, 1024))  # graded and saved below
 
 	var body_src := _cut(_img(s + "_layer_body"))
 	var bc := Vector2(512, 512)
@@ -198,6 +223,42 @@ func _bake(s: String, cfg: Dictionary) -> void:
 				push_warning("%s %s lands outside the window" % [s, pname])
 				continue
 			var im := _warp(piece, wxf, out)
+			if pc.has("graft"):
+				# Portrait pixels in the rect: the saturated ones (leather, gold) plus the dark lead
+				# round them, specks dropped; joined to this part so they move with it.
+				var gr: Dictionary = pc.graft
+				var g := Rect2i(Vector2i(gr.rect[0] - x0, gr.rect[1]), Vector2i(gr.rect[2], gr.rect[3])).intersection(win)
+				var gw := g.size.x
+				var gh := g.size.y
+				var sat_m := PackedByteArray()
+				sat_m.resize(gw * gh)
+				for y in gh:
+					for x in gw:
+						var pcol := portrait.get_pixel(g.position.x + x + x0, g.position.y + y)
+						if pcol.s >= gr.sat and pcol.v >= 0.08:
+							sat_m[y * gw + x] = 1
+				var rim := _dil(sat_m, gw, gh, 4)
+				var gm := Image.create(gw, gh, false, Image.FORMAT_RGBA8)
+				for y in gh:
+					for x in gw:
+						var pcol := portrait.get_pixel(g.position.x + x + x0, g.position.y + y)
+						if sat_m[y * gw + x] == 1 or (rim[y * gw + x] == 1 and pcol.v < 0.22):
+							gm.set_pixel(x, y, Color(pcol, 1.0))
+				var keep_parts := _pieces(gm)  # pieces over 400 px
+				var big := out.merge(g)
+				var bim := Image.create(big.size.x, big.size.y, false, Image.FORMAT_RGBA8)
+				var n := 0
+				for r in keep_parts:
+					for y in range(r.position.y, r.end.y):
+						for x in range(r.position.x, r.end.x):
+							var c2 := gm.get_pixel(x, y)
+							if c2.a > 0.5:
+								bim.set_pixelv(g.position + Vector2i(x, y) - big.position, c2)
+								n += 1
+				bim.blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), out.position - big.position)
+				print("%s %s graft: %d px from the portrait" % [s, pname, n])
+				im = bim
+				out = big
 			_save(im, dir + pname + ".png")
 			layout.parts.append({"name": pname, "file": pname + ".png", "rect": [out.position.x, out.position.y, out.size.x, out.size.y]})
 			layers.append([pname, im, out.position, pc.get("alt", false), pc.get("replaces", "")])
@@ -235,18 +296,49 @@ func _bake(s: String, cfg: Dictionary) -> void:
 			"rest": pc.get("rest", false)})
 		patches.append([im, out.position, pc.get("rest", false)])
 
+	# Lead lines: one per figure layer, in its own image (rect grown by the line), so it moves with it.
+	var pad := LINE + LINE_SOFT
+	var body_line := _line_img(body, pad, LINE, LINE_SOFT)
+	_save(body_line, dir + "body_line.png")
+	layout["body_line"] = [-pad, -pad, body_line.get_width(), body_line.get_height()]
+	for l in layers:
+		var li := _line_img(l[1], pad, LINE, LINE_SOFT)
+		_save(li, dir + l[0] + "_line.png")
+		l.append(li)
+		l.append(l[2] - Vector2i(pad, pad))
+		for e in layout.parts:
+			if e.name == l[0]:
+				e["line"] = {"file": l[0] + "_line.png", "rect": [l[2].x - pad, l[2].y - pad, li.get_width(), li.get_height()]}
+
+	# Figure at rest (no ground), to tune the ground's grade against.
+	var figure := Image.create(WIN_W, 1024, false, Image.FORMAT_RGBA8)
+	figure.blend_rect(body, win, Vector2i.ZERO)
+	for l in layers:
+		if not l[3]:
+			figure.blend_rect(l[1], Rect2i(Vector2i.ZERO, l[1].get_size()), l[2])
+	for pt in patches:
+		if pt[2]:
+			figure.blend_rect(pt[0], Rect2i(Vector2i.ZERO, pt[0].get_size()), pt[1])
+	var head := Vector2(cfg.head[0] - x0, cfg.head[1])
+	var grade := _tune(bg, figure, head, float(cfg.get("hue", 0.0)))
+	print("%s ground: darker %d%%, less saturated %d%%; figure lighter in %d%% of edge cells, by %.2f mean" % [
+		s, roundi(grade.dark * 100), roundi(grade.desat * 100), roundi(grade.cover * 100), grade.mean])
+	layout["grade"] = grade
+	bg = _grade(bg, grade, head)
+	_save(bg, dir + "bg.png")
+
 	# Rest patches belong to the still (Greed's coin in his fingers); the others are alternate states.
 	var with_rest := func(im: Image) -> Image:
 		for pt in patches:
 			if pt[2]:
 				im.blend_rect(pt[0], Rect2i(Vector2i.ZERO, pt[0].get_size()), pt[1])
 		return im
-	var still: Image = with_rest.call(_compose(bg, body, layers, ""))
+	var still: Image = with_rest.call(_compose(bg, body, body_line, layers, ""))
 	_save(still, dir + "still.png")
 	var review: Array[Image] = [portrait.get_region(Rect2i(x0, 0, WIN_W, 1024)), still]
 	for l in layers:
 		if l[3] and l[4] != "":
-			review.append(_compose(bg, body, layers, l[0]))
+			review.append(with_rest.call(_compose(bg, body, body_line, layers, l[0])))
 	for pt in patches:
 		if not pt[2]:
 			var st: Image = still.duplicate()
@@ -260,19 +352,169 @@ func _bake(s: String, cfg: Dictionary) -> void:
 	print("%s baked in %.1f s" % [s, (Time.get_ticks_msec() - t0) / 1000.0])
 
 
-## bg, body, then every part that isn't an alternate state; `state` swaps one alt in for the part it replaces.
-func _compose(bg: Image, body: Image, layers: Array, state: String) -> Image:
+## bg, every lead line, body, then every part that isn't an alternate state; `state` swaps one alt in
+## for the part it replaces. Lines sit under all the figure layers, so they only show against the bg.
+func _compose(bg: Image, body: Image, body_line: Image, layers: Array, state: String) -> Image:
 	var out: Image = bg.duplicate()
-	out.blend_rect(body, Rect2i(Vector2i.ZERO, body.get_size()), Vector2i.ZERO)
 	var hide := ""
 	for l in layers:
 		if l[0] == state:
 			hide = l[4]
+	var shown := []
 	for l in layers:
-		if (l[3] and l[0] != state) or l[0] == hide:
-			continue
+		if not ((l[3] and l[0] != state) or l[0] == hide):
+			shown.append(l)
+	var pad := LINE + LINE_SOFT
+	out.blend_rect(body_line, Rect2i(Vector2i.ZERO, body_line.get_size()), Vector2i(-pad, -pad))
+	for l in shown:
+		out.blend_rect(l[5], Rect2i(Vector2i.ZERO, l[5].get_size()), l[6])
+	out.blend_rect(body, Rect2i(Vector2i.ZERO, body.get_size()), Vector2i.ZERO)
+	for l in shown:
 		out.blend_rect(l[1], Rect2i(Vector2i.ZERO, l[1].get_size()), l[2])
 	return out
+
+
+# --- Figure and ground --------------------------------------------------------------------------
+
+## A dark band r px wide round im's alpha, fading over soft px more, on a canvas pad px bigger each side.
+func _line_img(im: Image, pad: int, r: int, soft: int) -> Image:
+	var w := im.get_width() + pad * 2
+	var h := im.get_height() + pad * 2
+	var m := PackedByteArray()
+	m.resize(w * h)
+	for y in im.get_height():
+		for x in im.get_width():
+			if im.get_pixel(x, y).a > 0.5:
+				m[(y + pad) * w + x + pad] = 1
+	var inner := _dil(m, w, h, r)
+	var outer := _dil(m, w, h, r + soft)
+	var out := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for i in w * h:
+		var a := 1.0 if inner[i] == 1 else (0.45 if outer[i] == 1 else 0.0)
+		if a > 0.0:
+			out.set_pixel(i % w, i / w, Color(LEAD, a))
+	return out
+
+
+## Square dilation by r px, with running sums along rows then columns.
+func _dil(m: PackedByteArray, w: int, h: int, r: int) -> PackedByteArray:
+	var t := PackedByteArray()
+	t.resize(w * h)
+	var acc := PackedInt32Array()
+	acc.resize(maxi(w, h) + 1)
+	for y in h:
+		var row := y * w
+		acc[0] = 0
+		for x in w:
+			acc[x + 1] = acc[x] + m[row + x]
+		for x in w:
+			if acc[mini(w, x + r + 1)] - acc[maxi(0, x - r)] > 0:
+				t[row + x] = 1
+	var o := PackedByteArray()
+	o.resize(w * h)
+	for x in w:
+		acc[0] = 0
+		for y in h:
+			acc[y + 1] = acc[y] + t[y * w + x]
+		for y in h:
+			if acc[mini(h, y + r + 1)] - acc[maxi(0, y - r)] > 0:
+				o[y * w + x] = 1
+	return o
+
+
+## The ground's value multiplier at (x, y): darker by g.dark (less near the head), darker still at the edges.
+func _vig(x: float, y: float, dark: float, head: Vector2) -> float:
+	var nimbus := exp(-Vector2(x, y).distance_squared_to(head) / (2.0 * VIG_SIGMA * VIG_SIGMA))
+	var ex := (x - WIN_W / 2.0) / (WIN_W / 2.0)
+	var ey := (y - 512.0) / 512.0
+	return (1.0 - dark * (1.0 - VIG_NIMBUS * nimbus)) * (1.0 - VIG_EDGE * (ex * ex + ey * ey) / 2.0)
+
+
+func _grade(bg: Image, g: Dictionary, head: Vector2) -> Image:
+	var out: Image = bg.duplicate()
+	for y in out.get_height():
+		for x in out.get_width():
+			var c := out.get_pixel(x, y)
+			out.set_pixel(x, y, Color.from_hsv(wrapf(c.h + g.hue, 0.0, 1.0), c.s * (1.0 - g.desat), c.v * _vig(x, y, g.dark, head), c.a))
+	return out
+
+
+static func _lum(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+## The lightest grade (TUNE_DARK x TUNE_DESAT) where the figure reads lighter than the ground along
+## its silhouette: per 64 px cell, the figure 8-24 px inside its edge against the ground 14-34 px out
+## (beyond the lead line), in greyscale. Falls back to the grade with the best cover.
+func _tune(bg: Image, figure: Image, head: Vector2, hue: float) -> Dictionary:
+	var w := WIN_W
+	var h := 1024
+	var m := PackedByteArray()
+	m.resize(w * h)
+	var nm := PackedByteArray()
+	nm.resize(w * h)
+	for y in h:
+		for x in w:
+			var on := figure.get_pixel(x, y).a > 0.5
+			m[y * w + x] = 1 if on else 0
+			nm[y * w + x] = 0 if on else 1
+	var skin := _dil(nm, w, h, 8)    # the cut-outs carry a black stroke round their edge: skip it
+	var band := _dil(nm, w, h, 24)
+	var near := _dil(m, w, h, LINE + LINE_SOFT + 1)
+	var far := _dil(m, w, h, 34)
+	var cw := ceili(w / 64.0)
+	var cells := cw * ceili(h / 64.0)
+	var in_sum := PackedFloat32Array()
+	in_sum.resize(cells)
+	var in_n := PackedInt32Array()
+	in_n.resize(cells)
+	var out_px := []  # [cell, h, s, v, x, y]
+	for y in range(4, h - 4):
+		for x in range(4, w - 4):
+			var i := y * w + x
+			var cell := (y / 64) * cw + x / 64
+			if m[i] == 1 and skin[i] == 0 and band[i] == 1:
+				in_sum[cell] += _lum(figure.get_pixel(x, y))
+				in_n[cell] += 1
+			elif m[i] == 0 and far[i] == 1 and near[i] == 0:
+				var c := bg.get_pixel(x, y)
+				out_px.append([cell, c.h, c.s, c.v, x, y])
+	var best := {}
+	var best_key := INF
+	for dark in TUNE_DARK:
+		var vig := PackedFloat32Array()
+		vig.resize(out_px.size())
+		for k in out_px.size():
+			vig[k] = _vig(out_px[k][4], out_px[k][5], dark, head)
+		for desat in TUNE_DESAT:
+			var o_sum := PackedFloat32Array()
+			o_sum.resize(cells)
+			var o_n := PackedInt32Array()
+			o_n.resize(cells)
+			for k in out_px.size():
+				var p: Array = out_px[k]
+				o_sum[p[0]] += _lum(Color.from_hsv(wrapf(p[1] + hue, 0.0, 1.0), p[2] * (1.0 - desat), p[3] * vig[k]))
+				o_n[p[0]] += 1
+			var used := 0
+			var passed := 0
+			var diff := 0.0
+			for c in cells:
+				if in_n[c] < 40 or o_n[c] < 40:
+					continue
+				var d := in_sum[c] / in_n[c] - o_sum[c] / o_n[c]
+				used += 1
+				diff += d
+				if d >= TUNE_CELL:
+					passed += 1
+			var cover := float(passed) / maxi(used, 1)
+			var mean := diff / maxi(used, 1)
+			var ok := cover >= TUNE_COVER and mean >= TUNE_MEAN
+			# Passing grades: the lightest touch wins. Otherwise: the best cover.
+			var key: float = (dark + desat * 0.5) if ok else (10.0 - cover - mean * 0.1)
+			if key < best_key:
+				best_key = key
+				best = {"dark": dark, "desat": desat, "hue": hue, "cover": cover, "mean": mean, "passed": ok}
+	return best
 
 
 ## Side by side at half size.
@@ -511,35 +753,68 @@ func _bake_gluttony() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	var x0 := clampi(roundi(1024 * cfg.cx - 409.6), 0, 1024 - 819)
 	var win := Rect2i(x0, 0, 819, 1024)
-	var bg := _img("gluttony_layer_bg")
-	var body := _cut(_img("gluttony_layer_body"))
+	var bg := _img("gluttony_layer_bg").get_region(win)
+	var body := _cut(_img("gluttony_layer_body")).get_region(win)
 	var arm := _cut(_img("gluttony_layer_arm"))
 	var dice := _cut(_img("gluttony_layer_dice"))
-	bg.get_region(win).save_png(ProjectSettings.globalize_path(dir + "bg.png"))
-	body.get_region(win).save_png(ProjectSettings.globalize_path(dir + "body.png"))
-	arm.save_png(ProjectSettings.globalize_path(dir + "arm.png"))
+	_save(body, dir + "body.png")
+	_save(arm, dir + "arm.png")
+	var ascale: float = cfg.arm.scale
+	# Lead lines, each the same size as its layer (dice padded, centred), so a child sprite with the
+	# layer's offset sits on it. Widths are divided by the layer's scale to land at LINE on screen.
+	var body_line := _line_img(body, 0, LINE, LINE_SOFT)
+	_save(body_line, dir + "body_line.png")
+	var arm_line := _line_img(arm, 0, roundi(LINE / ascale), roundi(LINE_SOFT / ascale))
+	_save(arm_line, dir + "arm_line.png")
 	# The loose dice: connected pieces, largest three, matched to the portrait's dice top to bottom.
 	var parts := _pieces(dice)
 	parts.sort_custom(func(a, b): return a.size.x * a.size.y > b.size.x * b.size.y)
 	parts = parts.slice(0, cfg.dice.size())
 	parts.sort_custom(func(a, b): return a.position.y < b.position.y)
-	var layout := {"window_x": x0, "arm": cfg.arm, "dice": []}
+	var layout := {"window_x": x0, "arm": cfg.arm, "dice": [], "lines": true}
+	var die_ims := []
 	for i in parts.size():
 		var r: Rect2i = parts[i]
-		dice.get_region(r).save_png(ProjectSettings.globalize_path(dir + "die_%d.png" % i))
+		var die := dice.get_region(r)
+		_save(die, dir + "die_%d.png" % i)
 		var want: Array = cfg.dice[i]
-		layout.dice.append({"file": "die_%d.png" % i, "centre": [want[0] - x0, want[1]], "scale": float(want[2]) / r.size.x})
+		var sc := float(want[2]) / r.size.x
+		var p := ceili((LINE + LINE_SOFT) / sc)
+		var dl := _line_img(die, p, roundi(LINE / sc), roundi(LINE_SOFT / sc))
+		_save(dl, dir + "die_%d_line.png" % i)
+		die_ims.append([die, dl, sc, Vector2i(want[0] - x0, want[1])])
+		layout.dice.append({"file": "die_%d.png" % i, "line": "die_%d_line.png" % i, "centre": [want[0] - x0, want[1]], "scale": sc})
+
+	# At rest, in window space: figure alone (to tune the ground) and its lines.
+	var arm_at := Vector2i(cfg.arm.offset[0] - x0, cfg.arm.offset[1])
+	var a2: Image = arm.duplicate()
+	a2.resize(roundi(1024 * ascale), roundi(1024 * ascale), Image.INTERPOLATE_LANCZOS)
+	var al: Image = arm_line.duplicate()
+	al.resize(a2.get_width(), a2.get_height(), Image.INTERPOLATE_BILINEAR)
+	var figure := Image.create(819, 1024, false, Image.FORMAT_RGBA8)
+	var lines := Image.create(819, 1024, false, Image.FORMAT_RGBA8)
+	figure.blend_rect(body, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
+	lines.blend_rect(body_line, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
+	figure.blend_rect(a2, Rect2i(Vector2i.ZERO, a2.get_size()), arm_at)
+	lines.blend_rect(al, Rect2i(Vector2i.ZERO, al.get_size()), arm_at)
+	for d in die_ims:
+		for k in 2:
+			var im: Image = d[k].duplicate()
+			im.resize(maxi(1, roundi(im.get_width() * d[2])), maxi(1, roundi(im.get_height() * d[2])), Image.INTERPOLATE_LANCZOS)
+			(figure if k == 0 else lines).blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), d[3] - im.get_size() / 2)
+	var head := Vector2(cfg.head[0] - x0, cfg.head[1])
+	var grade := _tune(bg, figure, head, 0.0)
+	print("gluttony ground: darker %d%%, less saturated %d%%; figure lighter in %d%% of edge cells, by %.2f mean" % [
+		roundi(grade.dark * 100), roundi(grade.desat * 100), roundi(grade.cover * 100), grade.mean])
+	layout["grade"] = grade
+	bg = _grade(bg, grade, head)
+	_save(bg, dir + "bg.png")
 	var f := FileAccess.open(ProjectSettings.globalize_path(dir + "layout.json"), FileAccess.WRITE)
 	f.store_string(JSON.stringify(layout, "\t"))
 	f.close()
-	# Still composite at rest, in window space.
-	var still := bg.get_region(win)
-	still.blend_rect(body.get_region(win), Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
-	var a2: Image = arm.duplicate()
-	a2.resize(roundi(1024 * cfg.arm.scale), roundi(1024 * cfg.arm.scale), Image.INTERPOLATE_LANCZOS)
-	still.blend_rect(a2, Rect2i(Vector2i.ZERO, a2.get_size()), Vector2i(cfg.arm.offset[0] - x0, cfg.arm.offset[1]))
-	for d in layout.dice:
-		var im := Image.load_from_file(ProjectSettings.globalize_path(dir + d.file))
-		im.resize(maxi(1, roundi(im.get_width() * d.scale)), maxi(1, roundi(im.get_height() * d.scale)), Image.INTERPOLATE_LANCZOS)
-		still.blend_rect(im, Rect2i(Vector2i.ZERO, im.get_size()), Vector2i(d.centre[0] - im.get_width() / 2, d.centre[1] - im.get_height() / 2))
-	still.save_png(ProjectSettings.globalize_path(dir + "still.png"))
+	var still: Image = bg.duplicate()
+	still.blend_rect(lines, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
+	still.blend_rect(figure, Rect2i(Vector2i.ZERO, win.size), Vector2i.ZERO)
+	_save(still, dir + "still.png")
+	var review: Array[Image] = [_img("gluttony_portrait").get_region(win), still]
+	_save_review(review, REVIEW + "gluttony.png")

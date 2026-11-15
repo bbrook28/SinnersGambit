@@ -1,17 +1,49 @@
 {
+	"body_line": [
+		-13,
+		-13,
+		845,
+		1050
+	],
+	"grade": {
+		"cover": 0.916666666666667,
+		"dark": 0.25,
+		"desat": 0.2,
+		"hue": 0.0,
+		"mean": 0.260158763226601,
+		"passed": true
+	},
 	"parts": [
 		{
 			"file": "purse.png",
+			"line": {
+				"file": "purse_line.png",
+				"rect": [
+					116,
+					717,
+					355,
+					320
+				]
+			},
 			"name": "purse",
 			"rect": [
 				129,
-				781,
-				245,
-				243
+				730,
+				329,
+				294
 			]
 		},
 		{
 			"file": "coin.png",
+			"line": {
+				"file": "coin_line.png",
+				"rect": [
+					459,
+					403,
+					78,
+					82
+				]
+			},
 			"name": "coin",
 			"rect": [
 				472,

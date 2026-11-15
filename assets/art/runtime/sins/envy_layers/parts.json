@@ -1,7 +1,30 @@
 {
+	"body_line": [
+		-13,
+		-13,
+		845,
+		1050
+	],
+	"grade": {
+		"cover": 0.904761904761905,
+		"dark": 0.85,
+		"desat": 0.2,
+		"hue": 0.0,
+		"mean": 0.186495744786173,
+		"passed": true
+	},
 	"parts": [
 		{
 			"file": "serpent.png",
+			"line": {
+				"file": "serpent_line.png",
+				"rect": [
+					527,
+					266,
+					305,
+					449
+				]
+			},
 			"name": "serpent",
 			"rect": [
 				540,

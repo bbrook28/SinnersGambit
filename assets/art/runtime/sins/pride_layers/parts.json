@@ -1,7 +1,30 @@
 {
+	"body_line": [
+		-13,
+		-13,
+		845,
+		1050
+	],
+	"grade": {
+		"cover": 0.925925925925926,
+		"dark": 0.35,
+		"desat": 0.2,
+		"hue": 0.0,
+		"mean": 0.303352289787365,
+		"passed": true
+	},
 	"parts": [
 		{
 			"file": "mirror.png",
+			"line": {
+				"file": "mirror_line.png",
+				"rect": [
+					594,
+					61,
+					238,
+					909
+				]
+			},
 			"name": "mirror",
 			"rect": [
 				607,
@@ -20,7 +43,8 @@
 				160,
 				493,
 				240
-			]
+			],
+			"rest": false
 		}
 	],
 	"size": [

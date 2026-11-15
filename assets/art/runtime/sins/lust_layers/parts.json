@@ -1,7 +1,30 @@
 {
+	"body_line": [
+		-13,
+		-13,
+		845,
+		1050
+	],
+	"grade": {
+		"cover": 0.916666666666667,
+		"dark": 0.85,
+		"desat": 0.2,
+		"hue": 0.0,
+		"mean": 0.225468080567463,
+		"passed": true
+	},
 	"parts": [
 		{
 			"file": "arm.png",
+			"line": {
+				"file": "arm_line.png",
+				"rect": [
+					1,
+					413,
+					387,
+					488
+				]
+			},
 			"name": "arm",
 			"rect": [
 				14,
@@ -12,6 +35,15 @@
 		},
 		{
 			"file": "arm_closed.png",
+			"line": {
+				"file": "arm_closed_line.png",
+				"rect": [
+					18,
+					412,
+					370,
+					488
+				]
+			},
 			"name": "arm_closed",
 			"rect": [
 				31,
