@@ -275,3 +275,12 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - Tests: table_check (1212 checks), lines_check, terms, run_check, replay, tutorial, ui_autoplay, run_ui_check, bot_pace (2.3 s) all pass. The UI audit flags only its synthetic 12-dice layout (5 pt gaps), as before.
 - Sim (§11): 4 seats balanced 21-29%; 7 seats off (Greed 29 vs 14 fair); claims 0.31 a game, under target; claim costs 18-30%.
 - Web build exported to `build/web`. Next: Ben plays five games, then slice (b).
+
+## Slice (a) revisions before Ben plays (2026-11-14)
+- Offers: a centred card on the fx layer (the offering Sin's wide portrait window with living glass and a flare, its name, the offer in 60 pt serif, the first-time tip), Accept (crimson, right) and Refuse (bronze, left) seals on the page under it. Sin lines: a speech tab at the speaker's window, which flares. Debts: chips on the plate's lower edge. The card sits below the plates and any chips.
+- Offers at most every other turn of yours (`tempt_gap` 2): 8.5 offers and 0.14 claims a game at 4 seats (11.1 and 0.12 at 7). Not tuned further.
+- Living glass stage 1 (`ui/shaders/flare.gdshader`, `Tuning.GLASS_*`): light band behind the glass, slow colour pulse, glints along lead lines, flare on speak and offer; Reduce Motion holds it still (read when the material is made).
+- Portrait windows for the offer card (`Art.portrait`, falls back to the lancet): Gluttony done (24 credits, about 3:5 after the frame is cut; baked by `tools/bake_art.gd`). The other six wait for Ben's look at Gluttony. The lancets stay on the board seats and Sin select.
+- `tools/table_shots.gd`: screenshots of an offer card (optionally from one Sin), a line and debt chips.
+- **SpriteCook budget (Ben, 2026-11-14):** 1,935 credits after the Gluttony portrait. The credit limit no longer shapes the plan. Perk icons, sigils and ending scenes are painted in the slice that builds them, not deferred to Phase 9. Keep the Gluttony-first test for living glass as a quality check. State the cost before any batch over 50 credits.
+- Living glass stage 2 (Gluttony layers and gesture) waits for Ben's OK on method and cost.

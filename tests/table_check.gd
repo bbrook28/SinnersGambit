@@ -243,11 +243,12 @@ func _ui_game() -> void:
 			if bs[0].text == "New game":
 				done = true
 				break
-			var texts: Array = bs.map(func(b): return b.text)
-			if "Accept" in texts:
+			var kinds: Array = bs.map(func(b): return b.get_meta("offer", ""))
+			if "accept" in kinds:
 				ui_offers += 1
-				check(texts.size() == 2 and "Refuse" in texts, "an offer shows Accept and Refuse only: %s" % [texts])
-				check(main._prompt_label.get_parsed_text().find(":") > 0, "the offer names its Sin")
+				check(kinds.size() == 2 and "refuse" in kinds, "an offer shows Accept and Refuse only: %s" % [kinds])
+				check(is_instance_valid(main._offer_card), "an offer shows its card")
+				check(main._prompt_label.get_parsed_text().find("tempts") > 0, "the offer names its Sin")
 			bs[randi() % bs.size()].pressed.emit()
 		main.queue_free()
 		await process_frame

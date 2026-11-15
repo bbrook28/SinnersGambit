@@ -144,7 +144,8 @@ func my_turn(buttons: Array) -> void:
 	tw.tween_property(primary, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(0.6)
 	_pulses.append(tw)
-	burst(_center(primary), 0.4, Style.C_GOLD)
+	if not primary.has_meta("offer"):  # the sparkle would cover Accept's word
+		burst(_center(primary), 0.4, Style.C_GOLD)
 
 
 ## The seals enter one by one in reading order (count row, then Bank, then Throw), then breathe.
@@ -476,17 +477,17 @@ func _ability(who: String, ability: String, what: String, prev: Dictionary, snap
 	await q.wait(0.2)
 
 
-## A Sin's line (TableDesign Â§3): its window lifts and the words take the score strip for a moment.
-## Placeholder for the scroll from the window (Phase 8).
+## A Sin's line (TableDesign §3): its window lifts and the words appear at its foot.
 func line(seat: int, text: String) -> void:
 	var pt: Dictionary = _seat(seat)
 	var keep: float = T.pace
 	T.pace = 1.0  # words are read at your speed, even on a bot's turn
 	_lift(pt.window, T.ANTICIPATION * 0.5)
-	var note: Control = m._marginalia(pt, pt.sin, "\u201c%s\u201d" % text)
+	var bub: Control = m.speech(pt, text)
+	m._flare(pt)  # the glass flares as the Sin speaks
 	_punch(pt.window, 0.3)
 	await q.wait(T.LINE_HOLD)
-	m.clear_note(note)
+	m.clear_speech(bub)
 	await q.wait(0.15)
 	T.pace = keep
 

@@ -43,5 +43,7 @@ var pend_die := 0           # you lose this many dice when this turn ends
 var fewer_now := 0          # this turn throws this many fewer dice (pend_fewer, moved in at turn start)
 var last_bank := -1         # Pride's claim: your last Bank this game that counted
 var grudges: Array = []     # seats that aimed an ability at you, oldest first (ai/bot_policy.gd pick_target)
+var turns_started := 0      # your turns so far (offers come at most every tempt_gap of them)
+var last_offer_turn := -99  # turns_started when your last offer came
 var offers_seen := 0        # sim stats
 var offers_taken := 0

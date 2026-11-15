@@ -13,7 +13,7 @@ var on_answer: Callable   # called after each answer you give (main saves)
 
 
 ## Shows text with buttons ([label, value] pairs) and returns the value of the one pressed.
-func _choose(text: String, options: Array):
+func _choose(text: String, options: Array, offer := {}):
 	if not replay.is_empty():
 		var want = replay.pop_front()
 		for o in options:
@@ -22,7 +22,7 @@ func _choose(text: String, options: Array):
 				return o[1]
 		push_warning("Continue: saved answer %s doesn't fit '%s'; asking instead" % [want, text])
 		replay.clear()
-	view.show_prompt(text, options)
+	view.show_prompt(text, options, offer)
 	var v = await answered
 	view.clear_prompt()
 	record.append(_store(v))
@@ -82,12 +82,14 @@ func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
 ## Rules.V4: a rival Sin's offer, Accept or Refuse. The first one you ever see carries one tip.
 func wants_temptation(_game, _p, from, offer: Dictionary) -> bool:
 	var RulesText = load("res://ui/rules_text.gd")
-	var text: String = "%s: %s" % [from.sin.sin_name, RulesText.tempt(offer.id)]
+	var sname: String = from.sin.sin_name
+	var card := {"sin": sname, "text": RulesText.tempt(offer.id), "tip": ""}
 	if view and not view.tempt_tip_seen:
-		text += "\n" + RulesText.table("tempt_tip")
+		card.tip = RulesText.table("tempt_tip")
 		view.tempt_tip_seen = true
 		view._save_settings()
-	return await _choose(text, [[RulesText.table("accept"), true], [RulesText.table("refuse"), false]])
+	var text: String = RulesText.table("tempt_prompt", {"sin": sname})
+	return await _choose(text, [[RulesText.table("accept"), true], [RulesText.table("refuse"), false]], card)
 
 
 func dice_to_buy(p, game) -> int:

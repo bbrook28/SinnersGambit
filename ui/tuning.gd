@@ -16,7 +16,26 @@ const RUN_MODE := false  # debug: the parked run game on the menu ("Run (old)", 
 const BOT_SUMMARY := false  # the bot-turn summary paragraph on the thumb page (off at the table, TableDesign §5)
 const LINE_CHANCE := 0.5   # a Sin says a line on about this share of events (TableDesign §3)
 const LINE_HOLD := 0.8     # a line stays up this long, at reading speed even on a bot's turn
-const MARKS_FONT := 36     # mark pips, claims and debt chips under each window
+const MARKS_FONT := 36     # mark pips and claims under each window
+const LINE_FONT := 40      # a Sin's line, in the speech tab at its window's foot
+const LINE_MAX_W := 640.0  # the speech tab wraps past this width
+const LINE_OVERLAP := 30.0 # the tab overlaps the window's foot by this much
+const CHIP_FONT := 30      # debt chips on the plate (TableDesign §7)
+const CHIP_OVERLAP := 18.0 # chips sit over the plate's lower edge by this much
+const CHIP_BG := Color("6a1c14")
+const OFFER_BG := Color(0.07, 0.045, 0.035, 0.95)  # the temptation card and speech tabs
+const OFFER_CARD_W := 900.0
+const OFFER_WINDOW_SHARE := 0.57  # the full window fills this share of the card's height (55-60%)
+const OFFER_PORTRAIT_W := 0.7     # ...and at most this share of its width
+const PORTRAIT_BLOOM := 0.2      # the card portrait is painted brighter than the lancets: less glass bloom
+# Living glass (ui/shaders/flare.gdshader), every Sin window. Reduce Motion holds it still.
+const GLASS_LIGHT := 0.2        # the band of light that crosses behind the glass
+const GLASS_PULSE := 0.12       # the slow colour pulse
+const GLASS_PULSE_SPEED := 0.5  # radians a second (a swell every ~12 s)
+const GLASS_GLINT := 0.6        # glints running along the lead lines
+const OFFER_NAME_FONT := 64
+const OFFER_FONT := 60
+const OFFER_TIP_FONT := 36
 
 # ---- The four phases of every beat ----
 const ANTICIPATION := 0.3    # the element lifts / pulses

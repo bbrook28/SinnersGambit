@@ -20,6 +20,14 @@ func _init() -> void:
 	for s in SINS:
 		var im := _key_black(_load("res://assets/art/sins/raw/%s_hd_raw.png" % s))
 		_save(_fit_h(im.duplicate(), 760), OUT + "sins/%s.png" % s)
+	# Wide portrait windows for the offer card (sins/portrait_raw/*_portrait_raw.png, on a dark glow):
+	# the glow is keyed out up to the gold frame, then cropped to the window.
+	for s in SINS:
+		var src := "res://assets/art/sins/portrait_raw/%s_portrait_raw.png" % s
+		if FileAccess.file_exists(src):
+			var pim := _key_black(_load(src), 0.42)
+			pim = pim.get_region(pim.get_used_rect())
+			_save(_fit_h(pim, 900), OUT + "sins/%s_portrait.png" % s)
 	var sig := _split(_cut(_load("res://assets/art/extra/raw/sigils_raw.png")), 7)
 	for i in SINS.size():
 		_save(_fit_h(sig[i], 96), OUT + "sigils/%s.png" % SINS[i])

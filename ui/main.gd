@@ -140,6 +140,7 @@ var _tutor = null                  # ui/tutorial_game.gd while the tutorial is p
 var _music: AudioStreamPlayer
 var _screen_root: Control          # the menu scene (freed when leaving it)
 var _candle_glow: Control          # the menu candle's light pool (flickers in _process)
+var _offer_card: Control           # a Sin's temptation, over the dice tray while it waits (_show_offer_now)
 var _overlay: Control              # the rulebook or an explanation card while open (the queue waits)
 var _pause: Button                 # the pause seal in the tray: Rulebook, Sin abilities, Chronicle, Settings, menu
 var _explain_targets: Array = []   # [control, Callable]: what a tap / hold explains (_register_explain_targets)
@@ -869,7 +870,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 		sins.append(SIN_SCRIPTS[e[0]].new())
 	var options := Rules.V4.duplicate()
 	options["tier2"] = not _first_game
-	options["temptations"] = not _first_game  # no temptations in a First Game (TableDesign Â§7)
+	options["temptations"] = not _first_game  # no temptations in a First Game (TableDesign §7)
 	_line_turn = -1
 	_lines_used = {}
 	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
@@ -1220,15 +1221,27 @@ func _build_glance(zone: VBoxContainer) -> void:
 			l.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_l.clip_text = true
 		col.add_child(plate)
-		# Marks (Sin-coloured pips), claims and debts (TableDesign Â§7), over the window's foot.
+		# Marks (Sin-coloured pips), claims and debts (TableDesign §7), over the window's foot.
 		var marks_l := Style.body("", Tuning.MARKS_FONT, Style.C_IVORY, 6)
 		marks_l.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 		marks_l.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		marks_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		marks_l.fit_content = true
 		win_box.add_child(marks_l)
+		# What they still owe: chips over the plate's lower edge, until paid.
+		var chips := HFlowContainer.new()
+		chips.alignment = FlowContainer.ALIGNMENT_CENTER
+		chips.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		chips.offset_top = -Tuning.CHIP_OVERLAP
+		chips.offset_bottom = -Tuning.CHIP_OVERLAP
+		chips.grow_vertical = Control.GROW_DIRECTION_END
+		chips.add_theme_constant_override("h_separation", 4)
+		chips.add_theme_constant_override("v_separation", 4)
+		chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chips.z_index = 2
+		plate.add_child(chips)
 		_portraits.append({"window": win, "glow": glow, "name": name_l, "score": score_l, "dice": dice_l, "sin": sname,
-			"mine": mine, "col": col, "crown": crown, "badges": badges, "marks": marks_l})
+			"mine": mine, "col": col, "crown": crown, "badges": badges, "marks": marks_l, "chips": chips})
 
 
 ## Your column: a gold frame round window, name and plate, over a wash of your Sin's colour.
@@ -2394,7 +2407,7 @@ func beat(p, kind: String) -> void:
 
 ## Queued like everything else, so the buttons only appear once the board has caught up.
 ## Then the director pulses what you can tap and dims the rest.
-func show_prompt(text: String, options: Array) -> void:
+func show_prompt(text: String, options: Array, offer := {}) -> void:
 	_q.push(func():
 		_q.skip_all = false  # "skip to my next decision" ends here
 		Tuning.pace = 1.0  # your decision plays at your speed
@@ -2406,7 +2419,10 @@ func show_prompt(text: String, options: Array) -> void:
 			_refresh(_snapshot(), ["plates", "glow", "banner", "turn", "strikes"])
 		if _tutor:
 			_tutor.overlay.block()  # dead until the script lights one
-		_show_prompt_now(text, options)
+		if offer.is_empty():
+			_show_prompt_now(text, options)
+		else:
+			_show_offer_now(text, options, offer)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
@@ -2539,6 +2555,9 @@ func clear_prompt() -> void:
 	_set_lettering(_prompt_label, "")
 	for c in _buttons.get_children():
 		c.queue_free()
+	if is_instance_valid(_offer_card):
+		_offer_card.queue_free()
+	_offer_card = null
 	if _summary:  # the bot turns so far come back on the page
 		_summary.visible = _summary_rows.get_child_count() > 0
 
@@ -2952,19 +2971,199 @@ func _refresh_marks_line(pt: Dictionary, ps: Dictionary) -> void:
 			parts.append("[img=30x30]%s[/img]" % Art.sigil_path(s))
 	for s in ps.claims:
 		parts.append("[img color=#ff7a6a width=44 height=44]%s[/img]" % Art.sigil_path(s))
-	var d: Array = ps.debts
-	if d[0] > 0:
-		parts.append(RulesText.table("chip_bank", {"n": d[0]}))
-	if d[1] > 0:
-		parts.append(RulesText.table("chip_strike"))
-	if d[2] > 0:
-		parts.append(RulesText.table("chip_fewer", {"n": d[2]}))
-	if d[3] > 0:
-		parts.append(RulesText.table("chip_die"))
 	var text := " ".join(parts)
 	if pt.marks.get_meta("text", "") != text:
 		pt.marks.set_meta("text", text)
 		Style.set_body(pt.marks, text)
+	var d: Array = ps.debts
+	var chips := []
+	if d[0] > 0:
+		chips.append(RulesText.table("chip_bank", {"n": d[0]}))
+	if d[1] > 0:
+		chips.append(RulesText.table("chip_strike"))
+	if d[2] > 0:
+		chips.append(RulesText.table("chip_fewer_1") if d[2] == 1 else RulesText.table("chip_fewer", {"n": d[2]}))
+	if d[3] > 0:
+		chips.append(RulesText.table("chip_die"))
+	var key := "|".join(chips)
+	if pt.chips.get_meta("key", "") == key:
+		return
+	pt.chips.set_meta("key", key)
+	for c in pt.chips.get_children():
+		c.queue_free()
+	for c in chips:
+		pt.chips.add_child(_chip(c))
+
+
+## A debt chip: a dark red tab with gold edge, words in ivory at reading size.
+func _chip(text: String) -> PanelContainer:
+	var chip := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tuning.CHIP_BG
+	sb.border_color = Style.C_GOLD.darkened(0.15)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 4
+	chip.add_theme_stylebox_override("panel", sb)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Style.label(text, Tuning.CHIP_FONT, Style.C_IVORY, false, 4)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("line_spacing", -8)
+	chip.add_child(l)
+	return chip
+
+
+## A temptation (TableDesign §7): a card over the dice tray with the offering Sin's window, its
+## name, the offer in large serif and, the first time, the tip. Accept (crimson, right thumb) and
+## Refuse (bronze, left) are the seals on the page just under it.
+func _show_offer_now(text: String, options: Array, offer: Dictionary) -> void:
+	clear_prompt()
+	_waiting = false
+	if _summary:
+		_summary.visible = false
+	_set_lettering(_prompt_label, text)
+	var sname: String = offer.sin
+	var col: Color = Style.SIN_COLORS[sname]
+	# The card is centred between the plates (scores stay visible) and the page with the seals.
+	var page_top: float = _thumb.get_global_rect().position.y
+	# Below the plates and any debt chips hanging under them.
+	var plates_end := 20.0
+	for pt in _portraits:
+		plates_end = maxf(plates_end, pt.col.get_global_rect().end.y + 16.0)
+		if pt.chips.get_child_count() > 0:
+			plates_end = maxf(plates_end, pt.chips.get_global_rect().end.y + 12.0)
+	var area := Rect2(0.0, plates_end, _fx.size.x, page_top - plates_end - 16.0)
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tuning.OFFER_BG
+	sb.border_color = col.lightened(0.25)
+	sb.set_border_width_all(5)
+	sb.set_corner_radius_all(28)
+	sb.set_content_margin_all(36)
+	sb.shadow_color = Color(0, 0, 0, 0.6)
+	sb.shadow_size = 30
+	card.add_theme_stylebox_override("panel", sb)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.custom_minimum_size.x = minf(area.size.x - 40.0, Tuning.OFFER_CARD_W)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(v)
+	# The whole window, uncropped, over the top 55-60% of the card (the crop is for the board seats).
+	card.custom_minimum_size.y = area.size.y
+	var win := TextureRect.new()
+	win.texture = Art.portrait(sname)
+	win.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	win.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var asp: float = float(win.texture.get_width()) / maxf(1.0, win.texture.get_height())
+	win.custom_minimum_size.y = minf((area.size.y - 72.0) * Tuning.OFFER_WINDOW_SHARE, card.custom_minimum_size.x * Tuning.OFFER_PORTRAIT_W / asp)
+	win.material = Art.flare_material()
+	win.material.set_shader_parameter("bloom", Tuning.PORTRAIT_BLOOM)
+	if sname == "Greed":
+		win.material.set_shader_parameter("cast", Color(0.86, 1.0, 1.22))
+	win.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(win)
+	var card_flare := win.create_tween()
+	card_flare.tween_method(func(f: float): win.material.set_shader_parameter("flash", f), 0.9, 0.0, 0.8).set_ease(Tween.EASE_OUT)
+	for pt in _portraits:
+		if pt.sin == sname:
+			_flare(pt)
+	var name_l := Style.label(sname, Tuning.OFFER_NAME_FONT, col.lightened(0.4), true, 8)
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(name_l)
+	var inner: float = card.custom_minimum_size.x - 72.0
+	var words := Style.body(offer.text, Tuning.OFFER_FONT, Style.C_IVORY, 8)
+	words.custom_minimum_size.x = inner
+	v.add_child(words)
+	if offer.tip != "":
+		var tip := Style.body("[i]%s[/i]" % offer.tip, Tuning.OFFER_TIP_FONT, Style.C_BONE, 6)
+		tip.custom_minimum_size.x = inner
+		v.add_child(tip)
+	var fill := Control.new()  # any height left over sits under the words
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(fill)
+	card.modulate.a = 0.0
+	_fx.add_child(card)
+	_offer_card = card
+	var place := func():
+		if is_instance_valid(card):
+			card.size = card.get_combined_minimum_size()
+			card.pivot_offset = card.size / 2.0
+			card.position = Vector2(area.get_center().x - card.size.x / 2.0, maxf(20.0, area.get_center().y - card.size.y / 2.0))
+	v.minimum_size_changed.connect(place)
+	place.call_deferred()
+	card.scale = Vector2.ONE * 0.92
+	var tw := card.create_tween().set_parallel()
+	tw.tween_property(card, "modulate:a", 1.0, 0.2)
+	tw.tween_property(card, "scale", Vector2.ONE, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	for o in options:
+		var accept: bool = o[1] == true
+		var kind := "roll" if accept else "bank"
+		var b := Button.new()
+		b.set_meta("kind", kind)
+		b.set_meta("offer", "accept" if accept else "refuse")
+		if accept:
+			Art.skin(b, Art.SEAL_L)
+		else:
+			_bronze_seal(b)
+		_caption(b, o[0], 56)
+		var val = o[1]
+		b.set_meta("value", val)
+		_seal_feel(b, kind, func(): human.answered.emit(val))
+		_buttons.add_child(b)
+	_layout_buttons.call_deferred()
+
+
+## A Sin's line (TableDesign §3): a speech tab at the foot of the speaker's window, in its colour.
+func speech(pt: Dictionary, text: String) -> Control:
+	var col: Color = Style.SIN_COLORS[pt.sin]
+	var bub := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tuning.OFFER_BG
+	sb.border_color = col.lightened(0.25)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(18)
+	sb.content_margin_left = 22
+	sb.content_margin_right = 22
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 12
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 14
+	bub.add_theme_stylebox_override("panel", sb)
+	bub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var words := "“%s”" % text
+	var l := Style.body(words, Tuning.LINE_FONT, Style.C_IVORY, 6)
+	var tw_w := Style.SERIF.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, Tuning.LINE_FONT).x + 12.0
+	l.custom_minimum_size.x = minf(tw_w, Tuning.LINE_MAX_W)
+	bub.add_child(l)
+	bub.modulate.a = 0.0
+	_fx.add_child(bub)
+	var wr: Rect2 = pt.window.get_global_rect()
+	var place := func():
+		if is_instance_valid(bub):
+			var x := clampf(wr.get_center().x - bub.size.x / 2.0, 24.0, _fx.size.x - 24.0 - bub.size.x)
+			bub.position = Vector2(x, wr.end.y - Tuning.LINE_OVERLAP)
+			bub.pivot_offset = Vector2(clampf(wr.get_center().x - x, 0.0, bub.size.x), 0.0)
+	bub.resized.connect(place)
+	place.call_deferred()
+	bub.scale = Vector2.ONE * 0.85
+	var tw := bub.create_tween().set_parallel()
+	tw.tween_property(bub, "modulate:a", 1.0, 0.15)
+	tw.tween_property(bub, "scale", Vector2.ONE, Tuning.ACTION).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	return bub
+
+
+func clear_speech(bub: Control) -> void:
+	if not is_instance_valid(bub):
+		return
+	var tw := bub.create_tween()
+	tw.tween_property(bub, "modulate:a", 0.0, 0.15)
+	tw.tween_callback(bub.queue_free)
 
 
 ## core/game.gd calls this at a bust, a big Bank, a change of leader and an attack: about half the

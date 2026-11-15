@@ -69,6 +69,12 @@ static func additive() -> CanvasItemMaterial:
 	return m
 
 
+## The wide portrait window for the offer card, or the lancet where no portrait is painted yet.
+static func portrait(sin_name: String) -> Texture2D:
+	var path := RT + "sins/%s_portrait.png" % sin_name.to_lower()
+	return load(path) if ResourceLoader.exists(path) else window(sin_name)
+
+
 static func window(sin_name: String) -> Texture2D:
 	return load(RT + "sins/%s.png" % sin_name.to_lower())
 
@@ -143,6 +149,11 @@ static func candle_material(snuffed: bool) -> ShaderMaterial:
 static func flare_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = FLARE
+	m.set_shader_parameter("light", Tuning.GLASS_LIGHT)
+	m.set_shader_parameter("pulse", Tuning.GLASS_PULSE)
+	m.set_shader_parameter("pulse_speed", Tuning.GLASS_PULSE_SPEED)
+	m.set_shader_parameter("glint", Tuning.GLASS_GLINT)
+	m.set_shader_parameter("motion", 0.0 if Tuning.reduce_motion else 1.0)
 	return m
 
 

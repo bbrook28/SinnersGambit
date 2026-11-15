@@ -55,6 +55,7 @@ const V4 := {
 	"fury_dice": 3, "fury_trigger": 150, "fury_grudge": 100, "drag": 3,
 	"temptations": true,
 	"tempt_chance": 1.0,    # share of turns with an offer ready (made at the first decision it fits)
+	"tempt_gap": 2,         # an offer at most every other turn of yours
 	"mark_weight": 4,       # a Sin's pick weight: 1 + this per mark of it the player holds
 	"marks_to_claim": 2,    # sim: at 3, claims came 0.1 a game (TableDesign §11)
 	"purgatory": true,      # sim: false = a bust only loses the turn

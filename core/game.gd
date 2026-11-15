@@ -549,7 +549,8 @@ func _start_costs(p) -> void:
 		p.pend_strike = 0
 		if view:
 			say("  %s's debt: starts with %d Strike%s" % [pname(p), turn.strikes, "" if turn.strikes == 1 else "s"])
-	turn.tempt_ready = temptations and round_count > 1 and rng.randf() < tempt_chance
+	p.turns_started += 1
+	turn.tempt_ready = temptations and round_count > 1 and p.turns_started - p.last_offer_turn >= int(opt("tempt_gap", 1)) and rng.randf() < tempt_chance
 
 
 ## Bank-time costs and claims, in order: Pride's claim, your debt, Greed's and Envy's cuts.
@@ -621,6 +622,7 @@ func _tempt(p) -> bool:
 	var offer: Dictionary = pick[1][rng.randi_range(0, pick[1].size() - 1)]
 	var sname: String = from.sin.sin_name
 	p.offers_seen += 1
+	p.last_offer_turn = p.turns_started
 	if not offer_stats.has(offer.id):
 		offer_stats[offer.id] = [0, 0]
 	offer_stats[offer.id][0] += 1

@@ -45,5 +45,6 @@
     ,{"asset_id": "d8ae89b1-cdc6-4af9-b767-51ff999abab7", "sha12": "f29fb993e894", "label": "Phase 3.5 painted seal sheet normal/pressed/cracked (in use)", "file": "seals/raw/seal_set_v2_raw.png"}
     ,{"asset_id": "93099e73-8975-4c83-bd1c-28e113ed5488", "sha12": "d5629904cb65", "label": "Phase 3.5 painted ivory dice 1-6, 3x2 grid (in use)", "file": "dice/raw/dice_v2_raw.png"}
     ,{"asset_id": "5a0dc0b6-92c4-44ad-bc28-45d8a13d2501", "sha12": "a898b0180ba0", "label": "Phase 3.5 stained-glass throw hand (in use)", "file": "extra/raw/throw_hand_v2_raw.png"}
+    ,{"asset_id": "ab55f924-f613-46de-a1c2-3e13e81c6bce", "sha12": "ec3d0a2e6659", "label": "gluttony portrait window for the offer card (GPT 2.5 Flare medium, gluttony HD ref + wrath HD style; 24 credits; in use)", "file": "sins/portrait_raw/gluttony_portrait_raw.png"}
   ]
 }

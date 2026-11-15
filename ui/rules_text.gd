@@ -497,6 +497,7 @@ const CLAIMS := {
 
 const TABLE := {
 	"tempt_tip": "Accept for the gain and take its mark. {marks} marks, and it claims you.",
+	"tempt_prompt": "{sin} tempts you.",
 	"accept": "Accept",
 	"refuse": "Refuse",
 	"accepts": "accepts",
@@ -504,10 +505,11 @@ const TABLE := {
 	"temptation": "Temptation",
 	"answer": "Answer",
 	"claimed": "{sin} claims you: {claim}",
-	"chip_bank": "-{n} next Bank",
-	"chip_strike": "Strike next turn",
-	"chip_fewer": "-{n} dice next turn",
-	"chip_die": "-1 die",
+	"chip_bank": "-{n}\nnext Bank",
+	"chip_strike": "Strike\nnext turn",
+	"chip_fewer": "-{n} dice\nnext turn",
+	"chip_fewer_1": "-1 die\nnext turn",
+	"chip_die": "-1 die\nat turn end",
 }
 
 
