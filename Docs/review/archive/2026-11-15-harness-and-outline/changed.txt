@@ -1,0 +1,6 @@
+accept_gluttony se: 0.10% of pixels changed
+accept_gluttony std: 0.08% of pixels changed
+accept_gluttony max: 0.08% of pixels changed
+offer_gluttony se: 0.11% of pixels changed
+offer_gluttony std: 0.08% of pixels changed
+offer_gluttony max: 0.09% of pixels changed

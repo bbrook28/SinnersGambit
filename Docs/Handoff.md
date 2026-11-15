@@ -309,3 +309,12 @@ Plan first, small steps, short replies, one recommendation. Commit locally, neve
 - **Seals:** Bank recast in bronze and Wrath's Accept in ember red at bake (`RECAST` / `_recast` in tools/bake_art.gd). New Accept emblems (32 credits, 665 left): Lust a rose, Greed a crowned coin (`emblem_accept_*_v2_raw.png`; the old ones repeated Gluttony's fangs and the Choose fleur-de-lis). Numerals beside seals are all Cinzel gold leaf (`Style.number`). After any re-bake, run `--headless --import` or the game shows the old textures.
 - **Lead lines crisp:** `_line_img` in bake_layers uses a chamfer distance, solid to LINE and antialiased over one pixel (it was a square dilation plus a 45% soft band). All seven Sins re-baked.
 - Shots: Docs/review/offer_split/.
+
+## Nov 15 (later): Ben's fix list on the offer screen and portraits
+- **Offer layout:** portrait `OFFER_PORTRAIT_W` 0.88, `OFFER_GAP` 6 between portrait, name, spoken line, terms and context. Accept and Refuse drop from the hidden page's foot to `OFFER_SEAL_FLOOR` above the safe area (`_offer_drop`, run after every `_layout_buttons` while an offer shows, then the portrait re-places); `OFFER_SEAL_CLEAR` keeps the context line off the seals.
+- **Lead lines:** near-black (`LEAD` 080605); width from the figure's median brightness (`LINE` 10 on dark, `LINE_MIN` 4 on pale; Greed 4, Pride fixed at 5 by its `line` key); a part's line is clipped off the body (`_clip_off`), so none crosses inside the figure.
+- **Greed:** two holes in the body cut filled (`body_fix`): the robe's lower-right corner (rect fill) and the back of the coin hand (mode 2, `_fill_skin`: portrait skin pixels only), so no pane or line crosses the hand and the outline no longer cuts across the robe. Accept emblem v3: a stack of plain coins.
+- **Hands:** crop-only edits pasted back by `tools/paste_patch.gd`: Lust's chest hand has its thumb (`lust_layer_body_v2_raw.png`, `body_file` in bake_layers), Gluttony's goblet hand has its little finger joined (`gluttony_layer_arm_v2_raw.png`). Lust's closed-hand state still lines up (Docs/review/layers/lust.png).
+- **Audit:** `tools/portrait_audit.gd` (windowed) renders one crop per hand and face of every still.png with its verdict (`CROPS`); all 21 pass. Sheet: Docs/review/hands/audit.png.
+- Credits this round 93 (Greed seal 16, Gluttony hand 16, Lust hand 61: two flare tries failed, the third on gpt-image-2.6-sunburst at 29 worked); 572 left.
+- Dice-count seals stay blackletter until Phase 8.
