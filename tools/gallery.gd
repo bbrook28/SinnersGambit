@@ -61,6 +61,10 @@ func _initialize() -> void:
 		return
 	if render:
 		await _render(only, sizes)
+		if not failed.is_empty():  # no sheet, no packet: a missing render must not pass for a view
+			printerr("GALLERY FAILED: %d render(s) made no image: %s" % [failed.size(), ", ".join(failed)])
+			quit(1)
+			return
 	for s in sizes:
 		await _sheet(s, only.map(func(n): return [n, _out(s, n), ""]), ProjectSettings.globalize_path(OUT + "sheet_%s.png" % s))
 	if check:
@@ -77,6 +81,7 @@ func _out(size: String, name: String) -> String:
 
 
 var against := ""
+var failed: Array = []   # "fixture size" renders that produced no image (a table that did not draw)
 
 
 func _golden(size: String, name: String) -> String:
@@ -98,6 +103,7 @@ func _render(names: Array, sizes: Array) -> void:
 	while not jobs.is_empty() or not running.is_empty():
 		while running.size() < PARALLEL and not jobs.is_empty():
 			var j: Array = jobs.pop_front()
+			DirAccess.remove_absolute(_out(j[1], j[0]))  # never let a stale render stand in for a failed one
 			var pid := OS.create_process(exe, ["--path", ProjectSettings.globalize_path("res://"), "--fixed-fps", "60",
 				"--script", "res://tools/show.gd", "--", j[0], j[1], _out(j[1], j[0])])
 			running[pid] = j
@@ -107,7 +113,8 @@ func _render(names: Array, sizes: Array) -> void:
 				var j: Array = running[pid]
 				running.erase(pid)
 				if not FileAccess.file_exists(_out(j[1], j[0])):
-					print("FAILED %s %s" % [j[0], j[1]])
+					printerr("FAILED %s %s (no image: see SHOW FAILED above)" % [j[0], j[1]])
+					failed.append("%s %s" % [j[0], j[1]])
 	print("rendered %d in %.0f s" % [names.size() * sizes.size(), (Time.get_ticks_msec() - t0) / 1000.0])
 
 

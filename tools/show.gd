@@ -22,8 +22,17 @@ func _initialize() -> void:
 	root.size = Vector2i(px[0], px[1])
 	await process_frame
 	await process_frame
-	var main = await Fixture.apply(self, Fixture.read(name), size)
+	var fx: Dictionary = Fixture.read(name)
+	var main = await Fixture.apply(self, fx, size)
 	await RenderingServer.frame_post_draw
+	# A table fixture whose table didn't draw (a script that failed to load, a flag off) is an error,
+	# never an image: the title screen under it would pass for a render.
+	if str(fx.get("screen", "")) == "table":
+		var t = main._overlay if main != null else null
+		if t == null or not is_instance_valid(t) or not t.is_visible_in_tree() or t.get_child_count() == 0:
+			printerr("SHOW FAILED %s %s: the table did not draw" % [name, size])
+			quit(1)
+			return
 	var im := root.get_texture().get_image()
 	im.save_png(out)
 	print("SHOW %s %s %dx%d -> %s" % [name, size, im.get_width(), im.get_height(), out])

@@ -1,22 +1,14 @@
-# table-blockout-4 (playable)
-**Play it:** `powershell -ExecutionPolicy Bypass -File tools\serve.ps1 -Dir web_table`, then open the address it prints on your phone (same Wi-Fi). The build is `build/web_table/` (export preset "Web (table)").
-On a fresh browser the first launch runs the tutorial on the old board; Skip goes to choosing your Sin. The table shows from the first turn. These are main's screens as built and show with the table hidden: the opening card, temptation offers, the rulebook, pause, Settings and the end of the game.
-**Changed (round-3 verdicts):**
-- Markers are 60 px and display only. The whole track is one tap target that opens the standings (scores, marks, pending costs, plus a Menu button for the pause menu). Mine sits below the line; rivals sit above on stems of different heights, never overlapping; the leader is crowned on top.
-- Dice shrink to 140 px in two rows before the windows shrink.
-- Costs attach to what they hit: a ghost die in the row, a crimson band on the next candle to go, a crimson Bank loss raised beside the stake. Marks are small sigil stamps on my edge. The tag and chip are gone.
-- The spoken line is 84 px in the speaker's colour. On a rival's turn it sits over the foot of the speaker's window, because the rival's stake has the gap.
-- Other choices (buying dice, ability targets) are flat buttons in the gap under the windows, with the prompt's words above.
-**Motion (simple):** dice drop in, the stake swells when it grows, a new Strike flashes its candle crimson, a bust shakes the page.
-**Checks:** text audit 11 of 11 table fixtures clean at se, std and max. `tests/table_play_check.gd -- --table` plays 7 full games through the table seals (99 answers on the table, 13 on main's offer screens). Existing tests pass with the flag off.
-**Sheets:** `sheet_std.png` (all 11 fixtures at std, including the new `table_close_7`), `play.png` (frames from real games: decision, rival, bust, choices).
-**What the frames show, without verdicts:**
-- With seven scores within 100 points, the rivals stack six high on stems. The page drops, and on se the active window is drawn smaller.
-- After the dice land, the stake waits about 2 s for the hidden board's scoring beat before it changes.
-- At game start every rival is on 0, so they stack at the left end.
-
-**Questions**
-1. Close scores stack six high. Lean the stems so the heads fan sideways, at most two levels? Recommendation: yes.
-2. Show the throw's points (+N, gold) over the dice the moment they land, and add them to the stake on the next beat? Recommendation: yes.
-3. Keep the other choices as buttons in the gap under the windows? Recommendation: keep them there for this playtest.
-4. Long-press to explain is off on the table. Recommendation: leave it off until the layout settles.
+# table-blockout-4b (fixes before TestFlight)
+**Sheet:** `sheet_gain.png`: `table_gain_4`, `table_gain_ten`, `table_decision_4`, `table_ten_dice`. Rows are se, std, max.
+**Why the last sheet showed the title screen:** I'd introduced a parse error in `ui/table_blockout.gd` (a variable declared twice) after the last test run, while adding the points label. The script failed to load, so every table fixture fell back to the menu under it. The flag wasn't involved: fixtures draw the blockout directly. Fixed.
+**New guards:**
+- `tools/show.gd`: a table fixture whose table didn't draw prints SHOW FAILED and saves no image. `tools/gallery.gd` deletes the old render before each job and stops with GALLERY FAILED before writing any sheet or packet. Tested by putting the same error back: gallery exit 1, no sheet.
+- `tests/load_check.gd`: loads all 85 scripts and scenes and fails on any parse or load error. It runs first in `bash tests/run_all.sh` (the whole suite, in order) and in ios.yml before the export. With the error put back it failed, naming `table_blockout.gd` and `table_play.gd`.
+**Points over the dice:** the gold "+N" (Cinzel 80) sits in its own 110 px strip between the track and the dice, so it never covers either. The strip is always reserved, so on screens with no points showing the dice and windows are a little smaller than in round 4.
+**Table build verified:**
+- iOS (table): exported its pack locally. It contains the `table_view` feature and the plain iOS pack doesn't, so the flag comes from the preset only (code default still off).
+- Web (table), same mechanism, on a never-used browser origin: first Play went straight to choosing a Sin, then the opening card, then my turn on the table. After Throw, "+25" showed in gold while the stake still read 0.
+- Not run on an iPhone.
+**Checks:** full suite passes (load check, autoplay, table, replay, tutorial, terms, lines, table play, glass). Text audit 14 of 14 table fixtures clean at se, std and max.
+**Also recorded:** Phase 9 depth pass (UXPlan, Order now).
+**Waiting on your OK** before pushing and rerunning the TestFlight build.

@@ -139,6 +139,7 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.speak = fx.get("speak", {})
 	t.ability = int(fx.get("ability", -1))
 	t.bank_loss = int(fx.get("bank_loss", 0))
+	t.gain = int(fx.get("gain", 0))
 	t.faces = fx.get("throw", turn.get("faces", [])) if t.moment == "bust" else turn.get("faces", [])
 	t.points = int(turn.get("points", 0))
 	t.strikes = 3 if t.moment == "bust" else int(turn.get("strikes", 0))

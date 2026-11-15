@@ -86,6 +86,10 @@ jobs:
           GODOT=~/godot/Godot.app/Contents/MacOS/Godot
           $GODOT --headless --import || $GODOT --headless --import
 
+      - name: Load check (every script and scene parses and loads)
+        run: |
+          ~/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/load_check.gd
+
       - name: Set Team ID and build number
         env:
           TEAM: ${{ env.APPLE_TEAM }}

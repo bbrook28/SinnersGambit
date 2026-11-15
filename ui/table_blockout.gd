@@ -49,6 +49,7 @@ const DIE_MAX_ROWS := 140.0  # two rows of dice
 const DIE_MIN := 110.0
 const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
+const GAIN_H := 110.0      # a strip between the track and the dice: a throw's points as they land
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -63,6 +64,7 @@ var moment := "decision"
 var speak := {}
 var ability := -1
 var bank_loss := 0
+var gain := 0            # the throw's points, shown over the dice until the stake takes them
 var can_bank := true     # in play: Bank is offered (not before the first throw)
 var can_throw := true
 var safe := Vector2.ZERO
@@ -71,6 +73,7 @@ var safe := Vector2.ZERO
 var dice_nodes: Array = []
 var candle_rects: Array = []
 var stake_label: Label
+var gain_label: Label
 var page_rect := Rect2()
 var dice_area := Rect2()
 
@@ -177,11 +180,11 @@ func build() -> void:
 	var dy: float = 0.0
 	while true:
 		dy = stake_top - 56.0 - rows * ds - (rows - 1) * 34.0
-		if dy - 40.0 - band_h >= wy_min + wh_active + UNDER_WIN or ds <= DIE_MIN:
+		if dy - 40.0 - band_h - GAIN_H >= wy_min + wh_active + UNDER_WIN or ds <= DIE_MIN:
 			break
 		ds -= 6.0
-	var pt: float = maxf(dy - 70.0 - band_h, wy_min + wh_active + UNDER_WIN)
-	pt = minf(pt, dy - 40.0 - band_h)
+	var pt: float = maxf(dy - 70.0 - band_h - GAIN_H, wy_min + wh_active + UNDER_WIN)
+	pt = minf(pt, dy - 40.0 - band_h - GAIN_H)
 	var room: float = pt - UNDER_WIN - wy_min
 	var k: float = minf(1.0, room / wh_active)  # only if even the smallest dice leave no room
 	# The active window grows into spare wall above, as wide as the row allows.
@@ -318,6 +321,14 @@ func build() -> void:
 	# Dice, one or two rows, then a ghost for each die a pending cost will take.
 	# Under each: gold if it scores, crimson if a Strike, nothing if dead.
 	dice_area = Rect2(dl, dy, dw, rows * ds + (rows - 1) * 34.0)
+	gain_label = null
+	if gain > 0:  # the throw's points, gold, in the strip just above the dice
+		var gain_l := _label("+%d" % gain, 80, GOLD, INK)
+		gain_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		gain_l.size = Vector2(dw, 80 * 1.45)
+		gain_l.position = Vector2(dl, dy - 4.0 - gain_l.size.y)
+		gain_l.add_theme_font_override("font", Style.NUMERAL)
+		gain_label = gain_l
 	for d in slots:
 		var row: int = d / per
 		var in_row: int = mini(per, dn - row * per)
