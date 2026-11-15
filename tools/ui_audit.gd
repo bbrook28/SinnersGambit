@@ -72,7 +72,7 @@ func _initialize() -> void:
 		if not seen.has(sig):
 			seen[sig] = true
 			await _check("prompt_%d [%s] %s" % [seen.size(), sig, main._prompt_label.get_parsed_text().left(40).replace("\n", " ")])
-		if bs[0].text == "New game":
+		if str(bs[0].get_meta("value", "")) == "new":
 			break
 		if prompts == 6 and not seen.has("chronicle"):
 			seen["chronicle"] = true
@@ -222,14 +222,18 @@ func _check(screen: String) -> void:
 	root.get_viewport().get_texture().get_image().save_png(path)
 	report.append("## %s  (%s)" % [screen, path.get_file()])
 	var vp := root.get_viewport().get_visible_rect().size
+	var scope: Node = main
 	var bs := _all_buttons(main)
 	# The Chronicle covers the board: only its own buttons count while it's open.
 	if main._log_overlay and main._log_overlay.visible:
-		bs = _all_buttons(main._log_overlay)
+		scope = main._log_overlay
+		bs = _all_buttons(scope)
 	if main._settings and is_instance_valid(main._settings):
-		bs = _all_buttons(main._settings)
+		scope = main._settings
+		bs = _all_buttons(scope)
 	if main._overlay and is_instance_valid(main._overlay):
-		bs = _all_buttons(main._overlay)
+		scope = main._overlay
+		bs = _all_buttons(scope)
 	var n := 0
 	for i in bs.size():
 		var a: Control = bs[i]
@@ -255,8 +259,64 @@ func _check(screen: String) -> void:
 				var gap := sqrt(dx * dx + dy * dy)
 				if gap < MIN_GAP - 0.5:
 					report.append("- gap %s to %s is %.1f pt (min 12)" % [nm, _name(b), gap / PT]); n += 1
+	n += _text_over_seals(bs, scope)
 	if n == 0:
 		report.append("- ok (%d targets)" % bs.size())
+
+
+## No text may overlap an emblem seal's wax, its own word included (that hangs below it).
+## The text's box is the drawn text where it can be measured (a Label's lines), else the control.
+func _text_over_seals(bs: Array, scope: Node) -> int:
+	var seals := bs.filter(func(b): return b.has_meta("emblem"))
+	if seals.is_empty():
+		return 0
+	var n := 0
+	for t in scope.find_children("*", "Control", true, false):
+		if not t.is_visible_in_tree() or _scrolled_away(t):
+			continue
+		var r := _text_rect(t)
+		if r.size == Vector2.ZERO:
+			continue
+		for s in seals:
+			var sr: Rect2 = s.get_global_rect().grow(-s.size.x * 0.04)  # the wax, not its soft edge
+			if r.intersects(sr):
+				var x := r.intersection(sr)
+				report.append("- TEXT OVER SEAL \"%s\" on %s by %.0fx%.0f pt" % [_text_of(t).left(24), _name(s), x.size.x / PT, x.size.y / PT]); n += 1
+	return n
+
+
+func _text_of(t: Control) -> String:
+	if t is Label:
+		return t.text.replace("\n", " ").strip_edges()
+	if t is RichTextLabel:
+		return t.get_parsed_text().replace("\n", " ").strip_edges()
+	if t is Button:
+		return t.text.replace("\n", " ").strip_edges()
+	return ""
+
+
+func _text_rect(t: Control) -> Rect2:
+	if _text_of(t) == "" or t.get_global_transform().get_scale().x < 0.01:
+		return Rect2()
+	var r := t.get_global_rect()
+	if t is Label and t.autowrap_mode == TextServer.AUTOWRAP_OFF:
+		var font: Font = t.get_theme_font("font")
+		var fs: int = t.get_theme_font_size("font_size")
+		var lines: PackedStringArray = t.text.split("\n")
+		var w := 0.0
+		for line in lines:
+			w = maxf(w, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		var h := minf(r.size.y, font.get_height(fs) * lines.size())
+		w = minf(w, r.size.x)
+		var x: float = r.position.x + (r.size.x - w) * [0.0, 0.5, 1.0, 0.0][t.horizontal_alignment]
+		var y: float = r.position.y + (r.size.y - h) * [0.0, 0.5, 1.0, 0.0][t.vertical_alignment]
+		return Rect2(x, y, w, h)
+	if t is RichTextLabel:
+		var cw: float = minf(r.size.x, t.get_content_width())
+		var ch: float = minf(r.size.y, t.get_content_height())
+		var centred: bool = t.text.contains("[center]") or t.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
+		return Rect2(r.position.x + ((r.size.x - cw) / 2.0 if centred else 0.0), r.position.y, cw, ch)
+	return r
 
 
 ## The tutorial (a fresh board): every read and act step, then the end card. Taps through it the

@@ -209,9 +209,9 @@ func _art(kind: String) -> Control:
 			for f in [5, 4, 1]:
 				row.add_child(_die(f, 120))
 			row.add_child(_word("→", 70, INK_SOFT))
-			row.add_child(_seal("Throw", Style.C_CRIMSON))
+			row.add_child(_seal("throw", T.word("throw_cap")))
 			row.add_child(_word("or", SMALL, INK_SOFT))
-			row.add_child(_seal("Bank", Color(0.62, 0.45, 0.28)))
+			row.add_child(_seal("bank", T.word("bank_cap")))
 			return row
 		"scoring":
 			var row := _row(12)
@@ -238,7 +238,7 @@ func _art(kind: String) -> Control:
 			return row
 		"bank":
 			var row := _row(18)
-			row.add_child(_seal("Bank\n75", Color(0.62, 0.45, 0.28)))
+			row.add_child(_seal("bank", T.word("bank_cap"), 75))
 			row.add_child(_word("→", 70, INK_SOFT))
 			row.add_child(_word("Score\n+75", 52, INK))
 			return row
@@ -305,25 +305,32 @@ func _word(text: String, size: int, color: Color) -> Label:
 	return l
 
 
-## A wax seal picture (not a button) with a word on it.
-func _seal(text: String, wax: Color) -> Control:
-	var c := Control.new()
-	c.custom_minimum_size = Vector2(170, 170)
-	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+## A picture of an emblem seal (not a button), as on the board: its word inked under it and, with
+## n, the gold numeral beside it (left, as Bank's points sit).
+func _seal(emblem: String, word: String, n := 0) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var t := TextureRect.new()
-	t.texture = Art.SEAL[0]
+	t.texture = Art.emblem(emblem)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.set_anchors_preset(Control.PRESET_FULL_RECT)
-	if wax != Style.C_CRIMSON:
-		t.material = Art.tint_material(wax, Tuning.RULE_SEAL_GAIN, Tuning.RULE_SEAL_POWER)
-	c.add_child(t)
-	var l := Style.label(text, 34, Style.C_IVORY, true, 6)
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_constant_override("line_spacing", -10)
-	c.add_child(l)
-	return c
+	t.custom_minimum_size = Vector2(150, 150)
+	col.add_child(t)
+	var l := Style.label(word, 36, INK, true, 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(l)
+	if n <= 0:
+		return col
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var num := Style.label(str(n), 52, Style.C_GOLD, false, 8)
+	num.add_theme_font_override("font", Style.NUMERAL)
+	num.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(num)
+	row.add_child(col)
+	return row
 
 
 func _heading(text: String) -> Label:

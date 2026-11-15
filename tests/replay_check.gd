@@ -22,7 +22,7 @@ func _check(n: int) -> int:
 		await process_frame
 		if not _waiting(a):
 			continue
-		if a.human.record.size() >= n or _buttons(a)[0].text == "New game":
+		if a.human.record.size() >= n or str(_buttons(a)[0].get_meta("value", "")) == "new":
 			break
 		var bs := _buttons(a)
 		bs[randi() % bs.size()].pressed.emit()

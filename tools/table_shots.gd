@@ -43,7 +43,7 @@ func _initialize() -> void:
 		var bs: Array = main._buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
 		if bs.is_empty():
 			continue
-		if bs[0].text == "New game":
+		if str(bs[0].get_meta("value", "")) == "new":
 			main.queue_free()
 			main = load("res://ui/main.tscn").instantiate()
 			root.add_child(main)

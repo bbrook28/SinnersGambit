@@ -161,7 +161,7 @@ func _play() -> void:
 		if bs.is_empty() or main._q.busy():
 			continue
 		prompts += 1
-		if bs[0].text == "New game":
+		if str(bs[0].get_meta("value", "")) == "new":
 			shot("game_over_prompt")
 			return
 		if game_time > GAME_CAP and main.Tuning.speed < 2.0:

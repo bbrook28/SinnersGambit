@@ -268,8 +268,8 @@ const WORDS := {
 	"dice": "Dice",
 	"this_turn": "This turn {n}",
 	"strikes": "Strikes",
-	"throw_seal": "Throw\n{n}",
-	"bank_seal": "Bank\n{n}",
+	"throw_cap": "Throw",  # under the Throw seal; its dice count is the gold numeral beside it
+	"bank_cap": "Bank",  # under the Bank seal; the points are the numeral beside it
 	"your_turn": "Your turn",
 	"their_turn": "{name}'s turn",
 	"purgatory_need": "Purgatory: a 6 frees you",

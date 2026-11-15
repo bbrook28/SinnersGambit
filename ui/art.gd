@@ -37,8 +37,29 @@ const ICON_DIE := preload("res://assets/art/ui/icon_die.png")
 const SEAL := [preload("res://assets/art/runtime/seals/normal.png"), preload("res://assets/art/runtime/seals/pressed.png"), preload("res://assets/art/runtime/seals/cracked.png")]
 const SEAL_L := SEAL
 const SEAL_S := SEAL
-const THROW_HAND := preload("res://assets/art/runtime/throw_hand.png")
 const SEAL_FAST := preload("res://assets/art/ui/seal_fast.png")
+
+
+## Emblem seal (runtime/seals/e_<name>.png): play, bank, refuse, throw, choose, rulebook, settings,
+## pause, back, newgame, accept_<sin>. Pressed is the same wax pushed darker; disabled is the
+## cracked one where there is one (bank, throw, choose), else the wax greyed.
+static func emblem(name: String) -> Texture2D:
+	return load(RT + "seals/e_%s.png" % name)
+
+
+static func emblem_skin(b: Button, name: String) -> void:
+	var cracked := RT + "seals/e_%s_cracked.png" % name
+	var has_cracked := ResourceLoader.exists(cracked)
+	var tex := emblem(name)
+	var states := {"normal": [tex, Color.WHITE], "hover": [tex, Color(1.08, 1.08, 1.08)], "focus": [tex, Color.WHITE],
+		"pressed": [tex, Color(0.8, 0.78, 0.78)],
+		"disabled": [load(cracked) if has_cracked else tex, Color.WHITE if has_cracked else Color(0.55, 0.52, 0.5)]}
+	for st in states:
+		var s := StyleBoxTexture.new()
+		s.texture = states[st][0]
+		s.modulate_color = states[st][1]
+		b.add_theme_stylebox_override(st, s)
+	b.set_meta("emblem", name)
 
 
 ## Gold-leaf blackletter numeral 1-9 (null outside that range).

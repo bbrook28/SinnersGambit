@@ -18,6 +18,10 @@ const MARGINALIA := {
 
 
 func _init() -> void:
+	if "emblems" in OS.get_cmdline_user_args():  # -- emblems: just the emblem seals
+		_bake_emblems()
+		quit()
+		return
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "sins"))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + "sigils"))
 	# HD painted windows on black (sins/raw/*_hd_raw.png): the black outside the frame is keyed out.
@@ -54,6 +58,7 @@ func _init() -> void:
 	var nums := _grid(_cut(_load("res://assets/art/seals/raw/numerals_gold_b_raw.png")), 3, 3)
 	for i in 9:
 		_save(_fit_h(nums[i], 220), OUT + "seals/n%d.png" % (i + 1))
+	_bake_emblems()
 	_save(_fit_h(_cut(_load("res://assets/art/extra/raw/throw_hand_v2_raw.png")), 256), OUT + "throw_hand.png")
 	# Thumb-zone page: slim vine border, marginalia only in the corners (9-sliced in ui/main.gd).
 	# The jester, pennant and skeleton are keyed out into their own sprites (they react in play,
@@ -87,6 +92,19 @@ func _init() -> void:
 	_save(lea, OUT + "leather.png")
 	print("baked")
 	quit()
+
+
+## Emblem seals (Nov 15): each raw is the whole seal with its emblem pressed in (approved files).
+## Cracked ones are the disabled state. Accept seals are in the offering Sin's colour, wax and all.
+func _bake_emblems() -> void:
+	var emblems := {"play": "play", "bank": "bank", "refuse": "refuse", "throw": "throw_v2", "choose": "choose",
+		"rulebook": "rulebook", "settings": "settings", "pause": "pause", "back": "back", "newgame": "newgame",
+		"bank_cracked": "bank_cracked", "throw_cracked": "throw_cracked", "choose_cracked": "choose_cracked"}
+	for s in SINS:
+		emblems["accept_" + s] = "accept_" + s + ("_v2" if s == "gluttony" else "")
+	for e in emblems:
+		_save(_fit_h(_square(_cut(_load("res://assets/art/seals/raw/emblem_%s_raw.png" % emblems[e]))), 512), OUT + "seals/e_%s.png" % e)
+	print("emblems baked: %d" % emblems.size())
 
 
 func _load(path: String) -> Image:

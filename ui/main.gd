@@ -61,6 +61,13 @@ const TARGET_MIN := 44.0 * 1080.0 / 393.0   # 44 pt: smallest tappable thing (Ap
 const GAP_MIN := 13.0 * 1080.0 / 393.0      # a little over 12 pt between separate targets
 const SIDE_MIN := 17.0 * 1080.0 / 393.0     # a little over 16 pt from the screen's sides
 const SEAL_RECESS := 0.46                  # the painted seal's wax recess, as a fraction of its width
+## Emblem seals (Nov 15): the emblem says what it does, an inked word sits under the seal and a gold
+## numeral beside it; nothing is written on the wax. Sizes as fractions of the seal's width.
+const CAP_K := 0.2          # caption font size
+const CAP_MIN := 34
+const CAP_MAX := 60
+const CAP_GAP := 2.0        # px between the wax and the word
+const NUM_K := 0.5          # the numeral's height (gold-leaf texture), or its font size x 0.8
 const SCORE_SIZE := 116
 
 var game = null
@@ -415,15 +422,15 @@ func _build_menu() -> void:
 	# Play is the table game (Docs/TableDesign.md); Continue resumes it. The parked run game
 	# (Docs/RunDesign.md) is a debug seal (Tuning.RUN_MODE).
 	var saved := load_save()
-	var play := _menu_seal("Play", MENU_PLAY, _open_setup)
-	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved))
+	var play := _menu_seal("Play", MENU_PLAY, _open_setup, "play")
+	var cont := _menu_seal("Continue", MENU_SEAL, func(): _start(null, saved), "play")
 	var table: Button = _menu_seal(RulesText.run("menu_run"), MENU_SEAL, _open_run_setup) if Tuning.RUN_MODE else null
 	if table:
 		table.set_meta("kind", "run_old")
-	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings)
-	var rules := _menu_seal("Rulebook", MENU_SEAL, func(): open_rulebook("contents"))
+	var settings := _menu_seal("Settings", MENU_SEAL, _open_settings, "settings")
+	var rules := _menu_seal("Rulebook", MENU_SEAL, func(): open_rulebook("contents"), "rulebook")
 	var top_row := CenterContainer.new()
-	top_row.add_child(play)
+	top_row.add_child(_caption_room(play))
 	v.add_child(top_row)
 	var sep := Control.new()
 	sep.custom_minimum_size.y = GAP_MIN * 1.2
@@ -432,11 +439,11 @@ func _build_menu() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(GAP_MIN * 2.0))
 	if not saved.is_empty():  # nothing to continue: no Continue seal at all
-		row.add_child(cont)
+		row.add_child(_caption_room(cont))
 	else:
 		cont.queue_free()
-	row.add_child(rules)
-	row.add_child(settings)
+	row.add_child(_caption_room(rules))
+	row.add_child(_caption_room(settings))
 	if table:
 		row.add_child(table)
 	v.add_child(row)
@@ -482,10 +489,18 @@ func _apply_music() -> void:
 		_music.stream_paused = Tuning.music_vol <= 0.01
 
 
-func _menu_seal(text: String, size: int, on_press: Callable) -> Button:
+## A menu seal. With an emblem: the emblem in the wax and the word under it (ink: on parchment);
+## add the seal to its container through _caption_room so the word has space. Without: the word
+## on the wax (the parked run game).
+func _menu_seal(text: String, size: int, on_press: Callable, emblem := "", ink := false) -> Button:
 	var b := Button.new()
 	b.set_meta("kind", "menu")
 	b.custom_minimum_size = Vector2(size, size)
+	if emblem != "":
+		_emblem(b, emblem, text, ink, size)
+		b.material = Art.glint_material(-Tuning.GLINT_STAGGER * size / 100.0)
+		_seal_feel(b, "roll", on_press)
+		return b
 	Art.skin(b, Art.SEAL_L)
 	# The word sits inside the wax recess (about the middle 46%): shrink long words to fit.
 	var fs := int(size * Tuning.MENU_SEAL_TEXT)
@@ -608,6 +623,7 @@ func _open_settings() -> void:
 	dim.color = Color(Style.C_BLACK, 0.7)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ov.add_child(dim)
+	_menu_words(false)  # the title page's words would show through the dim beside Back's
 	var holder := _margin(60, 0)
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var safe := _safe_insets()
@@ -663,9 +679,9 @@ func _open_settings() -> void:
 		_setting_row(v, "Run log", exp)
 	else:
 		exp.queue_free()
-	var back := _menu_seal("Back", 220, func(): _close_settings(ov))
+	var back := _menu_seal("Back", 220, func(): _close_settings(ov), "back")
 	var bc := CenterContainer.new()
-	bc.add_child(back)
+	bc.add_child(_caption_room(back))
 	v.add_child(bc)
 	add_child(ov)
 	_settings = ov
@@ -679,6 +695,7 @@ func _close_settings(ov: Control) -> void:
 	await _page_turn(ov, false)
 	ov.queue_free()
 	_settings = null
+	_menu_words(true)
 
 
 ## One Settings line: the name on the left in ink, its control on the right.
@@ -826,10 +843,10 @@ func _build_setup() -> void:
 		sc.add_child(seg)
 		_content.add_child(sc)
 	show.call()
-	var choose := _menu_seal(RulesText.word("setup_choose"), Tuning.SELECT_CHOOSE, func(): _start(SIN_SCRIPTS[car.index]))
+	var choose := _menu_seal(RulesText.word("setup_choose"), Tuning.SELECT_CHOOSE, func(): _start(SIN_SCRIPTS[car.index]), "choose")
 	choose.set_meta("kind", "choose")
 	var cc := CenterContainer.new()
-	cc.add_child(choose)
+	cc.add_child(_caption_room(choose))
 	_content.add_child(cc)
 	(func():
 		_set_lettering(title, RulesText.word("setup_title"), Style.C_CRIMSON)
@@ -1353,15 +1370,12 @@ func _build_stage(zone: VBoxContainer) -> void:
 	_pause = Button.new()
 	_pause.set_meta("kind", "pause")
 	_pause.custom_minimum_size = Vector2(TARGET_MIN, TARGET_MIN) * 1.05
-	Art.skin(_pause, Art.SEAL)
-	var bars := Control.new()  # the pause sign: two ivory bars in the wax
-	bars.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bars.draw.connect(_draw_pause_bars.bind(bars))
-	_pause.add_child(bars)
+	Art.emblem_skin(_pause, "pause")  # the sign is pressed in the wax; no word (the banner has no room)
 	_pause.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	_pause.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_pause.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_pause.offset_top = 14  # a little low in the banner: clear of the dice tags that hang from the plates
+	_pause.offset_bottom = 14
 	_pause.button_down.connect(func(): _dir.sfx.play("seal", 0.4, 1.1, true))
 	_pause.pressed.connect(_open_pause)  # not _seal_feel: the prompt's pulses stay
 	banner.add_child(_pause)
@@ -1426,14 +1440,6 @@ func _build_stage(zone: VBoxContainer) -> void:
 	tv.add_child(srow)
 	_turn_row = srow
 	zone.add_child(tray)
-
-
-func _draw_pause_bars(bars: Control) -> void:
-	var c := bars.size / 2.0
-	var bw := bars.size.x * 0.09
-	var bh := bars.size.y * 0.3
-	for dx in [-1.0, 1.0]:
-		bars.draw_rect(Rect2(c + Vector2(dx * bw * 1.1 - bw / 2, -bh / 2), Vector2(bw, bh)), Style.C_IVORY)
 
 
 ## Darkened parchment page: the prompt line, then the seals (Roll under the right thumb). During
@@ -2449,8 +2455,8 @@ func _show_prompt_now(text: String, options: Array) -> void:
 	if most > 0:
 		throw_b = Button.new()
 		throw_b.set_meta("kind", "roll")
-		Art.skin(throw_b, Art.SEAL_L)
-		_seal_face(throw_b, most, true)
+		_emblem(throw_b, "throw", RulesText.word("throw_cap"), true, SEAL_CONFIRM)
+		_seal_numeral(throw_b, most, 1)
 		throw_b.set_meta("value", counts.filter(func(o): return int(o[0]) == most)[0][1])
 		_seal_feel(throw_b, "roll", func(): human.answered.emit(throw_b.get_meta("value")))
 		throw_b.material = Art.glint_material(-Tuning.GLINT_STAGGER * (most + 1))
@@ -2462,6 +2468,8 @@ func _show_prompt_now(text: String, options: Array) -> void:
 			kind = "num"
 		elif o[0].begins_with("Bank") and most > 0:
 			kind = "bank"
+		elif str(o[1]) == "new":
+			kind = "new"
 		var b := Button.new()
 		b.set_meta("kind", kind)
 		match kind:
@@ -2470,7 +2478,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				# Selected: the wax brightens and a gold ring circles it (toggled on = "pressed" style).
 				for st in ["pressed", "hover_pressed"]:
 					b.add_theme_stylebox_override(st, _seal_style(Art.SEAL_S[0], Color(1.2, 1.1, 1.0)))
-				_seal_face(b, int(o[0]), false)
+				_seal_face(b, int(o[0]))
 				b.toggle_mode = true
 				b.button_group = group
 				b.button_pressed = int(o[0]) == most
@@ -2481,13 +2489,16 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				b.toggled.connect(func(on: bool):
 					if on and throw_b:
 						throw_b.set_meta("value", cv)
-						_seal_face(throw_b, n, true))
+						_seal_numeral(throw_b, n, 0))
 				_seal_feel(b, "num", Callable())
 				_buttons.add_child(b)
 				continue
 			"bank":
-				_bronze_seal(b)
-				_caption(b, RulesText.word("bank_seal", {"n": o[0].get_slice(" ", 1)}), 56)
+				_emblem(b, "bank", RulesText.word("bank_cap"), true, SEAL_CONFIRM)
+				if o[0].get_slice(" ", 1).is_valid_int():
+					_seal_numeral(b, int(o[0].get_slice(" ", 1)), -1)
+			"new":
+				_emblem(b, "newgame", o[0], true, SEAL_CONFIRM)
 			_:
 				Art.skin(b, [Art.YOU_TAB, Art.YOU_TAB, Art.YOU_TAB], Color.WHITE, 24)
 				b.set_meta("w", Style.BLACKLETTER.get_string_size(o[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 42).x + 70)
@@ -2572,7 +2583,7 @@ func _layout_buttons() -> void:
 	var bs: Array = _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
 	var w := _buttons.size.x
 	var h := _buttons.size.y
-	var big := bs.filter(func(b): return b.get_meta("kind") in ["roll", "bank"])
+	var big := bs.filter(func(b): return b.get_meta("kind") in ["roll", "bank", "new"])
 	var nums := bs.filter(func(b): return b.get_meta("kind") == "num")
 	var pills := bs.filter(func(b): return b.get_meta("kind") == "pill")
 	var gap := GAP_MIN
@@ -2585,7 +2596,16 @@ func _layout_buttons() -> void:
 		# edges and the last counts sit between them. Only past that (9+ dice with Bank) do the
 		# confirm seals give way.
 		var has_bank := big.any(func(b): return b.get_meta("kind") == "bank")
-		var d := minf(minf(float(SEAL_CONFIRM), h - SEAL_SMALL - gap * 1.5), (w - gap * 2.0) / 2.0)
+		var bank_b: Button = null
+		var throw_b: Button = null
+		for b in big:
+			if b.get_meta("kind") == "bank":
+				bank_b = b
+			elif b.get_meta("kind") == "roll":
+				throw_b = b
+		# Each confirm seal carries its word underneath and may carry a numeral beside it.
+		var count_row := (SEAL_SMALL + gap * 1.5) if not nums.is_empty() else 0.0  # a row of counts above
+		var d := minf(minf(float(SEAL_CONFIRM), h - count_row - _cap_h(SEAL_CONFIRM)), (w - gap * 2.0) / 2.0)
 		var s := float(SEAL_SMALL)
 		var per_row := 1
 		var in_band := 0
@@ -2594,11 +2614,14 @@ func _layout_buttons() -> void:
 		var slot_w := 0.0
 		var fits := false
 		while not fits:
-			d = maxf(d, TARGET_MIN)
-			top = h - d
-			var room := h - d - gap * 1.5
-			slot_l = (d + gap) if has_bank else 0.0
-			slot_w = w - d - gap - slot_l
+			d = maxf(d, TARGET_MIN * 1.1)  # 10% over the minimum: they still settle in from a smaller scale
+			top = h - d - (_cap_h(d) if not big.is_empty() else 0.0)
+			var room := top - gap * 1.5
+			# With counts between them the numerals turn inward, so the band gives them room.
+			var nb := _place_numeral(bank_b, d) if bank_b else 0.0
+			var nt := _place_numeral(throw_b, d) if throw_b else 0.0
+			slot_l = (d + gap + nb) if has_bank else 0.0
+			slot_w = w - d - gap - nt - slot_l
 			s = float(SEAL_SMALL)
 			while true:
 				per_row = maxi(1, int((w + gap) / (s + gap)))
@@ -2613,11 +2636,13 @@ func _layout_buttons() -> void:
 				if fits or s <= TARGET_MIN:
 					break
 				s = maxf(TARGET_MIN, s - 4.0)
-			if not fits and d <= TARGET_MIN:
+			if not fits and d <= TARGET_MIN * 1.1:
 				break
 			d -= 8.0
 		if not fits:
 			# Last resort (10+ dice): one grid of equal 44 pt seals, Bank and Throw ending the last row.
+			# No room around them: the words and numerals hide (the emblems, the lit count seal and the
+			# prompt say it all).
 			var all := nums + big.filter(func(b): return b.get_meta("kind") == "bank") + big.filter(func(b): return b.get_meta("kind") == "roll")
 			var gs := TARGET_MIN
 			var gper := maxi(1, int((w + gap) / (gs + gap)))
@@ -2630,7 +2655,10 @@ func _layout_buttons() -> void:
 				all[i].position = Vector2(mid - total / 2.0 + (i % gper) * (gs + gap), r * (gs + ggap))
 				all[i].size = Vector2(gs, gs)
 				if all[i].get_meta("kind") != "num":
-					_fit_caption(all[i], gs)
+					_size_caption(all[i], gs)
+					for c in all[i].get_children():
+						if c.has_meta("numeral") or c.has_meta("caption"):
+							c.visible = false
 			return
 		var above := nums.size() - in_band
 		for i in above:
@@ -2652,7 +2680,10 @@ func _layout_buttons() -> void:
 				cx = mid + (d / 2.0 + gap) * (1.0 if b.get_meta("kind") == "roll" else -1.0)
 			b.position = Vector2(cx - d / 2.0, top)
 			b.size = Vector2(d, d)
-			_fit_caption(b, d)
+			_size_caption(b, d)
+			_fit_caption(b, d)  # a word still on the wax (none on emblem seals)
+			var outward := 1 if b.get_meta("kind") == "roll" else -1
+			_place_numeral(b, d, -outward if in_band > 0 else outward)
 	if not pills.is_empty():
 		var rows := [[]]
 		var row_w := 0.0
@@ -2701,25 +2732,129 @@ func _caption(b: Button, text: String, size: int) -> void:
 	b.add_child(c)
 
 
+## A seal in a container, with room under it for its word (the word hangs below the button).
+func _caption_room(b: Button) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(b)
+	var pad := Control.new()
+	pad.custom_minimum_size.y = _cap_h(b.custom_minimum_size.x)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(pad)
+	return v
+
+
+## An emblem seal's word, under the wax (never on it): ink on the parchment page, bone with a dark
+## outline over the dark desk. Replaces any word already there. Sized for a seal d px wide.
+func _seal_caption(b: Button, text: String, ink: bool, d: float) -> void:
+	for c in b.get_children():
+		if c.has_meta("caption"):
+			c.free()
+	var l := Label.new()
+	l.set_meta("caption", true)
+	l.text = text
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", Style.BLACKLETTER)
+	l.add_theme_color_override("font_color", Style.C_BLACK if ink else Style.C_BONE)
+	if not ink:
+		l.add_theme_constant_override("outline_size", 10)
+		l.add_theme_color_override("font_outline_color", Style.C_BLACK)
+	l.anchor_left = 0.5
+	l.anchor_right = 0.5
+	l.anchor_top = 1.0
+	l.anchor_bottom = 1.0
+	l.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	b.add_child(l)
+	_size_caption(b, d)
+
+
+func _size_caption(b: Button, d: float) -> void:
+	for l in b.get_children():
+		if l.has_meta("caption"):
+			l.add_theme_font_size_override("font_size", _cap_size(d))
+			l.offset_top = CAP_GAP
+			l.offset_bottom = CAP_GAP
+			l.visible = true
+
+
+func _cap_size(d: float) -> int:
+	return clampi(int(d * CAP_K), CAP_MIN, CAP_MAX)
+
+
+## Height a caption takes under a seal d px wide (0 if the seal has none).
+func _cap_h(d: float) -> float:
+	return Style.BLACKLETTER.get_height(_cap_size(d)) + CAP_GAP
+
+
+## The gold numeral beside an emblem seal: gold leaf for 1-9, Cinzel gold past that (Bank's points).
+## side: 1 right of the seal, -1 left. Placed by _place_numeral once the seal has its size.
+func _seal_numeral(b: Button, n: int, side: int) -> void:
+	for c in b.get_children():
+		if c.has_meta("numeral"):
+			c.free()
+	var c: Control
+	var tex := Art.numeral(n)
+	if tex:
+		var t := TextureRect.new()
+		t.texture = tex
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.material = Art.shimmer_material(n * 0.137)
+		c = t
+	else:
+		var l := Label.new()
+		l.text = str(n)
+		l.add_theme_font_override("font", Style.NUMERAL)
+		l.add_theme_color_override("font_color", Style.C_GOLD)
+		l.add_theme_constant_override("outline_size", 10)
+		l.add_theme_color_override("font_outline_color", Style.C_BLACK)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		c = l
+	c.set_meta("numeral", true)
+	c.set_meta("side", side)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(c)
+	_place_numeral(b, b.size.x if b.size.x > 0 else float(SEAL_CONFIRM), side)
+
+
+## Puts the numeral beside the seal (d px wide) on `side`; returns how wide it is, gap included.
+func _place_numeral(b: Button, d: float, side := 0) -> float:
+	for c in b.get_children():
+		if not c.has_meta("numeral"):
+			continue
+		if side == 0:
+			side = c.get_meta("side")
+		c.set_meta("side", side)
+		c.visible = true
+		var h := d * NUM_K
+		var w := h * 0.62 if c is TextureRect else 0.0
+		if c is Label:
+			c.add_theme_font_size_override("font_size", int(h * 0.8))
+			w = c.get_minimum_size().x
+		var gap := d * 0.04
+		c.anchor_top = 0.5
+		c.anchor_bottom = 0.5
+		c.anchor_left = 1.0 if side > 0 else 0.0
+		c.anchor_right = c.anchor_left
+		c.offset_top = -h / 2.0
+		c.offset_bottom = h / 2.0
+		c.offset_left = gap if side > 0 else -gap - w
+		c.offset_right = c.offset_left + w
+		return w + gap
+	return 0.0
+
+
+## Makes b an emblem seal: the emblem in the wax, the word under it.
+func _emblem(b: Button, name: String, caption: String, ink: bool, d: float) -> void:
+	Art.emblem_skin(b, name)
+	b.text = ""
+	if caption != "":
+		_seal_caption(b, caption, ink, d)
+
+
 # ---------- Helpers ----------
-
-## Bank: the same seal recast in dark bronze, so it can't be mistaken for Roll's crimson.
-func _bronze_seal(b: Button) -> void:
-	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	var wax := TextureRect.new()
-	wax.texture = Art.SEAL_L[0]
-	wax.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	wax.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	wax.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wax.show_behind_parent = true
-	wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wax.material = Art.tint_material(Color("e0b872"), Tuning.BRONZE_GAIN, Tuning.BRONZE_POWER, Tuning.BRONZE_AMOUNT)
-	wax.modulate = Color(2.0, 1.75, 1.4)  # red wax is dark; lift it to bronze
-	b.add_child(wax)
-	b.button_down.connect(func(): wax.texture = Art.SEAL_L[1])
-	b.button_up.connect(func(): wax.texture = Art.SEAL_L[0])
-
 
 func _seal_style(tex: Texture2D, mod: Color) -> StyleBoxTexture:
 	var s := StyleBoxTexture.new()
@@ -2792,45 +2927,24 @@ func _caption_size(b: Button, size: int) -> void:
 		r.add_theme_constant_override("line_separation", -int(size * 0.25))
 
 
-## A seal's face: the gold-leaf numeral in the wax (Throw adds the marginalia hand above it).
-## Numbers past 9 fall back to a text caption. Replaces any face already on the seal.
-func _seal_face(b: Button, n: int, hand: bool) -> void:
-	for c in b.get_children():
-		if c.has_meta("face"):
-			c.queue_free()
+## A dice-count seal's face: the gold-leaf numeral in the wax (past 9, Cinzel text).
+## These plain seals only select; the count is their whole meaning, so it sits in the wax.
+func _seal_face(b: Button, n: int) -> void:
 	var tex := Art.numeral(n)
-	if hand:  # Throw says what it does and with how many dice, like Bank: "Throw 3"
-		_caption(b, RulesText.word("throw_seal", {"n": n}), 62)
-		b.get_child(b.get_child_count() - 1).set_meta("face", true)
-		tex = null
-	elif tex == null:
+	if tex == null:
 		_caption(b, str(n), 62)
-		b.get_child(b.get_child_count() - 1).set_meta("face", true)
 		return
-	var face := Control.new()
-	face.set_meta("face", true)
-	face.set_anchors_preset(Control.PRESET_FULL_RECT)
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Fractions of the seal: the wax recess is about the middle 60%. Throw's hand is ink on
-	# parchment, so it sits outside, in the margin to the seal's upper right, tossing the dice.
-	var parts := [] if hand else [[tex, Rect2(0.27, 0.22, 0.46, 0.5)]]
-	if hand:
-		parts.append([Art.THROW_HAND, Rect2(0.78, -0.12, 0.5, 0.62)])
-	for p in parts:
-		var t := TextureRect.new()
-		t.texture = p[0]
-		if p[0] == tex:
-			t.material = Art.shimmer_material(n * 0.137)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var r: Rect2 = p[1]
-		t.anchor_left = r.position.x
-		t.anchor_top = r.position.y
-		t.anchor_right = r.end.x
-		t.anchor_bottom = r.end.y
-		face.add_child(t)
-	b.add_child(face)
+	var t := TextureRect.new()
+	t.texture = tex
+	t.material = Art.shimmer_material(n * 0.137)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.anchor_left = 0.27  # the wax recess: about the middle of the seal
+	t.anchor_top = 0.22
+	t.anchor_right = 0.73
+	t.anchor_bottom = 0.72
+	b.add_child(t)
 
 
 ## Sizes a seal's text caption (Bank, or a fallback) to sit inside the wax recess of a seal d px wide:
@@ -3128,11 +3242,8 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 		b.set_meta("kind", kind)
 		b.set_meta("offer", "accept" if accept else "refuse")
 		b.z_index = 5
-		if accept:
-			Art.skin(b, Art.SEAL_L)
-		else:
-			_bronze_seal(b)
-		_caption(b, o[0], 56)
+		# Accept: the offering Sin's own seal, its colour wax and all. Refuse: the gold hand.
+		_emblem(b, ("accept_" + sname.to_lower()) if accept else "refuse", o[0], false, SEAL_CONFIRM)
 		var val = o[1]
 		b.set_meta("value", val)
 		# A living portrait reacts before the screen closes: Accept, he gulps the dice and holds the
@@ -3271,3 +3382,12 @@ func _end_line(w) -> void:
 	var bots: Array = game.players.filter(func(o): return o.bot != human)
 	if not bots.is_empty():
 		_say_line(bots[randi() % bots.size()], "lose", w)
+
+
+## Shows or hides the words under the title page's seals (they sit outside the Settings page).
+func _menu_words(on: bool) -> void:
+	for s in _menu_seals:
+		if is_instance_valid(s):
+			for c in s.get_children():
+				if c.has_meta("caption"):
+					c.visible = on

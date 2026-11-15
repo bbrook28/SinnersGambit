@@ -40,7 +40,7 @@ func _process(_delta: float) -> bool:
 	var bs: Array = main._buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
 	if bs.is_empty():
 		return false
-	if bs[0].text == "New game":
+	if str(bs[0].get_meta("value", "")) == "new":
 		games_done += 1
 		print("%s: %s" % [main.human.label, main._prompt_label.get_parsed_text()])
 		_next()
