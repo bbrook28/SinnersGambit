@@ -26,7 +26,7 @@ The table game is the real game: Play opens it. Your opponents are the Seven Sin
 - Each Sin's bot plays to its nature (`ai/bot_policy.gd` `SIN_RISK`): Wrath, Lust and Gluttony push (0.9), Sloth and Greed bank sooner (1.15), Pride and Envy plain.
 
 ## 5. Bot turns and abilities
-- A bot turn averages 2.5 s or less at 1x (`Tuning.BOT_PACE` 6.0; `tests/bot_pace.gd`). No log text, no "thinking".
+- A bot turn averages 2.5 s or less at 1x (`Tuning.BOT_PACE` 6.0; `tests/bot_pace.gd`). No log text, no "thinking". On the table, 4 s or less (REPLY 6, so each Sin reads): a beat before each throw, one on its result, and the seal's beat in real seconds (`TABLE_BOT_BEFORE_ROLL`, `TABLE_BOT_RESULT`, `POWER_FOR`); measured 3.9 s at 4 seats.
 - Wording is `RulesText.SINS`; numbers are `Rules.V4`.
 
 | Sin | Basic | Greater (from 300, once a round) |

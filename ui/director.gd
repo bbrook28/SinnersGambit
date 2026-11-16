@@ -184,7 +184,10 @@ func prompt_answered() -> void:
 ## A throw (or a Redemption roll). Bots think and show the move first; dice tumble in from the thrower.
 func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: String) -> void:
 	var seat := _seat_index(who)
-	if not _is_mine(seat) and not _bot_thought:
+	if not _is_mine(seat) and T.table_view():  # the table (REPLY 6): a beat before every bot throw
+		focus(["seat%d" % seat])
+		await q.wait(T.TABLE_BOT_BEFORE_ROLL * T.pace)  # real seconds, not sped up by BOT_PACE
+	elif not _is_mine(seat) and not _bot_thought:
 		_bot_thought = true
 		await _think(seat, T.BOT_THINK)
 	focus(["dice", "seat%d" % seat], T.DIM, {"throw": T.DIM})
@@ -215,6 +218,8 @@ func _throw(who: String, n: int, prev: Dictionary, snap: Dictionary, card: Strin
 	if n == 0:  # Redemption: say what's needed
 		m.set_throw(RulesText.word("purgatory_need"), 72)
 	await q.wait(_hold())
+	if not _is_mine(seat) and T.table_view():  # and a beat on the result, so the throw reads
+		await q.wait(T.TABLE_BOT_RESULT * T.pace)
 
 
 ## One die thrown onto the leather from `from` (its parent's space): it drops from above, travels

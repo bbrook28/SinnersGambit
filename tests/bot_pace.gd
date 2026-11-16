@@ -1,5 +1,5 @@
 ## Times bot turns in the real UI at speed 1x: from one turn-change beat to the next.
-## Target (Docs/TableDesign.md Â§5): every bot turn in 2.5 s or less on average, and your turn back
+## Target (Docs/TableDesign.md §5): every bot turn in 2.5 s or less on average (4 s on the table view), and your turn back
 ## within about 10 s at a table of 4.
 ## godot --headless --path . --script res://tests/bot_pace.gd [-- <table size>]
 extends SceneTree
@@ -77,7 +77,8 @@ func _report() -> void:
 	print("Table of %d, %d bot turns at 1x: avg %.1f s, median %.1f s, 90th pct %.1f s, max %.1f s" % [
 		Tuning.table_size, s.size(), avg, s[s.size() / 2], s[int(s.size() * 0.9)], s[-1]])
 	print("Your turn back after: avg %.1f s over %d waits" % [w_avg, waits.size()])
-	print("PACE %s" % ("PASSED" if avg <= 2.5 else "SLOW"))
+	var target: float = 4.0 if Tuning.table_view() else 2.5  # the table holds a beat per throw and seal (REPLY 6)
+	print("PACE %s" % ("PASSED" if avg <= target else "SLOW"))
 	quit()
 
 
