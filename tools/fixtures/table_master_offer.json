@@ -8,6 +8,6 @@
 	],
 	"cur": 0,
 	"turn": {"faces": [5, 4, 3, 6, 1], "points": 210, "strikes": 1},
-	"seal": "spent", "call_at": 600,
+	"seal": "spent", "call_at": 550,
 	"master": "Greed would have a word.", "master_pose": "offer", "master_target": 1
 }

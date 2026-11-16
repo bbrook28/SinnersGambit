@@ -8,7 +8,7 @@
 	],
 	"cur": 0,
 	"turn": {"faces": [], "points": 0, "strikes": 0},
-	"seal": "idle", "call_at": 600, "rounds_left": 0,
+	"seal": "idle", "call_at": 550, "rounds_left": 0,
 	"question": "The game is done. Greed reached 1725.",
 	"choices": [{"text": "New game", "value": "new"}]
 }

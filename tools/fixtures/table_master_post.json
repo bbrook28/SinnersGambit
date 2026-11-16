@@ -8,5 +8,5 @@
 	],
 	"cur": 0,
 	"turn": {"faces": [6, 4, 3], "points": 150, "strikes": 0},
-	"seal": "idle", "call_at": 600
+	"seal": "idle", "call_at": 550
 }

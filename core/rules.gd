@@ -10,8 +10,8 @@ const STRIKES_TO_BUST := 3
 const INDULGENCE_COST := 50
 const TIER2_SCORE := 300
 ## REPLY 10 prototype, table only (ui/main.gd table_rules): the Master calls the penultimate round when
-## the leader reaches this at a round's end; no win score (sim/profile_sim.gd master_round=600).
-const MASTER_CALL := 600
+## the leader reaches this at a round's end; no win score (sim/profile_sim.gd master_round=550).
+const MASTER_CALL := 550  # REPLY 16: from 600 (at 500, 29% of games end in 4 rounds or fewer)
 
 ## Phase 1 rule set (sim run 5, 2026-11-13). Pass to Game.new() as options.
 const V2 := {
@@ -87,7 +87,7 @@ const V5 := {
 	"chain_cap": 2.0,        # the chain multiplier tops out at x2 (REPLY 15)
 	"soften": "half",        # a bust keeps half the turn's face points, never the chain (REPLY 15)
 	"mark": "chain",         # each round the Master marks the strict leader: no chain for them that round (REPLY 15)
-	"eat": 60,               # Gluttony: eating a Strike die adds this to the stake
+	"eat": 45,               # Gluttony: eating a Strike die adds this to the stake (REPLY 16: from 60)
 	"temptations": true, "tempt_chance": 1.0, "tempt_gap": 2, "mark_weight": 4, "marks_to_claim": 2,
 	"comeback_per": 200,     # an offer's gain x(1 + D / comeback_per) for a seat D behind the leader...
 	"comeback_cap": 3.0,     # ...up to x this

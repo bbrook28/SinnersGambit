@@ -125,7 +125,7 @@ func _rules() -> void:
 	check(Rules.V5.v5 and Rules.V5.v4 and Rules.V5.powers, "V5 flags")
 	check(Rules.V5.vig == 60 and Rules.V5.fury_trigger == 300 and Rules.V5.fury_grudge == 200, "V5: Vig 60, Fury 300 / 200")
 	check(Rules.V5.hubris_mult == 1.75 and Rules.V5.hubris_targets == [150, 200, 250], "V5: Hubris x1.75 at 150 / 200 / 250")
-	check(Rules.V5.eat == 60 and Rules.V5.greed_mult == 1.25 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
+	check(Rules.V5.eat == 45 and Rules.V5.greed_mult == 1.25 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
 	check(Rules.V5.chain_cap == 2.0 and Rules.V5.soften == "half" and Rules.V5.mark == "chain", "V5: chain cap x2, a bust keeps half, the Master marks the leader (REPLY 15)")
 	check(Rules.V5.comeback_per == 200 and Rules.V5.comeback_cap == 3.0 and Rules.V5.mark_free_behind == 150, "V5: comeback numbers")
 	for k in Rules.V4:
