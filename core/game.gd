@@ -123,14 +123,17 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 ## Decisions and Sin hooks are awaited so a human (ui/human.gd) can answer from the UI.
 ## Bots answer at once, so in the sim nothing suspends and play() runs synchronously.
 func play():
+	_master("start", players[0], {})
 	while winner == null and round_count < MAX_ROUNDS:
 		round_count += 1
 		for p in players:
 			await take_turn(p)
 			if winner != null:
+				_master("end", winner, {"margin": _margin()})
 				return winner
 		if end_triggered:
 			_resolve_finish()
+			_master("end", winner, {"margin": _margin()})
 	return winner
 
 
@@ -395,6 +398,7 @@ func take_turn(p) -> void:
 	if v4:
 		if banked >= 200:
 			_view_event("bank", p)
+			_master("bank", p, {"banked": banked})
 		_check_lead()
 	_end_turn(p, banked)
 
@@ -457,6 +461,7 @@ func _bust(p) -> void:
 			if view:
 				say("  Gluttony's claim: eats a die (%d left)" % p.dice)
 		_view_event("bust", p)
+		_master("bust", p, {"strikes": turn.strikes, "stake": turn.points})
 	_end_turn(p, 0)
 	for o in players:
 		if o != p and o.sin:
@@ -632,6 +637,7 @@ func _tempt(p) -> bool:
 	if view:
 		say("  %s's temptation: %s" % [pname(from), offer.id])
 	offer = scaled_offer(p, offer)  # Rules.V5: a comeback scales the gain
+	_master("offer", p, {"from": from, "scaled": offer.get("scaled", 1.0)})
 	var yes: bool = await p.bot.wants_temptation(self, p, from, offer)
 	if view:
 		say("  %s's answer: %s" % [pname(p), "accepts" if yes else "refuses"])
@@ -641,14 +647,17 @@ func _tempt(p) -> bool:
 	p.offers_taken += 1
 	offer_stats[offer.id][1] += 1
 	var throws_now := Temptations.apply(offer, self, p)
-	if not mark_is_free(p):  # Rules.V5: a mark taken far behind doesn't count toward a claim
+	var free := mark_is_free(p)
+	if not free:  # Rules.V5: a mark taken far behind doesn't count toward a claim
 		p.marks[sname] = int(p.marks.get(sname, 0)) + 1
 	p.marks_taken[sname] = int(p.marks_taken.get(sname, 0)) + 1
-	if p.marks[sname] >= marks_to_claim:
+	_master("mark", p, {"from": from, "first": int(p.marks_taken[sname]) == 1, "free": free})
+	if int(p.marks.get(sname, 0)) >= marks_to_claim:
 		p.marks[sname] = 0
 		if not p.claims.has(sname):
 			p.claims.append(sname)
 			claims_made += 1
+			_master("claim", p, {"from": from})
 			if view:
 				say("  %s's claim: %s, for the rest of the game" % [pname(from), pname(p)])
 	_check_lead()
@@ -708,3 +717,21 @@ func scaled_offer(p, offer: Dictionary) -> Dictionary:
 func mark_is_free(p) -> bool:
 	var at := int(opt("mark_free_behind", 0))
 	return at > 0 and leader_score() - p.score >= at
+
+
+## The Master of the Dance (Docs/TableDesign.md §10): core reports facts; the view picks his line and
+## shows it only when the fact it states is true. kind: start, bust, bank, offer, mark, claim, end.
+func _master(kind: String, p, facts: Dictionary) -> void:
+	if view and view.has_method("master_event"):
+		view.master_event(kind, p, facts)
+
+
+## The winner's lead over the next seat.
+func _margin() -> int:
+	if winner == null:
+		return 0
+	var second := -1
+	for o in players:
+		if o != winner:
+			second = maxi(second, o.score)
+	return winner.score - maxi(0, second)

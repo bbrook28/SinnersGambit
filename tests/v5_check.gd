@@ -29,6 +29,7 @@ func _initialize() -> void:
 	await _windows()
 	_comeback()
 	_gap()
+	await _master()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -169,3 +170,46 @@ func _gap() -> void:
 	g.turn = TurnState.new()
 	g._start_costs(p)
 	check(g.turn.tempt_ready, "200 behind, offered last turn: an offer anyway")
+
+
+## A view that keeps the Master's facts and ignores the rest.
+class FactView extends RefCounted:
+	var events := []
+	func master_event(kind, p, facts) -> void:
+		events.append([kind, p.seat, facts])
+	func log_line(_t) -> void:
+		pass
+	func say(_t) -> void:
+		pass
+	func beat(_p, _k) -> void:
+		pass
+	func turn_started(_p) -> void:
+		pass
+	func player_name(p) -> String:
+		return "P%d" % p.seat
+
+
+## Item 6: whole V5 games report start, busts, Banks of 200+, offers, marks and the end, with their facts.
+func _master() -> void:
+	var kinds := {}
+	for seed in 12:
+		var g := _table(4, {}, seed)
+		g.rng.seed = seed
+		var v := FactView.new()
+		g.view = v
+		await g.play()
+		check(v.events[0][0] == "start", "seed %d: start first" % seed)
+		check(v.events[-1][0] == "end" and v.events[-1][1] == g.winner.seat, "seed %d: end, with the winner" % seed)
+		for e in v.events:
+			kinds[e[0]] = kinds.get(e[0], 0) + 1
+			match e[0]:
+				"bust":
+					check(e[2].strikes >= Rules.STRIKES_TO_BUST, "bust facts: Strikes")
+				"bank":
+					check(e[2].banked >= 200, "bank facts: 200+")
+				"mark":
+					check(e[2].has("first") and e[2].has("free"), "mark facts")
+				"end":
+					check(e[2].margin >= 0, "end facts: margin")
+	for k in ["start", "bust", "bank", "offer", "mark", "end"]:
+		check(kinds.get(k, 0) > 0, "12 games show a %s event" % k)
