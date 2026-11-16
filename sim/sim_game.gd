@@ -62,6 +62,7 @@ func take_turn(p) -> void:
 	if p.sin:
 		await p.sin.before_turn(self, p, turn)
 	_master_bargain(p)
+	_master_swap(p)
 	_both(p, _power_start)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
@@ -348,7 +349,9 @@ var _slot := 0
 
 
 func _pname(p) -> String:
-	return p.sin.sin_name if _slot == 0 else str(p.get_meta("borrowed", ""))
+	if _slot == 0:
+		return str(p.get_meta("swap_as", p.sin.sin_name))  # a swapped seal (opt "swap") plays as the rival's
+	return str(p.get_meta("borrowed", ""))
 
 
 ## A profile that uses its seal only some turns (Forgetter): one roll a turn a slot (bot.seal_use).
@@ -394,9 +397,9 @@ func _master_bargain(p) -> void:
 	var mode := str(opt("borrow", ""))
 	if mode == "" or round_count < 2 or p.has_meta("borrowed") or not _powers_on(p):
 		return
-	if str(opt("borrow_every", "turn")) == "round" and int(p.get_meta("b_round", -1)) == round_count:
-		return
-	p.set_meta("b_round", round_count)
+	if str(opt("borrow_every", "turn")) == "round" and _offer_round == round_count:
+		return  # one offer a round for the whole table (was per seat: the same as every turn)
+	_offer_round = round_count
 	var pool := []
 	for o in players:
 		if o != p and o.sin != null and o.sin.sin_name != p.sin.sin_name:
@@ -435,6 +438,59 @@ func _master_bargain(p) -> void:
 
 var borrow_offers := 0
 var borrow_taken := 0
+
+
+## swap "free" | "mark": at the start of your turn the Master offers to trade your seal for a random
+## rival's (a different Sin) until your next turn starts; the rival holds yours for the same span. No
+## second slot. "mark" costs one mark of the Sin you take. swap_every works like borrow_every.
+func _master_swap(p) -> void:
+	if p.has_meta("swap_as"):  # my last trade ends as my turn starts; so does the rival's half
+		var o = p.get_meta("swap_with")
+		p.remove_meta("swap_as")
+		p.remove_meta("swap_with")
+		if o.get_meta("swap_with", null) == p:
+			o.remove_meta("swap_as")
+			o.remove_meta("swap_with")
+	var mode := str(opt("swap", ""))
+	if mode == "" or round_count < 2 or not _powers_on(p) or p.has_meta("swap_with"):
+		return
+	if str(opt("swap_every", "turn")) == "round" and _offer_round == round_count:
+		return
+	var pool := []
+	for o in players:
+		if o != p and o.sin != null and o.sin.sin_name != p.sin.sin_name and not o.has_meta("swap_with"):
+			pool.append(o)
+	if pool.is_empty():
+		return
+	_offer_round = round_count
+	var from = pool[rng.randi_range(0, pool.size() - 1)]
+	var sname: String = from.sin.sin_name
+	var costs_mark: bool = mode == "mark"
+	var yes: bool = leader_score() > p.score
+	if p.bot.has_method("wants_swap"):
+		yes = p.bot.wants_swap(self, p, from, costs_mark)
+	borrow_offers += 1
+	if not yes:
+		return
+	borrow_taken += 1
+	p.set_meta("swap_as", sname)
+	p.set_meta("swap_with", from)
+	from.set_meta("swap_as", p.sin.sin_name)
+	from.set_meta("swap_with", p)
+	var used: Dictionary = p.get_meta("b_held", {})
+	used[sname] = int(used.get(sname, 0)) + 1
+	p.set_meta("b_held", used)
+	if costs_mark:
+		p.marks[sname] = int(p.marks.get(sname, 0)) + 1
+		if p.marks.get(sname, 0) >= marks_to_claim:
+			p.marks[sname] = 0
+			if not p.claims.has(sname):
+				p.claims.append(sname)
+				claims_made += 1
+				claim_ranks.append(_rank(p))
+
+
+var _offer_round := -1  # the round the Master last made an offer (*_every "round": one offer a round, table-wide)
 
 
 ## Turn start: Pride names a Bank.

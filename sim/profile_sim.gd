@@ -234,7 +234,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])
@@ -264,9 +264,9 @@ func _report(name: String, r: Dictionary, short: bool) -> void:
 	print("  comebacks (last at half wins) %.1f%%; last at half 300+ behind wins %.1f%% (%d games)" % [_pct(r.comebacks, r.halves), _pct(r.far_wins, r.far_halves), r.far_halves])
 	print("  buys %.2f dice a seat a game; someone buys in %.1f%% of games" % [r.buys / g / 4.0, _pct(r.buy_games, g)])
 	if r.b_offers > 0:
-		print("  borrowed seal: offers %.1f a game, taken %.0f%%, uses %.1f a game; the winner's borrowed gain >= winning margin in %.1f%% of games" % [
+		print("  Master's seal offers (borrow or swap): %.1f a game, taken %.0f%%, uses %.1f a game; the winner's borrowed gain >= winning margin in %.1f%% of games" % [
 			r.b_offers / g, _pct(r.b_taken, r.b_offers), r.b_uses / g, _pct(r.b_changed, g)])
-		var bl := "  win % holding each borrowed power most:"
+		var bl := "  win % holding each borrowed or swapped-in power most:"
 		for n in NAMES:
 			if r.b_sin.has(n):
 				bl += " %s %.1f" % [n.substr(0, 4), _pct(r.b_sin[n].w, r.b_sin[n].n)]

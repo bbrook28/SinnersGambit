@@ -376,6 +376,15 @@ class Profile extends Plain:
 			yes = yes and rng.randf() < 0.5
 		return not yes if _whim() else yes
 
+	## Swap (opt "swap"): trade seals for a round when behind; Taker always, Forgetter and Novice half the time.
+	func wants_swap(game, p, from, costs_mark: bool) -> bool:
+		var yes: bool = kind == "taker" or game.leader_score() > p.score
+		if costs_mark and int(p.marks.get(from.sin.sin_name, 0)) + 1 >= game.marks_to_claim and not p.claims.has(from.sin.sin_name):
+			yes = kind == "taker"
+		if kind == "forgetter" or kind == "novice":
+			yes = rng.randf() < 0.5
+		return not yes if _whim() else yes
+
 	## Grudge: whoever last hurt me, never the leader by default.
 	func pick_target(game, me):
 		if kind == "grudge" and not me.grudges.is_empty():
