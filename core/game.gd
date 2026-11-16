@@ -62,6 +62,7 @@ var end_triggered := false  # someone reached 1000 this round (finish_round mode
 ## round's end the Master calls it, the next round is the penultimate, then a final round, highest wins.
 var master_call := 0
 var called_round := -1  # the round the Master called it, or -1
+var call_floor := 0  # opt "call_floor" (REPLY 18): the first round at whose end he may call it
 ## The Master's mark (Rules.V5 "mark", REPLY 15): at the start of each round he marks the strict leader
 ## (score above 0); "chain": that seat scores no chain this round ("die", sim only: one die fewer).
 var marked := -1
@@ -97,6 +98,7 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	rng.seed = seed_value
 	finish_round = options.get("finish_round", false)
 	master_call = int(options.get("master_call", 0))
+	call_floor = int(options.get("call_floor", 0))
 	dice_choice = options.get("dice_choice", false)
 	throw_all = options.get("throw_all", false) and not dice_choice
 	press = options.get("press", false) or dice_choice or throw_all
@@ -149,7 +151,7 @@ func play():
 		if end_triggered:
 			_resolve_finish()
 			_master("end", winner, {"margin": _margin()})
-		elif master_call > 0 and called_round < 0 and leader_score() >= master_call:
+		elif master_call > 0 and called_round < 0 and leader_score() >= master_call and round_count >= call_floor:
 			called_round = round_count  # the Master calls it: one more round, then the final round
 			_master("call", _leader(), {"at": master_call})
 	return winner

@@ -141,6 +141,7 @@ static func table_rules() -> Dictionary:
 		return Rules.V4
 	var r: Dictionary = Rules.V5.duplicate()
 	r["master_call"] = Rules.MASTER_CALL  # REPLY 10 prototype: the Master calls the end, no win score
+	r["call_floor"] = Rules.MASTER_CALL_FLOOR  # REPLY 18: never before round 3's end
 	return r
 
 

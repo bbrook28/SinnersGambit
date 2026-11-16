@@ -37,6 +37,7 @@ func _initialize() -> void:
 	_bots()
 	_reply15()
 	await _mark_live()
+	await _call_floor()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -99,6 +100,32 @@ func _mark_live() -> void:
 		for m in v.marks:
 			right = right and m[1] == m[2]
 	check(seen > 0 and right, "in play the Master marks the round's leader (%d marks in 5 games)" % seen)
+
+
+## REPLY 18: the Master calls no earlier than round MASTER_CALL_FLOOR's end, so no game ends before round 5.
+## The same seeds without the floor show it binds (some calls come earlier).
+func _call_floor() -> void:
+	var early := 0
+	var ok := true
+	var called := 0
+	for sd in 12:
+		for floor_on in [false, true]:
+			var o := {"master_call": Rules.MASTER_CALL}
+			if floor_on:
+				o["call_floor"] = Rules.MASTER_CALL_FLOOR
+			var g := _table(4, o)
+			g.rng.seed = 300 + sd
+			await g.play()
+			if g.called_round < 0:
+				continue
+			if floor_on:
+				called += 1
+				ok = ok and g.called_round >= 3 and g.round_count >= 5
+			elif g.called_round < Rules.MASTER_CALL_FLOOR:
+				early += 1
+	check(Rules.MASTER_CALL_FLOOR == 3, "V5: the call floor is round 3")
+	check(called > 0 and ok, "with the floor, every call comes at round 3's end or later and games last 5+ rounds (%d games)" % called)
+	check(early > 0, "without the floor, %d of 12 games are called before round 3" % early)
 
 
 func _table(n := 4, opts := {}, first := 0) -> Game:
