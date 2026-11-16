@@ -219,7 +219,16 @@ func _draw() -> void:
 	if s.cur != me and g.opt("powers", false) and g.players[s.cur].sin.power_window() != "":
 		rival_seal = "spent" if t.get("power_used", false) else "idle"
 	var stand := _live("stand") != null
-	if not others.is_empty() and cur != me:  # my choice between turns (buying dice): my side of the table
+	# Buying (REPLY 9): dice are paid from my total, so the banked stake has landed on the track (no stake
+	# or dice on the page) and each choice has a ghost of my marker where it would leave me.
+	var buying := _text.begins_with("Buy dice?") and not others.is_empty()
+	var ghosts := []
+	if buying:
+		for b in others:
+			var n = b.get_meta("value", 0)
+			if n is int and n > 0:
+				ghosts.append(int(mine_p.score) - int(g._buy_price(mine_p, n)))
+	if not others.is_empty() and (cur != me or buying):  # my choice between turns (buying dice): my side of the table
 		cur = me
 		moment = "wait"
 		faces = []
@@ -236,7 +245,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal, str(_firing), _master]
+		seal + str(seal_face) + rival_seal + str(ghosts), str(_firing), _master]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -256,6 +265,7 @@ func _draw() -> void:
 	view.seal = seal
 	view.seal_face = seal_face
 	view.rival_seal = rival_seal
+	view.buy_ghosts = ghosts
 	view.firing = _firing
 	view.stand_live = stand
 	view.master_line = _master
@@ -333,6 +343,10 @@ func _choices(others: Array) -> void:
 		b.size = Vector2(bw, 122)  # 44 pt
 		var val = o.get_meta("value")
 		b.pressed.connect(func(): main.human.answered.emit(val))
+		if val is int and val > 0 and val - 1 < view.ghost_nodes.size():  # buying: pressing lights its ghost
+			var gh: Control = view.ghost_nodes[val - 1]
+			b.button_down.connect(func(): if is_instance_valid(gh): gh.modulate.a = 1.0)
+			b.button_up.connect(func(): if is_instance_valid(gh): gh.modulate.a = 0.45)
 		_extra.add_child(b)
 		x += bw + 40.0
 

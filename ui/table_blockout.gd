@@ -81,6 +81,8 @@ var firing := {}
 var stand_live := false
 var master_line := ""
 var rival_seal := ""     # the active rival's seal: "" none, "idle", "spent"
+var buy_ghosts: Array = []  # buying: the score each purchase would leave me on (REPLY 9)
+var ghost_nodes: Array = []  # their ghost markers, in that order
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
@@ -319,6 +321,25 @@ func build() -> void:
 			var hx: float = ax0 + head[i]
 			_line([Vector2(mx, ay), Vector2(mx, ay - 8.0), Vector2(hx, top)], INK, 3.0)
 			centres[i] = Vector2(hx, top - MARK / 2.0)
+	# Buying (REPLY 9): where each purchase would leave me, as a faded ghost of my marker along my
+	# side of the line, joined back to my marker by a crimson stroke. ui/table_play.gd lights one.
+	ghost_nodes.clear()
+	if not buy_ghosts.is_empty():
+		var lo_x: float = centres[me].x
+		for s in buy_ghosts:
+			var gx: float = ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0)
+			lo_x = minf(lo_x, gx)
+		_line([Vector2(lo_x, centres[me].y), centres[me]], Color(CRIMSON, 0.55), 6.0)
+		for s in buy_ghosts:
+			var gc := Vector2(ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0), centres[me].y)
+			var gh := Control.new()
+			gh.position = gc
+			gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gh.modulate.a = 0.45
+			add_child(gh)
+			_disc(Vector2.ZERO, MARK / 2.0, Color(BONE, 0.9), CRIMSON, gh)
+			_sigil(seats[me].sin, Rect2(-Vector2(MARK, MARK) * 0.42, Vector2(MARK, MARK) * 0.84), CRIMSON, gh)
+			ghost_nodes.append(gh)
 	for i in draw:
 		_marker(centres[i], i, me, lead)
 	var track := Button.new()  # the whole band is one tap target: the standings
@@ -415,7 +436,7 @@ func build() -> void:
 	while stake_size > 90 and Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
 		stake_size -= 4  # never under the candles
 	stake_label = null
-	if mine:
+	if mine and buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
 		var tw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
 		var num := _label(str(points), stake_size, GOLD, INK, false, near)

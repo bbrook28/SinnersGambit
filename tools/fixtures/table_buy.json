@@ -1,0 +1,12 @@
+{
+	"screen": "table", "seed": 7, "moment": "wait",
+	"seats": [
+		{"sin": "Wrath", "you": true, "score": 590},
+		{"sin": "Greed", "score": 410},
+		{"sin": "Sloth", "score": 280},
+		{"sin": "Gluttony", "score": 720}
+	],
+	"cur": 0,
+	"turn": {"faces": [], "points": 0, "strikes": 0},
+	"seal": "idle", "buy_ghosts": [490, 390, 290, 190]
+}
