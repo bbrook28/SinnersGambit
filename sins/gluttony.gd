@@ -16,6 +16,8 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
+	if game.v5:
+		return  # V5: Feast off; the power is Devour
 	if turn.used_t1 or me.dice <= Rules.MIN_DICE:
 		return
 	var feed_i := -1
@@ -55,3 +57,25 @@ func gambit(game, me, bought: int) -> void:
 		game.mark_t2(me)
 		if game.view:
 			fired(game, me, "Gorge", "first die cost %d" % game.opt("gorge", GORGE_PRICE))
+
+
+# V5 power (Docs/TableDesign.md §10): eat a Strike die from this throw for +eat to the stake. The die
+# is back next turn.
+func power_window() -> String:
+	return "throw"
+
+
+func power_ready(_game, _me, turn) -> bool:
+	return turn.faces.has(1) or turn.faces.has(2)
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var i: int = turn.faces.find(1)
+	if i < 0:
+		i = turn.faces.find(2)
+	var eat: int = game.opt("eat", 90)
+	if game.view:
+		fired(game, me, "Devour", "eats a %d: +%d" % [turn.faces[i], eat])
+	turn.faces.remove_at(i)
+	turn.points += eat
+	return false

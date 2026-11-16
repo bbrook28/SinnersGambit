@@ -4,6 +4,8 @@
 ## (5%, max 50: 12.5%. 8%, max 60: 15.2%.)
 extends "res://sins/sin.gd"
 
+const Rules = preload("res://core/rules.gd")
+
 const VIG := 17
 const INTEREST_PCT := 8
 const INTEREST_CAP := 60
@@ -29,3 +31,22 @@ func gambit(game, me, bought: int) -> void:
 
 static func game_opt(game, key: String, default):
 	return game.opt(key, default) if game else default
+
+
+# V5 power (Docs/TableDesign.md §10): bank half the stake at greed_mult, then throw on.
+func power_window() -> String:
+	return "decide"
+
+
+func power_ready(game, me, turn) -> bool:
+	return turn.points >= 10 and game.may_throw(me)
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var half: int = turn.points / 2 / 5 * 5
+	var banked: int = int(half * float(game.opt("greed_mult", 1.5))) / 5 * 5
+	me.score += banked
+	turn.points -= half
+	if game.view:
+		fired(game, me, "Cash Out", "banks %d of %d as %d, throws on" % [half, half * 2, banked])
+	return true

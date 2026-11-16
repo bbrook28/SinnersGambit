@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_comeback()
 	_gap()
 	await _master()
+	_sins()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -213,3 +214,88 @@ func _master() -> void:
 					check(e[2].margin >= 0, "end facts: margin")
 	for k in ["start", "bust", "bank", "offer", "mark", "end"]:
 		check(kinds.get(k, 0) > 0, "12 games show a %s event" % k)
+
+
+## Item 8: each Sin's power, and the Basics it replaces are off under V5 (still on under V4).
+func _sins() -> void:
+	var g := _table(4)
+	var me = g.players[0]
+	var t = g.turn
+	var S := {}
+	for s in SIN_SCRIPTS:
+		var o = s.new()
+		S[o.sin_name] = o
+	g.last_throw = F([6, 2, 1])
+	t.faces = F([1, 2, 5])
+	check(S.Wrath.power_window() == "throw" and S.Wrath.power_ready(g, me, t), "Wrath: ready on a Strike")
+	S.Wrath.use_power(g, me, t, true)
+	check(t.faces[2] == 5 and t.faces.size() == 3, "Wrath: scorers stay")
+	var w2 := [1, 1, 1, 5]
+	t.faces = Array(w2, TYPE_INT, "", null)
+	g.rng.seed = 3
+	S.Wrath.use_power(g, me, t, true)
+	check(t.faces[2] == 1, "Wrath: at most 2 Strikes rethrown")
+	t.faces = F([4, 5, 6])
+	check(not S.Wrath.power_ready(g, me, t), "Wrath: not ready without a Strike")
+	t.faces = F([1, 4, 5])
+	check(S.Lust.power_ready(g, me, t), "Lust: ready on a Strike when the last best is 4+")
+	check(S.Lust.power_face(g) == 6, "Lust: her seal shows a 6")
+	S.Lust.use_power(g, me, t, true)
+	check(Array(t.faces) == [6, 4, 5], "Lust: the 1 becomes a 6")
+	g.last_throw = F([3, 3])
+	t.faces = F([1, 4])
+	check(not S.Lust.power_ready(g, me, t), "Lust: not ready when the last best is under 4")
+	t.faces = F([2, 4, 5])
+	t.points = 0
+	check(S.Gluttony.power_ready(g, me, t), "Gluttony: ready on a Strike")
+	S.Gluttony.use_power(g, me, t, true)
+	check(Array(t.faces) == [4, 5] and t.points == Rules.V5.eat and me.dice == 3, "Gluttony: eats the Strike die, +eat, keeps its dice")
+	t.faces = F([1, 2, 6])
+	S.Sloth.use_power(g, me, t, true)
+	check(Array(t.faces) == [3, 3, 6], "Sloth: Strikes become 3s")
+	t.faces = F([6, 4, 2])
+	t.strikes = 0
+	t.points = 0
+	check(S.Envy.power_ready(g, me, t), "Envy: ready with a scorer")
+	S.Envy.use_power(g, me, t, true)
+	check(t.points == 6 * g.face_mult and t.faces.size() == 3, "Envy: +face x face_mult, no die added")
+	t.faces = F([6, 1, 2])
+	t.strikes = 1
+	check(not S.Envy.power_ready(g, me, t), "Envy: not on a busting throw")
+	t.strikes = 0
+	check(S.Pride.power_window() == "start" and S.Pride.power_ready(g, me, t), "Pride: ready at the start")
+	S.Pride.use_power(g, me, t, 250)
+	check(t.min_points == 250, "Pride: names 250")
+	S.Pride.use_power(g, me, t, 999)
+	check(t.min_points == 150, "Pride: an unknown Bank names the lowest")
+	t.points = 200
+	me.score = 100
+	check(S.Greed.power_window() == "decide" and S.Greed.power_ready(g, me, t), "Greed: ready with a stake")
+	check(S.Greed.use_power(g, me, t, true) == true, "Greed: throws on")
+	check(me.score == 100 + int(100 * Rules.V5.greed_mult) / 5 * 5 and t.points == 100, "Greed: half banked at greed_mult")
+	# Basics off under V5, on under V4.
+	t.faces = F([1, 3, 5])
+	t.used_t1 = false
+	var before: int = me.score
+	S.Wrath.on_other_bust(g, me, g.players[1])
+	check(me.score == before, "V5: Spark of Rage off")
+	g.last_throw = F([6, 6])
+	S.Lust.after_throw(g, me, t)
+	check(Array(t.faces) == [1, 3, 5], "V5: Whisper off")
+	S.Sloth.after_throw(g, me, t)
+	check(Array(t.faces) == [1, 3, 5], "V5: Lazy Bones off")
+	S.Gluttony.after_throw(g, me, t)
+	check(Array(t.faces) == [1, 3, 5], "V5: Feast off")
+	var t2 := TurnState.new()
+	S.Pride.before_turn(g, me, t2)
+	check(t2.min_points == -1, "V5: Hubris isn't automatic")
+	var v4 := Game.new([me.bot, me.bot], 1, Rules.V4.duplicate(), [])
+	v4.turn = TurnState.new()
+	var q = v4.players[0]
+	var b4: int = q.score
+	S.Wrath.on_other_bust(v4, q, v4.players[1])
+	check(q.score == b4 + Rules.V4.rage, "V4: Spark of Rage still on")
+
+
+static func F(a: Array) -> Array[int]:
+	return Array(a, TYPE_INT, "", null)

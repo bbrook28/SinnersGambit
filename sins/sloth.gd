@@ -5,6 +5,8 @@
 ## (-1 die: 10.9%. -2: 12.2%. -3: 12.5%. Never below 1 die.)
 extends "res://sins/sin.gd"
 
+const Rules = preload("res://core/rules.gd")
+
 const DRAG := 3
 
 
@@ -13,6 +15,8 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
+	if game.v5:
+		return  # V5: Lazy Bones off; the power is Idle
 	var allowed: int = game.opt("lazy", 1)  # Strikes ignored a turn (V4 tuning)
 	if turn.used_t1 or turn.lazy_used >= allowed:
 		return
@@ -33,3 +37,23 @@ func gambit(game, me, _bought: int) -> void:
 	var target = await pick_target(game, me, "Drag (they throw %d fewer dice next turn)" % drag, game.leader_other(me))
 	if target:
 		await game.attack(me, target, "drag", drag)
+
+
+# V5 power (Docs/TableDesign.md §10): this throw's Strikes don't count (they become 3s).
+func power_window() -> String:
+	return "throw"
+
+
+func power_ready(_game, _me, turn) -> bool:
+	return Rules.count_strikes(turn.faces) > 0
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var n := 0
+	for i in turn.faces.size():
+		if turn.faces[i] <= 2:
+			turn.faces[i] = 3
+			n += 1
+	if game.view:
+		fired(game, me, "Idle", "ignores %d Strike%s" % [n, "" if n == 1 else "s"])
+	return false

@@ -6,6 +6,8 @@
 ## (Fury hits their next throw, a Pact reverses, Drag slows them). Bot: always bounces.
 extends "res://sins/sin.gd"
 
+const Rules = preload("res://core/rules.gd")
+
 const TARGETS := [100, 150, 200]
 const MULT := 1.5
 ## Bot: always bets this.
@@ -17,6 +19,8 @@ func _init() -> void:
 
 
 func before_turn(game, me, turn) -> void:
+	if game.v5:
+		return  # V5: Hubris is the power (start window)
 	var targets: Array = game.opt("hubris_targets", TARGETS)
 	var target: int = targets[0] if game.v4 else BOT_TARGET
 	if me.bot.human:
@@ -49,3 +53,21 @@ func bounces(game, me, attacker, kind: String) -> bool:
 	if me.bot.human and not game.v4:
 		return await me.bot.ask(game, "Untouchable? Bounce %s's %s back onto them." % [game.pname(attacker), {"reroll": "Fury", "pact": "Binding Pact", "drag": "Drag"}[kind]])
 	return true
+
+
+# V5 power (Docs/TableDesign.md §10): name your Bank before the first throw; reach it for x hubris_mult,
+# else score nothing. `choice` is the Bank named (150, 200 or 250).
+func power_window() -> String:
+	return "start"
+
+
+func power_ready(_game, _me, _turn) -> bool:
+	return true
+
+
+func use_power(game, me, turn, choice) -> bool:
+	var targets: Array = game.opt("hubris_targets", TARGETS)
+	turn.min_points = int(choice) if int(choice) in targets else int(targets[0])
+	if game.view:
+		fired(game, me, "Hubris", "names %d" % turn.min_points)
+	return false

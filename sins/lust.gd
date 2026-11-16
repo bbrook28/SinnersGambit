@@ -6,6 +6,8 @@
 ## (25%: 18.4%. 20%: 17.0%. 15%: 13.6%.)
 extends "res://sins/sin.gd"
 
+const Rules = preload("res://core/rules.gd")
+
 const PACT_PCT := 15
 
 
@@ -14,6 +16,8 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
+	if game.v5:
+		return  # V5: Whisper off; the power is Desire
 	if turn.used_t1:
 		return
 	var best: int = game.best_face_last_throw()
@@ -38,3 +42,28 @@ func gambit(game, me, _bought: int) -> void:
 	var target = await pick_target(game, me, "Binding Pact (%s)" % what, game.leader_other(me))
 	if target:
 		await game.attack(me, target, "pact", amount)
+
+
+# V5 power (Docs/TableDesign.md §10): turn a Strike into the last player's best die.
+func power_window() -> String:
+	return "throw"
+
+
+func power_ready(game, _me, turn) -> bool:
+	return game.best_face_last_throw() >= 4 and (turn.faces.has(1) or turn.faces.has(2))
+
+
+## The face her seal shows (the UI reads this before you tap).
+func power_face(game) -> int:
+	return game.best_face_last_throw()
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var i: int = turn.faces.find(1)
+	if i < 0:
+		i = turn.faces.find(2)
+	var best: int = game.best_face_last_throw()
+	if game.view:
+		fired(game, me, "Desire", "turns a %d into a %d" % [turn.faces[i], best])
+	turn.faces[i] = best
+	return false

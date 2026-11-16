@@ -6,6 +6,8 @@
 ## Bot: either one on the first throw that already has a scorer.
 extends "res://sins/sin.gd"
 
+const Rules = preload("res://core/rules.gd")
+
 const MIMIC_COPIES := 2
 
 
@@ -14,6 +16,9 @@ func _init() -> void:
 
 
 func after_throw(game, me, turn) -> void:
+	if game.v5:
+		_mimicry_v5(game, me, turn)
+		return
 	if game.v4:
 		_glance_v4(game, me, turn)
 		return
@@ -84,3 +89,41 @@ func _mimicry(game, me, turn) -> void:
 		fired(game, me, "Mimicry", "adds two %ds" % best)
 	for i in MIMIC_COPIES:
 		turn.faces.append(best)
+
+
+# V5 (Docs/TableDesign.md §10). Glance off. Mimicry stays automatic: once a round from 300, the first
+# scoring throw gains `mimic` copies of the last player's best die.
+func _mimicry_v5(game, me, turn) -> void:
+	var best: int = game.best_face_last_throw()
+	if best < 4 or not game.t2_available(me) or not _has_scorer(turn):
+		return
+	game.mark_t2(me)
+	var n := int(game.opt("mimic", MIMIC_COPIES))
+	if game.view:
+		fired(game, me, "Mimicry", "adds %d %ds" % [n, best])
+	for i in n:
+		turn.faces.append(best)
+
+
+## V5 power: copy your best die; it scores its face again (outside the multiplier).
+func power_window() -> String:
+	return "throw"
+
+
+func power_ready(game, _me, turn) -> bool:
+	return _best(turn) >= 4 and turn.strikes + Rules.count_strikes(turn.faces) < Rules.STRIKES_TO_BUST
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var best := _best(turn)
+	turn.points += best * game.face_mult
+	if game.view:
+		fired(game, me, "Copy", "copies a %d: +%d" % [best, best * game.face_mult])
+	return false
+
+
+func _best(turn) -> int:
+	var best := 0
+	for f in turn.faces:
+		best = maxi(best, f)
+	return best

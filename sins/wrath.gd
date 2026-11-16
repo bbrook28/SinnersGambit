@@ -17,6 +17,8 @@ func _init() -> void:
 
 
 func on_other_bust(game, me, other) -> void:
+	if game.v5:
+		return  # V5: Spark of Rage off; the power is Rethrow
 	var rage: int = game.opt("rage", RAGE)
 	me.score += rage
 	if game.view:
@@ -38,3 +40,24 @@ func on_other_throw(game, me, other, turn) -> void:
 	await game.attack(me, other, "reroll", fury_dice)
 	if game.view:
 		game.say("  Rerolled: %s" % game._faces_str(turn.faces))
+
+
+# V5 power (Docs/TableDesign.md §10): rethrow up to wrath_rethrow of this throw's Strikes.
+func power_window() -> String:
+	return "throw"
+
+
+func power_ready(_game, _me, turn) -> bool:
+	return Rules.count_strikes(turn.faces) > 0
+
+
+func use_power(game, me, turn, _choice) -> bool:
+	var left: int = game.opt("wrath_rethrow", 2)
+	var was: String = game._faces_str(turn.faces)
+	for i in turn.faces.size():
+		if left > 0 and turn.faces[i] <= 2:
+			turn.faces[i] = game.rng.randi_range(1, 6)
+			left -= 1
+	if game.view:
+		fired(game, me, "Rethrow", "%s -> %s" % [was, game._faces_str(turn.faces)])
+	return false

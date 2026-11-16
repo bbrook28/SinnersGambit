@@ -37,6 +37,7 @@ var purgatory_cost := Rules.INDULGENCE_COST
 ## Rules.V4 (Docs/TableDesign.md): opts holds the whole rule dict; Sins read their numbers with opt().
 var opts := {}
 var v4 := false
+var v5 := false  # Rules.V5: powers, no Purgatory
 var round5 := false
 var temptations := false
 var tempt_chance := 0.0
@@ -101,6 +102,7 @@ func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	tier2 = options.get("tier2", false)
 	opts = options
 	v4 = options.get("v4", false)
+	v5 = options.get("v5", false)
 	round5 = options.get("round5", false)
 	temptations = options.get("temptations", false)
 	tempt_chance = options.get("tempt_chance", 0.0)
