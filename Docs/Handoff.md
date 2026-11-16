@@ -3,11 +3,11 @@ Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-1
 
 ## Now
 - Phase 8, the table: blockout 4b is playable behind `Tuning.table_view()` (`Docs/TableSpec.md`), pushed at `e70b78f`.
-- TestFlight build 114 (run 43777109922, preset "iOS (table)") is uploaded for internal testers only. Never submit it for review.
+- TestFlight build 114 (run 43777109922, preset "iOS (table)") is uploaded for internal testers (`CLAUDE.md` TestFlight).
 - Docs restructured after the audit (one owner per topic, `CLAUDE.md`); these commits are local and not pushed.
 
 ## Next
-1. Ben plays build 114. That playtest replaces the five games planned for 7a on the old board.
+1. Ben plays build 114 (`Docs/UXPlan.md` §8).
 2. Only after Ben approves the layout: the 2.5D test (`Docs/UXPlan.md` §8). Not before.
 3. Then 7b pass-and-play, which also tunes 7 seats (`Docs/TableDesign.md` §9).
 
