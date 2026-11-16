@@ -320,6 +320,8 @@ func _draw() -> void:
 	view.call_at = int(g.master_call)
 	view.rounds_left = rounds_left
 	view.call_live = bool(s.get("call_live", true))
+	view.choice_question = _question()  # REPLY 23: build() keeps room for the row's plate
+	view.choice_items = others.map(func(o): return {"text": _word(o), "value": o.get_meta("value")})
 	view.build()
 	_choices(others)
 	if view.gain_label:
@@ -329,6 +331,11 @@ func _draw() -> void:
 		gl.create_tween().tween_property(gl, "modulate:a", 1.0, 0.12 * k).set_delay(0.25 * k)
 	_animate(t, faces, strikes, cur, moment)
 	_last = {"throws": int(t.throws), "faces": faces.duplicate(), "points": int(t.points), "strikes": strikes, "cur": cur}
+
+
+## The choice row's question (Ben: just the question).
+func _question() -> String:
+	return "Buy dice?" if _text.begins_with("Buy dice?") else _text.replace("\n", "  ")
 
 
 ## The words on one of main's prompt Buttons.
@@ -356,9 +363,7 @@ func _choices(others: Array) -> void:
 	_extra.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_extra.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.add_child(_extra)
-	var question: String = "Buy dice?" if _text.begins_with("Buy dice?") else _text.replace("\n", "  ")  # Ben: just the question
-	var items := others.map(func(o): return {"text": _word(o), "value": o.get_meta("value")})
-	for b in view.choice_row(_extra, question, items):
+	for b in view.choice_row(_extra, view.choice_question, view.choice_items):
 		var val = b.get_meta("value")
 		b.pressed.connect(func(): main.human.answered.emit(val))
 

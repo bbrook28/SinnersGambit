@@ -1,0 +1,21 @@
+{
+	"screen": "table", "seed": 7, "moment": "decision",
+	"seats": [
+		{"sin": "Wrath", "you": true, "score": 340},
+		{"sin": "Greed", "score": 410},
+		{"sin": "Lust", "score": 280},
+		{"sin": "Gluttony", "score": 520},
+		{"sin": "Envy", "score": 610},
+		{"sin": "Pride", "score": 150},
+		{"sin": "Sloth", "score": 455}
+	],
+	"cur": 0,
+	"turn": {"faces": [5, 5, 2, 3, 6], "points": 120, "strikes": 1},
+	"gain": 60, "seal": "idle",
+	"question": "Fury: pick a target.",
+	"choices": [
+		{"text": "Greed (410)", "value": 1}, {"text": "Lust (280)", "value": 2}, {"text": "Gluttony (520)", "value": 3},
+		{"text": "Envy (610)", "value": 4}, {"text": "Pride (150)", "value": 5}, {"text": "Sloth (455)", "value": 6},
+		{"text": "Skip", "value": 0}
+	]
+}

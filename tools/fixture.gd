@@ -161,6 +161,9 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.points = int(turn.get("points", 0))
 	t.strikes = 3 if t.moment == "bust" else int(turn.get("strikes", 0))
 	t.safe = safe(size)
+	var items: Array = fx.get("choices", []).map(func(c): return {"text": c.text, "value": int(c.value) if c.value is float else c.value})  # JSON numbers load as floats
+	t.choice_question = str(fx.get("question", ""))
+	t.choice_items = items
 	layer.add_child(t)
 	t.build()
 	if fx.has("choices"):  # a choice row as the table draws it: [{text, value}], with "question"
@@ -168,7 +171,6 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 		row.set_anchors_preset(Control.PRESET_FULL_RECT)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t.add_child(row)
-		var items: Array = fx.choices.map(func(c): return {"text": c.text, "value": int(c.value) if c.value is float else c.value})  # JSON numbers load as floats
 		for b in t.choice_row(row, str(fx.get("question", "")), items):
 			if fx.has("press") and b.get_meta("value") == int(fx.press):  # a choice held down
 				b.button_down.emit()

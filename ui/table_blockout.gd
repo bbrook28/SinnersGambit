@@ -62,7 +62,7 @@ const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest t
 const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
 const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
 const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
-const CHOICE_PER_ROW := 5
+const CHOICE_PER_ROW := 4  # REPLY 23: a target's name over its total fits four a line at SE
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
 const BAND_PAD := 14.0    # the track band's top and bottom padding (REPLY 16: from 30, so the windows get build 116's size)
 const HOOD := Color("3f2639")  # the Master's hood, darker than his robe
@@ -94,6 +94,8 @@ var firing := {}
 var stand_live := false
 var master_line := ""
 var rival_seal := ""     # the active rival's seal: "" none, "idle", "spent"
+var choice_question := ""  # REPLY 23: a choice row to come (set before build()): its question and items,
+var choice_items: Array = []  # so the page keeps room for its plate under the track; the dice give way
 var buy_ghosts: Array = []  # buying: the score each purchase would leave me on (REPLY 9)
 var ghost_nodes: Array = []  # their ghost markers, in that order
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
@@ -213,6 +215,9 @@ func build() -> void:
 	var stake_size: int = int(lerpf(120.0, 190.0, clampf(points / 600.0, 0.0, 1.0)))  # grows as dice score
 	var gain_size: int = stake_size + 10  # at least the stake numeral
 	var gain_h: float = gain_size * 0.82 + 24.0  # the strip between the track and the dice (Cinzel's glyphs, not its line box)
+	var row_h: float = _choice_plate(vp.x).h
+	if row_h > 0.0:  # REPLY 23: a choice row's plate takes the strip (its foot 16 px over the dice); no gain shows under it
+		gain_h = maxf(gain_h, row_h - 12.0)
 	var stake_h: float = stake_size * 1.45  # Cinzel's line box
 	var stake_top: float = sy - 8.0 - stake_h
 	var dl: float = px0 + 40.0
@@ -390,7 +395,7 @@ func build() -> void:
 	master_label = null
 	seal_button = null
 	flare_node = null
-	if gain > 0:  # the throw's points, gold, in the strip just above the dice
+	if gain > 0 and row_h <= 0.0:  # the throw's points, gold, in the strip just above the dice
 		var gain_l := _label("+%d" % gain, gain_size, GAIN_GOLD, BLACK)
 		gain_l.add_theme_font_override("font", Style.NUMERAL)
 		gain_l.add_theme_constant_override("outline_size", 22)  # a dark edge
@@ -1017,41 +1022,63 @@ func _centre(g: Array, span: float) -> float:
 ## holding one shows the ghost of my marker where it would leave me (none at rest, no tie lines).
 ## Returns the buttons in order (ui/table_play.gd connects them; tools/fixture.gd draws
 ## them for a still).
-func choice_row(parent: Node, question: String, items: Array) -> Array:
-	var vp: Vector2 = get_viewport_rect().size
-	var top: float = page_rect.position.y - UNDER_WIN + 18.0  # over the windows' feet (REPLY 16), on a dark backing
-	# REPLY 19 item 3: the game's end ("New game") sits on the page where the dice were, so my window and every
-	# total on the track stay in view.
-	var at_end: bool = items.any(func(it): return str(it.value) == "new")
-	var buying_row := not buy_ghosts.is_empty()
-	if at_end:
-		top = dice_area.position.y - 30.0
-	elif buying_row:  # REPLY 22: buying sits on the page under the track (no dice or gain then), nothing on the window band
-		top = band_bottom + 30.0
-	var back := ColorRect.new()
-	back.color = Color(BLACK, 0.85)
-	back.position = Vector2(0, top - 18.0)
-	back.size = Vector2(vp.x, page_rect.position.y - top + 18.0 - ROW_GAP)
-	if at_end or buying_row:  # its own plate on the page: the question and one row
-		back.position = Vector2(page_rect.position.x, top - 18.0)
-		back.size = Vector2(page_rect.size.x, 46.0 + CHOICE_H + 36.0)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(back)
+## REPLY 23: every choice row but the game's end sits on its own plate on the page under the track: the
+## question (up to two lines), then the buttons, at most CHOICE_PER_ROW a line (buying: all on one line).
+## build() keeps room for it from choice_question and choice_items. {h, per, words_h}; h 0 when none.
+func _choice_plate(vw: float) -> Dictionary:
+	var n := choice_items.size()
+	if n == 0 or choice_items.any(func(it): return str(it.value) == "new"):
+		return {"h": 0.0, "per": maxi(n, 1), "words_h": 46.0}
+	var per: int = n if not buy_ghosts.is_empty() else mini(n, CHOICE_PER_ROW)
+	var lines: int = ceili(float(n) / per)
+	var probe := _choice_words(choice_question, vw)
+	add_child(probe)  # measured in the tree, as drawn: one line or two
+	var words_h: float = maxf(46.0, probe.get_minimum_size().y)
+	remove_child(probe)
+	probe.free()
+	return {"h": 18.0 + words_h + lines * CHOICE_H + (lines - 1) * CHOICE_GAP + 24.0, "per": per, "words_h": words_h}
+
+
+## A choice row's question, wrapping onto a second line when it must.
+func _choice_words(question: String, vw: float) -> Label:
 	var words := Label.new()
 	words.text = question
 	words.add_theme_font_override("font", Style.SERIF)
 	words.add_theme_font_size_override("font_size", 44)
 	words.add_theme_color_override("font_color", BONE)
 	words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	words.clip_text = true
-	words.position = Vector2(56, top)
-	words.size = Vector2(vp.x - 112, 46)
+	words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	words.custom_minimum_size = Vector2(vw - 112.0, 0)
+	words.size = Vector2(vw - 112.0, 0)
+	return words
+
+
+func choice_row(parent: Node, question: String, items: Array) -> Array:
+	var vp: Vector2 = get_viewport_rect().size
+	choice_question = question
+	choice_items = items
+	var plate: Dictionary = _choice_plate(vp.x)
+	# REPLY 19 item 3: the game's end ("New game") sits on the page where the dice were, so my window and every
+	# total on the track stay in view.
+	var at_end: bool = items.any(func(it): return str(it.value) == "new")
+	var top: float = dice_area.position.y - 30.0 if at_end else band_bottom + 30.0
+	var words_h: float = plate.words_h
+	var back := ColorRect.new()
+	back.color = Color(BLACK, 0.85)
+	back.position = Vector2(page_rect.position.x, top - 18.0)
+	back.size = Vector2(page_rect.size.x, (46.0 + CHOICE_H + 36.0) if at_end else plate.h)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(back)
+	var words := _choice_words(question, vp.x)
+	words.position = Vector2(56, top - 4.0)
+	words.size = Vector2(vp.x - 112, words_h)
 	parent.add_child(words)
 	var buying := not buy_ghosts.is_empty()
 	var row := items.duplicate()
 	if buying:  # REPLY 21: one row, low to high: "Buy none" first, then 1 up to what I can afford (at most Rules.MAX_BUY)
 		row.sort_custom(func(a, b): return int(a.value) < int(b.value))
-	var per: int = row.size() if buying else mini(row.size(), CHOICE_PER_ROW)  # past five, other rows wrap onto the page under the track
+	var per: int = plate.per
 	var bw: float = minf(320.0, (vp.x - 112.0 - (per - 1) * CHOICE_GAP) / per)
 	var out := []
 	for i in row.size():
@@ -1059,16 +1086,16 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 		var line: int = i / per
 		var in_line: int = mini(per, row.size() - line * per)
 		var x: float = (vp.x - (in_line * bw + (in_line - 1) * CHOICE_GAP)) / 2.0 + (i % per) * (bw + CHOICE_GAP)
-		var y: float = top + 46.0 if line == 0 else band_bottom + 40.0 + (line - 1) * (CHOICE_H + CHOICE_GAP)
+		var y: float = top + words_h + line * (CHOICE_H + CHOICE_GAP)
 		var val = it.value
 		var b := Button.new()
 		b.text = str(it.text)
-		if buying:  # REPLY 21: six buttons in one row: "Buy 3" over its price, so neither shrinks below 15 pt
-			var m := RegEx.create_from_string("^(Buy [0-9]+) [(]([0-9]+)[)]$").search(b.text)
-			if m:
-				b.text = m.get_string(1) + "\n" + m.get_string(2)
-			elif b.text.begins_with("Buy "):  # "Buy none": the same two lines
-				b.text = b.text.replace("Buy ", "Buy\n")
+		# REPLY 21, 23: "Buy 3" over its price, a target's name over its total, so neither shrinks below 15 pt
+		var m := RegEx.create_from_string("^(.+) [(]([0-9]+)[)]$").search(b.text)
+		if m:
+			b.text = m.get_string(1) + "\n" + m.get_string(2)
+		if buying and not m and b.text.begins_with("Buy "):  # "Buy none": the same two lines
+			b.text = b.text.replace("Buy ", "Buy\n")
 		b.set_meta("value", val)
 		b.clip_text = true
 		b.add_theme_font_override("font", Style.BLACKLETTER)
