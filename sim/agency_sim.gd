@@ -59,6 +59,8 @@ func _init() -> void:
 			await _split(games)
 		"novice":
 			await _novice(games)
+		"length":
+			await _length(games)
 		"first":
 			await _first(games)
 	quit()
@@ -187,7 +189,7 @@ func _play(game) -> Dictionary:
 				if leader >= 0:
 					st.leads += 1
 				leader = seat
-			if not halved and game.leader_score() >= HALF:
+			if not halved and game.leader_score() >= int(game.opt("win_score", 1000)) / 2:
 				halved = true
 				var low := 99999
 				for o in game.players:
@@ -327,3 +329,15 @@ func _novice(games: int) -> void:
 			line += " %s %.1f" % [n.substr(0, 4), r.special_win]
 			all += r.special_win
 		print("%s vs 3 novices (fair 25): mean %.1f |%s" % [cfg[0], all / NAMES.size(), line])
+
+
+## Game length: the proposal at win targets of 1000, 1500, 2000 (REPLY 3 item 4). Comebacks are measured
+## when the leader first reaches half the target.
+func _length(games: int) -> void:
+	opts["plain_smart"] = false
+	for w in [1000, 1500, 2000]:
+		opts["win_score"] = w
+		_report("target %d" % w, await _pass(opts, games, 4, null))
+		var b = SimBots.Best.new(4, 0.9, 0.0, 0.5, 0.3)
+		b.smart = false
+		print("  skill edge at %d: %s" % [w, await _edge(b, games / 4)])

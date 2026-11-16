@@ -70,7 +70,7 @@ class Plain extends "res://ai/bot_policy.gd":
 			return true
 		if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
 			return true
-		if total >= Rules.WIN_SCORE and total > game.leader_score():
+		if total >= int(game.opt("win_score", Rules.WIN_SCORE)) and total > game.leader_score():
 			return false
 		if turn_points >= bank_at:
 			return false

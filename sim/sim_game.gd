@@ -152,7 +152,7 @@ func take_turn(p) -> void:
 		_check_lead()
 	_end_turn(p, banked)
 
-	if p.score >= Rules.WIN_SCORE:
+	if p.score >= int(opt("win_score", Rules.WIN_SCORE)):
 		if finish_round:
 			end_triggered = true
 		else:
@@ -292,7 +292,7 @@ func _powers_on(p) -> bool:
 
 
 func _smart(p) -> bool:
-	return p.bot.get("smart") == true
+	return p.bot.get("smart") == true or (p.sin != null and p.sin.sin_name in str(opt("smart_sins", "")).split(","))
 
 
 ## A legal chance this turn: count it; true if it's the turn's first.
