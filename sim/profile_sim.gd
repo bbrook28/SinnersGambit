@@ -127,6 +127,11 @@ func _play(game) -> Dictionary:
 			var sc: Array = game.players.map(func(q): return q.score)
 			sc.sort()
 			st.lead2 = [sc[3] - sc[2], sc[3] - sc[0]]
+		if game.round_count == 3:  # REPLY 21: the leader's clearance over second after round 3, and who leads
+			var sc3: Array = game.players.map(func(q): return q.score)
+			sc3.sort()
+			var lead_seat: int = game.players.filter(func(q): return q.score == sc3[3])[0].seat
+			st.lead3 = [sc3[3] - sc3[2], lead_seat, sc3[3]]
 		# call_floor=R (REPLY 17): the call can fire at the end of round R at the earliest (R 3: games of 5+ rounds)
 		if master_at > 0 and called < 0 and game.leader_score() >= master_at and game.round_count >= int(opts.get("call_floor", 0)):
 			called = game.round_count  # the Master calls it: the next round is the penultimate
@@ -143,6 +148,7 @@ func _run(games: int, table: String) -> Dictionary:
 		"buy_games": 0, "b_offers": 0, "b_taken": 0, "b_uses": 0, "b_changed": 0, "b_pair": {}, "b_sin": {},
 		"halves": 0, "comebacks": 0, "far_halves": 0, "far_wins": 0, "worst_len": [], "worst_margin": [],
 		"pair_seed": {}, "lock": 0, "leads": 0, "lead2_win": 0,
+		"lead3": {}, "lead3_n": 0,
 		"lead2_n": 0, "lead2_2nd": 0, "lead2_last": 0, "au_throw": {}, "au_turn": {}, "au_zero": {}, "au_round": {},
 		"au_dice": {}, "au_src": [0, 0, 0]}
 	for g in games:
@@ -152,6 +158,16 @@ func _run(games: int, table: String) -> Dictionary:
 		var kinds: Array = su[1]
 		var st := await _play(game)
 		var w = game.winner
+		if st.has("lead3"):  # REPLY 21: per leader profile: [games, clear 300+, 400+, 500+, 600+]
+			r.lead3_n += 1
+			var lk: String = kinds[int(st.lead3[1])]
+			if not r.lead3.has(lk):
+				r.lead3[lk] = [0, 0, 0, 0, 0]
+			var row: Array = r.lead3[lk]
+			row[0] += 1
+			for j in 4:
+				if int(st.lead3[0]) >= 300 + 100 * j:
+					row[j + 1] += 1
 		if st.has("lead2"):
 			r.lead2_n += 1
 			r.lead2_2nd += st.lead2[0]
@@ -360,6 +376,18 @@ func _report(name: String, r: Dictionary, short: bool) -> void:
 	print("  entering the last round: last seat %d behind; within 250 in %.1f%% of games; last seat wins %.1f%%" % [r.last_gap / g, _pct(r.last_live, g), _pct(r.last_win, g)])
 	print("  comebacks (last at half wins) %.1f%%; last at half 300+ behind wins %.1f%% (%d games)" % [_pct(r.comebacks, r.halves), _pct(r.far_wins, r.far_halves), r.far_halves])
 	print("  buys %.2f dice a seat a game; someone buys in %.1f%% of games" % [r.buys / g / 4.0, _pct(r.buy_games, g)])
+	var l3 := "  after round 3 (REPLY 21), leader clear of second by 300+/400+/500+/600+, % of all games: "
+	var tot := [0, 0, 0, 0]
+	for k in r.lead3:
+		for j in 4:
+			tot[j] += r.lead3[k][j + 1]
+	l3 += " / ".join(tot.map(func(x): return "%.1f" % (100.0 * x / maxf(1.0, r.lead3_n))))
+	print(l3)
+	var l3p := "    by the leader's profile (share of that profile's leads): "
+	for k in r.lead3:
+		var row: Array = r.lead3[k]
+		l3p += "%s n%d %s | " % [k, row[0], "/".join(row.slice(1).map(func(x): return "%.0f" % (100.0 * x / maxf(1.0, row[0]))))]
+	print(l3p)
 	print("  after round 2: the leader is %d clear of second, %d of last" % [r.lead2_2nd / maxf(1.0, r.lead2_n), r.lead2_last / maxf(1.0, r.lead2_n)])
 	if not r.au_zero.is_empty():
 		_audit_report(r)
