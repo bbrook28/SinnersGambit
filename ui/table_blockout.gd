@@ -1013,13 +1013,16 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 	# REPLY 19 item 3: the game's end ("New game") sits on the page where the dice were, so my window and every
 	# total on the track stay in view.
 	var at_end: bool = items.any(func(it): return str(it.value) == "new")
+	var buying_row := not buy_ghosts.is_empty()
 	if at_end:
 		top = dice_area.position.y - 30.0
+	elif buying_row:  # REPLY 22: buying sits on the page under the track (no dice or gain then), nothing on the window band
+		top = band_bottom + 30.0
 	var back := ColorRect.new()
 	back.color = Color(BLACK, 0.85)
 	back.position = Vector2(0, top - 18.0)
 	back.size = Vector2(vp.x, page_rect.position.y - top + 18.0 - ROW_GAP)
-	if at_end:  # its own plate on the page: the question and one row
+	if at_end or buying_row:  # its own plate on the page: the question and one row
 		back.position = Vector2(page_rect.position.x, top - 18.0)
 		back.size = Vector2(page_rect.size.x, 46.0 + CHOICE_H + 36.0)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
