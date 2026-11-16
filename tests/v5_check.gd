@@ -7,6 +7,7 @@ const Rules = preload("res://core/rules.gd")
 const Game = preload("res://core/game.gd")
 const TurnState = preload("res://core/turn_state.gd")
 const BotPolicy = preload("res://ai/bot_policy.gd")
+const Temptations = preload("res://sins/temptations.gd")
 const SIN_SCRIPTS := [
 	preload("res://sins/wrath.gd"), preload("res://sins/greed.gd"), preload("res://sins/lust.gd"),
 	preload("res://sins/envy.gd"), preload("res://sins/pride.gd"), preload("res://sins/gluttony.gd"),
@@ -31,6 +32,8 @@ func _initialize() -> void:
 	_gap()
 	await _master()
 	_sins()
+	await _fury()
+	_apply()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -299,3 +302,31 @@ func _sins() -> void:
 
 static func F(a: Array) -> Array[int]:
 	return Array(a, TYPE_INT, "", null)
+
+
+## Item 9: Fury reads fury_trigger / fury_grudge (V5: 300 / 200).
+func _fury() -> void:
+	var g := _table(2)
+	var wrath = g.players[0]
+	var other = g.players[1]
+	wrath.sin = SIN_SCRIPTS[0].new()
+	wrath.t2_unlocked = true
+	wrath.t2_ready = true
+	g.current = other
+	g.turn.faces = F([6, 6, 6, 5])  # 287: under 300, over 200
+	await wrath.sin.on_other_throw(g, wrath, other, g.turn)
+	check(Array(g.turn.faces) == [6, 6, 6, 5] and wrath.t2_ready, "Fury: 287 from a stranger doesn't trigger at 300")
+	wrath.grudges = [other.seat]
+	await wrath.sin.on_other_throw(g, wrath, other, g.turn)
+	check(not wrath.t2_ready, "Fury: 287 from a grudge triggers at 200")
+
+
+## Item 10: Temptations.apply takes the scaled gain.
+func _apply() -> void:
+	var g := _table(2)
+	var p = g.players[0]
+	p.score = 0
+	Temptations.apply({"id": "t", "gain": "points", "g": 75, "cost": "lose", "c": 0}, g, p)
+	check(p.score == 75, "apply: scaled points land")
+	Temptations.apply({"id": "t", "gain": "dice", "g": 4, "cost": "bank", "c": 50}, g, p)
+	check(g.turn.extra_dice == 4 and p.pend_bank == 50, "apply: scaled extra dice land, the cost doesn't change")
