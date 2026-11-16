@@ -484,7 +484,8 @@ func build() -> void:
 		num.size = Vector2(tw + 24.0, stake_h)
 		num.position = Vector2(maxf(px0 + 70.0, bc - num.size.x / 2.0), stake_top)
 		stake_label = num
-		if not mine:
+		var ringed: bool = not firing.is_empty() and int(firing.seat) == cur and firing.get("dice", []).is_empty()
+		if not mine and not ringed:  # REPLY 23: hidden while a power's ring is round the stake
 			var whose := _label(RulesText.word("their_turn", {"name": seats[cur].sin}), 44, rcol, INK, false, self)
 			whose.size = Vector2(maxf(num.size.x, whose.get_minimum_size().x + 16.0), 56.0)
 			whose.position = Vector2(maxf(px0 + 16.0, num.position.x + (num.size.x - whose.size.x) / 2.0), stake_top - 24.0)

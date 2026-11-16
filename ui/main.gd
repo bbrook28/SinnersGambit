@@ -3570,10 +3570,11 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 			args = {"name": p.sin.sin_name}
 	if ev == "":
 		return
-	var always: bool = kind in ["start", "end", "claim", "call", "final", "leader_mark"]
+	var teach: bool = kind == "claim" or (kind == "mark" and "first_mark" in holds)  # REPLY 23: the chain's cost
+	var always: bool = teach or kind in ["start", "end", "call", "final", "leader_mark"]
 	if not always and randf() >= Tuning.MASTER_CHANCE:
 		return
-	var must: bool = kind in ["end", "call", "final", "leader_mark"]  # these wait for a line up (REPLY 22)
+	var must: bool = teach or kind in ["end", "call", "final", "leader_mark"]  # these wait for a line up (REPLY 22, 23)
 	if not must and _master_round == game.round_count:
 		return
 	if kind == "end":  # REPLY 12: his win line reads the winner's score, not 1000 or the call
@@ -3585,6 +3586,8 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 	if fresh.is_empty():
 		return
 	var line: String = fresh[randi() % fresh.size()]
+	if kind == "mark" and teach:  # the first mark always says what it costs ("One mark. 3 and it claims.")
+		line = RulesText.master_lines(ev, holds, args).filter(func(l): return not RulesText.master_lines(ev, [], args).has(l))[0]
 	_master_used[line] = true
 	if not must:
 		_master_round = game.round_count
@@ -3634,3 +3637,4 @@ func master_idle() -> void:
 	_master_round = game.round_count
 	if _table and not pool.is_empty():
 		_table.master_say(pool[randi() % pool.size()])
+
