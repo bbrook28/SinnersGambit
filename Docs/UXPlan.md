@@ -14,6 +14,7 @@ Status is one of: done, in progress, parked, not started. What's happening now a
 | 7c | Solo ladder: Circles, hosts, perks, endings, unlocks, Recall lines (TableDesign §6) | not started |
 | 8 | The table (`Docs/TableSpec.md`) | in progress |
 | - | Portrait clean-up pass | parked |
+| - | Grammar and voice pass | parked |
 | 9 | Depth pass | not started |
 | 10 | Text and layout | not started |
 | 11 | Onboarding (`Docs/Onboarding.md`) | not started |
@@ -27,6 +28,9 @@ Status is one of: done, in progress, parked, not started. What's happening now a
 
 ## Portrait clean-up (parked)
 One pass, after the table direction is chosen; no portrait edits and no credits until then. One lead line round each figure's combined silhouette, never at a seam; layer cuts at natural breaks (wrist, sleeve, collar), never across fingers, hands or faces. Every Sin holding dice (Greed, Lust, Gluttony) gets the game's own dice sprites from `assets/art/runtime/dice/`, arranged, shaded and outlined into the painting. Faults it fixes: `Docs/Handoff.md`.
+
+## Grammar and voice pass (parked, REPLY 18)
+For polish: one pass over every line in the game (`ui/rules_text.gd`) for grammar and each Sin's voice, starting with the Master's lines. Each Master line must fit on one line on his plate beside his arm (today, in the mark pose, his plate crosses his arm).
 
 ## 9 Depth pass (not started; after the table layout is approved)
 Every screen, the main menu included: parallax with tilt, cast light, soft shadows, darker edges (`Docs/ArtDirection.md` Depth).
