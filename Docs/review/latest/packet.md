@@ -1,21 +1,24 @@
-# docs-restructure (docs only; no code changed)
-**What changed:** one owner per topic (`CLAUDE.md` Owners), the one-owner rule added to CLAUDE.md, history moved to `Docs/archive/`. 14 local commits, not pushed. TestFlight build 114 uploaded.
-**Line counts (after):** CLAUDE.md 34 (was 27) · Handoff 33 (320) · UXPlan 41 (78) · TableDesign 83 (115) · TableSpec 30 (new) · ArtDirection 75 (130) · RunDesign 129 (header only) · AudioStyle 41, Onboarding 33 (unchanged).
-**Archived to Docs/archive/:** Plan, RulesDraft, UXPass, Tour, ArtAudit, voices_proposal, VFX, Handoff_2026-11-13_to_15, UXPlan_2026-11-15, TableDesign_draft2. `.claude/handoff.md` deleted. Packets: 4b and the audit are in `Docs/review/archive/`.
-**Beyond the approved list:** VFX.md is archived too: ArtDirection is the only owner of art rules, and most of VFX broke the restraint rules (coin bursts, white-hot glass, nails, gold halos). Its four rules moved into ArtDirection.
-**Code won over docs (now written as the code has it):**
-- Bot risk is a multiplier (`SIN_RISK` 0.9 / 1.15), not "one more throw".
-- Bot pace is `BOT_PACE` 6.0 against a 2.5 s average (`bot_pace.gd`). `BOT_TURN_MAX` and `TEMPT_CHANCE` don't exist.
-- Numerals are Cinzel, and blackletter is never used for numbers.
-- Bank and Throw are 236 px (86 pt), not 88 pt. Dice go down to 110 px (40 pt), not 64 pt.
-- Throw is a tap on a seal; drag-to-throw is gone.
-- Sin lines live only in `RulesText.LINES`. The 315-line table left TableDesign.
-- 59 fixtures, not 45.
-**Could not resolve (need you or code):**
-1. Temptations start: TableDesign §7 says round 2 of any game after the First Game; Onboarding:28 moves them to Circle 3 / game three. Rec: Onboarding owns it once 11 is built; until then TableDesign stands.
-2. Onboarding is headed "draft for Ben". Approved as the plan? Rec: yes, retitle it.
-3. Code comments name moved docs (14 places, listed in Handoff). Rec: one comment-only commit, on your OK.
-4. "Greater" still shows in the rulebook (`rules_text.gd:104-107,199`) against TableDesign §1. Rec: fix in 7b.
-5. Feast's prompt is said to be Yes/No; I couldn't confirm it in the code, so I dropped it. Rec: check in play.
-6. Old-board Buy-dice overflow was given as 7+ in one doc and 8+ in another; not re-run. Moot on the table.
-**Questions:** 1-3 above. 4. Push the 14 doc commits? Rec: yes.
+# agency-and-comeback note (design only; no game code changed)
+**What's new:** the note is `Docs/TableDesign.md` §10 (40 lines). `Docs/Onboarding.md` is rewritten with the Master of the Dance as narrator (7 captions, 8 words or fewer). The new sim is `sim/agency_sim.gd`, with `sim/sim_game.gd` and `sim/sim_bots.gd`: sim-only copies of the prototype rules, so `core/`, `sins/` and `ai/` are untouched.
+**Measured** (20,000 games at 4 seats, V4, plain bots; skill: 4,000 per Sin):
+| | Now | Purgatory off | Rethrow on | Target |
+|---|---|---|---|---|
+| Skill edge, best bot, mean | 31.8% (Sloth 26.3 to Greed 39.7) | | | 35-45 |
+| Comebacks, last at 500 wins | 7.3% | 7.3% | 7.2% | 10-20 |
+| Lead changes a game | 4.15 | 4.14 | 4.15 | |
+| Last seat's turns in Purgatory | 45.5% (all 30.5) | 0 | 33.7% | |
+| Equal bots, Sin range | 20.9-28.7 | 19.7-27.8 | 16.5-35.2 | 22-28 |
+| Rounds; minutes | 5.5; 1.6 | 5.4; 1.5 | 4.4; 1.4 | |
+- Most of the skill edge is one decision: the best bot never buys dice (with buying, 24-27%). Timing adds 1-3 points.
+- Comeback offers (gain x(1 + behind/200), up to x3, plus an offer every turn when 150+ behind): 11.1%. At behind/100 with Purgatory off: 12.4%. Greed and Sloth drop to 18-20.
+- First game: a novice stand-in wins 22.9% of Onboarding game one against plain bots, and 42.9% against bots that bank at 200 with risk 1.6 and buy to 4.
+- Not measured yet: the seven powers (they need their bot logic first). That's the first sim step after your OK.
+**Questions:**
+1. Make the seven Basic powers active (§10 table)? Rec: yes, then sim use rate and shares before any UI.
+2. Buying dice is a trap at 100. Rec: test die cost 60 and 75 in the same sim pass.
+3. Purgatory? Rec: cut it.
+4. Universal rethrow? Rec: drop it; the powers cover it.
+5. Comeback scaling as defined? Rec: yes, retuned with the powers.
+6. First-game bots: bank at 200, risk 1.6, buy to 4, game one only? Rec: yes.
+7. The Master as host with the 50 lines, the jester cut? Rec: yes. Art is a list only; nothing is painted.
+8. Onboarding narrated by the Master (7 captions)? Rec: yes.
