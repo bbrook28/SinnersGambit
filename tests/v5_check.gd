@@ -124,7 +124,7 @@ func _rules() -> void:
 	check(Rules.V5.purgatory == false and Rules.V5.auto_purgatory == false, "V5: no Purgatory")
 	check(Rules.V5.v5 and Rules.V5.v4 and Rules.V5.powers, "V5 flags")
 	check(Rules.V5.vig == 60 and Rules.V5.fury_trigger == 300 and Rules.V5.fury_grudge == 200, "V5: Vig 60, Fury 300 / 200")
-	check(Rules.V5.hubris_mult == 1.75 and Rules.V5.hubris_targets == [150, 200, 250], "V5: Hubris x1.75 at 150 / 200 / 250")
+	check(Rules.V5.hubris_mult == 2.0 and Rules.V5.hubris_targets == [150, 200, 250], "V5: Hubris x2 at 150 / 200 / 250")
 	check(Rules.V5.eat == 45 and Rules.V5.greed_mult == 1.25 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
 	check(Rules.V5.chain_cap == 2.0 and Rules.V5.soften == "half" and Rules.V5.mark == "chain", "V5: chain cap x2, a bust keeps half, the Master marks the leader (REPLY 15)")
 	check(Rules.V5.comeback_per == 200 and Rules.V5.comeback_cap == 3.0 and Rules.V5.mark_free_behind == 150, "V5: comeback numbers")
@@ -314,7 +314,8 @@ func _sins() -> void:
 	check(Array(t.faces) == [4, 5] and t.points == Rules.V5.eat and me.dice == 3, "Gluttony: eats the Strike die, +eat, keeps its dice")
 	t.faces = F([1, 2, 6])
 	S.Sloth.use_power(g, me, t, true)
-	check(Array(t.faces) == [3, 3, 6], "Sloth: Strikes become 3s")
+	check(Array(t.faces) == [4, 3, 6], "Sloth (idle_one): the first Strike becomes a 4, the rest 3s")
+	check(Rules.V5.idle_one == true, "V5: Idle-one on")
 	t.faces = F([6, 4, 2])
 	t.strikes = 0
 	t.points = 0

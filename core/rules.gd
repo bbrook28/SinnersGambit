@@ -79,7 +79,7 @@ const V5 := {
 	"v4": true, "v5": true, "round5": true,
 	"purgatory": false, "auto_purgatory": false,
 	"vig": 60, "interest": 75, "pact": 50, "gorge": 40, "mimic": 3,
-	"hubris_targets": [150, 200, 250], "hubris_mult": 1.75,
+	"hubris_targets": [150, 200, 250], "hubris_mult": 2.0,  # REPLY 17: from 1.75
 	"fury_dice": 3, "fury_trigger": 300, "fury_grudge": 200, "drag": 4,
 	"powers": true,
 	"wrath_rethrow": 2,      # Wrath: rethrow up to this many of this throw's Strikes
@@ -88,6 +88,7 @@ const V5 := {
 	"soften": "half",        # a bust keeps half the turn's face points, never the chain (REPLY 15)
 	"mark": "chain",         # each round the Master marks the strict leader: no chain for them that round (REPLY 15)
 	"eat": 45,               # Gluttony: eating a Strike die adds this to the stake (REPLY 16: from 60)
+	"idle_one": true,        # Sloth: Idle turns the throw's first Strike into a 4, the rest 3s (REPLY 17)
 	"temptations": true, "tempt_chance": 1.0, "tempt_gap": 2, "mark_weight": 4, "marks_to_claim": 2,
 	"comeback_per": 200,     # an offer's gain x(1 + D / comeback_per) for a seat D behind the leader...
 	"comeback_cap": 3.0,     # ...up to x this

@@ -39,7 +39,8 @@ func gambit(game, me, _bought: int) -> void:
 		await game.attack(me, target, "drag", drag)
 
 
-# V5 power (Docs/TableDesign.md §10): this throw's Strikes don't count (they become 3s).
+# V5 power (Docs/TableDesign.md §10): this throw's Strikes don't count (they become 3s);
+# idle_one (REPLY 17): the first becomes a 4 instead.
 func power_window() -> String:
 	return "throw"
 
@@ -52,7 +53,7 @@ func use_power(game, me, turn, _choice) -> bool:
 	var n := 0
 	for i in turn.faces.size():
 		if turn.faces[i] <= 2:
-			turn.faces[i] = 3
+			turn.faces[i] = 4 if n == 0 and game.opt("idle_one", false) else 3
 			n += 1
 	if game.view:
 		fired(game, me, "Idle", "ignores %d Strike%s" % [n, "" if n == 1 else "s"])

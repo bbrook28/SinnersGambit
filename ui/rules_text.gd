@@ -163,7 +163,7 @@ const SINS := {
 		"basic": ["Feast", "Once a turn, feed a thrown die for +{feast}; a fed Strike doesn't count."],
 		"greater": ["Gorge", "Your first die each turn costs {gorge}."]},
 	"Sloth": {"epithet": "the Delayer", "play": "Shrug off a Strike every turn.", "pips": 1,
-		"power": ["Idle", "Ignore this throw's Strikes."],
+		"power": ["Idle", "Ignore this throw's Strikes; the first becomes a 4."],
 		"basic": ["Lazy Bones", "Your first Strike each turn doesn't count."],
 		"greater": ["Drag", "Pick a rival; they throw {drag} fewer dice next turn (never below 1)."]},
 }
