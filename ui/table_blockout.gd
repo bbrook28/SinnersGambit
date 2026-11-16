@@ -642,18 +642,33 @@ func _power_seal(parent: Node, c: Vector2, sname: String, state: String, d: floa
 	var ready := state == "ready"
 	var spent := state == "spent" and not fire
 	if ready or fire:
-		var glow := TextureRect.new()
-		glow.texture = Art.soft_dot(64, col.lightened(0.3))
-		glow.material = Art.additive()
-		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		glow.size = Vector2(d, d) * (2.4 if fire else 1.7)
-		glow.position = -glow.size / 2.0
-		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(glow)
-		_disc(o, r + (22.0 if fire else 10.0) * d / POWER_SEAL, col.lightened(0.15) if fire else col, Color(0, 0, 0, 0), h)
+		var aura := Control.new()  # the glow: a coloured halo (reads on parchment) under additive light
+		aura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(aura)
+		for add in [false, true]:
+			var glow := TextureRect.new()
+			glow.texture = Art.soft_dot(64, col.lightened(0.3) if add else col)
+			if add:
+				glow.material = Art.additive()
+			glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			glow.size = Vector2(d, d) * ((2.4 if fire else 2.2) if add else 2.3)
+			glow.position = -glow.size / 2.0
+			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			aura.add_child(glow)
+		if ready and not fire:  # it can fire now: the glow breathes (seen, not read)
+			var tw := aura.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			var half: float = Tuning.SEAL_READY_PULSE / 2.0 / Tuning.speed
+			tw.tween_property(aura, "modulate:a", 0.6, half).from(1.0)
+			tw.parallel().tween_property(aura, "scale", Vector2(0.88, 0.88), half).from(Vector2.ONE)
+			tw.tween_property(aura, "modulate:a", 1.0, half)
+			tw.parallel().tween_property(aura, "scale", Vector2.ONE, half)
+		_disc(o, r + (22.0 if fire else 14.0) * d / POWER_SEAL, col.lightened(0.15) if fire else col.lightened(0.1), Color(0, 0, 0, 0), h)
 	var fill: Color = INK.lerp(BLACK, 0.4) if spent else BONE
+	var rival := d < POWER_SEAL  # on the dark band under the windows: a rim of its colour so it reads, no glow
+	if rival and not fire:
+		_disc(o, r + 11.0, Color(BONE, 0.55) if spent else col.lightened(0.2), Color(0, 0, 0, 0), h)
 	_disc(o, r, fill, INK, h)
-	var ink: Color = Color(BONE, 0.3) if spent else (col.darkened(0.25) if fire else INK)
+	var ink: Color = Color(BONE, 0.55 if rival else 0.3) if spent else (col.darkened(0.25) if fire else INK)
 	_sigil(sname, Rect2(-Vector2(r, r) * 0.78, Vector2(r, r) * 1.56), ink, h)
 	if spent:
 		_line([Vector2(-r, -r) * 0.55, Vector2(r, r) * 0.55], CRIMSON, 10.0 * d / POWER_SEAL, Color(0, 0, 0, 0), h)

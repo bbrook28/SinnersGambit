@@ -24,6 +24,7 @@ const MASTER_FOR := 2.6      # s his line stays by the skeleton
 const MASTER_IDLE := 9.0     # s at my decision with no answer before his idle line (one a turn)
 const POWER_FOR := 0.7       # s a power firing holds (real seconds, bots too): seal blazes, ring and sigil on what it changed
 const SEAL_FLARE := 0.22     # s the firing seal swells (it settles over 1.5x that; its ring spreads over 2.5x)
+const SEAL_READY_PULSE := 1.1  # s one breath of a seal that can fire now (glow swells and fades, looping)
 const LINE_HOLD := 0.8     # a line stays up this long, at reading speed even on a bot's turn
 const MARKS_FONT := 36     # mark pips and claims under each window
 const LINE_FONT := 40      # a Sin's line, in the speech tab at its window's foot
