@@ -1,5 +1,5 @@
 ## Phase 8 table, BLOCKOUT round 4 (Ben, 2026-11-15): flat shapes in the five-colour palette, under
-## the restraint rules (Docs/UXPlan.md). Only the Sins' glass and the dice carry detail; everything
+## the restraint rules (Docs/ArtDirection.md). Only the Sins' glass and the dice carry detail; everything
 ## else is a flat shape or plain ink line, a placeholder for the woodcut-ink pieces still to be drawn.
 ## Drawn whole from a state (build()); fixtures (tools/fixture.gd, screen "table") draw one moment,
 ## and ui/table_play.gd redraws it as the real game moves.

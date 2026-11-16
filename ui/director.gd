@@ -1,4 +1,4 @@
-## Stages every gameplay event as a beat that directs the eye (Docs/UXPass.md):
+## Stages every gameplay event as a beat that directs the eye (Docs/archive/UXPass.md):
 ## one focal point at a time (everything else dims), four phases per beat
 ## (anticipation, action, impact, hold), values travel from cause to effect and count up
 ## where they land, and bigger results get bigger staging. Timings: ui/tuning.gd.

@@ -1,7 +1,7 @@
 ## Plays presentation actions one after another, so the screen never runs ahead of itself.
 ## The rules push actions (via ui/main.gd) faster than they play; core/game.gd's awaited
 ## view.beat() calls drain() so the rules can't get more than one step ahead of the screen.
-## Timing comes from ui/tuning.gd (Tuning.speed is the global multiplier). Docs/UXPass.md.
+## Timing comes from ui/tuning.gd (Tuning.speed is the global multiplier). Docs/archive/UXPass.md.
 extends Node
 
 const Tuning = preload("res://ui/tuning.gd")

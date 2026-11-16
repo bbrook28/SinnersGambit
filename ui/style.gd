@@ -1,4 +1,4 @@
-## Art direction in code: palette, fonts and UI pieces. Docs/Plan.md has the brief.
+## Art direction in code: palette, fonts and UI pieces. Docs/ArtDirection.md has the rules.
 ## Gold = numbers that matter. Jewel colour only in stained glass. Bone for dice and parchment.
 extends RefCounted
 

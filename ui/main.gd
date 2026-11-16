@@ -1,5 +1,5 @@
 ## Playtest UI: you + 6 bots, one Sin each, Rules.V2 with Tiers 1+2.
-## Look: Docs/ArtDirection.md (art, iPhone layout) and Docs/ArtAudit.md. Built in code.
+## Look: Docs/ArtDirection.md (art); the table as built: Docs/TableSpec.md. Built in code.
 ## Board: three zones. Glance (25%): Sin windows. Stage (45%): dice and score. Thumb (30%): actions.
 extends Control
 
@@ -95,7 +95,7 @@ var _log_lines: Array[String] = []
 var _log_overlay: Control
 var _log: RichTextLabel
 var _notes: Array = []           # marginalia currently showing, oldest first
-## Every state change plays through this, one beat at a time (Docs/UXPass.md). The board shows
+## Every state change plays through this, one beat at a time (Docs/archive/UXPass.md). The board shows
 ## the snapshot taken when the event happened, never the live rules state.
 var _q: Node
 var _dir: Node                    # ui/director.gd: stages each beat
@@ -2308,7 +2308,7 @@ func _with_sigils(bb: String) -> String:
 	return bb
 
 
-## Turn change: its own beat (longer when it's yours). Docs/UXPass.md #1.
+## Turn change: its own beat (longer when it's yours). Docs/archive/UXPass.md #1.
 func turn_started(p) -> void:
 	if _tutor:
 		_tutor.on_turn_started(p)  # rigs a Purgatory throw before core draws it

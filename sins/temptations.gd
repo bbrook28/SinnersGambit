@@ -1,5 +1,5 @@
 ## Temptations (Docs/TableDesign.md §7): 4 offers per Sin, each one gain and one cost, and the 7 claims.
-## Rules only; the words are in ui/rules_text.gd TEMPT (by id) and CLAIMS.
+## Rules only; the words are in ui/rules_text.gd TEMPT_SAY (by id), GAIN_TERMS / COST_TERMS and CLAIMS.
 ## Gains: points (score now; `leader`: taken from the leader), clear (a Strike), dice (extra dice on the
 ## next throw), x2 (the next throw scores double), die (a free die). dice and x2 throw at once.
 ## Costs: lose (points now), bank (from your next Bank), strike (next turn starts with one),

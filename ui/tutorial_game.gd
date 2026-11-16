@@ -1,7 +1,7 @@
 ## The tutorial: a short scripted game (you as Envy, first seat, against a Sloth bot) with rigged
 ## dice, so each rule happens on cue. ui/main.gd builds the game (start_tutorial) and calls the
 ## hooks below from show_prompt, beat and turn_started; this walks SCRIPT one step at a time.
-## Wording: RulesText.TUTORIAL. Docs/Handoff.md § Phase 3.
+## Wording: RulesText.TUTORIAL. Docs/archive/Handoff_2026-11-13_to_15.md § Phase 3.
 extends RefCounted
 
 const RulesText = preload("res://ui/rules_text.gd")

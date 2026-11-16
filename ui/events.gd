@@ -1,6 +1,6 @@
 ## Turns a rules log line (fixed formats in core/game.gd and sins/*.gd) into a typed event,
 ## so each gets its own beat. Unknown lines fall back to "log", so a wording change in core/
-## only loses the specific beat, never breaks play. Durations at 1x: Docs/UXPass.md.
+## only loses the specific beat, never breaks play. Durations at 1x: Docs/archive/UXPass.md.
 extends RefCounted
 
 ## [kind, pattern, seconds]. First match wins; order matters (ability lines are indented too).

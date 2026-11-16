@@ -11,7 +11,7 @@
 extends SceneTree
 
 const Fixture = preload("res://tools/fixture.gd")
-const MIN_FONT_PT := 15.0       # smallest text on device (Docs/UXPlan.md typography)
+const MIN_FONT_PT := 15.0       # smallest text on device (Docs/ArtDirection.md Type)
 const CONTRAST_MIN := 4.5       # WCAG AA for body text
 const CONTRAST_LARGE := 3.0     # text 24 pt and over
 const LARGE_PT := 24.0

@@ -1,7 +1,7 @@
 ## The one place rule text lives: every rule, term and Sin ability in short, plain language.
 ## Numbers are never typed here: {placeholders} are filled from the rules config (core/rules.gd V3
 ## and the constants in sins/*.gd) by vals(). The rulebook, tap-to-explain, the tutorial and Sin
-## select all read from this file. Docs/RulesDraft.md has the approved wording.
+## select all read from this file. Old approved wording: Docs/archive/RulesDraft.md.
 extends RefCounted
 
 const Rules = preload("res://core/rules.gd")
