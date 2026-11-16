@@ -142,6 +142,7 @@ func take_turn(p) -> void:
 			say("  Binding Pact: %s takes %d." % [pname(p.pact_by), cut])
 	if v4:
 		banked = _bank_costs(p, banked)
+	banked = _power_bank(p, banked)
 	p.score += banked
 	if view:
 		say("%s banks %d (score %d)." % [pname(p), banked, p.score])
@@ -207,6 +208,8 @@ func _tempt(p) -> bool:
 	var offer: Dictionary = pick[1][rng.randi_range(0, pick[1].size() - 1)]
 	var sname: String = from.sin.sin_name
 	p.offers_seen += 1
+	var far: bool = leader_score() - p.score >= 150
+	tempt_counts[0 if far else 2] += 1
 	p.last_offer_turn = p.turns_started
 	if not offer_stats.has(offer.id):
 		offer_stats[offer.id] = [0, 0]
@@ -228,6 +231,7 @@ func _tempt(p) -> bool:
 	if not yes:
 		return false
 	p.offers_taken += 1
+	tempt_counts[1 if far else 3] += 1
 	offer_stats[offer.id][1] += 1
 	var throws_now := Temptations.apply(scaled, self, p)
 	var behind: int = leader_score() - p.score
@@ -324,7 +328,7 @@ func _power_start(p) -> void:
 	if not _powers_on(p):
 		return
 	_ps(p).turns += 1
-	if p.sin.sin_name != "Pride":
+	if p.sin.sin_name != "Pride" or not _power_free():
 		return
 	_chance(p)
 	var n := _max_throw(p)
@@ -381,7 +385,7 @@ func _power_after_throw(p) -> void:
 	var go := true
 	if _smart(p):
 		var stake: int = turn.points + throw_score(turn.faces)
-		go = busting or (turn.strikes + s >= 2 and stake >= int(opt("smart_stake", 100)))
+		go = (busting and stake > _price()) or (turn.strikes + s >= int(opt("smart_min_strikes", 2)) and stake >= int(opt("smart_stake", 100)) + _price())
 	if not go:
 		return
 	_power_effect(p, sname, best)
@@ -443,7 +447,7 @@ func _power_greed(p) -> bool:
 	if _smart(p):
 		var ev_all: float = maxf(float(turn.points), p.bot.expected_after_throw(n, turn.points, left, chain, face_mult))
 		var ev_half: float = half + p.bot.expected_after_throw(n, turn.points - half, left, chain, face_mult)
-		go = ev_half > ev_all and turn.points >= int(opt("smart_greed", 0))
+		go = ev_half + half * (float(opt("greed_mult", 1.0)) - 1.0) - _price() > ev_all and turn.points >= int(opt("smart_greed", 0))
 	else:
 		go = turn.points >= 150
 	if not go:
@@ -456,6 +460,8 @@ func _power_greed(p) -> bool:
 
 ## Claims by the claimed seat's place when claimed: "last", "lead" or "mid".
 var claim_ranks := []
+## Offers to a seat 150+ behind, accepted; offers to other seats, accepted.
+var tempt_counts := [0, 0, 0, 0]
 
 
 func _rank(p) -> String:
@@ -489,7 +495,7 @@ func _power_envy_copy(p) -> void:
 		return  # a busting throw: nothing to copy into
 	var go := true
 	if _smart(p):
-		go = scorers >= int(opt("smart_copy", 2)) and (best >= int(opt("smart_best", 4)) or not p.bot.wants_throw(p, self, turn.points + throw_score(turn.faces), turn.strikes + _strikes(turn.faces)))
+		go = best * face_mult > _price() and scorers >= int(opt("smart_copy", 2)) and (best >= int(opt("smart_best", 4)) or not p.bot.wants_throw(p, self, turn.points + throw_score(turn.faces), turn.strikes + _strikes(turn.faces)))
 	if go:
 		if opt("envy_flat", false):
 			turn.points += best * face_mult  # the copy scores its face, outside the multiplier
@@ -517,3 +523,17 @@ func _power_declare(p) -> void:
 		_use(p, first)
 		turn.remove_meta("power")  # the effect still has to fire after the throw
 		turn.set_meta("power_after", true)
+
+
+## power_restraint N: bank with your power unspent this turn, +N. power_cost N: bank after using it, -N.
+func _power_bank(p, banked: int) -> int:
+	if not _powers_on(p) or banked <= 0:
+		return banked
+	if turn.has_meta("power"):
+		return maxi(0, banked - int(opt("power_cost", 0)))
+	return banked + int(opt("power_restraint", 0))
+
+
+## What a use costs at the Bank, for a smart bot's sums.
+func _price() -> int:
+	return int(opt("power_cost", 0)) + int(opt("power_restraint", 0))

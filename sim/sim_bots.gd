@@ -129,3 +129,71 @@ class Novice extends "res://ai/bot_policy.gd":
 		if p.score + turn_points >= 1000:
 			return false
 		return turn_points < stop and strikes < 2
+
+
+## Decision split (sim pass 3): a plain bot that changes one decision at a time.
+## offer_mode: "heur" (BotPolicy.offer_value), "weigh" (standings-aware), "never", "always".
+## target_mode: "heur" (newest grudge, else leader), "leader", "next" (the seat closest above me).
+class Split extends Plain:
+	var offer_mode := "heur"
+	var target_mode := "heur"
+
+	func _init(p_target := 5, p_bank_at := 300) -> void:
+		super(p_target, p_bank_at)
+		label = "split"
+
+	func wants_temptation(game, p, from, offer: Dictionary) -> bool:
+		match offer_mode:
+			"never":
+				return false
+			"always":
+				return true
+			"weigh":
+				return weigh(game, p, from, offer) > 0.0
+		return super(game, p, from, offer)
+
+	## The heuristic's value, but a mark that can't count costs nothing, a claim costs more while
+	## ahead, and while behind a gain counts more (a lead is worth more than its points).
+	func weigh(game, p, from, offer: Dictionary) -> float:
+		var v := offer_value(game, p, from, offer)
+		var sname: String = from.sin.sin_name
+		var behind: int = game.leader_score() - p.score
+		var free_at := int(game.opt("mark_free_behind", 0))
+		var mark: float = MARK_COST
+		var progress := clampf(float(game.leader_score()) / Rules.WIN_SCORE, 0.0, 1.0)
+		if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
+			mark = CLAIM_COST * (1.0 - progress * 0.5)
+		if free_at > 0 and behind >= free_at:
+			v += mark  # this mark won't count
+		elif behind <= 0:
+			v -= mark * 0.5  # ahead: a claim is a bigger threat to a lead
+		if behind >= 200:
+			v += 20.0
+		return v
+
+	func pick_target(game, me):
+		match target_mode:
+			"leader":
+				return game.leader_other(me)
+			"next":
+				var best = null
+				for o in game.players:
+					if o != me and o.score >= me.score and (best == null or o.score < best.score):
+						best = o
+				return best if best != null else game.leader_other(me)
+		return super(game, me)
+
+
+## Best, plus Split's offer and target modes.
+class BestSplit extends Best:
+	var offer_mode := "heur"
+	var target_mode := "heur"
+	var _s := Split.new()
+
+	func wants_temptation(game, p, from, offer: Dictionary) -> bool:
+		_s.offer_mode = offer_mode
+		return _s.wants_temptation(game, p, from, offer)
+
+	func pick_target(game, me):
+		_s.target_mode = target_mode
+		return _s.pick_target(game, me)

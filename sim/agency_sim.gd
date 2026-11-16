@@ -1,7 +1,7 @@
 ## Agency and comeback measures (Ben, 2026-11-15; Docs/TableDesign.md §10). Sim only: prototype rules
 ## run through sim/sim_game.gd, sim/sim_sins.gd and sim/sim_bots.gd, so core/, sins/ and ai/ stay untouched.
 ## godot --headless --path . --script res://sim/agency_sim.gd -- <pass> [games] [key=value ...]
-##   pass: base | skill | dice | first
+##   pass: base | skill | dice | first | split | novice
 ##   keys override Rules.V4, e.g. purgatory=false powers=true tempt_comeback=true comeback_gap=true
 ##   strike_cap=true die_cost=75 mark_free_behind=150; best=<target,base,kb,ka,late> for the skill bot.
 ## base reports, at 4 seats with Greater and temptations on: win % per Sin; comebacks (share of games won
@@ -55,6 +55,10 @@ func _init() -> void:
 			print(line + " | mean %.1f" % (all / NAMES.size()))
 		"dice":
 			await _dice(games)
+		"split":
+			await _split(games)
+		"novice":
+			await _novice(games)
 		"first":
 			await _first(games)
 	quit()
@@ -83,7 +87,7 @@ func _pass(o: Dictionary, games: int, table: int, special, special_sin := "", si
 	rng.seed = 11
 	var r := {"games": games, "wins": {}, "seats_in": {}, "comebacks": 0, "halves": 0, "leads": 0,
 		"last_turns": 0, "last_purg": 0, "turns": 0, "purg_turns": 0, "throws": 0, "special_wins": 0,
-		"secs": 0.0, "rounds": 0, "last_score": 0, "power": {}, "claims": 0, "ranks": {"last": 0, "lead": 0, "mid": 0}}
+		"secs": 0.0, "rounds": 0, "last_score": 0, "power": {}, "claims": 0, "tc": [0, 0, 0, 0], "ranks": {"last": 0, "lead": 0, "mid": 0}}
 	for g in games:
 		var pool: Array = NAMES.duplicate()
 		for i in range(pool.size() - 1, 0, -1):
@@ -141,6 +145,8 @@ func _pass(o: Dictionary, games: int, table: int, special, special_sin := "", si
 			for key in game.power_stats[n]:
 				r.power[n][key] = r.power[n].get(key, 0) + game.power_stats[n][key]
 		r.claims += game.claims_made
+		for i in 4:
+			r.tc[i] += game.tempt_counts[i]
 		for c in game.claim_ranks:
 			r.ranks[c] += 1
 		var you = game.players[0]
@@ -212,6 +218,7 @@ func _report(name: String, r: Dictionary) -> void:
 		100.0 * r.purg_turns / maxf(1.0, r.turns), r.last_score / g])
 	print("  throws a turn %.2f, rounds %.1f, minutes %.1f (you + 3 bots) | claims %.2f a game: last %.2f, mid %.2f, lead %.2f" % [
 		float(r.throws) / r.turns, r.rounds / g, r.secs / g / 60.0, r.claims / g, r.ranks.last / g, r.ranks.mid / g, r.ranks.lead / g])
+	print("  offers accepted: by a seat 150+ behind %.0f%% of %d, by others %.0f%% of %d" % [100.0 * r.tc[1] / maxf(1.0, r.tc[0]), r.tc[0], 100.0 * r.tc[3] / maxf(1.0, r.tc[2]), r.tc[2]])
 	if not r.power.is_empty():
 		var pl := "  powers (used on % of turns / share of uses at the turn's first chance / busts saved per use):"
 		for n in NAMES:
@@ -264,3 +271,59 @@ func _first(games: int) -> void:
 		easy.risk = cfg[1]
 		var r := await _pass(o, games, 3, novice, "", false, easy)
 		print("first game (3 seats, no abilities), bots bank at %d risk %.1f buy to %d: novice wins %.1f%% (fair 33.3)" % [cfg[0], cfg[1], cfg[2], r.special_win])
+
+
+## Mean edge over the 7 Sins of `b` (in a random seat) against 3 plain first-chance bots.
+func _edge(b, games: int) -> String:
+	var line := ""
+	var all := 0.0
+	for n in NAMES:
+		var r := await _pass(opts, games, 4, b, n)
+		line += " %s %.1f" % [n.substr(0, 4), r.special_win]
+		all += r.special_win
+	return "mean %.1f |%s" % [all / NAMES.size(), line]
+
+
+## Skill edge split by decision: each bot is the plain bot with one decision changed.
+func _split(games: int) -> void:
+	opts["plain_smart"] = false
+	var rows := []
+	rows.append(["plain (control)", SimBots.Split.new(5)])
+	rows.append(["buy: to 4 dice", SimBots.Split.new(4)])
+	rows.append(["buy: to 3 dice", SimBots.Split.new(3)])
+	var bank = SimBots.Best.new(5, 0.9, 0.0, 0.5, 0.3)
+	bank.smart = false
+	rows.append(["bank: risk follows standings", bank])
+	var pw = SimBots.Split.new(5)
+	pw.smart = true
+	rows.append(["power: hold for a bad throw", pw])
+	for m in ["weigh", "never", "always"]:
+		var o = SimBots.Split.new(5)
+		o.offer_mode = m
+		rows.append(["offers: " + m, o])
+	for m in ["leader", "next"]:
+		var t = SimBots.Split.new(5)
+		t.target_mode = m
+		rows.append(["target: " + m, t])
+	var all = SimBots.BestSplit.new(4, 0.9, 0.0, 0.5, 0.3)
+	all.smart = false
+	all.offer_mode = "weigh"
+	rows.append(["all: best + weigh offers", all])
+	for row in rows:
+		print("%s: %s" % [row[0], await _edge(row[1], games)])
+
+
+## The best bot against three novice stand-ins (sim/sim_bots.gd Novice), per Sin.
+func _novice(games: int) -> void:
+	var nov = SimBots.Novice.new(150)
+	for cfg in [["best, first-chance powers", false], ["best, holds powers", true]]:
+		var b = SimBots.BestSplit.new(4, 0.9, 0.0, 0.5, 0.3)
+		b.smart = cfg[1]
+		b.offer_mode = "weigh"
+		var line := ""
+		var all := 0.0
+		for n in NAMES:
+			var r := await _pass(opts, games, 4, b, n, true, nov)
+			line += " %s %.1f" % [n.substr(0, 4), r.special_win]
+			all += r.special_win
+		print("%s vs 3 novices (fair 25): mean %.1f |%s" % [cfg[0], all / NAMES.size(), line])
