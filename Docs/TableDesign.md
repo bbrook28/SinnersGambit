@@ -81,3 +81,44 @@ Strike, Bust, Bank, Purgatory, Temptation, Mark, Claim, Circle. Plain words, not
 - Temptations: 8.5 offers a game at 4 seats, 41% accepted. Claims 0.14 a game, under the 0.5-1.5 target; left as is until play shows how often a human is claimed (if rare, drop the bot's claim price from 100 to 60).
 - Claim cost (relative win drop, target 15-35%): Wrath 18, Greed 19, Lust 19, Envy 18, Pride 25, Gluttony 18, Sloth 30.
 - Purgatory: 6.1 a game, half freed by a 6; turning it off moves no Sin more than 2.1 points. Kept for the drama.
+
+## 10. Agency and comeback (draft for Ben's OK, 2026-11-15; nothing here is built)
+Why: in build 114 Ben (Sloth, 4 seats) ended on 20 against 390-545 with no way back, sat in Purgatory, never saw his ability act, and felt the dice decided. Measured with `sim/agency_sim.gd` (sim only; 20,000 games at 4 seats, V4, plain bots; skill: 4,000 games per Sin).
+
+| Measure | Now | Purgatory off | + universal rethrow | Target |
+|---|---|---|---|---|
+| Skill edge: best bot vs 3 plain, mean (range) | 31.8% (26.3 Sloth to 39.7 Greed) | | | 35-45% |
+| Comebacks (last at 500 goes on to win); lead changes a game | 7.3%; 4.15 | 7.3%; 4.14 | 7.2%; 4.15 | 10-20% |
+| Last seat's turns begun in Purgatory (all seats) | 45.5% (30.5) | 0 | 33.7% (19.6) | |
+| Equal bots, lowest to highest Sin | 20.9 Sloth to 28.7 Lust | 19.7 to 27.8 | 16.5 Sloth to 35.2 Pride | 22-28 |
+| Last seat's final score; rounds; minutes (you + 3 bots) | 272; 5.5; 1.6 | 295; 5.4; 1.5 | 336; 4.4; 1.4 | |
+- Skill edge comes mostly from one decision: never buying dice (the best bot stays on 3 dice; at 5 it wins 24-27%). Throw-or-bank timing adds 1-3 points. Buying at 100 is a trap.
+- **Rec, Purgatory: cut.** Off, no Sin moves more than 1.5 points, the last seat ends 23 higher, games are 0.1 min shorter, one term fewer. A bust just loses the turn. **Rec, universal rethrow: drop.** Used 0.75 times a turn, it saves a bust on 18% of uses and shortens games by a round, but comebacks don't move and Sin shares spread to 16.5-35.2 (it duplicates Sloth's and Wrath's powers). The active powers below give the same relief per Sin.
+**Active powers.** Each Sin's Basic becomes a once-a-turn power: tap my Sin's sigil seal, a third control between Bank and Throw (`Docs/TableSpec.md`). It glows when usable, shows spent when used, fires with the ring-and-sigil effect. Bots use theirs visibly. Greater stays as it is. Target: used on about half of turns, each Sin 22-28% with equal bots (sim before any UI).
+| Sin | Power (10 words max) | When it's worth it |
+|---|---|---|
+| Sloth | Ignore this throw's Strikes. | after a bad throw; once, so save it or spend it |
+| Wrath | Rethrow your Strikes once. | after a throw with Strikes |
+| Greed | Bank half your stake now; keep throwing for the rest. | a big stake you want to push |
+| Lust | Turn one of your dice into the last player's best. | after a throw: which die |
+| Envy | While behind, this throw scores double. | before a throw: commit, a bust wastes it |
+| Pride | Name your Bank; reach it for x1.5, else nothing. | before the first throw: 150, 200 or 250 |
+| Gluttony | Eat one thrown die: +50, and it isn't a Strike. | after a throw; the die is back next turn |
+**Comeback through temptation.** Behind the leader by D: an offer's gain is x(1 + D/200), up to x3 (points rounded to 5; extra and free dice rounded); at D 400+, "clear a Strike" clears all and x2 becomes x3. Costs stay the same. Trailing by 150+, an offer comes every turn (else every other). Measured (points and dice only): comebacks 7.3 to 11.1% with both; 12.4% at D/100 with Purgatory off. Greed and Sloth slip to 18-20, so retune with the powers.
+**First-game bots.** A novice stand-in (throws on under 150 and 2 Strikes, buys to 4) wins 22.9% of Onboarding game one (3 seats, no abilities) against plain bots. Bots that bank at 200 with risk 1.6 and buy to 4 give 42.9%. **Rec:** that setting for game one only, aiming at 40%.
+**The Master of the Dance.** A Danse Macabre skeleton, ink on the page (not glass), the table's host. Neutral: he wins whoever loses. He deals and narrates, snuffs my Strike candles, announces each Sin before its temptation, reacts to busts, big Banks and wins, and goads at my decision in words only. Offers and their terms stay with the Sins. Voice: courtly, dry, amused; never cruel to a new player. At most one line a turn, on about a third of events (`MASTER_CHANCE` 0.33), never in the same beat as a Sin's line.
+| Event | Lines (6 words max) |
+|---|---|
+| Game start | Take your seats. The dance begins. / Dice ready. Souls ready. Shall we? / Seven Sins, one table. Delightful. / Mind your candles. Let us begin. / Welcome, welcome. Do throw first. |
+| My bust | Ah. The dice have spoken. / Three candles out. Do sit. / A misstep. Everyone stumbles once. / Gone. Shall we try again? / Pity. It was going beautifully. |
+| My big Bank | Splendid. Do bank like that again. / Well kept. The Sins noticed. / A fine harvest, if I may. / Bravo. My compliments to your nerve. / Into your keeping. Nicely done. |
+| Rival's bust | Oh dear. Not you this time. / {name} trips. How very human. / Snuffed. Do take note. / The dance claims {name}. Briefly. / Careful steps win. Usually. |
+| A Sin arrives to tempt | {name} has a little proposal. / A word from {name}, please. / Ah, {name} wishes to bargain. / Listen closely. {name} is generous. / {name} approaches. Mind your purse. |
+| Mark taken | Marked. {name} will remember. / A small price. For now. / Signed in ink. How brave. / {name} smiles. That's rarely good. / One mark. Do count them. |
+| Claim | Two marks. {name} owns you now. / Claimed. I did mention it. / {name} takes a seat in you. / Bound. The dance goes on. / Well. A lasting arrangement, then. |
+| My win | The dance is yours. Well played. / A thousand. I'm genuinely impressed. / Victory. The Sins will sulk. / Bow, please. You've earned it. / Splendid. Do come again. |
+| My loss | Not tonight. There's always another. / The dice were unkind. Again? / A good dance, all the same. / Rest. The table will wait. / Close. Closer than they'd admit. |
+| Idle at my decision | Throw, or keep? Your call. / Candles are patient. I am less. / Courage or caution, dear guest? / Another throw? Purely a suggestion. / Take your time. Eternity's long. |
+- **Rec, jester: cut**: the Master covers every reaction; one fewer object (restraint 5). Ladder: he opens each Circle ("Wrath's table"). Endings: The Saint, he bows and lets you leave the dance; The Eighth Sin, he gives you his place as host; Claimed, he leads you by the hand to the Sin's window and seats you in it.
+- Art (none painted yet), each in the style of `assets/art/runtime/marginalia/skeleton.png`, flat ink line: idle leaning on a candle-snuffer; snuffing a candle; a sweeping bow (game start, a Sin's arrival); pointing at the dice (goad); applause (big Bank, win); a shrug (bust); writing in a ledger (mark); a hand on my shoulder towards a window (claim); leading the dance, full figure (endings).
+**Changes for OK.** `core/`: `Rules.V5` (V4 replays): purgatory off, power and comeback keys; `game.gd`: a power window before and after each throw (once a turn), comeback scaling and the every-turn offer, Master events through `view`; `turn_state.gd`: power used. `sins/`: each Sin's Basic becomes `power_ready()` / `use_power()` under V5 (old Basics kept for V4); `temptations.gd`: scaled gains. `ai/`: `bot_policy.gd` `wants_power()` per Sin, a first-game setting (bank 200, risk 1.6, buy 4), and buying reviewed (see question 2). Also `sim/agency_sim.gd` measures power use and shares before any UI.
