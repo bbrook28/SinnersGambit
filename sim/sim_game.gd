@@ -309,36 +309,8 @@ func _start_costs(p) -> void:
 # ---------- Prototype: dice and Strikes ----------
 
 ## strike_cap: true -- dice beyond the third add at most one Strike to a throw.
-## mark (REPLY 14): at the start of each round the Master marks the leader (sim/profile_sim.gd sets this
-## seat); "chain": the marked seat's chain is off that round; "die": it throws one die fewer.
-var marked := -1
-
-
-func is_marked(p) -> bool:
-	return p != null and p.seat == marked and str(opt("mark", "")) != ""
-
-
-## The chain this throw scores with: none for a seat the Master marked (mark=chain).
-func chain_for(p) -> float:
-	return 0.0 if is_marked(p) and str(opt("mark", "")) == "chain" else chain
-
-
-## chain_cap (REPLY 13): the chain multiplier tops out at this (x2: chain 0.5 stops at three scorers).
-func throw_score(faces: Array) -> int:
-	var cap := float(opt("chain_cap", 0.0))
-	var ch := chain_for(current)
-	if cap <= 0.0 and ch == chain:
-		return super(faces)
-	var f := Array(faces, TYPE_INT, "", null)
-	var base := Rules.score(f, 0.0, face_mult)
-	var scorers := f.filter(func(x): return x >= 4).size()
-	var mult := 1.0 + ch * maxi(0, scorers - 1)
-	if cap > 0.0:
-		mult = minf(mult, cap)
-	var pts := int(base * mult)
-	return pts / 5 * 5 if round5 else pts
-
-
+## mark "die" (REPLY 14, sim only): the seat core/game.gd marks throws one die fewer that round. The
+## mark itself, mark "chain", chain_cap and the bust softener live in core (Rules.V5, REPLY 15).
 func _max_throw(p) -> int:
 	var n: int = super(p)
 	if is_marked(p) and str(opt("mark", "")) == "die":
@@ -642,10 +614,10 @@ func _power_after_throw(p) -> void:
 
 func _power_effect(p, sname: String, best: int) -> void:
 	match sname:
-		"Sloth":
+		"Sloth":  # idle_face (REPLY 15, sim only): the face a Strike becomes; the build keeps 3
 			for i in turn.faces.size():
 				if turn.faces[i] <= 2:
-					turn.faces[i] = 3
+					turn.faces[i] = int(opt("idle_face", 3))
 		"Wrath":
 			for i in turn.faces.size():
 				if turn.faces[i] <= 2:

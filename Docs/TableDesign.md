@@ -97,7 +97,7 @@ Decided: Purgatory cut; universal rethrow dropped; comeback offers, first-game b
 | Sin | Power (10 words max) | Numbers | Used on % of turns / at the first chance |
 |---|---|---|---|
 | Wrath | Rethrow up to two of this throw's Strikes. | Fury now at 300+ (200+ on a grudge); Drag 4 | 62 / 44 |
-| Greed | Bank half your stake at x2; keep throwing. | The Vig to 60 a die (from 40) | 67 / 81 |
+| Greed | Bank half your stake at x1.25; keep throwing. | The Vig to 60 a die (from 40) | 67 / 81 |
 | Lust | Turn a Strike into the last player's best die. | Her seal shows that face | 53 / 47 |
 | Envy (new) | Copy your best die: it scores its face again. | Outside the multiplier; any position, so it can't stack with comeback offers. Mimicry copies 3 | 72 / 80 |
 | Pride | Name your Bank: reach it for x1.75, else nothing. | 150, 200 or 250 | 73 / 100 |
@@ -119,6 +119,8 @@ Decided: Purgatory cut; universal rethrow dropped; comeback offers, first-game b
 | Claim | {claim_marks} marks. {name} owns you now. / Claimed. I did mention it. / {name} will keep you close. / Bound. The dance goes on. / Well. A lasting arrangement, then. |
 | My win | The dance is yours. Well played. / {win}. I'm genuinely impressed. / Victory. The Sins will sulk. / Bow, please. You've earned it. / Splendid. Do come again. |
 | My loss | Not tonight. There's always another. / The dice were unkind. Again? / A good dance, all the same. / Rest. The table will wait. / Close. Closer than they'd admit. [within {close} (100) of the winner] |
+| The round's mark (always) | You lead. No chain this round. / Ahead? Then no chain this round. / First place. No chain this round. / Marked. No chain this round. / Leader's toll: no chain this round. Rival: {name} leads. No chain this round. / {name} leads. Chain off this round. / I mark {name}. No chain. / Marked: {name}. No chain this round. / {name} pays: no chain this round. |
 | Idle at my decision | Throw, or keep? Your call. / Candles are patient. I am less. / Courage or caution, dear guest? / Another throw? Purely a suggestion. / Take your time. Eternity's long. |
 - Ladder: he opens each Circle ("Wrath's table"). Endings: The Saint, he bows and lets you leave the dance; The Eighth Sin, he gives you his place as host; Claimed, he leads you to the Sin's window and seats you in it. Art (nothing painted), flat ink like `assets/art/runtime/marginalia/skeleton.png`: idle on a candle-snuffer; snuffing; a bow; pointing at the dice; applause; a shrug; writing in a ledger; a hand on my shoulder towards a window; leading the dance, full figure.
+**Decided (REPLY 15), built in `Rules.V5`:** the chain multiplier caps at x2 (`chain_cap`); a bust keeps half the turn's face points, to 5, never the chain (`soften` "half"); Greed's Cash Out at x1.25; the Master's mark: as each round starts he marks the strict leader (score above 0), who scores no chain that round (`mark` "chain"). He calls the end at 600 (`Rules.MASTER_CALL`).
 **Built (REPLY 3):** `core/rules.gd` `V5`, `sins/` powers, `ai/bot_policy.gd` `wants_power` and `first_game`; tests `tests/v5_check.gd`.

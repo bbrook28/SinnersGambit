@@ -35,6 +35,8 @@ func _initialize() -> void:
 	await _fury()
 	_apply()
 	_bots()
+	_reply15()
+	await _mark_live()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -42,6 +44,61 @@ func _initialize() -> void:
 		print("FAIL ", f)
 	print("V5 CHECK %s: %d checks" % ["PASSED" if fails.is_empty() else "FAILED (%d)" % fails.size(), checks])
 	quit()
+
+
+## REPLY 15: the chain caps at x2, a marked seat scores no chain, a bust keeps half the face points
+## (to 5), and the Master marks only a strict leader above 0.
+func _reply15() -> void:
+	var g := _table()
+	check(g.throw_score([4, 5, 6, 6, 5]) == 260, "five scorers: 130 x2 (capped, not x3) = 260")
+	check(g.throw_score([4, 5, 1]) == 65, "two scorers: 45 x1.5 = 65 (to 5), under the cap")
+	g.marked = 0
+	check(g.throw_score([4, 5, 6, 6, 5]) == 130 and g.score_for(g.players[1], [4, 5, 6, 6, 5]) == 260, "the marked seat scores no chain; the others do")
+	check(g.bust_keep(130) == 65 and g.bust_keep(95) == 45 and g.bust_keep(0) == 0, "a bust keeps half the face points, to 5")
+	check(_table(4, {"soften": ""}).bust_keep(130) == 0, "without the softener a bust keeps nothing")
+	for case in [[[100, 300, 200, 0], 1], [[100, 300, 300, 50], -1], [[0, 0, 0, 0], -1]]:
+		for i in 4:
+			g.players[i].score = case[0][i]
+		g.mark_leader()
+		check(g.marked == case[1], "the Master marks %s for scores %s" % [str(case[1]), str(case[0])])
+	var off := _table(4, {"mark": ""})
+	off.players[1].score = 300
+	off.mark_leader()
+	check(off.marked == -1 and off.chain_for(off.players[1]) == off.chain, "no mark rule: nobody is marked")
+
+
+## A view that only counts the Master's facts.
+class MarkView extends RefCounted:
+	var marks := []
+	var game = null
+	func log_line(_t: String) -> void:
+		pass
+	func beat(_p, _k: String) -> void:
+		pass
+	func player_name(p) -> String:
+		return "seat%d" % p.seat
+	func turn_started(_p) -> void:
+		pass
+	func master_event(kind: String, p, _f: Dictionary) -> void:
+		if kind == "leader_mark":
+			marks.append([game.round_count, p.seat, game.marked])
+
+
+## Whole V5 games: the Master marks a leader as rounds start, and the seat he names is the one marked.
+func _mark_live() -> void:
+	var seen := 0
+	var right := true
+	for sd in 5:
+		var g := _table(4, {"master_call": Rules.MASTER_CALL})
+		g.rng.seed = 100 + sd
+		var v := MarkView.new()
+		v.game = g
+		g.view = v
+		await g.play()
+		seen += v.marks.size()
+		for m in v.marks:
+			right = right and m[1] == m[2]
+	check(seen > 0 and right, "in play the Master marks the round's leader (%d marks in 5 games)" % seen)
 
 
 func _table(n := 4, opts := {}, first := 0) -> Game:
@@ -68,7 +125,8 @@ func _rules() -> void:
 	check(Rules.V5.v5 and Rules.V5.v4 and Rules.V5.powers, "V5 flags")
 	check(Rules.V5.vig == 60 and Rules.V5.fury_trigger == 300 and Rules.V5.fury_grudge == 200, "V5: Vig 60, Fury 300 / 200")
 	check(Rules.V5.hubris_mult == 1.75 and Rules.V5.hubris_targets == [150, 200, 250], "V5: Hubris x1.75 at 150 / 200 / 250")
-	check(Rules.V5.eat == 60 and Rules.V5.greed_mult == 2.0 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
+	check(Rules.V5.eat == 60 and Rules.V5.greed_mult == 1.25 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
+	check(Rules.V5.chain_cap == 2.0 and Rules.V5.soften == "half" and Rules.V5.mark == "chain", "V5: chain cap x2, a bust keeps half, the Master marks the leader (REPLY 15)")
 	check(Rules.V5.comeback_per == 200 and Rules.V5.comeback_cap == 3.0 and Rules.V5.mark_free_behind == 150, "V5: comeback numbers")
 	for k in Rules.V4:
 		if k in ["purgatory", "auto_purgatory", "purgatory_cost", "vig", "fury_trigger", "fury_grudge", "hubris_mult", "feast", "rage", "glance_trail", "drag"]:

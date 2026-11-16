@@ -14,7 +14,7 @@ const SimBots = preload("res://sim/sim_bots.gd")
 const Rules = preload("res://core/rules.gd")
 const NAMES := ["Wrath", "Greed", "Lust", "Envy", "Pride", "Gluttony", "Sloth"]
 ## The V5 rules as the sim models them (sim pass 3 + REPLY 3 numbers; the same set sim/agency_sim.gd ran).
-const V5_SIM := "purgatory=false powers=true greed_vig=true greed_mult=1.5 envy_mode=copy envy_flat=true hubris_mult=1.75 smart_copy=1 smart_best=6 smart_greed=50 no_sin_risk=true wrath_max=2 fury_trigger=300 fury_grudge=200 eat=90 tempt_comeback=true comeback_gap=true mark_free_behind=150 vig=60 plain_smart=false smart_sins=Greed eat=60 no_sin_risk=false greed_mult=2.0 mimic=3 drag=4"
+const V5_SIM := "purgatory=false powers=true greed_vig=true greed_mult=1.5 envy_mode=copy envy_flat=true hubris_mult=1.75 smart_copy=1 smart_best=6 smart_greed=50 no_sin_risk=true wrath_max=2 fury_trigger=300 fury_grudge=200 eat=90 tempt_comeback=true comeback_gap=true mark_free_behind=150 vig=60 plain_smart=false smart_sins=Greed eat=60 no_sin_risk=false greed_mult=2.0 mimic=3 drag=4 greed_mult=1.25 chain_cap=2.0 soften=half mark=chain"
 const KINDS := ["plain", "novice", "banker", "gambler", "chaser", "sitter", "forgetter", "taker", "grudge"]
 
 var opts := {}
@@ -92,10 +92,7 @@ func _play(game) -> Dictionary:
 	while game.winner == null and game.round_count < game.MAX_ROUNDS:
 		game.round_count += 1
 		st.round_start = game.players.map(func(q): return q.score)
-		if opts.has("mark"):  # REPLY 14: the Master marks the strict leader at the round's start
-			var top: int = game.leader_score()
-			var at: Array = game.players.filter(func(q): return q.score == top)
-			game.marked = at[0].seat if top > 0 and at.size() == 1 else -1
+		game.mark_leader()  # the Master marks the strict leader (Rules.V5 "mark"; mark=off for none)
 		if master_at > 0 and called >= 0 and game.round_count == called + 2:
 			game.finish_round = true  # the final round: everyone throws once more, then the highest wins
 			game.end_triggered = true
@@ -323,7 +320,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark", "eat", "idle_face"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])

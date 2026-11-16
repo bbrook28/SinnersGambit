@@ -62,6 +62,9 @@ var end_triggered := false  # someone reached 1000 this round (finish_round mode
 ## round's end the Master calls it, the next round is the penultimate, then a final round, highest wins.
 var master_call := 0
 var called_round := -1  # the round the Master called it, or -1
+## The Master's mark (Rules.V5 "mark", REPLY 15): at the start of each round he marks the strict leader
+## (score above 0); "chain": that seat scores no chain this round ("die", sim only: one die fewer).
+var marked := -1
 var is_tie := false
 
 var turn = null                     # TurnState of the turn in progress
@@ -137,6 +140,7 @@ func play():
 			finish_round = true
 			end_triggered = true
 			_master("final", _leader(), {})
+		mark_leader()
 		for p in players:
 			await take_turn(p)
 			if winner != null:
@@ -347,6 +351,7 @@ func take_turn(p) -> void:
 	elif throw_all:
 		await p.bot.wants_throw(p, self, 0, 0)  # the first throw is never optional; you tap Throw
 		count = _max_throw(p)
+	var face_pts := 0  # the turn's face points so far, before chain (soften: a bust keeps half)
 	while count > 0:
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
@@ -373,9 +378,16 @@ func take_turn(p) -> void:
 			if view:
 				say("  %d Strikes: %s BUSTS%s." % [turn.strikes, pname(p), " and goes to Purgatory" if purgatory_on else ""])
 			_bust(p)
+			var keep := bust_keep(face_pts)
+			if keep > 0:
+				p.score += keep
+				if view:
+					say("  keeps %d (half the face points)." % keep)
 			await beat(p, "end")
 			return
 		turn.throw_points = throw_score(turn.faces)
+		face_pts += Rules.score(Array(turn.faces, TYPE_INT, "", null), 0.0, face_mult)
+		turn.face_pts = face_pts
 		if doubled:
 			turn.throw_points *= 2
 		turn.points += turn.throw_points
@@ -688,9 +700,51 @@ func _tempt(p) -> bool:
 
 
 ## A throw's points under this table's options: the chain multiplier, then V4's round down to 5.
+## chain_cap: the multiplier tops out there (x2: chain 0.5 stops at three scorers). A marked seat has no chain.
 func throw_score(faces: Array) -> int:
-	var pts := Rules.score(Array(faces, TYPE_INT, "", null), chain, face_mult)
+	return score_for(current, faces)
+
+
+## The points these faces score for seat p (the view shows a throw's gain with it).
+func score_for(p, faces: Array) -> int:
+	var f := Array(faces, TYPE_INT, "", null)
+	var ch := chain_for(p)
+	var cap := float(opt("chain_cap", 0.0))
+	var pts := 0
+	if cap <= 0.0:
+		pts = Rules.score(f, ch, face_mult)
+	else:
+		var scorers := f.filter(func(x): return x >= 4).size()
+		pts = int(Rules.score(f, 0.0, face_mult) * minf(1.0 + ch * maxi(0, scorers - 1), cap))
 	return pts / 5 * 5 if round5 else pts
+
+
+## What a bust keeps (opt "soften"): "half" = half the turn's face points, to 5; otherwise nothing.
+func bust_keep(face_pts: int) -> int:
+	return face_pts / 2 / 5 * 5 if str(opt("soften", "")) == "half" else 0
+
+
+func is_marked(p) -> bool:
+	return p != null and p.seat == marked and str(opt("mark", "")) in ["chain", "die"]
+
+
+## The chain this seat's throws score with: none while the Master's mark is on it (mark "chain").
+func chain_for(p) -> float:
+	return 0.0 if is_marked(p) and str(opt("mark", "")) == "chain" else chain
+
+
+## The round's mark: the strict leader with a score above 0, or nobody. Called as each round starts.
+func mark_leader() -> void:
+	marked = -1
+	if not str(opt("mark", "")) in ["chain", "die"]:
+		return
+	var top := leader_score()
+	var at := players.filter(func(q): return q.score == top)
+	if top > 0 and at.size() == 1:
+		marked = at[0].seat
+		if view:
+			say("The Master marks %s: no chain this round." % pname(at[0]))
+		_master("leader_mark", at[0], {})
 
 
 # ---------- Rules.V5: powers (Docs/TableDesign.md §10) ----------

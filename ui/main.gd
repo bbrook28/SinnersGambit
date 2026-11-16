@@ -27,7 +27,7 @@ const TablePlay = preload("res://ui/table_play.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 3  # 3: Rules.V4 with temptations (Docs/TableDesign.md); a V3 save can't replay
-const SAVE_VERSION_V5 := 4  # 4: Rules.V5 on the table view; a V4 save can't replay into V5 or back
+const SAVE_VERSION_V5 := 5  # 4: Rules.V5 on the table view; 5: REPLY 15 rules (chain cap, bust keeps half, Cash Out x1.25, the mark). An older save cannot replay into these
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
 const MENU_SEAL := 280
@@ -1923,7 +1923,7 @@ func _snapshot() -> Dictionary:
 		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag, "badges": badges,
 			"marks": p.marks.duplicate(), "claims": p.claims.duplicate(),
 			"debts": [p.pend_bank, p.pend_strike, p.pend_fewer, p.pend_die]})
-	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null}
+	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null, "marked": game.marked}
 	var t = game.turn
 	if t:
 		var faces: Array = (t.faces if t.throws > 0 else t.redeem_faces).duplicate()
@@ -3562,13 +3562,16 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 				holds.append("close")
 		"call", "final":  # REPLY 10: the Master calls the end; each is a beat the table holds on
 			ev = kind
+		"leader_mark":  # REPLY 15: each round he marks the leader; no chain for them this round
+			ev = "marked_me" if mine else "marked_rival"
+			args = {"name": p.sin.sin_name}
 	if ev == "":
 		return
-	var always: bool = kind in ["start", "end", "claim", "call", "final"]
+	var always: bool = kind in ["start", "end", "claim", "call", "final", "leader_mark"]
 	if not always and randf() >= Tuning.MASTER_CHANCE:
 		return
 	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
-	if _master_turn == turn_id and not kind in ["end", "call", "final"]:
+	if _master_turn == turn_id and not kind in ["end", "call", "final", "leader_mark"]:
 		return
 	if kind == "end":  # REPLY 12: his win line reads the winner's score, not 1000 or the call
 		args["win"] = int(p.score)
@@ -3582,11 +3585,13 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 	_master_used[line] = true
 	_master_turn = turn_id
 	var left: int = 2 if kind == "call" else (1 if kind == "final" else 0)  # rounds the track shows left
+	var pose: String = "call" if left > 0 else ("mark" if kind == "leader_mark" else "speak")
+	var target: int = game.players.find(p) if kind == "leader_mark" else -1
 	_q.push(func():
 		if _table:
 			if left > 0:
 				_table.rounds_left = left
-			await _table.master_say(line, "call" if left > 0 else "speak")
+			await _table.master_say(line, pose, target)
 			if left > 0:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
 
