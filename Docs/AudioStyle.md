@@ -22,7 +22,7 @@ Sinners' Gambit sounds like a dice game played on a desk inside a dark cathedral
 - **Bank:** two bell strikes a fifth apart, bright, about 2 s ring.
 - **Bust:** one low toll, long tail (about 4 s), under the glass crack.
 - **Win:** a minor organ chord swelling under a bell, about 3.5 s.
-- **Ability / freed from Purgatory:** a small high bell cluster (shimmer).
+- **Ability:** a small high bell cluster (shimmer).
 - **Count-up ticks:** tiny bell pings, rising in pitch across the count.
 - **Third Strike:** the iron nail plus a small toll.
 - **Buy dice:** bone dropped on wood, pitched down (no chips).
