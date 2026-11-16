@@ -95,6 +95,7 @@ var buy_ghosts: Array = []  # buying: the score each purchase would leave me on 
 var ghost_nodes: Array = []  # their ghost markers, in that order
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
 var call_at := 0       # REPLY 10: the Master calls the end when the leader reaches this (0: first to 1000 wins)
+var call_live := true  # REPLY 21: false before the round he may first call it (the post is dim)
 var rounds_left := 0   # after his call: 2 (penultimate round), 1 (final round)
 ## The Master's figure (REPLY 14, blockout): rest, speak, call (arm raised), mark (arm to master_target's
 ## window, a ring on it), offer (both hands out to master_target's window, a card held).
@@ -343,7 +344,7 @@ func build() -> void:
 		# with a pip for each round left (2: the penultimate round, 1: the final round)
 		_line([Vector2(ax1, ay - 18), Vector2(ax1, ay + 18)], INK, 6.0)
 		var px: float = ax0 + span * clampf(float(call_at) / GOAL, 0.0, 1.0)
-		var pc: Color = CRIMSON if rounds_left > 0 else GOLD
+		var pc: Color = CRIMSON if rounds_left > 0 else (GOLD if call_live else Color("8a7a5c"))  # dim: a grey-gold bar, the number keeps its contrast
 		_line([Vector2(px, ay - 40), Vector2(px, ay + 40)], pc, 16.0, INK)
 		var cl := _label(str(call_at), 46, BONE, INK)  # REPLY 11: bone on a dark outline (4.5:1); the post carries the colour
 		# REPLY 15: just under the line at the post, never stacked on my total; when my marker hangs near the

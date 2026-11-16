@@ -154,6 +154,7 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.buy_ghosts = fx.get("buy_ghosts", [])  # buying: the score each purchase would leave me on
 	t.call_at = int(fx.get("call_at", 0))  # the Master's post (REPLY 10)
 	t.rounds_left = int(fx.get("rounds_left", 0))
+	t.call_live = bool(fx.get("call_live", true))
 	t.bank_loss = int(fx.get("bank_loss", 0))
 	t.gain = int(fx.get("gain", 0))
 	t.faces = fx.get("throw", turn.get("faces", [])) if t.moment == "bust" else turn.get("faces", [])

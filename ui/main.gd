@@ -1924,7 +1924,8 @@ func _snapshot() -> Dictionary:
 		ps.append({"score": p.score, "dice": p.dice, "purg": p.in_purgatory, "tag": tag, "badges": badges,
 			"marks": p.marks.duplicate(), "claims": p.claims.duplicate(),
 			"debts": [p.pend_bank, p.pend_strike, p.pend_fewer, p.pend_die]})
-	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null, "marked": game.marked}
+	var s := {"players": ps, "cur": game.players.find(game.current), "winner": game.winner != null, "marked": game.marked,
+		"call_live": game.called_round >= 0 or game.round_count > game.call_floor}  # REPLY 21: the post lights after round call_floor
 	var t = game.turn
 	if t:
 		var faces: Array = (t.faces if t.throws > 0 else t.redeem_faces).duplicate()

@@ -262,7 +262,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1)) + "o%d" % _offer_seat]
+		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1)) + str(s.get("call_live", true)) + "o%d" % _offer_seat]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -296,6 +296,7 @@ func _draw() -> void:
 		rounds_left = 0  # a new game
 	view.call_at = int(g.master_call)
 	view.rounds_left = rounds_left
+	view.call_live = bool(s.get("call_live", true))
 	view.build()
 	_choices(others)
 	if view.gain_label:
