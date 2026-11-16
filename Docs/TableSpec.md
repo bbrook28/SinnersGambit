@@ -1,0 +1,30 @@
+# Table spec: the table as built (Phase 8, blockout 4b, 2026-11-15)
+Layout and behaviour only, as the code draws it today; every number is from the code. Art rules: `Docs/ArtDirection.md` (its table direction and restraint win). Rules and content: `Docs/TableDesign.md`. Flat shapes in the five-colour palette; nothing is painted yet.
+
+## Code
+- `ui/table_blockout.gd` draws the table whole from one state (`build()`): seats, active seat, dice, stake, Strikes, moment (decision / rival / bust / wait), spoken line, ability die, pending Bank loss, safe insets. Fixtures (`tools/fixtures/table_*.json`, screen "table") draw one moment.
+- `ui/table_play.gd` is a layer over main's board (built in `ui/main.gd` `_build_board`): it redraws the blockout from main's snapshots and turns its seals into main's answers. The game, director, prompts, offer screen, overlays and game end stay main's; the table hides while main shows one of them.
+- On only when `Tuning.table_view()`: const `TABLE_VIEW` (false), export feature `table_view` (presets "iOS (table)" and "Web (table)"), or `-- --table`. Test: `tests/table_play_check.gd -- --table` (full games through the table).
+
+## Layout (1080 px wide; top is them, bottom is me)
+- **Windows** across the top, `SIDE` 40 px margins, `WIN_GAP` 12, crop ratio 1:1.8; the active one twice the width, lit in its colour, grown into spare wall above; the others dark.
+- **Under the windows** a dark gap (`UNDER_WIN` 190 px). On a rival's turn its stake (gold, 92 px) and three Strike marks sit there, under its window, and my whole near edge dims.
+- **Track** the full page width, 0 to 1000. Markers 60 px (`MARK`), display only: the Sin's colour (muted) with its sigil in ink. Rivals above the line on stems (shortest 24 px, levels 70 px apart; close markers fan sideways on leaning stems, two levels, never overlapping); mine below it with a crimson ring and stem; the leader wears a gold ring and crown (none on a tie). The whole track is one tap target: the standings (every seat's score, marks and pending costs, plus the pause menu).
+- **Points strip** 110 px between track and dice, always reserved: a throw's points as "+N", Cinzel 80 in deep gold (`GAIN_GOLD`), shown on landing until the next beat adds them to the stake.
+- **Dice** one row up to 186 px (`DIE_MAX`), two rows at 140, never under 110 (`DIE_MIN`), 18 px apart; the dice shrink before the windows do. Under each: gold if it scores, crimson if a Strike, nothing if dead. A dashed crimson ghost die for each die a pending cost will take.
+- **Stake** one gold numeral above Bank, 120 to 190 px as it grows (to 600); a pending Bank loss in crimson beside it; a bust blots it with spilled ink.
+- **Near edge** (`EDGE` 76 px in): Bank (left, gold leaf) and Throw (right, crimson) seals, 236 px (86 pt); my three Strike candles between them (84x300 px, flames steady, restless or guttering); my marks as sigil stamps (52 px) along the edge.
+- **Page** lit in a pool round the dice and decision, falling to shadow; the desk is dark.
+
+## Behaviour
+- Motion is simple: a throw's dice drop in, the stake swells when it grows, a Strike flashes its candle, a bust shakes the page.
+- A spoken line (`Tuning.LINE_CHANCE` 0.5 of events) shows for 2.6 s in blackletter 84 px in the speaker's colour, under its window (over the window's foot on a rival's turn).
+- Choices other than Bank and Throw (an ability's yes or no, a target, buying dice) are flat bone buttons in the gap under the windows with the prompt's words above; the buy prompt reads just "Buy dice?".
+- Not built on the table: hold to explain (still a rule, `CLAUDE.md`), the jester and skeleton, painted pieces.
+- No tutorial in the table build (`ui/main.gd` skips it when `table_view()` is on).
+
+## Offer screen (main's, shown over the table)
+The board dims fully (`OFFER_DIM` 1.0). The Sin's 4:5 portrait spans 88% of the width from the top with a flare, then its name (64), its spoken line inked on in blackletter in its colour (60), the terms on two lines (gain over cost, 50) fading in after the line dries, one context line (38) and, the first time, the tip. Accept and Refuse seals sit 28 px above the safe area; the words end at least 48 px above them. Portraits use the flat image with living-glass light only (`Tuning.LAYERS_PARKED`: all seven Sins).
+
+## Builds
+- iOS (table) and Web (table) presets; web to `build/web_table/`, served with `tools/serve.ps1 -Dir web_table`. TestFlight: `CLAUDE.md`.
