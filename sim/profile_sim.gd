@@ -121,6 +121,10 @@ func _play(game) -> Dictionary:
 				st.half_gap = game.leader_score() - low
 			if game.winner != null:
 				return st
+		if game.round_count == 2:  # REPLY 12: how far the leader is clear after round 2
+			var sc: Array = game.players.map(func(q): return q.score)
+			sc.sort()
+			st.lead2 = [sc[3] - sc[2], sc[3] - sc[0]]
 		if master_at > 0 and called < 0 and game.leader_score() >= master_at:
 			called = game.round_count  # the Master calls it: the next round is the penultimate
 			game.called_round = called
@@ -135,7 +139,9 @@ func _run(games: int, table: String) -> Dictionary:
 		"stall": 0, "margin": 0, "runaway": 0, "last_gap": 0, "last_live": 0, "last_win": 0, "buys": 0,
 		"buy_games": 0, "b_offers": 0, "b_taken": 0, "b_uses": 0, "b_changed": 0, "b_pair": {}, "b_sin": {},
 		"halves": 0, "comebacks": 0, "far_halves": 0, "far_wins": 0, "worst_len": [], "worst_margin": [],
-		"pair_seed": {}, "lock": 0, "leads": 0, "lead2_win": 0}
+		"pair_seed": {}, "lock": 0, "leads": 0, "lead2_win": 0,
+		"lead2_n": 0, "lead2_2nd": 0, "lead2_last": 0, "au_throw": {}, "au_turn": {}, "au_zero": {}, "au_round": {},
+		"au_dice": {}, "au_src": [0, 0, 0]}
 	for g in games:
 		var gseed: int = seed0 * 1000003 + g
 		var su := _setup(gseed, table)
@@ -143,6 +149,11 @@ func _run(games: int, table: String) -> Dictionary:
 		var kinds: Array = su[1]
 		var st := await _play(game)
 		var w = game.winner
+		if st.has("lead2"):
+			r.lead2_n += 1
+			r.lead2_2nd += st.lead2[0]
+			r.lead2_last += st.lead2[1]
+		_audit(r, game)
 		var scores: Array = game.players.map(func(q): return q.score)
 		var sorted := scores.duplicate()
 		sorted.sort()
@@ -210,6 +221,77 @@ func _run(games: int, table: String) -> Dictionary:
 	return r
 
 
+## REPLY 12 (opt "audit"): bust per throw and per turn by dice, zero-bank turns, banks by round and by
+## dice held, and where banked points came from.
+func _audit(r: Dictionary, game) -> void:
+	for a in game.audit_throws:
+		var k: String = a[0]
+		var d: int = clampi(a[1], 1, 8)
+		r.au_throw[k] = r.au_throw.get(k, {})
+		var e: Array = r.au_throw[k].get(d, [0, 0])
+		e[0] += 1
+		e[1] += 1 if a[2] else 0
+		r.au_throw[k][d] = e
+	for a in game.audit_turns:
+		var k: String = a[0]
+		var d: int = clampi(a[1], 1, 8)
+		r.au_turn[k] = r.au_turn.get(k, {})
+		var e: Array = r.au_turn[k].get(d, [0, 0])
+		e[0] += 1
+		e[1] += 1 if a[4] else 0
+		r.au_turn[k][d] = e
+		var z: Array = r.au_zero.get(k, [0, 0])
+		z[0] += 1 if int(a[3]) <= 0 else 0
+		z[1] += 1
+		r.au_zero[k] = z
+		var rd: int = mini(int(a[2]), 7)
+		r.au_round[rd] = r.au_round.get(rd, PackedInt32Array())
+		r.au_round[rd].append(int(a[3]))
+		r.au_dice[d] = r.au_dice.get(d, PackedInt32Array())
+		r.au_dice[d].append(int(a[3]))
+		r.au_src[0] += int(a[5])
+		r.au_src[1] += int(a[6])
+		r.au_src[2] += int(a[7])
+
+
+static func _q(v: PackedInt32Array, q: float) -> int:
+	var a := Array(v)
+	a.sort()
+	return int(a[clampi(int(q * (a.size() - 1)), 0, a.size() - 1)]) if not a.is_empty() else 0
+
+
+func _audit_report(r: Dictionary) -> void:
+	for table in [["bust per throw, by dice thrown", r.au_throw], ["bust per turn, by dice held", r.au_turn]]:
+		print("  %s (3-8):" % table[0])
+		for k in table[1]:
+			var row := "    %-9s" % k
+			for d in range(3, 9):
+				var e: Array = table[1][k].get(d, [0, 0])
+				row += " %d: %s" % [d, ("%.0f%% (n %d)" % [_pct(e[1], e[0]), e[0]]) if e[0] > 0 else "-"]
+			print(row)
+	var zl := "  turns banking 0:"
+	var zt := [0, 0]
+	for k in r.au_zero:
+		zl += " %s %.0f%%" % [k, _pct(r.au_zero[k][0], r.au_zero[k][1])]
+		zt[0] += r.au_zero[k][0]
+		zt[1] += r.au_zero[k][1]
+	print(zl + " | all %.1f%%" % _pct(zt[0], zt[1]))
+	var bl := "  bank per turn by round (median / p90 / max):"
+	for rd in range(1, 8):
+		if r.au_round.has(rd):
+			var v: PackedInt32Array = r.au_round[rd]
+			bl += " r%d%s %d/%d/%d" % [rd, "+" if rd == 7 else "", _q(v, 0.5), _q(v, 0.9), Array(v).max()]
+	print(bl)
+	var dl := "  bank per turn by dice held (median / p90):"
+	for d in range(3, 9):
+		if r.au_dice.has(d):
+			dl += " %d: %d/%d (n %d)" % [d, _q(r.au_dice[d], 0.5), _q(r.au_dice[d], 0.9), r.au_dice[d].size()]
+	print(dl)
+	var tot: float = maxf(1.0, r.au_src[0] + r.au_src[1] + r.au_src[2])
+	print("  banked points from: face points %.0f%%, chain multiplier %.0f%%, everything else (powers, offers, doubling, costs, cap) %.0f%%" % [
+		100.0 * r.au_src[0] / tot, 100.0 * r.au_src[1] / tot, 100.0 * r.au_src[2] / tot])
+
+
 func _tally(d: Dictionary, key: String, won: bool, rounds: int, gap: int, whims: int) -> void:
 	if not d.has(key):
 		d[key] = {"n": 0, "w": 0, "rounds": 0, "gap": 0, "whims": 0}
@@ -236,7 +318,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])
@@ -265,6 +347,9 @@ func _report(name: String, r: Dictionary, short: bool) -> void:
 	print("  entering the last round: last seat %d behind; within 250 in %.1f%% of games; last seat wins %.1f%%" % [r.last_gap / g, _pct(r.last_live, g), _pct(r.last_win, g)])
 	print("  comebacks (last at half wins) %.1f%%; last at half 300+ behind wins %.1f%% (%d games)" % [_pct(r.comebacks, r.halves), _pct(r.far_wins, r.far_halves), r.far_halves])
 	print("  buys %.2f dice a seat a game; someone buys in %.1f%% of games" % [r.buys / g / 4.0, _pct(r.buy_games, g)])
+	print("  after round 2: the leader is %d clear of second, %d of last" % [r.lead2_2nd / maxf(1.0, r.lead2_n), r.lead2_last / maxf(1.0, r.lead2_n)])
+	if not r.au_zero.is_empty():
+		_audit_report(r)
 	if r.b_offers > 0:
 		print("  Master's seal offers (borrow or swap): %.1f a game, taken %.0f%%, uses %.1f a game; the winner's borrowed gain >= winning margin in %.1f%% of games" % [
 			r.b_offers / g, _pct(r.b_taken, r.b_offers), r.b_uses / g, _pct(r.b_changed, g)])

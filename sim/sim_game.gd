@@ -5,6 +5,10 @@
 extends "res://core/game.gd"
 
 var rethrows := 0          # sim stats
+## Audit (REPLY 12, opt "audit"), read by sim/profile_sim.gd: per throw [profile, dice thrown, busted];
+## per turn [profile, dice held, round, banked, busted, base points, chain bonus, everything else].
+var audit_throws := []
+var audit_turns := []
 var rethrow_saves := 0     # rethrows that turned a bust into a safe throw
 
 
@@ -66,6 +70,12 @@ func take_turn(p) -> void:
 	_both(p, _power_start)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
+	var audit: bool = opt("audit", false)
+	var kind: String = str(p.bot.get("kind")) if p.bot.get("kind") != null else "plain"
+	var held: int = p.dice
+	var base_sum := 0
+	var chain_sum := 0
+	var cap: int = int(opt("turn_cap", 0)) if called_round < 0 else 0  # turn_cap=N: one turn banks at most N before the call
 	var count: int = p.dice
 	if dice_choice:
 		count = clampi(await p.bot.dice_to_roll(p, self, 0, 0), 1, _max_throw(p))
@@ -96,22 +106,35 @@ func take_turn(p) -> void:
 		_do_rethrow(p)
 		_both(p, _power_after_throw)
 		_both(p, _power_envy_copy)
-		turn.strikes += _strikes(turn.faces)
+		if opt("first_ones", false) and turn.throws == 1:  # first_ones: on a turn's first throw only 1s strike
+			turn.strikes += turn.faces.count(1)
+		else:
+			turn.strikes += _strikes(turn.faces)
+		if audit:
+			audit_throws.append([kind, turn.faces.size(), turn.strikes >= Rules.STRIKES_TO_BUST])
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
+			if audit:
+				audit_turns.append([kind, held, round_count, 0, true, 0, 0, 0])
 			if view:
 				say("  %d Strikes: %s BUSTS and goes to Purgatory." % [turn.strikes, pname(p)])
 			_bust(p)
 			await beat(p, "end")
 			return
 		turn.throw_points = throw_score(turn.faces)
+		var base := Rules.score(Array(turn.faces, TYPE_INT, "", null), 0.0, face_mult)
+		base_sum += base
+		chain_sum += turn.throw_points - base
 		if doubled:
 			turn.throw_points *= 2
 		turn.points += turn.throw_points
 		_both(p, _power_scored)
+		var capped: bool = cap > 0 and turn.points >= cap
+		if capped:
+			turn.points = cap
 		if view:
 			say("  +%d (turn %d, Strikes %d)" % [turn.throw_points, turn.points, turn.strikes])
 		await beat(p, "throw")
-		if not press:
+		if not press or capped:  # a capped turn banks: nothing more can count
 			break
 		if dice_choice:
 			count = clampi(await p.bot.dice_to_roll(p, self, turn.points, turn.strikes), 0, _max_throw(p))
@@ -149,6 +172,8 @@ func take_turn(p) -> void:
 	if v4:
 		banked = _bank_costs(p, banked)
 	banked = _power_bank(p, banked)
+	if audit:
+		audit_turns.append([kind, held, round_count, banked, false, base_sum, chain_sum, banked - base_sum - chain_sum])
 	p.score += banked
 	if view:
 		say("%s banks %d (score %d)." % [pname(p), banked, p.score])
