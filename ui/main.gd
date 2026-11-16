@@ -3570,8 +3570,8 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
 	if _master_turn == turn_id and not kind in ["end", "call", "final"]:
 		return
-	if int(game.master_call) > 0:  # REPLY 11: under the call his lines read the called target, not 1000
-		args["win"] = int(game.master_call)
+	if kind == "end":  # REPLY 12: his win line reads the winner's score, not 1000 or the call
+		args["win"] = int(p.score)
 	var pool: Array = RulesText.master_lines(ev, holds, args)
 	var fresh := pool.filter(func(l): return not _master_used.has(l))
 	if fresh.is_empty():
