@@ -80,12 +80,35 @@ func say(seat: int, line: String) -> void:
 
 
 ## Rules.V5: a power fired (ui/main.gd _power_event, a queued beat): a ring and its Sin's sigil on the
-## dice it changed, or round the stake it took, held for Tuning.POWER_FOR.
+## dice it changed, or round the stake it took; its seal blazes and pulses (REPLY 6: seen, not read).
+## Held for Tuning.POWER_FOR in real seconds (only the global speed scales it), bots' turns included,
+## so a rival's power gets its beat.
 func power_fired(seat: int, _sname: String, changed: Array) -> void:
 	_firing = {"seat": seat, "dice": changed}
 	_draw()
 	if visible:
-		await main.get_tree().create_timer(Tuning.POWER_FOR / maxf(Tuning.pace, 0.01)).timeout
+		var k: float = 1.0 / maxf(Tuning.speed, 0.01)
+		var h: Control = view.flare_node
+		if h:
+			h.scale = Vector2.ONE * 0.85
+			var tw := h.create_tween()
+			tw.tween_property(h, "scale", Vector2.ONE * 1.3, Tuning.SEAL_FLARE * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(h, "scale", Vector2.ONE, Tuning.SEAL_FLARE * 1.5 * k).set_trans(Tween.TRANS_SINE)
+			# A ring of the Sin's colour spreads out from the seal and fades.
+			var ring := Line2D.new()
+			var pts := PackedVector2Array()
+			for i in 41:
+				pts.append(Vector2.from_angle(TAU * i / 40.0) * 60.0)
+			ring.points = pts
+			ring.width = 10.0
+			ring.default_color = Style.SIN_COLORS[main.game.players[seat].sin.sin_name].lightened(0.2)
+			ring.position = h.global_position
+			view.add_child(ring)
+			var rt := ring.create_tween().set_parallel()
+			rt.tween_property(ring, "scale", Vector2.ONE * 3.2, Tuning.SEAL_FLARE * 2.5 * k).set_ease(Tween.EASE_OUT)
+			rt.tween_property(ring, "modulate:a", 0.0, Tuning.SEAL_FLARE * 2.5 * k)
+			rt.chain().tween_callback(ring.queue_free)
+		await main.get_tree().create_timer(Tuning.POWER_FOR * k).timeout
 	_firing = {}
 	_draw()
 
@@ -192,6 +215,9 @@ func _draw() -> void:
 	if g.opt("powers", false) and mine_p.sin.power_window() != "":
 		seal = "ready" if not seals.is_empty() else ("spent" if s.cur == me and t.get("power_used", false) else "idle")
 	var seal_face: int = int(mine_p.sin.power_face(g)) if seal == "ready" and mine_p.sin.has_method("power_face") else 0
+	var rival_seal := ""  # the active rival's seal on its turn
+	if s.cur != me and g.opt("powers", false) and g.players[s.cur].sin.power_window() != "":
+		rival_seal = "spent" if t.get("power_used", false) else "idle"
 	var stand := _live("stand") != null
 	if not others.is_empty() and cur != me:  # my choice between turns (buying dice): my side of the table
 		cur = me
@@ -210,7 +236,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face), str(_firing), _master]
+		seal + str(seal_face) + rival_seal, str(_firing), _master]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -229,6 +255,7 @@ func _draw() -> void:
 	view.safe = main._safe_insets()
 	view.seal = seal
 	view.seal_face = seal_face
+	view.rival_seal = rival_seal
 	view.firing = _firing
 	view.stand_live = stand
 	view.master_line = _master

@@ -8,5 +8,5 @@
 	],
 	"cur": 1,
 	"turn": {"faces": [5, 3, 6], "points": 170, "strikes": 1},
-	"seal": "idle", "firing": {"seat": 1, "dice": []}
+	"seal": "idle", "rival_seal": "idle", "firing": {"seat": 1, "dice": []}
 }

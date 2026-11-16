@@ -53,6 +53,7 @@ const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
 const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
 const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
+const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -79,6 +80,7 @@ var seal_face := 0
 var firing := {}
 var stand_live := false
 var master_line := ""
+var rival_seal := ""     # the active rival's seal: "" none, "idle", "spent"
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
@@ -87,6 +89,7 @@ var stake_label: Label
 var gain_label: Label
 var master_label: Label
 var seal_button: Button  # my Sin's seal (Rules.V5), when drawn
+var flare_node: Control  # the seal whose power is firing now (ui/table_play.gd pulses it)
 var page_rect := Rect2()
 var dice_area := Rect2()
 
@@ -272,7 +275,9 @@ func build() -> void:
 			_rect(Rect2(rs.position.x + 270.0 + s * 46.0, under + 30.0, 32, 48), CRIMSON if s < strikes else Color(BONE, 0.22))
 		if not firing.is_empty() and firing.get("dice", []).is_empty():  # its power took the stake (Cash Out, Hubris)
 			var rw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, 92).x
-			_stake_ring(Rect2(rs.position.x + (rs.size.x - rw) / 2.0, rs.position.y + rs.size.y * 0.2, rw, rs.size.y * 0.6), int(firing.seat), self, BONE, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 16.0, under + 10.0))
+			_stake_ring(Rect2(rs.position.x + (rs.size.x - rw) / 2.0, rs.position.y + rs.size.y * 0.2, rw, rs.size.y * 0.6), int(firing.seat), self, BONE, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 16.0, under + 10.0), rival_seal == "")
+		if rival_seal != "":  # its seal beside its Strike marks: spent once used, blazing as it fires
+			_power_seal(self, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 24.0 + RIVAL_SEAL / 2.0, under + 54.0), seats[cur].sin, rival_seal, RIVAL_SEAL, not firing.is_empty() and int(firing.seat) == cur)
 	# A Sin's spoken line, anchored under its window, in its colour. On a rival's turn its stake has the
 	# gap, so the line sits over the foot of the speaker's window instead.
 	if not speak.is_empty():
@@ -332,6 +337,7 @@ func build() -> void:
 	gain_label = null
 	master_label = null
 	seal_button = null
+	flare_node = null
 	if gain > 0:  # the throw's points, gold, in the strip just above the dice
 		var gain_l := _label("+%d" % gain, gain_size, GAIN_GOLD, BLACK)
 		gain_l.add_theme_font_override("font", Style.NUMERAL)
@@ -397,7 +403,8 @@ func build() -> void:
 	if seal != "":
 		var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
 		power_r = Rect2(pc - Vector2(POWER_SEAL, POWER_SEAL) / 2.0, Vector2(POWER_SEAL, POWER_SEAL))
-		_power_seal(near, pc, seats[me].sin)
+		_power_seal(near, pc, seats[me].sin, seal, POWER_SEAL, not firing.is_empty() and int(firing.seat) == me, seal_face)
+		_seal_hit(near, pc)
 
 	# The stake: one gold numeral directly above Bank (what Bank keeps), a pending Bank loss in crimson
 	# beside it. A bust blots it.
@@ -599,35 +606,50 @@ func _ink_figure(tex: Texture2D, r: Rect2, parent: Node = self) -> TextureRect:
 
 ## Rules.V5: my Sin's seal. Ready: a glow of my glass colour round a bone disc, my sigil in ink, live
 ## (seal_pressed). Idle: the bone disc and sigil, not live. Spent: dark, the sigil faint, crossed.
-## Firing: a ring of my colour round it. Lust's seal shows the face it would turn a Strike into.
-func _power_seal(parent: Node, c: Vector2, sname: String) -> void:
-	var r: float = POWER_SEAL / 2.0
+## Firing (REPLY 6, seen not read): the seal blazes, a wide ring of its colour round it, the sigil in
+## its colour on bone; ui/table_play.gd pulses it (flare_node). Lust's seal shows the face it would give.
+## A rival's seal (size RIVAL_SEAL, never live) sits beside its stake on its turn. Drawn in a holder
+## centred on c, so it can pulse.
+func _power_seal(parent: Node, c: Vector2, sname: String, state: String, d: float, fire: bool, face := 0) -> Control:
+	var h := Control.new()
+	h.position = c
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(h)
+	var r: float = d / 2.0
+	var o := Vector2.ZERO
 	var col: Color = Style.SIN_COLORS[sname]
-	var ready := seal == "ready"
-	var spent := seal == "spent"
-	if ready:
+	var ready := state == "ready"
+	var spent := state == "spent" and not fire
+	if ready or fire:
 		var glow := TextureRect.new()
 		glow.texture = Art.soft_dot(64, col.lightened(0.3))
 		glow.material = Art.additive()
 		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		glow.size = Vector2(POWER_SEAL, POWER_SEAL) * 1.7
-		glow.position = c - glow.size / 2.0
+		glow.size = Vector2(d, d) * (2.4 if fire else 1.7)
+		glow.position = -glow.size / 2.0
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		parent.add_child(glow)
-		_disc(c, r + 10.0, col, Color(0, 0, 0, 0), parent)
-	if not firing.is_empty() and seats[int(firing.seat)].get("you", false):
-		_disc(c, r + 18.0, Color(col, 0.55), Color(0, 0, 0, 0), parent)
+		h.add_child(glow)
+		_disc(o, r + (22.0 if fire else 10.0) * d / POWER_SEAL, col.lightened(0.15) if fire else col, Color(0, 0, 0, 0), h)
 	var fill: Color = INK.lerp(BLACK, 0.4) if spent else BONE
-	_disc(c, r, fill, INK, parent)
-	_sigil(sname, Rect2(c - Vector2(r, r) * 0.78, Vector2(r, r) * 1.56), Color(BONE, 0.3) if spent else INK, parent)
+	_disc(o, r, fill, INK, h)
+	var ink: Color = Color(BONE, 0.3) if spent else (col.darkened(0.25) if fire else INK)
+	_sigil(sname, Rect2(-Vector2(r, r) * 0.78, Vector2(r, r) * 1.56), ink, h)
 	if spent:
-		_line([c + Vector2(-r, -r) * 0.55, c + Vector2(r, r) * 0.55], CRIMSON, 10.0, Color(0, 0, 0, 0), parent)
-	if seal_face > 0 and not spent:  # Lust: the face her seal gives
-		var fd := Die.new(seal_face, 70, 0)
-		fd.position = c + Vector2(r * 0.42, r * 0.42)
+		_line([Vector2(-r, -r) * 0.55, Vector2(r, r) * 0.55], CRIMSON, 10.0 * d / POWER_SEAL, Color(0, 0, 0, 0), h)
+	if face > 0 and not spent:  # Lust: the face her seal gives
+		var fd := Die.new(face, 70, 0)
+		fd.position = Vector2(r * 0.42, r * 0.42)
 		fd.size = Vector2(70, 70)
 		fd.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		parent.add_child(fd)
+		h.add_child(fd)
+	if fire:
+		flare_node = h
+	return h
+
+
+## My seal's tap target (live only when ready).
+func _seal_hit(parent: Node, c: Vector2) -> void:
+	var r: float = POWER_SEAL / 2.0
 	var b := Button.new()
 	b.flat = true
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
@@ -635,7 +657,7 @@ func _power_seal(parent: Node, c: Vector2, sname: String) -> void:
 	b.position = c - Vector2(r, r)
 	b.size = Vector2(POWER_SEAL, POWER_SEAL)
 	b.focus_mode = Control.FOCUS_NONE
-	b.disabled = not ready
+	b.disabled = seal != "ready"
 	b.pressed.connect(func(): seal_pressed.emit())
 	parent.add_child(b)
 	seal_button = b
@@ -643,7 +665,7 @@ func _power_seal(parent: Node, c: Vector2, sname: String) -> void:
 
 ## A power that took the stake (Greed's Cash Out, Pride's Hubris): a ring of that Sin's colour round
 ## the figure and its sigil at the ring's left.
-func _stake_ring(r: Rect2, seat: int, parent: Node = self, ink := INK, at := Vector2(-1, -1)) -> void:
+func _stake_ring(r: Rect2, seat: int, parent: Node = self, ink := INK, at := Vector2(-1, -1), sigil := true) -> void:
 	var col: Color = Style.SIN_COLORS[seats[seat].sin]
 	var pts := []
 	var c := r.get_center()
@@ -653,7 +675,8 @@ func _stake_ring(r: Rect2, seat: int, parent: Node = self, ink := INK, at := Vec
 	_line(pts, col, 9.0, INK, parent)
 	var s: float = minf(90.0, rr.y * 1.2)
 	var sp := at if at.x >= 0.0 else Vector2(c.x - rr.x - s * 0.6, c.y - rr.y - s * 0.3)  # at: where its sigil goes instead
-	_sigil(seats[seat].sin, Rect2(sp, Vector2(s, s)), ink, parent)
+	if sigil:
+		_sigil(seats[seat].sin, Rect2(sp, Vector2(s, s)), ink, parent)
 
 
 ## A seal: a flat disc with its word (Bank gold leaf, Throw crimson).

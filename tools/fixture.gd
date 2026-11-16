@@ -147,6 +147,7 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 		t.firing = {"seat": int(fire.seat), "dice": Array(fire.get("dice", [])).map(func(v): return int(v))}
 	t.stand_live = fx.get("stand", false)
 	t.master_line = str(fx.get("master", ""))
+	t.rival_seal = str(fx.get("rival_seal", ""))  # the active rival's seal "idle" | "spent"
 	t.bank_loss = int(fx.get("bank_loss", 0))
 	t.gain = int(fx.get("gain", 0))
 	t.faces = fx.get("throw", turn.get("faces", [])) if t.moment == "bust" else turn.get("faces", [])
