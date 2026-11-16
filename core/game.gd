@@ -312,6 +312,7 @@ func take_turn(p) -> void:
 		_start_costs(p)
 	if p.sin:
 		await p.sin.before_turn(self, p, turn)
+	await _power(p, "start")
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
@@ -340,10 +341,11 @@ func take_turn(p) -> void:
 					await o.sin.on_other_throw(self, o, p, turn)
 		if p.sin:
 			await p.sin.after_throw(self, p, turn)
+		await _power(p, "throw")
 		turn.strikes += Rules.count_strikes(turn.faces)
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
 			if view:
-				say("  %d Strikes: %s BUSTS and goes to Purgatory." % [turn.strikes, pname(p)])
+				say("  %d Strikes: %s BUSTS%s." % [turn.strikes, pname(p), " and goes to Purgatory" if purgatory_on else ""])
 			_bust(p)
 			await beat(p, "end")
 			return
@@ -367,7 +369,7 @@ func take_turn(p) -> void:
 			elif not may_throw(p):
 				count = 0
 			else:
-				var go: bool = await p.bot.wants_throw(p, self, turn.points, turn.strikes)
+				var go: bool = await _power(p, "decide") or await p.bot.wants_throw(p, self, turn.points, turn.strikes)
 				count = _max_throw(p) if go or not may_bank(p) else 0
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
@@ -652,3 +654,24 @@ func _tempt(p) -> bool:
 func throw_score(faces: Array) -> int:
 	var pts := Rules.score(Array(faces, TYPE_INT, "", null), chain, face_mult)
 	return pts / 5 * 5 if round5 else pts
+
+
+# ---------- Rules.V5: powers (Docs/TableDesign.md §10) ----------
+
+## One power a turn, in its Sin's window: the Sin says whether it can change something now, then the
+## player answers (a bot at once; you by tapping the seal, or the dice to let the throw stand).
+## Returns true when the power throws on at once (Greed).
+func _power(p, window: String) -> bool:
+	if not opt("powers", false) or p.sin == null or turn.power_used or p.sin.power_window() != window:
+		return false
+	if not p.sin.power_ready(self, p, turn):
+		return false
+	_view_event("power_ready", p)
+	var choice = await p.bot.wants_power(self, p, p.sin.sin_name)
+	if choice == null or (choice is bool and not choice):
+		return false
+	turn.power_used = true
+	p.powers_used += 1
+	var on: bool = await p.sin.use_power(self, p, turn, choice)
+	_view_event("power", p)
+	return on

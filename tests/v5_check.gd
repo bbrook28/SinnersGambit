@@ -26,6 +26,7 @@ func check(ok: bool, what: String) -> void:
 func _initialize() -> void:
 	_rules()
 	_bot()
+	await _windows()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -78,5 +79,43 @@ func _bot() -> void:
 	g.turn.points = 20
 	check(b.wants_power(g, g.players[0], "Greed") == false, "bot: Greed keeps a small stake whole")
 	g.turn.points = 400
-	g.turn.strikes = 2
-	check(b.wants_power(g, g.players[0], "Greed") == true, "bot: Greed banks half of 400 on 2 Strikes")
+	g.turn.strikes = 0
+	check(b.wants_power(g, g.players[0], "Greed") == true, "bot: Greed banks half of 400 with no Strikes")
+
+
+## A test Sin: its power, in `window`, is always ready and counts its uses.
+class TestSin extends "res://sins/sin.gd":
+	var window := "throw"
+	var asked := 0
+	var used := 0
+	func _init(w := "throw") -> void:
+		sin_name = "Test"
+		window = w
+	func power_window() -> String:
+		return window
+	func power_ready(_g, _m, _t) -> bool:
+		asked += 1
+		return true
+	func use_power(_g, _m, turn, _c) -> bool:
+		used += 1
+		for i in turn.faces.size():
+			if turn.faces[i] <= 2:
+				turn.faces[i] = 3
+		return false
+
+
+## Item 3: one power a turn, asked only in its window; off without the powers key.
+func _windows() -> void:
+	for w in ["start", "throw", "decide"]:
+		var g := _table(2)
+		var s := TestSin.new(w)
+		g.players[0].sin = s
+		for i in 6:
+			await g.take_turn(g.players[0])
+		check(s.used == 6, "%s window: used once a turn (%d)" % [w, s.used])
+		check(g.players[0].powers_used == 6, "%s window: counted" % w)
+	var off := _table(2, {"powers": false})
+	var s2 := TestSin.new("throw")
+	off.players[0].sin = s2
+	await off.take_turn(off.players[0])
+	check(s2.asked == 0 and s2.used == 0, "powers off: never asked")

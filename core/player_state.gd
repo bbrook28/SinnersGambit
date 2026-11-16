@@ -24,6 +24,7 @@ func _init(p_seat: int, p_bot) -> void:
 var t2_unlocked := false
 var t2_ready := false       # recharges at the start of your own turn
 var t2_uses := 0
+var powers_used := 0        # Rules.V5 seals used (stats)
 var t2_bounces := 0         # Pride: attacks bounced
 
 # Tier 2 effects waiting on this player.
