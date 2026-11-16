@@ -82,29 +82,31 @@ Strike, Bust, Bank, Temptation, Mark, Claim, Circle. Plain words, not terms: sea
 - Claim cost (relative win drop, target 15-35%): Wrath 18, Greed 19, Lust 19, Envy 18, Pride 25, Gluttony 18, Sloth 30.
 - Purgatory: cut (REPLY 1, §10); off, no Sin moves more than 1.5 points.
 
-## 10. Agency and comeback (sim pass 2 for Ben's OK, 2026-11-15; nothing here is built)
-Decided (REPLY 1): Purgatory cut; universal rethrow dropped; comeback offers, first-game bots, the Master and onboarding approved; jester cut. Measured with `sim/agency_sim.gd` (sim-only rules in `sim/sim_game.gd`, `sim_sins.gd`, `sim_bots.gd`; V4 with Purgatory off, 4 seats, 12,000-20,000 games a pass, skill 4,000 per Sin).
+## 10. Agency and comeback (sim pass 3, 2026-11-15; REPLY 2 answers provisional until Ben confirms; nothing here is built)
+Decided: Purgatory cut; universal rethrow dropped; comeback offers, first-game bots, the Master and onboarding approved; jester cut (REPLY 1). Dice price stays 100; the mark rule is adopted; perk 7 and the 7 captions are approved (REPLY 2). Measured with `sim/agency_sim.gd` (sim-only rules in `sim/sim_game.gd`, `sim_sins.gd`, `sim_bots.gd`; V4 with Purgatory off, 4 seats, 20,000 games a pass, skill 4,000 per Sin; "plain" bots press a power at the first chance).
 | Measure | V4 now | Proposal: powers + comeback + mark rule | Target |
 |---|---|---|---|
-| Skill edge, best bot vs 3 plain, mean (range) | 31.8 (26.3-39.7) | 29.1 (25.1-33.8) | 35-45: **missed** |
-| Comebacks (last at 500 goes on to win); lead changes | 7.3%; 4.15 | 12.8%; 4.74 | 10-20% |
-| Equal bots, lowest to highest Sin | 20.9-28.7 | 20.6-27.4 (powers alone 23.4-26.3) | 22-28 |
-| Claims a game (on the last seat / the leader) | 0.14 | 0.26 (0.01 / 0.05); without the mark rule 0.93 (0.20 / 0.07) | |
-| Last seat's final score; rounds; minutes (you + 3 bots) | 272; 5.5; 1.6 | 360; 4.7; 1.4 | |
-**Powers** (Basic becomes a once-a-turn seal; Greater stays). Tuned to the numbers below; the bots' Sin risk tilt goes (it sank Sloth and Greed).
+| Skill edge, best bot vs 3 plain, mean | 31.8 | 29.1 | 35-45: **missed** |
+| Best bot vs 3 novice stand-ins, mean (range) | | 37.3 (20.9 Greed - 50.7 Gluttony) | what a practised player feels |
+| Comebacks (last at 500 goes on to win); lead changes | 7.3%; 4.15 | 13.1%; 4.67 | 10-20% |
+| Equal bots, lowest to highest Sin | 20.9-28.7 | 19.5-27.7 (Greed lowest); with the Vig at 60, 22.1-27.0 | 22-28 |
+| Claims a game (on the last seat / the leader) | 0.14 | 0.25 (0.01 / 0.05); without the mark rule 0.93 (0.20 / 0.07) | |
+| Offers accepted, by a seat 150+ behind / by others | | 58% / 48% (3 offers in 4 go to a seat 150+ behind) | |
+| Last seat's final score; rounds; minutes (you + 3 bots) | 272; 5.5; 1.6 | 359; 4.8; 1.5 | |
+**Powers** (Basic becomes a once-a-turn seal; Greater stays). The bots' Sin risk tilt goes (it sank Sloth and Greed).
 | Sin | Power (10 words max) | Numbers | Used on % of turns / at the first chance |
 |---|---|---|---|
-| Wrath | Rethrow up to two of this throw's Strikes. | Fury now at 300+ (200+ on a grudge) | 64 / 46 |
-| Greed | Bank half your stake at x1.5; keep throwing. | The Vig stays (40 a die) | 53 / 83 |
-| Lust | Turn a Strike into the last player's best die. | Her seal shows that face | 55 / 47 |
-| Envy (new) | Copy your best die: it scores its face again. | Outside the multiplier; any position, so it can't stack with comeback offers | 73 / 80 |
-| Pride | Name your Bank: reach it for x1.75, else nothing. | 150, 200 or 250 | 74 / 100 |
-| Gluttony | Eat a Strike die: +90 to your stake. | The die is back next turn | 64 / 46 |
-| Sloth | Ignore this throw's Strikes. | | 65 / 48 |
-- **Real choice? No, not yet.** The use figures come from a bot that saves its power for a bad throw, but pressing at the first chance wins as often or more for every Sin: a best bot pressing at once averages 29.0% against first-chance bots; holding averages 24.1%. Declaring before the throw (27.4 vs 25.2 or less) and 2-3 charges a game (28.3 vs 28.6) didn't change that. **Rec:** each power costs 30 from the stake, so an early press costs and holding pays; sim it next.
-- **Skill edge comes from:** buying to 4 dice, not 5 (+2-4 points), and banking sooner when ahead (+1-2). Powers add nothing yet. It is the ceiling of the best bot I can write, not of a human.
-**Dice.** Free dice win: against 3-dice bots, 4 dice win 33.8%, 5 dice 39.9%, 6 dice 45.7%. So more dice don't lose; the price was the cause, and a Strike cap (at most one Strike from dice beyond the third: 5 dice 41.3, 6 dice 50.1) isn't needed. At 100 under V4, never buying is best (29.8% vs 22.2% buying to 6). Under the proposal at 100, buying to 5 is best (31.1% vs 28.8% at 3), and buying early beats buying late (31.8% vs 29.8%): right in some positions, wrong in others. At 75 and 60 the edge flattens or the most dice always win. **Rec:** keep 100.
-**Comeback.** Behind the leader by D, an offer's gain is x(1 + D/200), up to x3: points round to 5, extra and free dice round. At D 400+, "clear a Strike" clears all and x2 becomes x3. Costs stay the same. Trailing by 150+ brings an offer every turn. With this alone, the last seat was claimed three times as often as the leader, so a mark taken while 150+ behind doesn't count toward a claim (it still counts for Solo endings). **First-game bots** (game one only): bank at 200, risk 1.55, buy to 4. A novice stand-in wins about 40% (38.1% at risk 1.5, 43.1% at 1.6).
+| Wrath | Rethrow up to two of this throw's Strikes. | Fury now at 300+ (200+ on a grudge) | 62 / 44 |
+| Greed | Bank half your stake at x1.5; keep throwing. | The Vig to 60 a die (from 40) | 67 / 81 |
+| Lust | Turn a Strike into the last player's best die. | Her seal shows that face | 53 / 47 |
+| Envy (new) | Copy your best die: it scores its face again. | Outside the multiplier; any position, so it can't stack with comeback offers | 72 / 80 |
+| Pride | Name your Bank: reach it for x1.75, else nothing. | 150, 200 or 250 | 73 / 100 |
+| Gluttony | Eat a Strike die: +90 to your stake. | The die is back next turn | 62 / 44 |
+| Sloth | Ignore this throw's Strikes. | | 64 / 46 |
+- **Real choice? Only Greed's.** Best policy per Sin against pressing at the first chance (skill edge, no bonus / +30 / +50 for banking with the seal unspent / -30 for using it): pressing at once is best, or within a point of it, for Wrath, Lust, Pride, Gluttony and Sloth in every version (Gluttony 41.1 vs 37.4 held). Greed's sum (half now vs all later) beats a fixed rule once there is a bonus (25.4 vs 21.7 at +50). Envy's copy is worth at most 30, so with a bonus of 30 or more it is never worth using. Mean edge, best policy per Sin: 29.3 / 29.1 / 30.0 / 27.7. The reason: a turn is about 2 throws, so a power held past the first Strike rarely gets a later throw to save. **Rec:** no bonus and no cost; the powers stay free reactions. The choices live in banking and offers.
+- **Skill edge by decision** (one change to the plain bot, vs 3 plain bots, fair 25): risk that follows the standings +3.0; weighing offers by standings +0.3 (refusing every offer -9.1, accepting every offer -0.6); buying to 4 dice -0.1 (to 3, -0.9); targeting the leader or the seat just above, 0; holding the power for a bad throw -5.1; all the gains together +3.7 (29.1). **Ceiling:** about 29-30 against sound bots, because the plain bot's offer sums are already near best and dice and targets barely matter; the edge is how hard you push your luck for the standings. Against novices it is 37 (Greed 21, Gluttony 51). Ben judges the rest by playing.
+**Dice.** Free dice win: against 3-dice bots, 4 dice win 33.8%, 5 dice 39.9%, 6 dice 45.7%, so no structural fix (a Strike cap from dice beyond the third: 5 dice 41.3, 6 dice 50.1). At 100 under the proposal, buying to 5 is best (31.1% vs 28.8% at 3), and buying early beats buying late (31.8% vs 29.8%); at 75 and 60 the edge flattens or the most dice always win. Price 100.
+**Comeback.** Behind the leader by D, an offer's gain is x(1 + D/200), up to x3: points round to 5, extra and free dice round. At D 400+, "clear a Strike" clears all and x2 becomes x3. Costs stay the same. Trailing by 150+ brings an offer every turn. **Mark rule:** a mark taken while 150+ behind doesn't count toward a claim; it still counts for the ladder's endings. **First-game bots** (game one only): bank at 200, risk 1.55, buy to 4; a novice stand-in wins about 40%.
 **The Master of the Dance.** A Danse Macabre skeleton, ink on the page, the table's host. Neutral: he wins whoever loses. He deals and narrates, snuffs my Strike candles, announces a Sin as part of its offer's entrance (no extra beat), reacts to busts, big Banks and wins, and goads at my decision in words only. Offers and terms stay with the Sins. Courtly, dry, amused; never cruel to a new player. At most one line a turn, on about a third of events (`MASTER_CHANCE` 0.33), never in a Sin's beat. Numbers come from `vals()`; a line that states a fact plays only when it is true [condition].
 | Event | Lines (6 words max) |
 |---|---|
@@ -119,4 +121,4 @@ Decided (REPLY 1): Purgatory cut; universal rethrow dropped; comeback offers, fi
 | My loss | Not tonight. There's always another. / The dice were unkind. Again? / A good dance, all the same. / Rest. The table will wait. / Close. Closer than they'd admit. [within {close} (100) of the winner] |
 | Idle at my decision | Throw, or keep? Your call. / Candles are patient. I am less. / Courage or caution, dear guest? / Another throw? Purely a suggestion. / Take your time. Eternity's long. |
 - Ladder: he opens each Circle ("Wrath's table"). Endings: The Saint, he bows and lets you leave the dance; The Eighth Sin, he gives you his place as host; Claimed, he leads you to the Sin's window and seats you in it. Art (nothing painted), flat ink like `assets/art/runtime/marginalia/skeleton.png`: idle on a candle-snuffer; snuffing; a bow; pointing at the dice; applause; a shrug; writing in a ledger; a hand on my shoulder towards a window; leading the dance, full figure.
-**Changes for OK (after the next sim pass).** `core/`: `Rules.V5` (V4 replays): no Purgatory; power, comeback, mark-rule and Fury keys; `game.gd`: power windows before and after each throw, once a turn; comeback scaling and the every-turn offer; Master events through `view`; `turn_state.gd`: power used. `sins/`: each Basic becomes `power_ready()` / `use_power()` under V5 (V4 Basics kept); Envy's new power; `temptations.gd`: scaled gains. `ai/`: `bot_policy.gd` `wants_power()` per Sin, no Sin risk tilt under V5, the first-game setting. `ui/rules_text.gd` (with V5): Purgatory out of the rules, rulebook page, glossary, prompts, badges and log lines.
+**Changes under V5 (for Ben's OK; none made):** the exact list is in the sim pass 3 packet (`Docs/review/latest/v5_changes.md`) until approved.

@@ -1,4 +1,4 @@
-# Onboarding plan (approved by Ben, 2026-11-15; narrator draft for his OK)
+# Onboarding plan (approved by Ben, 2026-11-15; captions approved, REPLY 2)
 
 No rules text before play. The first three games teach by doing; each adds one idea. The scripted tutorial goes; game one is the tutorial. The Master of the Dance (`Docs/TableDesign.md` §10) narrates all three: every caption is his, 8 words or fewer, shown once at the moment it's true. Captions aren't lines: they ignore his one-in-three chance, and no other line plays in the same beat. The rulebook stays in the pause menu, and a hold explains anything.
 
