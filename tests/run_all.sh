@@ -20,7 +20,7 @@ run() {  # name, then extra args
 		echo "FAIL $t (build/t_$t.log)"; fail=1
 	fi
 }
-for t in ui_autoplay table_check replay_check tutorial_check terms_check lines_check; do run $t --headless; done
+for t in ui_autoplay table_check v5_check replay_check tutorial_check terms_check lines_check; do run $t --headless; done
 if timeout 600 "$G" --headless --path . --script res://tests/table_play_check.gd -- --table > build/t_table_play_check.log 2>&1 && grep -q "TABLE PLAY PASSED" build/t_table_play_check.log; then
 	echo "ok   table_play_check: $(grep 'PASSED' build/t_table_play_check.log)"
 else

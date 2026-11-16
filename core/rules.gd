@@ -68,6 +68,28 @@ const V4 := {
 	"claim_sloth_fewer": 2, # Sloth: you throw this many fewer dice
 }
 
+## Rules.V5 (Docs/TableDesign.md §10): V4 without Purgatory, with active powers (each Basic becomes a
+## once-a-turn seal; Greater stays), comeback offers and the mark rule. V4 is untouched, so V4 replays still play.
+const V5 := {
+	"throw_all": true, "chain": 0.5, "face_mult": 5, "die_cost": 100, "seat_bonus": 20, "supply_per_player": 8,
+	"v4": true, "v5": true, "round5": true,
+	"purgatory": false, "auto_purgatory": false,
+	"vig": 60, "interest": 75, "pact": 50, "gorge": 40, "mimic": 2,
+	"hubris_targets": [150, 200, 250], "hubris_mult": 1.75,
+	"fury_dice": 3, "fury_trigger": 300, "fury_grudge": 200, "drag": 3,
+	"powers": true,
+	"wrath_rethrow": 2,      # Wrath: rethrow up to this many of this throw's Strikes
+	"greed_mult": 1.5,       # Greed: half the stake banks at this
+	"eat": 90,               # Gluttony: eating a Strike die adds this to the stake
+	"temptations": true, "tempt_chance": 1.0, "tempt_gap": 2, "mark_weight": 4, "marks_to_claim": 2,
+	"comeback_per": 200,     # an offer's gain x(1 + D / comeback_per) for a seat D behind the leader...
+	"comeback_cap": 3.0,     # ...up to x this
+	"comeback_gap_at": 150,  # a seat this far behind gets an offer every turn
+	"mark_free_behind": 150, # a mark taken this far behind doesn't count toward a claim (it still counts for Solo endings)
+	"claim_bust": 125, "claim_greed": 20, "claim_lust_throws": 2, "claim_envy": 25, "claim_pride_min": 200, "claim_sloth_fewer": 2,
+}
+
+
 static func roll(rng: RandomNumberGenerator, count: int) -> Array[int]:
 	var faces: Array[int] = []
 	for i in count:
