@@ -89,6 +89,8 @@ var buy_ghosts: Array = []  # buying: the score each purchase would leave me on 
 var ghost_nodes: Array = []  # their ghost markers, in that order
 var my_marker_c := Vector2.ZERO  # where my marker sits on the track (buying: "Buy none" points here)
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
+var call_at := 0       # REPLY 10: the Master calls the end when the leader reaches this (0: first to 1000 wins)
+var rounds_left := 0   # after his call: 2 (penultimate round), 1 (final round)
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
@@ -308,10 +310,22 @@ func build() -> void:
 		var qx: float = lerpf(ax0, ax1, q)
 		_line([Vector2(qx, ay - 12), Vector2(qx, ay + 12)], INK, 4.0)
 	_line([Vector2(ax0, ay - 18), Vector2(ax0, ay + 18)], INK, 6.0)
-	_line([Vector2(ax1, ay - 40), Vector2(ax1, ay + 40)], GOLD, 16.0, INK)
-	var gl := _label("1000", 46, GOLD, INK)
-	gl.size = Vector2(150, 60)
-	gl.position = Vector2(ax1 - 75.0, ay + 44.0)
+	if call_at <= 0:
+		_line([Vector2(ax1, ay - 40), Vector2(ax1, ay + 40)], GOLD, 16.0, INK)
+		var gl := _label("1000", 46, GOLD, INK)
+		gl.size = Vector2(150, 60)
+		gl.position = Vector2(ax1 - 75.0, ay + 44.0)
+	else:  # REPLY 10: no finish line; the Master's post where he calls the end, crimson once called,
+		# with a pip for each round left (2: the penultimate round, 1: the final round)
+		_line([Vector2(ax1, ay - 18), Vector2(ax1, ay + 18)], INK, 6.0)
+		var px: float = ax0 + span * clampf(float(call_at) / GOAL, 0.0, 1.0)
+		var pc: Color = CRIMSON if rounds_left > 0 else GOLD
+		_line([Vector2(px, ay - 40), Vector2(px, ay + 40)], pc, 16.0, INK)
+		var cl := _label(str(call_at), 46, pc, INK)
+		cl.size = Vector2(150, 60)
+		cl.position = Vector2(px - 75.0, ay + STEM + MARK + 10.0)  # below my marker, which hangs under the line
+		for pip in rounds_left:
+			_disc(Vector2(px + (pip - (rounds_left - 1) / 2.0) * 40.0, ay - 66.0), 14.0, CRIMSON, INK)
 	var draw := order.filter(func(i): return i != me and i != lead)
 	if lead != me and lead >= 0:
 		draw.append(lead)

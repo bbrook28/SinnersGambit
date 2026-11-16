@@ -137,7 +137,11 @@ func is_first_game() -> bool:
 
 ## The table game's rules: Rules.V5 on the table view (TableDesign §10), V4 on the legacy board.
 static func table_rules() -> Dictionary:
-	return Rules.V5 if Tuning.table_view() else Rules.V4
+	if not Tuning.table_view():
+		return Rules.V4
+	var r: Dictionary = Rules.V5.duplicate()
+	r["master_call"] = Rules.MASTER_CALL  # REPLY 10 prototype: the Master calls the end, no win score
+	return r
 
 
 static func save_version() -> int:
@@ -3535,13 +3539,15 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 			ev = "my_win" if mine else "my_loss"
 			if not mine and me and p.score - me.score <= Tuning.MASTER_CLOSE:
 				holds.append("close")
+		"call", "final":  # REPLY 10: the Master calls the end; each is a beat the table holds on
+			ev = kind
 	if ev == "":
 		return
-	var always: bool = kind in ["start", "end", "claim"]
+	var always: bool = kind in ["start", "end", "claim", "call", "final"]
 	if not always and randf() >= Tuning.MASTER_CHANCE:
 		return
 	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
-	if _master_turn == turn_id and kind != "end":
+	if _master_turn == turn_id and not kind in ["end", "call", "final"]:
 		return
 	var pool: Array = RulesText.master_lines(ev, holds, args)
 	var fresh := pool.filter(func(l): return not _master_used.has(l))
@@ -3552,9 +3558,14 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 	var line: String = fresh[randi() % fresh.size()]
 	_master_used[line] = true
 	_master_turn = turn_id
+	var left: int = 2 if kind == "call" else (1 if kind == "final" else 0)  # rounds the track shows left
 	_q.push(func():
 		if _table:
-			await _table.master_say(line))
+			if left > 0:
+				_table.rounds_left = left
+			await _table.master_say(line)
+			if left > 0:
+				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
 
 
 ## The Master's announcement for an offer to me, shown as part of its entrance (ui/human.gd).

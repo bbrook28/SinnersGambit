@@ -9,6 +9,9 @@ const DIE_COST := 100
 const STRIKES_TO_BUST := 3
 const INDULGENCE_COST := 50
 const TIER2_SCORE := 300
+## REPLY 10 prototype, table only (ui/main.gd table_rules): the Master calls the penultimate round when
+## the leader reaches this at a round's end; no win score (sim/profile_sim.gd master_round=600).
+const MASTER_CALL := 600
 
 ## Phase 1 rule set (sim run 5, 2026-11-13). Pass to Game.new() as options.
 const V2 := {

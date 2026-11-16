@@ -32,6 +32,7 @@ var _firing := {}          # Rules.V5: a power firing now {seat, dice}
 var _master := ""          # the Master's line by the skeleton
 var _master_left := 0.0
 var _master_pending := ""  # said while the table was hidden: shown when it returns
+var rounds_left := 0      # REPLY 10: after the Master's call, rounds left (2 penultimate, 1 final); ui/main.gd sets it
 var _idle := 0.0           # s at my decision with no answer (his idle line)
 
 
@@ -245,7 +246,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal + str(ghosts), str(_firing), _master]
+		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -269,6 +270,10 @@ func _draw() -> void:
 	view.firing = _firing
 	view.stand_live = stand
 	view.master_line = _master
+	if g.called_round < 0:
+		rounds_left = 0  # a new game
+	view.call_at = int(g.master_call)
+	view.rounds_left = rounds_left
 	view.build()
 	_choices(others)
 	if view.gain_label:

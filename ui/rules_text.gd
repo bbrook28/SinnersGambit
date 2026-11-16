@@ -35,7 +35,7 @@ static func vals() -> Dictionary:
 	var targets: Array = r.hubris_targets
 	var tstr := ", ".join(targets.slice(0, targets.size() - 1).map(func(t): return str(t))) + " or %d" % targets[-1]
 	return {
-		"win": Rules.WIN_SCORE, "strikes": Rules.STRIKES_TO_BUST, "greater_at": Rules.TIER2_SCORE,
+		"win": Rules.WIN_SCORE, "call": Rules.MASTER_CALL, "strikes": Rules.STRIKES_TO_BUST, "greater_at": Rules.TIER2_SCORE,
 		"start_dice": Rules.START_DICE, "min_dice": Rules.MIN_DICE,
 		"die_cost": r.die_cost, "purg_cost": r.get("purgatory_cost", 0), "seat_bonus": r.seat_bonus,
 		"f4": 4 * fm, "f5": 5 * fm, "f6": 6 * fm, "face_mult": _num_word(fm),
@@ -725,6 +725,8 @@ const MASTER := {
 	"claim": ["{claim_marks} marks. {name} owns you now.", "Claimed. I did mention it.", "{name} will keep you close.", "Bound. The dance goes on.", "Well. A lasting arrangement, then."],
 	"my_win": ["The dance is yours. Well played.", "{win}. I'm genuinely impressed.", "Victory. The Sins will sulk.", "Bow, please. You've earned it.", "Splendid. Do come again."],
 	"my_loss": ["Not tonight. There's always another.", "The dice were unkind. Again?", "A good dance, all the same.", "Rest. The table will wait.", ["Close. Closer than they'd admit.", "close"]],
+	"call": ["{call} reached. Two rounds left.", "Two rounds left. Then I judge.", "The music slows. Two rounds.", "Nearly done. Two rounds remain.", "Savour it. Two rounds to go."],
+	"final": ["Last round. Highest score wins.", "Final round. Make it count.", "Last dance. No second chances.", "One last throw each. Choose well.", "The end. Dance it well."],
 	"idle": ["Throw, or keep? Your call.", "Candles are patient. I am less.", "Courage or caution, dear guest?", "Another throw? Purely a suggestion.", "Take your time. Eternity's long."],
 }
 

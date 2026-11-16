@@ -58,6 +58,10 @@ var rng := RandomNumberGenerator.new()
 var round_count := 0
 var winner = null
 var end_triggered := false  # someone reached 1000 this round (finish_round mode)
+## Rules.MASTER_CALL prototype (REPLY 10, opt "master_call"): no win score; when the leader has N at a
+## round's end the Master calls it, the next round is the penultimate, then a final round, highest wins.
+var master_call := 0
+var called_round := -1  # the round the Master called it, or -1
 var is_tie := false
 
 var turn = null                     # TurnState of the turn in progress
@@ -89,6 +93,7 @@ func pname(p) -> String:
 func _init(bots: Array, seed_value: int, options := {}, sins := []) -> void:
 	rng.seed = seed_value
 	finish_round = options.get("finish_round", false)
+	master_call = int(options.get("master_call", 0))
 	dice_choice = options.get("dice_choice", false)
 	throw_all = options.get("throw_all", false) and not dice_choice
 	press = options.get("press", false) or dice_choice or throw_all
@@ -128,6 +133,10 @@ func play():
 	_master("start", players[0], {})
 	while winner == null and round_count < MAX_ROUNDS:
 		round_count += 1
+		if called_round >= 0 and round_count == called_round + 2:  # the Master's final round
+			finish_round = true
+			end_triggered = true
+			_master("final", _leader(), {})
 		for p in players:
 			await take_turn(p)
 			if winner != null:
@@ -136,7 +145,19 @@ func play():
 		if end_triggered:
 			_resolve_finish()
 			_master("end", winner, {"margin": _margin()})
+		elif master_call > 0 and called_round < 0 and leader_score() >= master_call:
+			called_round = round_count  # the Master calls it: one more round, then the final round
+			_master("call", _leader(), {"at": master_call})
 	return winner
+
+
+## The top scorer (the first in seat order on a tie).
+func _leader():
+	var best = players[0]
+	for p in players:
+		if p.score > best.score:
+			best = p
+	return best
 
 
 ## A rule number: the rule dict's value, or the Sin's own default (V2 / V3 games).
@@ -404,7 +425,7 @@ func take_turn(p) -> void:
 		_check_lead()
 	_end_turn(p, banked)
 
-	if p.score >= Rules.WIN_SCORE:
+	if master_call == 0 and p.score >= Rules.WIN_SCORE:
 		if finish_round:
 			end_triggered = true
 		else:
