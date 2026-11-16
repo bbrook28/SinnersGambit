@@ -61,7 +61,8 @@ func take_turn(p) -> void:
 		_start_costs(p)
 	if p.sin:
 		await p.sin.before_turn(self, p, turn)
-	_power_start(p)
+	_master_bargain(p)
+	_both(p, _power_start)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
@@ -92,8 +93,8 @@ func take_turn(p) -> void:
 		if p.sin:
 			await p.sin.after_throw(self, p, turn)
 		_do_rethrow(p)
-		_power_after_throw(p)
-		_power_envy_copy(p)
+		_both(p, _power_after_throw)
+		_both(p, _power_envy_copy)
 		turn.strikes += _strikes(turn.faces)
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
 			if view:
@@ -105,7 +106,7 @@ func take_turn(p) -> void:
 		if doubled:
 			turn.throw_points *= 2
 		turn.points += turn.throw_points
-		_power_scored(p)
+		_both(p, _power_scored)
 		if view:
 			say("  +%d (turn %d, Strikes %d)" % [turn.throw_points, turn.points, turn.strikes])
 		await beat(p, "throw")
@@ -122,7 +123,7 @@ func take_turn(p) -> void:
 			elif not may_throw(p):
 				count = 0
 			else:
-				var go: bool = _power_greed(p) or await p.bot.wants_throw(p, self, turn.points, turn.strikes)
+				var go: bool = _greed_both(p) or await p.bot.wants_throw(p, self, turn.points, turn.strikes)
 				count = _max_throw(p) if go or not may_bank(p) else 0
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
@@ -134,6 +135,10 @@ func take_turn(p) -> void:
 		banked = p.sin.on_bank(self, p, turn, banked)
 		if view and turn.min_points >= 0:
 			say("  Hubris %s: %d -> %d" % ["pays off" if banked > 0 else "fails", turn.points, banked])
+	if turn.has_meta("b_hubris"):  # a borrowed Hubris pays here (its own Sin isn't Pride)
+		var before := banked
+		banked = int(banked * float(opt("hubris_mult", 1.5))) / 5 * 5 if turn.points >= turn.min_points else 0
+		p.set_meta("b_gain", int(p.get_meta("b_gain", 0)) + maxi(0, banked - before))
 	if p.pact_by != null:
 		var cut: int = mini(banked, p.pact_pct) if v4 else banked * p.pact_pct / 100
 		p.pact_by.score += cut  # like Spark of Rage, 1000 reached off-turn wins on their next turn
@@ -161,12 +166,13 @@ func take_turn(p) -> void:
 
 	# Gambit Phase: buy dice, then Gambit abilities.
 	var n: int = clampi(await p.bot.dice_to_buy(p, self), 0, supply)
-	while n > 0 and _buy_price(p, n) > p.score:
+	while n > 0 and (_buy_price(p, n) > p.score or (opt("buy_from_bank", false) and _buy_price(p, n) > banked)):  # buy_from_bank: only from this turn's Bank
 		n -= 1
 	if n > 0:
 		var price := _buy_price(p, n)
 		p.score -= price
 		p.dice += n
+		p.set_meta("buys", int(p.get_meta("buys", 0)) + n)
 		supply -= n
 		if view:
 			say("%s buys %d %s for %d (now %d dice)." % [pname(p), n, "die" if n == 1 else "dice", price, p.dice])
@@ -281,7 +287,7 @@ var power_stats := {}
 
 
 func _ps(p) -> Dictionary:
-	var n: String = p.sin.sin_name
+	var n: String = _pname(p) + ("" if _slot == 0 else "+")  # "Wrath+": a borrowed Wrath seal
 	if not power_stats.has(n):
 		power_stats[n] = {"turns": 0, "uses": 0, "first": 0, "chances": 0, "saves": 0, "turns_with_chance": 0}
 	return power_stats[n]
@@ -292,7 +298,7 @@ func _powers_on(p) -> bool:
 
 
 func _smart(p) -> bool:
-	return p.bot.get("smart") == true or (p.sin != null and p.sin.sin_name in str(opt("smart_sins", "")).split(","))
+	return p.bot.get("smart") == true or (p.sin != null and _pname(p) in str(opt("smart_sins", "")).split(","))
 
 
 ## A legal chance this turn: count it; true if it's the turn's first.
@@ -313,14 +319,122 @@ func _use(p, first: bool, saved := false) -> void:
 		st.first += 1
 	if saved:
 		st.saves += 1
-	turn.set_meta("power", true)
-	p.set_meta("charges", int(p.get_meta("charges", 0)) + 1)
+	if _slot == 0:
+		turn.set_meta("power", true)
+		p.set_meta("charges", int(p.get_meta("charges", 0)) + 1)
+		return
+	turn.set_meta("power_b", true)
+	p.set_meta("b_uses", int(p.get_meta("b_uses", 0)) + 1)
+	if saved:  # a bust the borrowed seal turned safe: the stake it kept counts as its gain
+		p.set_meta("b_gain", int(p.get_meta("b_gain", 0)) + turn.points)
+	var left: int = int(p.get_meta("b_left", 0)) - 1
+	p.set_meta("b_left", left)
+	if left == 0:  # out of charges: the seal empties
+		p.remove_meta("borrowed")
 
 
 func _power_free() -> bool:
+	if _slot == 1:
+		return not turn.has_meta("power_b") and current.has_meta("borrowed") and _will_use(current, "b")
 	if int(opt("power_charges", 0)) > 0 and int(current.get_meta("charges", 0)) >= int(opt("power_charges", 0)):
 		return false
-	return not turn.has_meta("power")
+	return not turn.has_meta("power") and _will_use(current, "a")
+
+
+# ---------- REPLY 6-7 prototypes: profiles, the borrowed seal, the Master's round, the buy rule ----------
+
+## The power in play now: slot 0 is the Sin's own seal, slot 1 the borrowed one (opt "borrow").
+var _slot := 0
+
+
+func _pname(p) -> String:
+	return p.sin.sin_name if _slot == 0 else str(p.get_meta("borrowed", ""))
+
+
+## A profile that uses its seal only some turns (Forgetter): one roll a turn a slot (bot.seal_use).
+func _will_use(p, key: String) -> bool:
+	var u = p.bot.get("seal_use")
+	if u == null or float(u) >= 1.0:
+		return true
+	var mk := "will_" + key
+	if not turn.has_meta(mk):
+		turn.set_meta(mk, rng.randf() < float(u))
+	return turn.get_meta(mk)
+
+
+## Runs one power hook for the borrowed seal too (slot 1), when one is held.
+func _both(p, hook: Callable) -> void:
+	hook.call(p)
+	if p.has_meta("borrowed") and opt("borrow", "") != "":
+		var e_before: int = turn.points + p.score
+		_slot = 1
+		hook.call(p)
+		_slot = 0
+		var gained: int = turn.points + p.score - e_before
+		if gained > 0:
+			p.set_meta("b_gain", int(p.get_meta("b_gain", 0)) + gained)
+
+
+func _greed_both(p) -> bool:
+	if _power_greed(p):
+		return true
+	if p.has_meta("borrowed") and opt("borrow", "") != "":
+		_slot = 1
+		var r := _power_greed(p)
+		_slot = 0
+		return r
+	return false
+
+
+## borrow "charges3" | "keep" | "free3": at the start of your turn, if your second seal is empty, the
+## Master offers you one rival Sin's power from the table (at random) for one mark of that Sin (free3: no
+## mark). charges3 / free3: three uses, then it empties; keep: until the game ends. borrow_every
+## "turn" (default) or "round" (once a round, the turn's first seat to have an empty slot... per seat).
+func _master_bargain(p) -> void:
+	var mode := str(opt("borrow", ""))
+	if mode == "" or round_count < 2 or p.has_meta("borrowed") or not _powers_on(p):
+		return
+	if str(opt("borrow_every", "turn")) == "round" and int(p.get_meta("b_round", -1)) == round_count:
+		return
+	p.set_meta("b_round", round_count)
+	var pool := []
+	for o in players:
+		if o != p and o.sin != null and o.sin.sin_name != p.sin.sin_name:
+			pool.append(o)
+	if pool.is_empty():
+		return
+	var from = pool[rng.randi_range(0, pool.size() - 1)]
+	var sname: String = from.sin.sin_name
+	var costs_mark: bool = mode != "free3"
+	var offer := {"id": "borrow", "gain": "power", "g": 0, "cost": "mark" if costs_mark else "none", "c": 0}
+	var yes := true
+	if p.bot.has_method("wants_borrow"):
+		yes = p.bot.wants_borrow(self, p, from, costs_mark)
+	elif costs_mark:
+		yes = int(p.marks.get(sname, 0)) + 1 < marks_to_claim or p.claims.has(sname)
+	borrow_offers += 1
+	if not yes:
+		return
+	borrow_taken += 1
+	p.set_meta("borrowed", sname)
+	p.set_meta("b_left", 9999 if mode == "keep" else 3)
+	var used: Dictionary = p.get_meta("b_held", {})
+	used[sname] = int(used.get(sname, 0)) + 1
+	p.set_meta("b_held", used)
+	if costs_mark:
+		var behind: int = leader_score() - p.score
+		if not (opt("mark_free_behind", 0) > 0 and behind >= int(opt("mark_free_behind", 0))):
+			p.marks[sname] = int(p.marks.get(sname, 0)) + 1
+		if p.marks.get(sname, 0) >= marks_to_claim:
+			p.marks[sname] = 0
+			if not p.claims.has(sname):
+				p.claims.append(sname)
+				claims_made += 1
+				claim_ranks.append(_rank(p))
+
+
+var borrow_offers := 0
+var borrow_taken := 0
 
 
 ## Turn start: Pride names a Bank.
@@ -328,7 +442,7 @@ func _power_start(p) -> void:
 	if not _powers_on(p):
 		return
 	_ps(p).turns += 1
-	if p.sin.sin_name != "Pride" or not _power_free():
+	if _pname(p) != "Pride" or not _power_free():
 		return
 	_chance(p)
 	var n := _max_throw(p)
@@ -345,6 +459,8 @@ func _power_start(p) -> void:
 		target = 150
 	if target > 0:
 		turn.min_points = target
+		if _slot == 1:
+			turn.set_meta("b_hubris", true)
 		_use(p, true)
 
 
@@ -352,7 +468,7 @@ func _power_start(p) -> void:
 func _power_after_throw(p) -> void:
 	if not _powers_on(p) or not _power_free():
 		return
-	var sname: String = p.sin.sin_name
+	var sname: String = _pname(p)
 	if not sname in ["Sloth", "Wrath", "Lust", "Gluttony"]:
 		return
 	var s := _strikes(turn.faces)
@@ -423,7 +539,7 @@ func _power_effect(p, sname: String, best: int) -> void:
 
 ## After a safe throw has scored: Envy mirrors it (its points count twice).
 func _power_scored(p) -> void:
-	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Envy" or turn.throw_points <= 0 or opt("envy_mode", "mirror") != "mirror":
+	if not _powers_on(p) or not _power_free() or _pname(p) != "Envy" or turn.throw_points <= 0 or opt("envy_mode", "mirror") != "mirror":
 		return
 	var first := _chance(p)
 	var go := true
@@ -437,7 +553,7 @@ func _power_scored(p) -> void:
 
 ## At a throw-or-bank decision: Greed banks half the stake and throws on. True = it did (throw again).
 func _power_greed(p) -> bool:
-	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Greed" or turn.points < 10:
+	if not _powers_on(p) or not _power_free() or _pname(p) != "Greed" or turn.points < 10:
 		return false
 	var first := _chance(p)
 	var n := _max_throw(p)
@@ -480,7 +596,7 @@ func _rank(p) -> String:
 ## Envy variant (envy_mode "copy"): after a throw with a scorer, before Strikes count, add a copy of
 ## this throw's best die. Smart: on a throw with 2+ scorers, or when it would bank after it.
 func _power_envy_copy(p) -> void:
-	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Envy" or opt("envy_mode", "mirror") != "copy":
+	if not _powers_on(p) or not _power_free() or _pname(p) != "Envy" or opt("envy_mode", "mirror") != "copy":
 		return
 	var best := 0
 	var scorers := 0
@@ -510,9 +626,9 @@ func _power_envy_copy(p) -> void:
 func _power_declare(p) -> void:
 	if not _powers_on(p) or not opt("declare", false) or not _power_free() or turn.has_meta("declared"):
 		return
-	if not p.sin.sin_name in ["Sloth", "Wrath", "Lust", "Gluttony"]:
+	if not _pname(p) in ["Sloth", "Wrath", "Lust", "Gluttony"]:
 		return
-	if p.sin.sin_name == "Lust" and best_face_last_throw() < 4:
+	if _pname(p) == "Lust" and best_face_last_throw() < 4:
 		return
 	var first := _chance(p)
 	var go := true
