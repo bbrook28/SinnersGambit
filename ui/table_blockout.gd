@@ -1036,9 +1036,9 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 	parent.add_child(words)
 	var buying := not buy_ghosts.is_empty()
 	var row := items.duplicate()
-	if buying:  # left to right as on the track: most dice (lowest score) first, "Buy none" last
-		row.sort_custom(func(a, b): return int(a.value) > int(b.value))
-	var per: int = mini(row.size(), CHOICE_PER_ROW)  # past five, rows wrap onto the page under the track
+	if buying:  # REPLY 21: one row, low to high: "Buy none" first, then 1 up to what I can afford (at most Rules.MAX_BUY)
+		row.sort_custom(func(a, b): return int(a.value) < int(b.value))
+	var per: int = row.size() if buying else mini(row.size(), CHOICE_PER_ROW)  # past five, other rows wrap onto the page under the track
 	var bw: float = minf(320.0, (vp.x - 112.0 - (per - 1) * CHOICE_GAP) / per)
 	var out := []
 	for i in row.size():
@@ -1050,12 +1050,26 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 		var val = it.value
 		var b := Button.new()
 		b.text = str(it.text)
+		if buying:  # REPLY 21: six buttons in one row: "Buy 3" over its price, so neither shrinks below 15 pt
+			var m := RegEx.create_from_string("^(Buy [0-9]+) [(]([0-9]+)[)]$").search(b.text)
+			if m:
+				b.text = m.get_string(1) + "\n" + m.get_string(2)
+			elif b.text.begins_with("Buy "):  # "Buy none": the same two lines
+				b.text = b.text.replace("Buy ", "Buy\n")
 		b.set_meta("value", val)
 		b.clip_text = true
 		b.add_theme_font_override("font", Style.BLACKLETTER)
 		var fs := 42
-		while fs > 28 and Style.BLACKLETTER.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > bw - 24.0:
+		var widest := 0.0
+		for part in b.text.split("
+"):
+			widest = maxf(widest, Style.BLACKLETTER.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		while fs > 28 and widest > bw - 24.0:
 			fs -= 2
+			widest = 0.0
+			for part in b.text.split("
+"):
+				widest = maxf(widest, Style.BLACKLETTER.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
 		b.add_theme_font_size_override("font_size", fs)
 		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(st, INK)
