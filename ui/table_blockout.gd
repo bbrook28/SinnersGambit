@@ -611,7 +611,7 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	boxes["mask"] = mask
 	boxes["shoulders"] = Rect2(cx - sw, y_sh - 4.0, 2.0 * sw, 8.0)
 	boxes["robe"] = Rect2(0, y_sh, w, bottom - y_sh)
-	return {"cx": cx, "top": top, "y_sh": y_sh, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y, "act": win_rects[cur],
+	return {"cx": cx, "top": top, "y_sh": y_sh, "sw": sw, "fall": fall, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y, "act": win_rects[cur],
 		"sh_l": Vector2(cx - sw * 0.8, y_sh - rw * 0.15), "sh_r": Vector2(cx + sw * 0.8, y_sh - rw * 0.15)}  # arm joints on the shoulder line
 
 
@@ -727,6 +727,20 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		add_child(plate)
 		add_child(ml)
 		var th: float = ml.get_minimum_size().y
+		# REPLY 23: the plate ends inside his figure, never on the black wall: its ends follow his outline at the
+		# middle of a two-line plate (one pass; his own line never narrower than LINE_MIN_W).
+		var fs: float = 44.0 if who == "" else float(SPEAK_SIZE)
+		var hw: float = _figure_half_w(mf, mf.rt - 12.0 - 6.0 - fs * 1.25) - 12.0
+		var l3: float = maxf(lo, mf.cx - hw + 12.0)
+		var h3: float = minf(hi, mf.cx + hw - 12.0)
+		var floor_w: float = LINE_MIN_W if who == "" else SPEAK_SIGIL + 14.0 + 200.0  # a Sin's line always fits: the sigil on him
+		if h3 - l3 >= floor_w and h3 - l3 < hi - lo:
+			lo = l3
+			hi = h3
+			lw = hi - lo - sg
+			ml.custom_minimum_size = Vector2(lw, 0)
+			ml.size = Vector2(lw, 0)
+			th = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
 		ml.position = Vector2(lo + sg, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
 		plate.position = Vector2(lo, ml.position.y) - Vector2(12, 6)
@@ -738,6 +752,19 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			_sigil(who, Rect2(c - Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.39, Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.78), INK)
 		else:
 			master_label = ml
+
+
+## His figure's half-width at height y: the hood's dome, its sides flaring to the shoulders, then the robe.
+func _figure_half_w(mf: Dictionary, y: float) -> float:
+	var ry: float = (mf.y_sh - mf.top) * 0.5
+	var cy: float = mf.top + ry
+	var hr: float = mf.head_w / 2.0
+	if y < cy:
+		var d: float = clampf((cy - y) / maxf(1.0, ry), 0.0, 1.0)
+		return hr * sqrt(1.0 - d * d)
+	if y < mf.y_sh:
+		return lerpf(hr, mf.sw * 0.95, (y - cy) / maxf(1.0, mf.y_sh + 12.0 - cy))
+	return mf.sw * (1.0 + 0.9 * clampf((y - mf.y_sh) / maxf(1.0, mf.fall - mf.y_sh), 0.0, 1.0))
 
 
 ## A dashed outline (a ghost die).
