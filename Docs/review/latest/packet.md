@@ -1,12 +1,20 @@
-# Packet: REPLY 19 confirm (touches and risks; nothing built)
-1. **Docs.** Confirmed: Handoff.md and TableDesign.md. Also: Handoff still says build 115, and TableSpec's Master bullet. Missed risks: the player-facing rules in `ui/rules_text.gd` (rulebook pages) may disagree with code too; I'll report those, not fix. Dice maximum: no per-player cap; buying stops at the shared supply (27 total minus 3 a seat) and at what you can afford (`core/game.gd` `max_buy`).
-2. **Buy screen.** It's main's prompt (`ui/human.gd` builds "Buy none, Buy 1..n", n = `max_buy`), redrawn on the table by `table_play._choices` -> `table_blockout.choice_row`. Corrections: no tray or ghost dice involved (while buying, the tray is empty); REPLY 11's ghosts are hollow markers on the track, one per option. "Affordable only" already holds in core (`max_buy` checks your score), not in the UI. High-to-low is deliberate (`choice_row` sorts "as on the track"); two rows come from `CHOICE_PER_ROW` 5, the second row under the track band. **Why the top row was dead: not found.** Real clicks on the top row work in a live game at SE and in the fixture at std; my iPhone-size probe hung. Desktop clicks don't test touch. Next check: touch events at std. Missed risk: one row at 44 pt fits at most 6 buttons (121 px + 12 pt gap in 968 px); with 1000 points you'd have 11 options.
-3. **Game end.** Confirmed, plus: the end is main's prompt ("The game is done...", "New game", `ui/main.gd` 946) over the table, and `tests/table_play_check.gd` finds a game's end by that "new" button. Could break: that check, and the end summary.
-4. **Line times.** Touches: the Sin line is `SPEAK_FOR` 2.6 s in `ui/table_play.gd` (should live in `ui/tuning.gd`: a fault I'll fix as part of this), the Master's is `Tuning.MASTER_FOR` 2.6 s; bot pace is `Tuning.BOT_PACE` 6.0. Correction: tuning.gd says a bot turn "under 4 s", TableDesign §5 says 2.5 s on the table; `tests/bot_pace.gd` measures it.
-5. **Lead report.** Confirmed: nothing touched. Likely: your first game after install uses first-game bots (`main.is_first_game()`: games_finished == 0). I'll confirm from 118's code and sim lead size by round 3 per bot profile.
-6. **Greed.** Confirmed: nothing touched. Reads `sins/greed.gd`, `core/game.gd`, the rules text.
-7. **Track post.** Confirmed, plus: the view needs the round (`table_play` passes call_at only today) and `Rules.MASTER_CALL_FLOOR`; fixtures need a round field (table_master_* and any with a post). Could break: fixture images with the post.
+# Packet: REPLY 20 confirm (rival plate, top row; nothing built)
+REPLY 19's two questions are still open; nothing from 19 or 20 is built.
+
+**Why it runs off:** the plate is 566 px wide (stake 270 + 3 marks + the 110 px seal + pads), but its clamp keeps only 400 px from the page's right edge (`table_blockout.gd` ~305). The seal was added beside the marks later and the clamp wasn't widened. At 7 seats, windows 5 and 6 overflow; at 4 seats, window 3 cuts the seal. The spoken line uses the same spot (`sr.end.y - 130`), so the two always collide on a rival's own line.
+
+**Your lines:**
+- Touches: correct. Add the stake ring when a rival's power takes the stake (Cash Out, Hubris), which is placed off the plate. Add the candle flash and bust shake in `table_play._animate` (skipped on rivals' turns today). Add fixtures `table_rival_4/7`, `table_rival_seal_*`, `table_power_rival`, `table_speech`, and TableSpec.
+- Could break: correction: neither option touches REPLY 16's windows (both move off the row onto the page). The track at 7 seats: B's strip sits just under my marker's number (close at SE). The mark arm: not touched (both are below the row).
+- Missed: in A, the page's candles and seal would show the rival's on their turn, not mine. Whose Strikes they are must read from colour and the name tag.
+
+**Shots now** (each window active, 4 and 7 seats, a line from the active Sin): `now_4_std/se`, `now_7a_std/se` (windows 1-3), `now_7b_std/se` (4-6).
+**Mockups** (flat, over a shot with the plate removed): `sheet.png` (std: 7 seats window 5, 4 seats window 3: now, A, B), `sheet_se.png` (7 seats windows 1 and 5).
+- **A, the rival plays on my page:** its stake where mine sits (in its colour, "Pride's turn" above), its Strikes on the candles, its seal in my seal's place. The spoken line goes in the gap between the track and the dice, for every speaker.
+- **B, a strip under the track:** stake, 3 marks and seal on an ink strip between my marker and the dice, under the active window, clamped on screen. The spoken line goes on the Master's plate spot (robe, above the rivals' tops; his and a Sin's line already clear each other). My candles and seal stay mine.
+
+**What I see:** in A at SE, the stake's "180" sits on the top edge of the dimmed Bank button. In B at SE, the strip's top is about 10 px under my marker's "340", and the line's plate overlaps the hood's lower edge when window 1 is active.
 
 **Questions**
-1. Buy row: more than 6 options won't fit one row at 44 pt. Cap the row at "Buy none" + Buy 1-5, or allow a second row past 6? Rec: cap at none + 1-5, low to high (buying more than 5 at once is rare).
-2. OK to start building in order 7, 3, 2, 1, 4 (proposal), 5 and 6 (reports)? Rec: yes.
+1. A or B? Rec: A. Whoever throws owns the page, so there's one place to look for stake, Strikes and seal, and it needs no new space.
+2. A line from a Sin that isn't throwing (a reaction): same spot, with that Sin's sigil beside it? Rec: yes. Colour alone won't tell 7 seats apart.
