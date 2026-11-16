@@ -2480,6 +2480,7 @@ func show_prompt(text: String, options: Array, offer := {}) -> void:
 		if offer.is_empty():
 			_show_prompt_now(text, options)
 		else:
+			await _offer_beat(str(offer.get("sin", "")))
 			_show_offer_now(text, options, offer)
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
@@ -3594,6 +3595,22 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 			await _table.master_say(line, pose, target)
 			if left > 0:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
+
+
+## REPLY 16: before an offer's card screen, the Master holds the card up on the table toward the offering
+## Sin's window for Tuning.MASTER_OFFER_BEAT; a tap skips it.
+func _offer_beat(sname: String) -> void:
+	if _table == null or not _table.visible or game == null or not game.opt("v5", false):
+		return
+	var seat := -1
+	for i in game.players.size():
+		if game.players[i].sin and game.players[i].sin.sin_name == sname:
+			seat = i
+	if seat < 0:
+		return
+	_table.master_offer(seat)
+	await _q.wait(Tuning.MASTER_OFFER_BEAT)
+	_table.master_offer(-1)
 
 
 ## The Master's announcement for an offer to me, shown as part of its entrance (ui/human.gd).

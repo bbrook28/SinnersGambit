@@ -13,6 +13,9 @@ var main
 var sin_i := 0
 var games_done := 0
 var via_table := 0
+var offer_frames := 0  # REPLY 16: frames the offer card screen is up
+var offer_beats := 0   # frames the table shows the Master's offer beat
+var mark_frames := 0   # frames the table shows his mark pose
 var via_main := 0
 var shots := {}
 var _wait := 0
@@ -36,11 +39,19 @@ func _next() -> void:
 	if main:
 		main.queue_free()
 	if sin_i >= SIN_COUNT:
+		if offer_frames > 0 and offer_beats == 0:
+			push_error("TABLE PLAY: offers came (%d frames) but the Master's offer beat never showed" % offer_frames)
+			quit(1)
+			return
+		if mark_frames == 0:
+			push_error("TABLE PLAY: the Master never showed his mark")
+			quit(1)
+			return
 		if seals == 0 or stands == 0:
 			push_error("TABLE PLAY: my power never used (%d) or never let stand (%d)" % [seals, stands])
 			quit(1)
 			return
-		print("TABLE PLAY PASSED: %d V5 games, %d answers on the table (%d seals, %d let stand), %d on main's screens" % [games_done, via_table, seals, stands, via_main])
+		print("TABLE PLAY PASSED: %d V5 games, %d answers on the table (%d seals, %d let stand), %d on main's screens; offer beat %d frames, mark %d frames" % [games_done, via_table, seals, stands, via_main, offer_beats, mark_frames])
 		quit()
 		return
 	main = load("res://ui/main.tscn").instantiate()
@@ -69,6 +80,14 @@ func _process(_delta: float) -> bool:
 	var t = main._table
 	if t and t.showing() and t.view.moment in ["rival", "bust"] and (t.view.moment == "bust" or t.view.points > 0):
 		_shot(t.view.moment)
+	if t and t.showing() and t.view.master_pose == "offer":
+		offer_beats += 1
+		_shot("offer_beat")
+	if t and t.showing() and t.view.master_pose == "mark":
+		mark_frames += 1
+		_shot("mark")
+	if is_instance_valid(main._offer_card):
+		offer_frames += 1
 	var bs: Array = main._buttons.get_children().filter(func(b): return not b.is_queued_for_deletion())
 	if bs.is_empty():
 		return false

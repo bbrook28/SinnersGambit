@@ -21,6 +21,7 @@ const LINE_CHANCE := 0.5   # a Sin says a line on about this share of events (Ta
 const MASTER_CHANCE := 0.33  # the Master of the Dance says a line on about this share of events (TableDesign §10)
 const MASTER_CLOSE := 100    # a loss this close to the winner gets his "close" line
 const MASTER_FOR := 2.6      # s his line stays by the skeleton
+const MASTER_OFFER_BEAT := 1.2  # s the Master holds an offer's card up on the table before the card screen opens; a tap skips (REPLY 16)
 const MASTER_CALL_HOLD := 1.6  # s the table holds on the Master's call and on the final round, so neither is missed (REPLY 10)
 const MASTER_IDLE := 9.0     # s at my decision with no answer before his idle line (one a turn)
 const POWER_FOR := 0.7       # s a power firing holds (real seconds, bots too): seal blazes, ring and sigil on what it changed

@@ -32,6 +32,7 @@ var _firing := {}          # Rules.V5: a power firing now {seat, dice}
 var _master := ""          # the Master's line, spoken from his figure over the windows
 var _master_pose := "speak"  # REPLY 14: "speak", "call" (arm raised: his call, the final round), "mark" (REPLY 15)
 var _master_target := -1     # the seat his "mark" arm reaches to
+var _offer_seat := -1        # REPLY 16: the offer beat, his card held toward this seat's window
 var _master_left := 0.0
 var _master_pending := ""  # said while the table was hidden: shown when it returns
 var rounds_left := 0      # REPLY 10: after the Master's call, rounds left (2 penultimate, 1 final); ui/main.gd sets it
@@ -113,6 +114,12 @@ func power_fired(seat: int, _sname: String, changed: Array) -> void:
 			rt.chain().tween_callback(ring.queue_free)
 		await main.get_tree().create_timer(Tuning.POWER_FOR * k).timeout
 	_firing = {}
+	_draw()
+
+
+## REPLY 16: the offer beat (ui/main.gd _offer_beat): his card held toward seat's window; -1 ends it.
+func master_offer(seat: int) -> void:
+	_offer_seat = seat
 	_draw()
 
 
@@ -255,7 +262,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1))]
+		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1)) + "o%d" % _offer_seat]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -281,6 +288,9 @@ func _draw() -> void:
 	view.master_line = _master
 	view.master_pose = _master_pose if _master != "" else "rest"
 	view.master_target = _master_target if _master != "" else -1
+	if _offer_seat >= 0:
+		view.master_pose = "offer"
+		view.master_target = _offer_seat
 	view.marked_seat = int(s.get("marked", -1))
 	if g.called_round < 0:
 		rounds_left = 0  # a new game
