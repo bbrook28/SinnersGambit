@@ -551,6 +551,9 @@ func _start_costs(p) -> void:
 			say("  %s's debt: starts with %d Strike%s" % [pname(p), turn.strikes, "" if turn.strikes == 1 else "s"])
 	p.turns_started += 1
 	turn.tempt_ready = temptations and round_count > 1 and p.turns_started - p.last_offer_turn >= int(opt("tempt_gap", 1)) and rng.randf() < tempt_chance
+	# Rules.V5: a seat comeback_gap_at or more behind gets an offer every turn.
+	if temptations and round_count > 1 and not turn.tempt_ready and int(opt("comeback_gap_at", 0)) > 0 and leader_score() - p.score >= int(opt("comeback_gap_at", 0)):
+		turn.tempt_ready = true
 
 
 ## Bank-time costs and claims, in order: Pride's claim, your debt, Greed's and Envy's cuts.

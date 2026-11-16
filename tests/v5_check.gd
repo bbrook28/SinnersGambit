@@ -28,6 +28,7 @@ func _initialize() -> void:
 	_bot()
 	await _windows()
 	_comeback()
+	_gap()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -149,3 +150,22 @@ func _comeback() -> void:
 	check(not g.mark_is_free(p), "100 behind: the mark counts")
 	var v4 := Game.new([p.bot, p.bot], 1, Rules.V4.duplicate(), [])
 	check(v4.comeback_factor(v4.players[0]) == 1.0 and not v4.mark_is_free(v4.players[0]), "V4: no comeback, every mark counts")
+
+
+## Item 5: a seat 150+ behind has an offer ready every turn; others every other turn.
+func _gap() -> void:
+	var g := _table()
+	g.round_count = 2
+	var p = g.players[0]
+	g.players[1].score = 400
+	p.score = 300
+	p.turns_started = 1
+	p.last_offer_turn = 1
+	g.turn = TurnState.new()
+	g._start_costs(p)
+	check(not g.turn.tempt_ready, "100 behind, offered last turn: no offer")
+	p.score = 200
+	p.last_offer_turn = p.turns_started
+	g.turn = TurnState.new()
+	g._start_costs(p)
+	check(g.turn.tempt_ready, "200 behind, offered last turn: an offer anyway")
