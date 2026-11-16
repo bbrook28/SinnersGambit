@@ -240,3 +240,144 @@ class BestSplit extends Best:
 	func pick_target(game, me):
 		_s.target_mode = target_mode
 		return _s.pick_target(game, me)
+
+
+## REPLY 7: player profiles. Each game draws its numbers from a range (make(kind, rng)), and every
+## decision has a `whim` chance of going the other way. Kinds: plain, novice (Novice's stop rule),
+## banker, gambler, chaser, sitter, forgetter, taker, grudge.
+class Profile extends Plain:
+	const KINDS := ["plain", "novice", "banker", "gambler", "chaser", "sitter", "forgetter", "taker", "grudge"]
+	var kind := "plain"
+	var rng: RandomNumberGenerator
+	var whim := 0.03          # a decision's chance of a mistake or a whim
+	var seal_use := 1.0       # share of turns the seal is used at all (Forgetter)
+	var accept_scale := 1.0   # Forgetter: share of the offers plain would take that it takes
+	var buy_chance := 1.0     # Banker: rarely buys
+	var behind_risk := 1.0    # Chaser: risk factor when 150+ behind
+	var ahead_risk := 1.0     # Sitter: risk factor when ahead
+	var tilt := 0.0           # Gambler: risk falls by this for two turns after a bust
+	var novice_stop := 0      # Novice: throw again while under this and under 2 Strikes
+	var _bust_seen := 0
+	var _tilt_turns := 0
+	var whims := 0
+
+	static func make(p_kind: String, r: RandomNumberGenerator):
+		var b = load("res://sim/sim_bots.gd").Profile.new()
+		b.kind = p_kind
+		b.rng = r
+		b.label = p_kind
+		b.whim = r.randf_range(0.01, 0.05)
+		match p_kind:
+			"plain":
+				b.risk = r.randf_range(0.95, 1.05)
+				b.bank_at = r.randi_range(270, 330)
+			"novice":
+				b.novice_stop = r.randi_range(120, 200)
+				b.target_dice = 4
+				b.risk = 1.0
+				b.bank_at = 9999
+			"banker":
+				b.risk = r.randf_range(1.2, 1.5)
+				b.bank_at = r.randi_range(120, 220)
+				b.target_dice = r.randi_range(3, 4)
+				b.buy_chance = r.randf_range(0.1, 0.3)
+			"gambler":
+				b.risk = r.randf_range(0.65, 0.85)
+				b.bank_at = 9999
+				b.tilt = r.randf_range(0.1, 0.2)
+				b.target_dice = r.randi_range(5, 6)
+			"chaser":
+				b.risk = r.randf_range(0.95, 1.05)
+				b.bank_at = r.randi_range(270, 330)
+				b.behind_risk = r.randf_range(0.6, 0.75)
+			"sitter":
+				b.risk = r.randf_range(0.95, 1.05)
+				b.bank_at = r.randi_range(270, 330)
+				b.ahead_risk = r.randf_range(1.3, 1.6)
+			"forgetter":
+				b.risk = r.randf_range(0.95, 1.05)
+				b.bank_at = r.randi_range(250, 350)
+				b.seal_use = r.randf_range(0.3, 0.6)
+				b.accept_scale = r.randf_range(0.1, 0.3)
+			"taker", "grudge":
+				b.risk = r.randf_range(0.95, 1.05)
+				b.bank_at = r.randi_range(270, 330)
+		return b
+
+	func _whim() -> bool:
+		if rng.randf() < whim:
+			whims += 1
+			return true
+		return false
+
+	func risk_for(p, game) -> float:
+		var r: float = super(p, game)
+		var lead = game.leader_other(p)
+		if lead != null:
+			var d: int = lead.score - p.score
+			if d >= 150:
+				r *= behind_risk
+			elif d < 0:
+				r *= ahead_risk
+		if p.busts > _bust_seen:  # Gambler's tilt
+			_bust_seen = p.busts
+			_tilt_turns = 2
+		if _tilt_turns > 0:
+			r -= tilt
+		return r
+
+	func wants_throw(p, game, turn_points: int, strikes: int) -> bool:
+		if game.turn.throws == 0:
+			if _tilt_turns > 0:
+				_tilt_turns -= 1
+			return true
+		var go: bool
+		if kind == "novice":
+			if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
+				go = true
+			elif p.score + turn_points >= int(game.opt("win_score", Rules.WIN_SCORE)) and not game.end_triggered:
+				go = false
+			elif game.finish_round and game.end_triggered:
+				go = p.score + turn_points <= game.leader_score()
+			else:
+				go = turn_points < int(novice_stop * scale(game)) and strikes < 2
+		else:
+			go = super(p, game, turn_points, strikes)
+		return not go if _whim() else go
+
+	func dice_to_buy(p, game) -> int:
+		if buy_chance < 1.0 and rng.randf() >= buy_chance:
+			return 0
+		var n: int = super(p, game)
+		if _whim():
+			n = maxi(0, n + (1 if rng.randf() < 0.5 else -1))
+		return n
+
+	func wants_temptation(game, p, from, offer: Dictionary) -> bool:
+		var yes: bool
+		match kind:
+			"taker":
+				yes = true
+			"novice":
+				yes = rng.randf() < 0.5  # a new player takes about half, without sums
+			_:
+				yes = super(game, p, from, offer)
+				if yes and accept_scale < 1.0:
+					yes = rng.randf() < accept_scale
+		return not yes if _whim() else yes
+
+	## The Master's borrowed seal (sim_game _master_bargain).
+	func wants_borrow(game, p, from, costs_mark: bool) -> bool:
+		var yes := true
+		var sname: String = from.sin.sin_name
+		if costs_mark and int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
+			yes = kind == "taker"
+		if kind == "forgetter" or kind == "novice":
+			yes = yes and rng.randf() < 0.5
+		return not yes if _whim() else yes
+
+	## Grudge: whoever last hurt me, never the leader by default.
+	func pick_target(game, me):
+		if kind == "grudge" and not me.grudges.is_empty():
+			return game.players[me.grudges[me.grudges.size() - 1]]
+		return super(game, me)
