@@ -24,6 +24,7 @@ const Art = preload("res://ui/art.gd")
 const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const Die = preload("res://ui/widgets/die.gd")
+const RulesText = preload("res://ui/rules_text.gd")
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
 # The palette: black, parchment, bone, crimson, gold leaf (+ the active Sin's glass colour).
@@ -38,6 +39,8 @@ const SIDE := 40.0         # px, screen side margin
 const WIN_GAP := 12.0
 const WIN_RATIO := 1.8     # window crop height / width (as the board windows)
 const UNDER_WIN := 190.0   # the zone at the windows' feet: a rival's stake, a spoken line, a choice row (REPLY 16: over the windows)
+const SPEAK_SIZE := 60  # REPLY 22 (A2): a Sin's line on the Master's plate spot, in blackletter
+const SPEAK_SIGIL := 56.0  # its speaker's sigil disc, at the plate's left
 const LINE_MIN_W := 380.0  # the Master's plate is never narrower for his arm (REPLY 17: a 6-word line in two lines)
 const ROW_GAP := 22.0      # the gap left under the window row: my crimson bar (REPLY 16; the windows took the rest)
 const GOAL := 1000.0       # first to 1000 wins
@@ -300,31 +303,8 @@ func build() -> void:
 	add_child(shade)
 	add_child(shaft)
 
-	# A rival's turn: its stake and Strike marks under its window, in its light.
-	if not mine:  # REPLY 16: on an ink plate over the foot of its window (the gap under the row is gone)
-		var under: float = wr.end.y - 150.0
-		var plate_x: float = clampf(wr.get_center().x - 130.0 - 60.0, px0 + 20.0, px1 - 400.0)
-		_rect(Rect2(plate_x - 12.0, under - 26.0, 270.0 + 3 * 46.0 + RIVAL_SEAL + 48.0, 152.0), Color(BLACK, 0.85))
-		var rs := _label(str(points), 92, GOLD, INK)
-		rs.size = Vector2(260, 92 * 1.45)
-		rs.position = Vector2(plate_x, under - 22.0)
-		for s in 3:
-			_rect(Rect2(rs.position.x + 270.0 + s * 46.0, under + 30.0, 32, 48), CRIMSON if s < strikes else Color(BONE, 0.22))
-		if not firing.is_empty() and firing.get("dice", []).is_empty():  # its power took the stake (Cash Out, Hubris)
-			var rw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, 92).x
-			_stake_ring(Rect2(rs.position.x + (rs.size.x - rw) / 2.0, rs.position.y + rs.size.y * 0.2, rw, rs.size.y * 0.6), int(firing.seat), self, BONE, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 16.0, under + 10.0), rival_seal == "")
-		if rival_seal != "":  # its seal beside its Strike marks: spent once used, blazing as it fires
-			_power_seal(self, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 24.0 + RIVAL_SEAL / 2.0, under + 54.0), seats[cur].sin, rival_seal, RIVAL_SEAL, not firing.is_empty() and int(firing.seat) == cur)
-	# A Sin's spoken line, anchored under its window, in its colour. On a rival's turn its stake has the
-	# gap, so the line sits over the foot of the speaker's window instead.
-	if not speak.is_empty():
-		var sr: Rect2 = win_rects[int(speak.seat)]
-		var scol: Color = Style.SIN_COLORS[seats[int(speak.seat)].sin].lightened(0.15)
-		var line := _label(str(speak.line), 84, scol, BLACK, true)
-		var lw: float = Style.BLACKLETTER.get_string_size(str(speak.line), HORIZONTAL_ALIGNMENT_LEFT, -1, 84).x + 40.0
-		line.size = Vector2(lw, 110)
-		var ly: float = sr.end.y - 130.0  # REPLY 16: over the foot of the speaker's window
-		line.position = Vector2(clampf(sr.get_center().x - lw / 2.0, px0 + 20.0, px1 - 20.0 - lw), ly)
+	# (REPLY 22, A2: a rival plays on my page: its stake, Strikes and seal in my places, below; its line and
+	# every Sin's line sit on the Master's plate spot in his robe, _master_arms.)
 
 	# Score track: the page's full width, 0 at the left, 1000 at the right.
 	var ax0: float = pg.position.x + 80.0
@@ -471,10 +451,20 @@ func build() -> void:
 		throw.modulate = Color(1, 1, 1, 0.35)
 	# Rules.V5: my Sin's seal, the third control, centred over Throw: glowing and live when my power is
 	# ready, plain when unspent, dark and crossed once spent this turn.
-	if seal != "":
-		var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
+	var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
+	if seal != "" and mine:
 		_power_seal(near, pc, seats[me].sin, seal, POWER_SEAL, not firing.is_empty() and int(firing.seat) == me, seal_face)
 		_seal_hit(near, pc)
+	elif not mine and rival_seal != "":  # REPLY 22 (A2): a rival's seal in my seal's slot, mine hidden: a flat disc, never live
+		if not firing.is_empty() and int(firing.seat) == cur:
+			_power_seal(self, pc, seats[cur].sin, rival_seal, POWER_SEAL, true)  # blazing as it fires
+		else:
+			var sc: Color = col.darkened(0.55) if rival_seal == "spent" else col.lightened(0.1)
+			_disc(pc, POWER_SEAL / 2.0, sc, INK)
+			var rr: float = POWER_SEAL / 2.0
+			_sigil(seats[cur].sin, Rect2(pc - Vector2(rr, rr) * 0.78, Vector2(rr, rr) * 1.56), Color(BONE, 0.5) if rival_seal == "spent" else INK)
+			if rival_seal == "spent":
+				_line([pc - Vector2(rr, rr) * 0.55, pc + Vector2(rr, rr) * 0.55], CRIMSON, 10.0)
 
 	# The stake: one gold numeral directly above Bank (what Bank keeps), a pending Bank loss in crimson
 	# beside it. A bust blots it.
@@ -485,21 +475,27 @@ func build() -> void:
 	while stake_size > 90 and Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
 		stake_size -= 4  # never under the candles
 	stake_label = null
-	if mine and buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
+	# REPLY 22 (A2): a rival's stake stands where mine does, in its colour, undimmed, "<Sin>'s turn" over it.
+	var rcol: Color = col.lightened(0.3)  # 5:1 or more on ink for every Sin
+	if not mine or buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
 		var tw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
-		var num := _label(str(points), stake_size, GOLD, INK, false, near)
+		var num := _label(str(points), stake_size, GOLD if mine else rcol, INK, false, near if mine else self)
 		num.size = Vector2(tw + 24.0, stake_h)
 		num.position = Vector2(maxf(px0 + 70.0, bc - num.size.x / 2.0), stake_top)
 		stake_label = num
-		if loss != "":
+		if not mine:
+			var whose := _label(RulesText.word("their_turn", {"name": seats[cur].sin}), 44, rcol, INK, false, self)
+			whose.size = Vector2(maxf(num.size.x, whose.get_minimum_size().x + 16.0), 56.0)
+			whose.position = Vector2(maxf(px0 + 16.0, num.position.x + (num.size.x - whose.size.x) / 2.0), stake_top - 24.0)
+		if loss != "" and mine:
 			var ll := _label(loss, 64, CRIMSON, BONE, false, near)
 			ll.size = Vector2(loss_w, 90)
 			ll.position = Vector2(num.position.x + num.size.x - 8.0, stake_top - 18.0)  # raised, clear of the flames
-		if not firing.is_empty() and int(firing.seat) == me and firing.get("dice", []).is_empty():
-			_stake_ring(Rect2(num.position.x + 12.0, stake_top + stake_h * 0.12, tw, stake_h * 0.76), me, near)
+		if not firing.is_empty() and int(firing.seat) == cur and firing.get("dice", []).is_empty():
+			_stake_ring(Rect2(num.position.x + 12.0, stake_top + stake_h * 0.12, tw, stake_h * 0.76), cur, near if mine else self, INK, Vector2(-1, -1), mine or rival_seal == "")  # a rival's blazing seal is its sigil
 		if bust:  # the blot covers the figure itself
-			_blot(near, Vector2(num.position.x + num.size.x / 2.0, stake_top + stake_h / 2.0), Vector2((tw / 2.0 + 28.0) / 0.91, stake_size * 0.64))
+			_blot(near if mine else self, Vector2(num.position.x + num.size.x / 2.0, stake_top + stake_h / 2.0), Vector2((tw / 2.0 + 28.0) / 0.91, stake_size * 0.64))
 	# Marks I hold: small sigil stamps along the page's near edge.
 	var marks: Dictionary = seats[me].get("marks", {})
 	var mx0: float = bank.position.x + SEAL + 20.0
@@ -512,18 +508,19 @@ func build() -> void:
 	# My three Strike candles, large, on my edge between the seals: lit (the flame steady, restless or
 	# guttering with the Strikes taken), or snuffed with a crimson cap and a thread of smoke. A Strike
 	# I'll start my next turn with is a crimson band round the first candle to go.
-	var struck: int = (3 if bust else strikes) if mine else 0
-	var risk: int = clampi(strikes, 0, 2) if mine else 0
+	var struck: int = 3 if bust else strikes  # REPLY 22 (A2): a rival's Strikes on my candles, undimmed, on its turn
+	var risk: int = clampi(strikes, 0, 2)
+	var cpar: Control = near if mine else self
 	var ct: float = pb - EDGE - CANDLE.y
 	for c in 3:
 		var p := Vector2(c_l + c * (CANDLE.x + CANDLE_GAP), ct)
 		candle_rects.append(Rect2(p, CANDLE))
-		_rect(Rect2(p, CANDLE), BONE, near)
-		if pend.has("strike") and c == 2 - struck:  # the next candle to go
-			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, near)
+		_rect(Rect2(p, CANDLE), BONE, cpar)
+		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go
+			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, cpar)
 		if c >= 3 - struck:
-			_rect(Rect2(p, Vector2(CANDLE.x, 26)), CRIMSON, near)
-			_line([p + Vector2(CANDLE.x / 2.0, -8), p + Vector2(CANDLE.x / 2.0 + 14, -40), p + Vector2(CANDLE.x / 2.0 - 6, -72)], Color(INK, 0.55), 5.0, Color(0, 0, 0, 0), near)
+			_rect(Rect2(p, Vector2(CANDLE.x, 26)), CRIMSON, cpar)
+			_line([p + Vector2(CANDLE.x / 2.0, -8), p + Vector2(CANDLE.x / 2.0 + 14, -40), p + Vector2(CANDLE.x / 2.0 - 6, -72)], Color(INK, 0.55), 5.0, Color(0, 0, 0, 0), cpar)
 		else:
 			var glow := TextureRect.new()  # candlelight
 			glow.texture = Art.soft_dot(64, Color("ffcf7a"))
@@ -533,9 +530,9 @@ func build() -> void:
 			glow.position = p + Vector2(CANDLE.x / 2.0, -40.0) - glow.size / 2.0
 			glow.modulate.a = 0.35
 			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			near.add_child(glow)
-			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, near)  # wick
-			_flame(near, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
+			cpar.add_child(glow)
+			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, cpar)  # wick
+			_flame(cpar, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
 
 
@@ -684,7 +681,13 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			_rect(card, BONE)
 			_line([card.position, Vector2(card.end.x, card.position.y), card.end, Vector2(card.position.x, card.end.y), card.position], INK, 4.0, none)
 		_disc(hand, minf(aw * 0.36, 60.0), BONE, INK)
-	if master_line != "":  # REPLY 17: his words on an ink plate in his robe, just above the rivals' tops, centred on him
+	# REPLY 22 (A2): a Sin's spoken line takes the same spot, in its blackletter and colour, its sigil at the left.
+	var text: String = master_line
+	var who := ""
+	if text == "" and not speak.is_empty():
+		text = str(speak.line)
+		who = str(seats[int(speak.seat)].sin)
+	if text != "":  # REPLY 17: his words on an ink plate in his robe, just above the rivals' tops, centred on him
 		var act: Rect2 = mf.act  # never across the active window, which is as tall as the wall
 		var lo: float = maxf(px0 + 16.0, 52.0)
 		var hi: float = minf(px1 - 16.0, vp_w - 52.0)
@@ -705,9 +708,10 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			if k == "card" or h2 - l2 >= LINE_MIN_W:
 				lo = l2
 				hi = h2
-		var lw: float = hi - lo
-		var ml := Style.label(master_line, 44, BONE, false, 10)
-		ml.add_theme_color_override("font_outline_color", INK)
+		var sg: float = 0.0 if who == "" else SPEAK_SIGIL + 14.0  # the speaker's sigil, left of the words
+		var lw: float = hi - lo - sg
+		var ml := Style.label(text, 44 if who == "" else SPEAK_SIZE, BONE if who == "" else Style.SIN_COLORS[who].lightened(0.25), who != "", 10)
+		ml.add_theme_color_override("font_outline_color", INK if who == "" else BLACK)  # a Sin's colour reads 4.5:1 on black
 		ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		ml.custom_minimum_size = Vector2(lw, 0)
 		ml.size = Vector2(lw, 0)
@@ -718,11 +722,16 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		add_child(ml)
 		var th: float = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
-		ml.position = Vector2(lo, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
-		plate.position = ml.position - Vector2(12, 6)
-		plate.size = Vector2(lw + 24, th + 12)
+		ml.position = Vector2(lo + sg, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
+		plate.position = Vector2(lo, ml.position.y) - Vector2(12, 6)
+		plate.size = Vector2(lw + sg + 24, th + 12)
 		boxes["line"] = Rect2(plate.position, plate.size)
-		master_label = ml
+		if who != "":
+			var c := Vector2(lo + SPEAK_SIGIL / 2.0, ml.position.y + th / 2.0)
+			_disc(c, SPEAK_SIGIL / 2.0, Style.SIN_COLORS[who].lightened(0.1), INK)
+			_sigil(who, Rect2(c - Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.39, Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.78), INK)
+		else:
+			master_label = ml
 
 
 ## A dashed outline (a ghost die).
