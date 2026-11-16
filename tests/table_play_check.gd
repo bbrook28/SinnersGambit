@@ -1,6 +1,7 @@
 ## Blockout 4: plays full games on the table layout (ui/table_play.gd), answering through the table's
 ## own Bank and Throw seals and its choice buttons; main's buttons only where the table steps aside
-## (a temptation offer). One game per Sin. Windowed, it also saves a frame at the first few decisions,
+## (a temptation offer). One game per Sin, under Rules.V5: when my seal glows it is pressed most of the
+## time, else the dice are tapped to let the throw stand. Windowed, it also saves a frame at the first few decisions,
 ## rivals' turns and busts to build/table_play/.
 ## godot --headless --path . --script res://tests/table_play_check.gd -- --table
 extends SceneTree
@@ -16,6 +17,8 @@ var via_main := 0
 var shots := {}
 var _wait := 0
 var _stuck := 0
+var seals := 0
+var stands := 0
 
 
 func _initialize() -> void:
@@ -33,7 +36,11 @@ func _next() -> void:
 	if main:
 		main.queue_free()
 	if sin_i >= SIN_COUNT:
-		print("TABLE PLAY PASSED: %d games, %d answers on the table, %d on main's screens" % [games_done, via_table, via_main])
+		if seals == 0 or stands == 0:
+			push_error("TABLE PLAY: my power never used (%d) or never let stand (%d)" % [seals, stands])
+			quit(1)
+			return
+		print("TABLE PLAY PASSED: %d V5 games, %d answers on the table (%d seals, %d let stand), %d on main's screens" % [games_done, via_table, seals, stands, via_main])
 		quit()
 		return
 	main = load("res://ui/main.tscn").instantiate()
@@ -67,6 +74,9 @@ func _process(_delta: float) -> bool:
 		return false
 	if str(bs[0].get_meta("value", "")) == "new":
 		games_done += 1
+		if not main.game.opt("v5", false):
+			push_error("TABLE PLAY: the table game is not Rules.V5")
+			quit(1)
 		print("%s: %s" % [main.human.label, main._prompt_label.get_parsed_text()])
 		_next()
 		return false
@@ -79,6 +89,14 @@ func _process(_delta: float) -> bool:
 			_shot("decision")
 			via_table += 1
 			_stuck = 0
+			if t.view.seal == "ready" and (not t.view.stand_live or randf() < 0.7):
+				seals += 1
+				t.view.seal_pressed.emit()
+				return false
+			if t.view.stand_live:
+				stands += 1
+				t.view.stand_pressed.emit()
+				return false
 			if t.view.can_bank and (not t.view.can_throw or randf() < 0.35):
 				t.view.bank_pressed.emit()
 			else:

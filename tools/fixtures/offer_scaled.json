@@ -1,0 +1,12 @@
+{
+	"screen": "game", "seed": 7, "moment": "offer", "v5": true,
+	"seats": [
+		{"sin": "Lust", "you": true, "score": 150, "dice": 5},
+		{"sin": "Greed", "score": 610, "dice": 4},
+		{"sin": "Wrath", "score": 280, "dice": 4},
+		{"sin": "Gluttony", "score": 520, "dice": 6}
+	],
+	"cur": 0,
+	"turn": {"faces": [5, 1, 3, 4, 6], "points": 120, "strikes": 1, "throws": 2},
+	"from": "Greed", "offer": "g4"
+}

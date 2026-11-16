@@ -19,6 +19,8 @@
 ##   offer    temptation id (sins/temptations.gd), offered by `from` (a Sin name) for offer / accept /
 ##            refuse / claim
 ##   hold     seconds to let the moment play before the capture (each moment has a default)
+##   v5       game screens: Rules.V5 (offers scaled for a seat far behind)
+##   seal, seal_face, firing {seat, dice}, stand, master: table screen, Rules.V5 (ui/table_blockout.gd)
 extends RefCounted
 
 const DIR := "res://tools/fixtures/"
@@ -138,6 +140,13 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.moment = str(fx.get("moment", "decision"))
 	t.speak = fx.get("speak", {})
 	t.ability = int(fx.get("ability", -1))
+	t.seal = str(fx.get("seal", ""))  # Rules.V5: my seal "ready" | "idle" | "spent"
+	t.seal_face = int(fx.get("seal_face", 0))
+	var fire: Dictionary = fx.get("firing", {})  # a power firing {seat, dice}
+	if not fire.is_empty():
+		t.firing = {"seat": int(fire.seat), "dice": Array(fire.get("dice", [])).map(func(v): return int(v))}
+	t.stand_live = fx.get("stand", false)
+	t.master_line = str(fx.get("master", ""))
 	t.bank_loss = int(fx.get("bank_loss", 0))
 	t.gain = int(fx.get("gain", 0))
 	t.faces = fx.get("throw", turn.get("faces", [])) if t.moment == "bust" else turn.get("faces", [])
@@ -166,7 +175,7 @@ static func _game(tree: SceneTree, main, fx: Dictionary) -> void:
 		sins.append(main._sin_script(str(s.sin)).new())
 	var first: bool = fx.get("first", false)
 	main._first_game = first
-	var options: Dictionary = Rules.V4.duplicate()
+	var options: Dictionary = (Rules.V5 if fx.get("v5", false) else Rules.V4).duplicate()
 	options["tier2"] = not first
 	options["temptations"] = not first
 	var game = Game.new(bots, int(fx.get("seed", 1)), options, sins)
@@ -209,7 +218,10 @@ static func _game(tree: SceneTree, main, fx: Dictionary) -> void:
 		"decision":
 			human.wants_throw(me, game, t.points, t.strikes)
 		"offer", "accept", "refuse":
-			human.wants_temptation(game, me, game.sin_player(str(fx.from)), _offer(str(fx.from), str(fx.offer)))
+			var o := _offer(str(fx.from), str(fx.offer))
+			if game.opt("v5", false):  # scaled for a seat far behind (Rules.V5 comeback)
+				o = game.scaled_offer(me, o)
+			human.wants_temptation(game, me, game.sin_player(str(fx.from)), o)
 			if moment != "offer":
 				await main._q.drain()
 				await seconds(tree, 2.0)

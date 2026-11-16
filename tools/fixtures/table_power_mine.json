@@ -1,0 +1,12 @@
+{
+	"screen": "table", "seed": 7, "moment": "wait",
+	"seats": [
+		{"sin": "Lust", "you": true, "score": 340},
+		{"sin": "Greed", "score": 410},
+		{"sin": "Wrath", "score": 280},
+		{"sin": "Gluttony", "score": 520}
+	],
+	"cur": 0,
+	"turn": {"faces": [6, 6, 3, 6, 4], "points": 340, "strikes": 0},
+	"seal": "spent", "firing": {"seat": 0, "dice": [1]}
+}
