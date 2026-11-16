@@ -447,7 +447,7 @@ func take_turn(p) -> void:
 			return
 
 	# Gambit Phase: buy dice, then Gambit abilities.
-	var n: int = clampi(await p.bot.dice_to_buy(p, self), 0, supply)
+	var n: int = clampi(await p.bot.dice_to_buy(p, self), 0, mini(supply, Rules.MAX_BUY))
 	while n > 0 and _buy_price(p, n) > p.score:
 		n -= 1
 	if n > 0:
@@ -468,9 +468,10 @@ func take_turn(p) -> void:
 	await beat(p, "end")
 
 
+## The most dice p may buy now: affordable, in the supply, and at most Rules.MAX_BUY (REPLY 21).
 func max_buy(p) -> int:
 	var n := 0
-	while n < supply and _buy_price(p, n + 1) <= p.score:
+	while n < supply and n < Rules.MAX_BUY and _buy_price(p, n + 1) <= p.score:
 		n += 1
 	return n
 

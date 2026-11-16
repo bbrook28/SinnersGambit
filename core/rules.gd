@@ -12,6 +12,7 @@ const TIER2_SCORE := 300
 ## REPLY 10 prototype, table only (ui/main.gd table_rules): the Master calls the penultimate round when
 ## the leader reaches this at a round's end; no win score (sim/profile_sim.gd master_round=550).
 const MASTER_CALL := 550  # REPLY 16: from 600 (at 500, 29% of games end in 4 rounds or fewer)
+const MAX_BUY := 5  # REPLY 21: at most this many dice bought at once (bots too), so the buy row fits one line
 const MASTER_CALL_FLOOR := 3  # REPLY 18: he calls no earlier than round 3's end, so round 5 is the earliest last round
 
 ## Phase 1 rule set (sim run 5, 2026-11-13). Pass to Game.new() as options.
