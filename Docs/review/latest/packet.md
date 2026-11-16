@@ -1,18 +1,12 @@
-# Packet: REPLY 18 (round floor at 550)
-**Local only, not pushed** (it ships with the next push, after you've played 118). Layout is not locked.
-- **Rule:** the Master calls the end no earlier than round 3's end (`Rules.MASTER_CALL_FLOOR` 3, game opt `call_floor`). Round 5 is the earliest last round. The call stays at 550. The table passes it in `ui/main.gd` `table_rules()`. TableDesign has a "Decided (REPLY 18)" line.
-- **Test:** `v5_check` plays 12 seeded games with the floor and 12 without. With it, every call comes at round 3's end or later and every game lasts 5+ rounds. Without it, some calls come earlier, so the floor binds. Suite: all pass (v5_check 376).
-- **Parked:** "Grammar and voice pass" is in `Docs/UXPlan.md` (table row and section). It covers every line, the Master's first, and each Master line must fit on one line beside his arm.
-- **Not changed:** the hood may rise above the SE safe line (Q4 no). The mark's plate keeps crossing his arm (Q3).
-- **Visuals:** none changed, so there's no sheet. The text audit is unchanged from REPLY 17 (32/32 clean at se and std).
-
-**Sim** (20000 mixed, as built: 550, floor 3, Idle-one, Hubris x2, Devour +45; from REPLY 17's run with the same rule):
-| Sin range | over 6 rounds | 4 or fewer | round 5 / 6 / 7+ | last seat wins |
-|---|---|---|---|---|
-| 20.4-27.8 | 9.5% | 0% | 62.9% / 27.6% / 9.5% | 5.9% |
-
-**What I see:** a leader can now pass the 550 post in rounds 1-2 and the Master says nothing. Nothing on the table shows that the post isn't live yet.
+# Packet: REPLY 19 confirm (touches and risks; nothing built)
+1. **Docs.** Confirmed: Handoff.md and TableDesign.md. Also: Handoff still says build 115, and TableSpec's Master bullet. Missed risks: the player-facing rules in `ui/rules_text.gd` (rulebook pages) may disagree with code too; I'll report those, not fix. Dice maximum: no per-player cap; buying stops at the shared supply (27 total minus 3 a seat) and at what you can afford (`core/game.gd` `max_buy`).
+2. **Buy screen.** It's main's prompt (`ui/human.gd` builds "Buy none, Buy 1..n", n = `max_buy`), redrawn on the table by `table_play._choices` -> `table_blockout.choice_row`. Corrections: no tray or ghost dice involved (while buying, the tray is empty); REPLY 11's ghosts are hollow markers on the track, one per option. "Affordable only" already holds in core (`max_buy` checks your score), not in the UI. High-to-low is deliberate (`choice_row` sorts "as on the track"); two rows come from `CHOICE_PER_ROW` 5, the second row under the track band. **Why the top row was dead: not found.** Real clicks on the top row work in a live game at SE and in the fixture at std; my iPhone-size probe hung. Desktop clicks don't test touch. Next check: touch events at std. Missed risk: one row at 44 pt fits at most 6 buttons (121 px + 12 pt gap in 968 px); with 1000 points you'd have 11 options.
+3. **Game end.** Confirmed, plus: the end is main's prompt ("The game is done...", "New game", `ui/main.gd` 946) over the table, and `tests/table_play_check.gd` finds a game's end by that "new" button. Could break: that check, and the end summary.
+4. **Line times.** Touches: the Sin line is `SPEAK_FOR` 2.6 s in `ui/table_play.gd` (should live in `ui/tuning.gd`: a fault I'll fix as part of this), the Master's is `Tuning.MASTER_FOR` 2.6 s; bot pace is `Tuning.BOT_PACE` 6.0. Correction: tuning.gd says a bot turn "under 4 s", TableDesign §5 says 2.5 s on the table; `tests/bot_pace.gd` measures it.
+5. **Lead report.** Confirmed: nothing touched. Likely: your first game after install uses first-game bots (`main.is_first_game()`: games_finished == 0). I'll confirm from 118's code and sim lead size by round 3 per bot profile.
+6. **Greed.** Confirmed: nothing touched. Reads `sins/greed.gd`, `core/game.gd`, the rules text.
+7. **Track post.** Confirmed, plus: the view needs the round (`table_play` passes call_at only today) and `Rules.MASTER_CALL_FLOOR`; fixtures need a round field (table_master_* and any with a post). Could break: fixture images with the post.
 
 **Questions**
-1. Should the 550 post show it isn't live before round 3 (dim, then lit when it can fire)? Rec: yes. Dim it, and light it at round 3's end. No new words.
-2. When a leader is already past 550 at round 3's end, should his call line still say "550 reached"? Rec: yes. It's still true, and the line stays short.
+1. Buy row: more than 6 options won't fit one row at 44 pt. Cap the row at "Buy none" + Buy 1-5, or allow a second row past 6? Rec: cap at none + 1-5, low to high (buying more than 5 at once is rare).
+2. OK to start building in order 7, 3, 2, 1, 4 (proposal), 5 and 6 (reports)? Rec: yes.
