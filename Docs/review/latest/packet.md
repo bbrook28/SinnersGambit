@@ -1,18 +1,28 @@
-# Packet: agency sim pass 3 (REPLY 2)
-Changed: `Docs/TableDesign.md` §10 (40 lines): mark rule adopted, price 100, captions approved, restraint test, edge by decision, novices, Vig 60. `Docs/Onboarding.md` title. Sim only: `sim/` (power_restraint, power_cost, Split bots, split and novice passes, accept counts). No core/, sins/, ai/ or ui/ changes. Text audit and fixtures: n/a (no screens).
-Numbers (4 seats, 20k games; skill 4k per Sin; vs plain bots that press a power at the first chance):
-- Restraint test, mean edge with the best policy per Sin: none 29.3, +30 29.1, +50 30.0, cost -30 27.7. Pressing at once stays best (or within a point) for Wrath, Lust, Pride, Gluttony and Sloth. Greed's sum becomes a real choice with a bonus (25.4 vs 21.7 at +50). Envy's copy (at most 30) is never worth using once the bonus is 30 or more.
-- Why: a turn is about 2 throws, so a power held past the first Strike rarely gets a later throw to save.
-- Edge by decision: risk that follows the standings +3.0; weighing offers by standings +0.3 (never accepting -9.1, always accepting -0.6); buying to 4 dice -0.1; targeting 0; holding the power -5.1; all together +3.7 (29.1).
-- Best bot vs 3 novices: 37.3 mean (Greed 20.9 to Gluttony 50.7). Holding powers: 32.2.
-- Ceiling: about 29-30 against sound bots. The edge is pushing your luck for the standings; the plain bot's offer sums are already near best.
-- Offers accepted: by a seat 150+ behind 58% (3 offers in 4 go to one), by others 48%. Claims 0.25 a game (last 0.01, leader 0.05).
-- Lowest Sin: Greed 19.5 (range 19.5-27.7). One change: the Vig 40 -> 60 gives 22.1-27.0 (Greed 24.4). Greed x2.0 gives 22.0-27.0.
-- V5 changes I would make, exact: `Docs/review/latest/v5_changes.md` (13 items: core 6, sins 4, ai 3).
-Questions:
-1. No restraint bonus and no power cost; the powers stay free reactions and the choices live in banking and offers. OK? Rec: yes.
-2. Greed: the Vig to 60 (not x2.0 Bank), to bring it inside 22-28. OK? Rec: yes.
-3. Envy is copy-and-score, a reaction like the rest. Keep it? Rec: yes.
-4. Accept the ceiling of about 29 against sound bots (37 vs novices) and judge the rest by playing? Rec: yes.
-5. The V5 list in v5_changes.md: approve it as the next step, one commit per item? Rec: yes, starting with core items 1-2.
-6. Greed is weakest against novices too (20.9). Revisit after Q2 is in? Rec: yes, in the next sim pass.
+# Packet: V5 build (REPLY 3)
+**Changed:** items 1-13 built, one commit each with a test (`2bd52c9`..`d2a00b4`). UI on the table view: V5 rules, my seal, power beats, the Master's line, first-game bots, Purgatory gone (`1a5d4c8`, `3209a68`, `bde6124`). Fixtures and V5 table play (`45abc16`). Docs: TableSpec, TableDesign §10 (`83897f5`). Sim length option (`70ad084`). All local; nothing pushed.
+**Tests:** `bash tests/run_all.sh`: all pass. Includes v5_check (353 checks), lines (393), table_check (1214), replay, ui_autoplay (7 games) and table_play_check: 7 full V5 games through the table, 20 seals pressed and 8 throws let stand. V4 is unchanged; old saves and replays still pass.
+**Text audit** (all 20 table fixtures plus offer_scaled, se and max): table fixtures clean. offer_scaled at se: 4 lines at 13.2-13.6 pt (the context line, the Master's announcement, Accept, Refuse). The offer card already uses these sizes; the min is 15 pt.
+**Gallery --check:** not run. `tests/golden/` does not exist yet, so there is nothing to compare against.
+**Sheet** (se, left to right): power ready (Lust, the seal shows a 6, tap the dice to let it stand) · power spent (Wrath) · my power firing (Lust's ring on the changed die) · a rival's power firing (Greed's Cash Out rings the stake) · Master line · scaled offer (100 x3 = 300, 460 behind) · decision without the jester.
+**Core V5** (`sim/v5_sim.gd`, 40k games, 4 seats): every Sin 22.1-28.3. Comebacks 12.4%, 4.3 rounds.
+**Item 12:** the tilt stays. With it, 22.3-28.7. Without it, Sloth drops to 21.9, so no Sin is taken outside 22-28.
+**Greed vs novices:** 28.9 (Envy 48.6, mean 36.2). Scheduled for the next sim pass.
+**Game length** (V5, comebacks counted from half the target):
+
+| Target | Win range | Comebacks | Lead changes | Rounds | Minutes | Skill edge |
+|---|---|---|---|---|---|---|
+| 1000 | 22.3-28.6 | 12.4% | 3.99 | 4.3 | 1.4 | 29.9 |
+| 1500 | 19.6-41.2 | 13.5% | 5.56 | 6.0 | 2.0 | 26.4 |
+| 2000 | 17.1-51.5 | 14.7% | 7.02 | 7.8 | 2.6 | 23.4 |
+
+Envy is the high end at 1500 and 2000, because Mimicry is once a round. Bot thresholds were not rescaled for longer games.
+**Not finished:** hold to explain (not on the table, as before). The power's tap-to-finish and skip still go through main's queue.
+**TestFlight** (main must be pushed first):
+```bash
+git push origin main
+gh workflow run ios.yml --ref main -f table=true
+```
+**Questions**
+1. Game length: keep 1000? Longer games add comebacks and lead changes but lower the skill edge, and Envy runs away. **Rec:** keep 1000.
+2. offer_scaled small text at se: raise the offer card's context line and seal words to 15 pt? **Rec:** yes, next UI pass.
+3. Push and run TestFlight with the commands above? **Rec:** yes.
