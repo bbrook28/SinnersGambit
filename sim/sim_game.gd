@@ -615,9 +615,11 @@ func _power_after_throw(p) -> void:
 func _power_effect(p, sname: String, best: int) -> void:
 	match sname:
 		"Sloth":  # idle_face (REPLY 15, sim only): the face a Strike becomes; the build keeps 3
+			var lifted := false  # idle_one (REPLY 16): the first Strike becomes a 4, the rest 3s
 			for i in turn.faces.size():
 				if turn.faces[i] <= 2:
-					turn.faces[i] = int(opt("idle_face", 3))
+					turn.faces[i] = 4 if opt("idle_one", false) and not lifted else int(opt("idle_face", 3))
+					lifted = true
 		"Wrath":
 			for i in turn.faces.size():
 				if turn.faces[i] <= 2:

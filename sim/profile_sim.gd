@@ -137,7 +137,7 @@ func _play(game) -> Dictionary:
 
 
 func _run(games: int, table: String) -> Dictionary:
-	var r := {"games": games, "table": table, "prof": {}, "sin": {}, "pair": {}, "rounds": 0, "over6": 0,
+	var r := {"games": games, "table": table, "prof": {}, "sin": {}, "pair": {}, "rounds": 0, "over6": 0, "hist": {},
 		"stall": 0, "margin": 0, "runaway": 0, "last_gap": 0, "last_live": 0, "last_win": 0, "buys": 0,
 		"buy_games": 0, "b_offers": 0, "b_taken": 0, "b_uses": 0, "b_changed": 0, "b_pair": {}, "b_sin": {},
 		"halves": 0, "comebacks": 0, "far_halves": 0, "far_wins": 0, "worst_len": [], "worst_margin": [],
@@ -161,6 +161,7 @@ func _run(games: int, table: String) -> Dictionary:
 		sorted.sort()
 		var margin: int = sorted[3] - sorted[2]
 		r.rounds += game.round_count
+		r.hist[game.round_count] = int(r.hist.get(game.round_count, 0)) + 1
 		r.leads += st.leads
 		if game.round_count > 6:
 			r.over6 += 1
@@ -320,7 +321,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark", "eat", "idle_face"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark", "eat", "idle_face", "idle_one", "hubris_mult", "hubris_targets"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])
@@ -346,6 +347,15 @@ func _report(name: String, r: Dictionary, short: bool) -> void:
 	print(sl + " | range %.1f-%.1f" % [lo, hi])
 	print("  rounds %.2f (over 6: %.1f%%, stalled at %d: %d) | lead changes %.2f | final margin %d (400+: %.1f%%) | dice reaching 0: %d games" % [
 		r.rounds / g, _pct(r.over6, g), SimGame.MAX_ROUNDS, r.stall, r.leads / g, r.margin / g, _pct(r.runaway, g), r.lock])
+	var hk: Array = r.hist.keys()
+	hk.sort()
+	var hl := []
+	var le4 := 0
+	for k in hk:
+		hl.append("%d: %.1f%%" % [k, _pct(r.hist[k], g)])
+		if k <= 4:
+			le4 += r.hist[k]
+	print("  rounds histogram (REPLY 16): %s | 4 or fewer %.1f%%" % [", ".join(hl), _pct(le4, g)])
 	print("  entering the last round: last seat %d behind; within 250 in %.1f%% of games; last seat wins %.1f%%" % [r.last_gap / g, _pct(r.last_live, g), _pct(r.last_win, g)])
 	print("  comebacks (last at half wins) %.1f%%; last at half 300+ behind wins %.1f%% (%d games)" % [_pct(r.comebacks, r.halves), _pct(r.far_wins, r.far_halves), r.far_halves])
 	print("  buys %.2f dice a seat a game; someone buys in %.1f%% of games" % [r.buys / g / 4.0, _pct(r.buy_games, g)])
