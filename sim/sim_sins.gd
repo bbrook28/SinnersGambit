@@ -20,11 +20,19 @@ class Lust extends "res://sins/lust.gd":
 
 class Envy extends "res://sins/envy.gd":
 	## Glance off. Mimicry stays: once a round from 300, the first scoring throw gains two copies of the
-	## last player's best die (automatic).
+	## last player's best die (automatic). mimic_max (REPLY 4): at most this many a game (0 no cap).
+	static var mimic_uses := 0  # all games, for sim/agency_sim.gd length
+	var used := 0
+
 	func after_throw(game, me, turn) -> void:
 		var best: int = game.best_face_last_throw()
 		if best < 4 or not game.t2_available(me) or not _has_scorer(turn):
 			return
+		var cap := int(game.opt("mimic_max", 0))
+		if cap > 0 and used >= cap:
+			return
+		used += 1
+		mimic_uses += 1
 		game.mark_t2(me)
 		for i in int(game.opt("mimic", 2)):
 			turn.faces.append(best)

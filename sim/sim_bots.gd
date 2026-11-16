@@ -55,6 +55,48 @@ class Plain extends "res://ai/bot_policy.gd":
 			return risk
 		return super(p, game)
 
+	## scale_bots (REPLY 4): the bot's score thresholds follow the win target (win_score / 1000);
+	## 1 otherwise, so 1000-point games play exactly as before.
+	static func scale(game) -> float:
+		if not game.opt("scale_bots", false):
+			return 1.0
+		return float(game.opt("win_score", Rules.WIN_SCORE)) / Rules.WIN_SCORE
+
+	## BotPolicy.offer_value with the game's progress measured against the win target, not 1000.
+	func offer_value(game, p, from, offer: Dictionary) -> float:
+		var v: float = super(game, p, from, offer)
+		var k := scale(game)
+		if k == 1.0:
+			return v
+		# Undo the progress terms super computed at 1000 and redo them at the target: die worth, the
+		# later-turn discount and the claim cost all move with progress.
+		var lead := float(game.leader_score())
+		var p0 := clampf(lead / Rules.WIN_SCORE, 0.0, 1.0)
+		var p1 := clampf(lead / (Rules.WIN_SCORE * k), 0.0, 1.0)
+		return v + _progress_part(game, p, from, offer, p1) - _progress_part(game, p, from, offer, p0)
+
+	## The part of offer_value that depends on progress (die worth, the later discount, the claim cost).
+	func _progress_part(game, p, from, offer: Dictionary, progress: float) -> float:
+		var die_worth := 110.0 * (1.0 - progress) + 20.0
+		var base_turn: float = 45.0 * p.dice
+		var later := 1.0 - 0.5 * progress
+		var part := 0.0
+		if offer.gain == "die":
+			part += die_worth
+		match offer.cost:
+			"bank":
+				part -= offer.c * 0.9 * later
+			"strike":
+				part -= 0.3 * base_turn * later
+			"fewer":
+				part -= base_turn * float(offer.c) / maxf(1.0, p.dice) * later
+			"die":
+				part -= die_worth
+		var sname: String = from.sin.sin_name
+		if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
+			part -= CLAIM_COST * (1.0 - progress * 0.5)
+		return part
+
 	func ev(game, n: int, tp: int, left: int) -> float:
 		if game.opt("strike_cap", false):
 			return ev_capped(n, tp, left, game.chain, game.face_mult)
@@ -72,7 +114,7 @@ class Plain extends "res://ai/bot_policy.gd":
 			return true
 		if total >= int(game.opt("win_score", Rules.WIN_SCORE)) and total > game.leader_score():
 			return false
-		if turn_points >= bank_at:
+		if bank_at < 9999 and turn_points >= int(bank_at * scale(game)):
 			return false
 		return ev(game, game._max_throw(p), turn_points, Rules.STRIKES_TO_BUST - strikes) > turn_points * risk_for(p, game)
 
@@ -98,12 +140,13 @@ class Best extends Plain:
 		var lead = game.leader_other(p)
 		if lead == null:
 			return base
-		var d := float(lead.score - p.score) / 1000.0
-		var prog := float(maxi(lead.score, p.score)) / 1000.0
+		var w: float = 1000.0 * scale(game)
+		var d := float(lead.score - p.score) / w
+		var prog := float(maxi(lead.score, p.score)) / w
 		var r := base
 		if d > 0.0:
 			r -= kb * d * (0.5 + prog)
-			if lead.score >= 850:
+			if lead.score >= 0.85 * w:
 				r -= late
 		else:
 			r += ka * -d
@@ -126,7 +169,7 @@ class Novice extends "res://ai/bot_policy.gd":
 			return true
 		if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
 			return true
-		if p.score + turn_points >= 1000:
+		if p.score + turn_points >= int(game.opt("win_score", Rules.WIN_SCORE)):
 			return false
 		return turn_points < stop and strikes < 2
 

@@ -335,9 +335,15 @@ func _novice(games: int) -> void:
 ## when the leader first reaches half the target.
 func _length(games: int) -> void:
 	opts["plain_smart"] = false
-	for w in [1000, 1500, 2000]:
+	# lengths=1000,1500 picks the targets; scale_bots=true scales the bots' thresholds to each target and
+	# mimic_max caps Envy's Mimicry a game (REPLY 4). Prints Envy's Mimicry uses a game for matching.
+	var targets: Array = Array(str(opts.get("lengths", "1000,1500,2000")).split(",")).map(func(s): return int(s))
+	for w in targets:
 		opts["win_score"] = w
-		_report("target %d" % w, await _pass(opts, games, 4, null))
+		SimSins.Envy.mimic_uses = 0
+		var r := await _pass(opts, games, 4, null)
+		_report("target %d" % w, r)
+		print("  Envy's Mimicry %.2f uses a game she plays" % (float(SimSins.Envy.mimic_uses) / maxf(1.0, r.seats_in.get("Envy", 0))))
 		var b = SimBots.Best.new(4, 0.9, 0.0, 0.5, 0.3)
 		b.smart = false
 		print("  skill edge at %d: %s" % [w, await _edge(b, games / 4)])
