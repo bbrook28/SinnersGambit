@@ -14,14 +14,14 @@ grep "LOAD CHECK" build/t_load_check.log
 fail=0
 run() {  # name, then extra args
 	local t=$1; shift
-	if timeout 600 "$G" "$@" --path . --script "res://tests/$t.gd" > "build/t_$t.log" 2>&1 && ! grep -q "SCRIPT ERROR" "build/t_$t.log"; then
+	if timeout 600 "$G" "$@" --path . --script "res://tests/$t.gd" > "build/t_$t.log" 2>&1 && ! grep -qE "SCRIPT ERROR|FAILED" "build/t_$t.log"; then
 		echo "ok   $t: $(grep -iE 'pass' "build/t_$t.log" | tail -1)"
 	else
 		echo "FAIL $t (build/t_$t.log)"; fail=1
 	fi
 }
 for t in ui_autoplay table_check v5_check replay_check tutorial_check terms_check lines_check; do run $t --headless; done
-if timeout 600 "$G" --headless --path . --script res://tests/table_play_check.gd -- --table > build/t_table_play_check.log 2>&1 && grep -q "TABLE PLAY PASSED" build/t_table_play_check.log; then
+if timeout 600 "$G" --headless --path . --script res://tests/table_play_check.gd -- --table > build/t_table_play_check.log 2>&1 && grep -q "TABLE PLAY PASSED" build/t_table_play_check.log && ! grep -qE "SCRIPT ERROR|FAILED" build/t_table_play_check.log; then
 	echo "ok   table_play_check: $(grep 'PASSED' build/t_table_play_check.log)"
 else
 	echo "FAIL table_play_check (build/t_table_play_check.log)"; fail=1
