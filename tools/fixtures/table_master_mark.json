@@ -9,5 +9,5 @@
 	"cur": 0,
 	"turn": {"faces": [5, 4, 3, 6, 1], "points": 210, "strikes": 1},
 	"seal": "spent", "call_at": 600,
-	"master": "Gluttony leads. Her chain sleeps this round.", "master_pose": "mark", "master_target": 3
+	"master": "Gluttony leads. No chain this round.", "master_pose": "mark", "master_target": 3, "marked": 3
 }

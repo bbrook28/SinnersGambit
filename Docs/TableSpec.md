@@ -15,7 +15,7 @@ Layout and behaviour only, as the code draws it today; every number is from the 
 - **Stake** one gold numeral above Bank, 120 to 190 px as it grows (to 600); a pending Bank loss in crimson beside it; a bust blots it with spilled ink.
 - **Near edge** (`EDGE` 76 px in): Bank (left, gold leaf) and Throw (right, crimson) seals, 236 px (86 pt); my three Strike candles between them (84x300 px, flames steady, restless or guttering); my marks as sigil stamps (52 px) along the edge.
 - **My seal** (`Rules.V5` power, `POWER_SEAL` 180 px, 66 pt), the third control: centred over Throw, 16 px above it. Ready: a glow and ring of my glass colour, bone disc, my sigil in ink, live. Unspent: bone disc, not live. Spent this turn: dark, sigil faint, a crimson stroke. Lust's seal shows the face it would give (a 70 px die).
-- **The Master's line** ink on the page (serif, 44 px, down to 30 to fit two lines), right-aligned, ending at the skeleton (100x118 px, right of the candles); between the stake and my seal, above the flames, below the dice. It does not dim with my edge.
+- **The Master** (REPLY 15, flat blockout): a hooded figure with a bone mask and gold collar behind the window row. His hood rises in a `MASTER_HEAD` (130 px) band above it, and his plum robe spreads to the screen edges behind the windows, down to their bottoms. Poses: rest, speak, call (an arm raised), mark (an arm to the leader's window), offer (a card held just above the target window). A gold ring marks the round's marked seat. His line sits in the hood band beside him, on the side away from his reach (bone, ink outline, serif 44 px, wrapping). It does not dim with my edge. The post's number sits just under the track at the post, moved beside it, away from my marker, when my marker is near.
 - **Page** lit in a pool round the dice and decision, falling to shadow; the desk is dark.
 
 ## Behaviour
@@ -24,7 +24,7 @@ Layout and behaviour only, as the code draws it today; every number is from the 
 - Choices other than Bank and Throw (an ability's yes or no, a target, buying dice) are flat bone buttons in the gap under the windows with the prompt's words above; the buy prompt reads just "Buy dice?".
 - Powers (`Rules.V5`): when my power could change the throw just made, the beat holds with no time limit: tap my seal to use it, or the dice to let the throw stand; no prompt sentence. Pride names a Bank (150, 200, 250) on bone buttons in the gap, or just throws. Greed's seal sits beside Bank and Throw at the decision. A power firing (mine or a rival's, at its window) holds `Tuning.POWER_FOR` 1.1 s: a ring of that Sin's colour and its sigil on each die it changed, or round the stake it took (a rival's sigil beside its Strike marks).
 - The Master's line shows for `Tuning.MASTER_FOR` 2.6 s, at most one a turn, never with a Sin's line (each clears the other); said while the table is hidden (an offer), it waits for the table. His idle line after `MASTER_IDLE` 9 s at my decision. At an offer his announcement sits above the portrait.
-- Not built on the table: hold to explain (still a rule, `CLAUDE.md`), painted pieces. The jester is cut (REPLY 1); the skeleton is a flat ink placeholder.
+- Not built on the table: hold to explain (still a rule, `CLAUDE.md`), painted pieces. The jester is cut (REPLY 1). The skeleton is gone (REPLY 14); the Master is a flat placeholder.
 - No tutorial in the table build (`ui/main.gd` skips it when `table_view()` is on).
 
 ## Offer screen (main's, shown over the table)

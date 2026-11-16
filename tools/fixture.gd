@@ -20,7 +20,7 @@
 ##            refuse / claim
 ##   hold     seconds to let the moment play before the capture (each moment has a default)
 ##   v5       game screens: Rules.V5 (offers scaled for a seat far behind)
-##   seal, seal_face, firing {seat, dice}, stand, master, master_pose (rest|speak|call|mark|offer), master_target (seat): table screen, Rules.V5 (ui/table_blockout.gd)
+##   seal, seal_face, firing {seat, dice}, stand, master, master_pose (rest|speak|call|mark|offer), master_target (seat), marked (seat): table screen, Rules.V5 (ui/table_blockout.gd)
 extends RefCounted
 
 const DIR := "res://tools/fixtures/"
@@ -149,6 +149,7 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.master_line = str(fx.get("master", ""))
 	t.master_pose = str(fx.get("master_pose", "speak" if t.master_line != "" else "rest"))
 	t.master_target = int(fx.get("master_target", -1))
+	t.marked_seat = int(fx.get("marked", -1))  # the round's mark: a gold ring on that window
 	t.rival_seal = str(fx.get("rival_seal", ""))  # the active rival's seal "idle" | "spent"
 	t.buy_ghosts = fx.get("buy_ghosts", [])  # buying: the score each purchase would leave me on
 	t.call_at = int(fx.get("call_at", 0))  # the Master's post (REPLY 10)
