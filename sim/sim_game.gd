@@ -61,6 +61,7 @@ func take_turn(p) -> void:
 		_start_costs(p)
 	if p.sin:
 		await p.sin.before_turn(self, p, turn)
+	_power_start(p)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
@@ -70,6 +71,7 @@ func take_turn(p) -> void:
 		await p.bot.wants_throw(p, self, 0, 0)  # the first throw is never optional; you tap Throw
 		count = _max_throw(p)
 	while count > 0:
+		_power_declare(p)
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
 		var doubled: bool = turn.x2
@@ -90,7 +92,9 @@ func take_turn(p) -> void:
 		if p.sin:
 			await p.sin.after_throw(self, p, turn)
 		_do_rethrow(p)
-		turn.strikes += Rules.count_strikes(turn.faces)
+		_power_after_throw(p)
+		_power_envy_copy(p)
+		turn.strikes += _strikes(turn.faces)
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
 			if view:
 				say("  %d Strikes: %s BUSTS and goes to Purgatory." % [turn.strikes, pname(p)])
@@ -101,6 +105,7 @@ func take_turn(p) -> void:
 		if doubled:
 			turn.throw_points *= 2
 		turn.points += turn.throw_points
+		_power_scored(p)
 		if view:
 			say("  +%d (turn %d, Strikes %d)" % [turn.throw_points, turn.points, turn.strikes])
 		await beat(p, "throw")
@@ -117,7 +122,7 @@ func take_turn(p) -> void:
 			elif not may_throw(p):
 				count = 0
 			else:
-				var go: bool = await p.bot.wants_throw(p, self, turn.points, turn.strikes)
+				var go: bool = _power_greed(p) or await p.bot.wants_throw(p, self, turn.points, turn.strikes)
 				count = _max_throw(p) if go or not may_bank(p) else 0
 		else:
 			count = p.dice if p.bot.wants_press(p, self, turn.points, turn.strikes) else 0
@@ -225,13 +230,17 @@ func _tempt(p) -> bool:
 	p.offers_taken += 1
 	offer_stats[offer.id][1] += 1
 	var throws_now := Temptations.apply(scaled, self, p)
-	p.marks[sname] = int(p.marks.get(sname, 0)) + 1
+	var behind: int = leader_score() - p.score
+	# mark_free_behind: a mark taken while this far behind the leader doesn't count toward a claim.
+	if not (opt("mark_free_behind", 0) > 0 and behind >= int(opt("mark_free_behind", 0))):
+		p.marks[sname] = int(p.marks.get(sname, 0)) + 1
 	p.marks_taken[sname] = int(p.marks_taken.get(sname, 0)) + 1
-	if p.marks[sname] >= marks_to_claim:
+	if p.marks.get(sname, 0) >= marks_to_claim:
 		p.marks[sname] = 0
 		if not p.claims.has(sname):
 			p.claims.append(sname)
 			claims_made += 1
+			claim_ranks.append(_rank(p))
 			if view:
 				say("  %s's claim: %s, for the rest of the game" % [pname(from), pname(p)])
 	_check_lead()
@@ -245,3 +254,266 @@ func _start_costs(p) -> void:
 	if opt("comeback_gap", false) and temptations and round_count > 1 and not turn.tempt_ready:
 		if leader_score() - p.score >= int(opt("comeback_gap_at", 150)):
 			turn.tempt_ready = true
+
+
+# ---------- Prototype: dice and Strikes ----------
+
+## strike_cap: true -- dice beyond the third add at most one Strike to a throw.
+func _strikes(faces: Array) -> int:
+	var s := Rules.count_strikes(Array(faces, TYPE_INT, "", null))
+	if not opt("strike_cap", false) or faces.size() <= 3:
+		return s
+	var base := 0
+	for i in 3:
+		if faces[i] <= 2:
+			base += 1
+	return mini(s, base + 1)
+
+
+# ---------- Prototype: active powers (opt "powers"; TableDesign §10) ----------
+## Once a turn; plain bots press at the first chance that does something, a bot with `smart` weighs it.
+## Stats per Sin: turns, uses, uses at the first chance, chances seen, busts a use saved.
+var power_stats := {}
+
+
+func _ps(p) -> Dictionary:
+	var n: String = p.sin.sin_name
+	if not power_stats.has(n):
+		power_stats[n] = {"turns": 0, "uses": 0, "first": 0, "chances": 0, "saves": 0, "turns_with_chance": 0}
+	return power_stats[n]
+
+
+func _powers_on(p) -> bool:
+	return opt("powers", false) and p.sin != null
+
+
+func _smart(p) -> bool:
+	return p.bot.get("smart") == true
+
+
+## A legal chance this turn: count it; true if it's the turn's first.
+func _chance(p) -> bool:
+	var st := _ps(p)
+	st.chances += 1
+	var n: int = turn.get_meta("chances", 0) + 1
+	turn.set_meta("chances", n)
+	if n == 1:
+		st.turns_with_chance += 1
+	return n == 1
+
+
+func _use(p, first: bool, saved := false) -> void:
+	var st := _ps(p)
+	st.uses += 1
+	if first:
+		st.first += 1
+	if saved:
+		st.saves += 1
+	turn.set_meta("power", true)
+	p.set_meta("charges", int(p.get_meta("charges", 0)) + 1)
+
+
+func _power_free() -> bool:
+	if int(opt("power_charges", 0)) > 0 and int(current.get_meta("charges", 0)) >= int(opt("power_charges", 0)):
+		return false
+	return not turn.has_meta("power")
+
+
+## Turn start: Pride names a Bank.
+func _power_start(p) -> void:
+	if not _powers_on(p):
+		return
+	_ps(p).turns += 1
+	if p.sin.sin_name != "Pride":
+		return
+	_chance(p)
+	var n := _max_throw(p)
+	var target := -1
+	var behind: int = leader_score() - p.score
+	if _smart(p):
+		if n >= 7:
+			target = 250
+		elif n >= 5:
+			target = 200
+		elif n >= 4 or behind >= 150:
+			target = 150
+	else:
+		target = 150
+	if target > 0:
+		turn.min_points = target
+		_use(p, true)
+
+
+## After a throw, before Strikes count: Sloth, Wrath, Lust, Gluttony.
+func _power_after_throw(p) -> void:
+	if not _powers_on(p) or not _power_free():
+		return
+	var sname: String = p.sin.sin_name
+	if not sname in ["Sloth", "Wrath", "Lust", "Gluttony"]:
+		return
+	var s := _strikes(turn.faces)
+	var best := best_face_last_throw()
+	if opt("declare", false):
+		if not turn.has_meta("power_after"):
+			return
+		turn.remove_meta("power_after")
+		turn.set_meta("power", true)
+		var was_bust: bool = turn.strikes + s >= Rules.STRIKES_TO_BUST
+		if s == 0 and sname in ["Lust", "Gluttony"]:
+			var lo := 0
+			for i in turn.faces.size():
+				if turn.faces[i] < turn.faces[lo]:
+					lo = i
+			if sname == "Lust":
+				turn.faces[lo] = maxi(best, turn.faces[lo])
+			else:
+				turn.faces.remove_at(lo)
+				turn.points += int(opt("eat", 50))
+		elif s > 0:
+			_power_effect(p, sname, best)
+		if was_bust and turn.strikes + _strikes(turn.faces) < Rules.STRIKES_TO_BUST:
+			_ps(p).saves += 1
+		return
+	if s == 0 or (sname == "Lust" and best < 4):
+		return
+	var first := _chance(p)
+	var busting: bool = turn.strikes + s >= Rules.STRIKES_TO_BUST
+	var go := true
+	if _smart(p):
+		var stake: int = turn.points + throw_score(turn.faces)
+		go = busting or (turn.strikes + s >= 2 and stake >= int(opt("smart_stake", 100)))
+	if not go:
+		return
+	_power_effect(p, sname, best)
+	_use(p, first, busting and turn.strikes + _strikes(turn.faces) < Rules.STRIKES_TO_BUST)
+
+
+func _power_effect(p, sname: String, best: int) -> void:
+	match sname:
+		"Sloth":
+			for i in turn.faces.size():
+				if turn.faces[i] <= 2:
+					turn.faces[i] = 3
+		"Wrath":
+			for i in turn.faces.size():
+				if turn.faces[i] <= 2:
+					turn.faces[i] = rng.randi_range(1, 6)
+					if opt("wrath_noscore", false) and turn.faces[i] >= 4:
+						turn.faces[i] = 3
+					var wn: int = turn.get_meta("wn", 0) + 1
+					turn.set_meta("wn", wn)
+					if opt("wrath_one", false) or wn >= int(opt("wrath_max", 99)):
+						break
+		"Lust":
+			var i: int = turn.faces.find(1)
+			if i < 0:
+				i = turn.faces.find(2)
+			turn.faces[i] = best
+		"Gluttony":
+			var i: int = turn.faces.find(1)
+			if i < 0:
+				i = turn.faces.find(2)
+			turn.faces.remove_at(i)
+			turn.points += int(opt("eat", 50))
+
+
+## After a safe throw has scored: Envy mirrors it (its points count twice).
+func _power_scored(p) -> void:
+	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Envy" or turn.throw_points <= 0 or opt("envy_mode", "mirror") != "mirror":
+		return
+	var first := _chance(p)
+	var go := true
+	if _smart(p):
+		var banking: bool = not p.bot.wants_throw(p, self, turn.points, turn.strikes)
+		go = turn.throw_points >= int(opt("smart_mirror", 60)) or banking
+	if go:
+		turn.points += turn.throw_points
+		_use(p, first)
+
+
+## At a throw-or-bank decision: Greed banks half the stake and throws on. True = it did (throw again).
+func _power_greed(p) -> bool:
+	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Greed" or turn.points < 10:
+		return false
+	var first := _chance(p)
+	var n := _max_throw(p)
+	var left: int = Rules.STRIKES_TO_BUST - turn.strikes
+	var half: int = turn.points / 2 / 5 * 5
+	var go: bool
+	if _smart(p):
+		var ev_all: float = maxf(float(turn.points), p.bot.expected_after_throw(n, turn.points, left, chain, face_mult))
+		var ev_half: float = half + p.bot.expected_after_throw(n, turn.points - half, left, chain, face_mult)
+		go = ev_half > ev_all and turn.points >= int(opt("smart_greed", 0))
+	else:
+		go = turn.points >= 150
+	if not go:
+		return false
+	p.score += int(half * float(opt("greed_mult", 1.0))) / 5 * 5
+	turn.points -= half
+	_use(p, first)
+	return true
+
+
+## Claims by the claimed seat's place when claimed: "last", "lead" or "mid".
+var claim_ranks := []
+
+
+func _rank(p) -> String:
+	var lo := 99999
+	var hi := -1
+	for o in players:
+		lo = mini(lo, o.score)
+		hi = maxi(hi, o.score)
+	if p.score == lo and lo != hi:
+		return "last"
+	if p.score == hi and lo != hi:
+		return "lead"
+	return "mid"
+
+
+## Envy variant (envy_mode "copy"): after a throw with a scorer, before Strikes count, add a copy of
+## this throw's best die. Smart: on a throw with 2+ scorers, or when it would bank after it.
+func _power_envy_copy(p) -> void:
+	if not _powers_on(p) or not _power_free() or p.sin.sin_name != "Envy" or opt("envy_mode", "mirror") != "copy":
+		return
+	var best := 0
+	var scorers := 0
+	for f in turn.faces:
+		best = maxi(best, f)
+		if f >= 4:
+			scorers += 1
+	if best < 4:
+		return
+	var first := _chance(p)
+	if turn.strikes + _strikes(turn.faces) >= Rules.STRIKES_TO_BUST:
+		return  # a busting throw: nothing to copy into
+	var go := true
+	if _smart(p):
+		go = scorers >= int(opt("smart_copy", 2)) and (best >= int(opt("smart_best", 4)) or not p.bot.wants_throw(p, self, turn.points + throw_score(turn.faces), turn.strikes + _strikes(turn.faces)))
+	if go:
+		if opt("envy_flat", false):
+			turn.points += best * face_mult  # the copy scores its face, outside the multiplier
+		else:
+			turn.faces.append(best)
+		_use(p, first)
+
+
+## declare: true -- Sloth, Wrath, Lust and Gluttony name the throw before it's thrown; the power then
+## acts on that throw (on its Strikes; with none, Gluttony eats and Lust turns the lowest die). Plain bots
+## declare the turn's first throw; smart ones once the stake is declare_at or more, or with a Strike already.
+func _power_declare(p) -> void:
+	if not _powers_on(p) or not opt("declare", false) or not _power_free() or turn.has_meta("declared"):
+		return
+	if not p.sin.sin_name in ["Sloth", "Wrath", "Lust", "Gluttony"]:
+		return
+	if p.sin.sin_name == "Lust" and best_face_last_throw() < 4:
+		return
+	var first := _chance(p)
+	var go := true
+	if _smart(p):
+		go = turn.points >= int(opt("declare_at", 100)) or turn.strikes >= int(opt("declare_strikes", 1))
+	if go:
+		turn.set_meta("declared", true)
+		_use(p, first)
+		turn.remove_meta("power")  # the effect still has to fire after the throw
+		turn.set_meta("power_after", true)
