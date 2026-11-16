@@ -112,6 +112,8 @@ class Plain extends "res://ai/bot_policy.gd":
 			return true
 		if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
 			return true
+		if must_chase(p, game, turn_points, strikes):  # the call: behind in the penultimate round
+			return true
 		if total >= int(game.opt("win_score", Rules.WIN_SCORE)) and total > game.leader_score():
 			return false
 		if bank_at < 9999 and turn_points >= int(bank_at * scale(game)):
@@ -203,9 +205,9 @@ class Split extends Plain:
 		var behind: int = game.leader_score() - p.score
 		var free_at := int(game.opt("mark_free_behind", 0))
 		var mark: float = MARK_COST
-		var progress := clampf(float(game.leader_score()) / Rules.WIN_SCORE, 0.0, 1.0)
+		var prog := BotPolicy.progress(game)
 		if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
-			mark = CLAIM_COST * (1.0 - progress * 0.5)
+			mark = CLAIM_COST * (1.0 - prog * 0.5)
 		if free_at > 0 and behind >= free_at:
 			v += mark  # this mark won't count
 		elif behind <= 0:

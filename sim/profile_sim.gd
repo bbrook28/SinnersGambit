@@ -87,6 +87,7 @@ func _play(game) -> Dictionary:
 	var halved := false
 	var called := -1
 	var half: int = (master_at if master_at > 0 else int(opts.get("win_score", 1000))) / 2
+	game.master_call = master_at  # the bots read the call (ai/bot_policy.gd call_rounds_left)
 	while game.winner == null and game.round_count < game.MAX_ROUNDS:
 		game.round_count += 1
 		st.round_start = game.players.map(func(q): return q.score)
@@ -122,6 +123,7 @@ func _play(game) -> Dictionary:
 				return st
 		if master_at > 0 and called < 0 and game.leader_score() >= master_at:
 			called = game.round_count  # the Master calls it: the next round is the penultimate
+			game.called_round = called
 			st.called = called
 		if game.end_triggered:
 			game._resolve_finish()

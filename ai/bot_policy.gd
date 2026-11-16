@@ -28,6 +28,43 @@ func _init(p_target_dice: int, p_pay_below := 99999, p_press_max_strikes := -1, 
 	_make_label()
 
 
+## The Master's call (Rules.MASTER_CALL, REPLY 10, 11): rounds left counting this one, 2 in the
+## penultimate round and 1 in the final round; 0 before the call or with no call.
+static func call_rounds_left(game) -> int:
+	var at = game.get("master_call")
+	var called = game.get("called_round")
+	if at == null or int(at) <= 0 or called == null or int(called) < 0:
+		return 0
+	return maxi(0, int(called) + 3 - int(game.round_count))
+
+
+## Banking this total wins the game outright: first to 1000 (never under the call, which has no win score).
+static func wins_now(game, total: int) -> bool:
+	var at = game.get("master_call")
+	if at != null and int(at) > 0:
+		return false
+	return total >= Rules.WIN_SCORE and total > game.leader_score()
+
+
+## How far through the game it is, 0 to 1: the leader against 1000, or under the call at least
+## 0.7 in the penultimate round and 0.85 in the final round (a die is worth little with a turn or two left).
+static func progress(game) -> float:
+	var pr := clampf(float(game.leader_score()) / Rules.WIN_SCORE, 0.0, 1.0)
+	var left := call_rounds_left(game)
+	if left > 0:
+		pr = maxf(pr, 1.0 - 0.15 * left)
+	return pr
+
+
+## Under the call, the penultimate round: behind the leader, keep throwing until this turn has made up
+## half the gap (the final round is for the rest), while one more Strike would not bust.
+static func must_chase(p, game, turn_points: int, strikes: int) -> bool:
+	if call_rounds_left(game) != 2:
+		return false
+	var gap: int = game.leader_score() - p.score
+	return gap > 0 and turn_points < gap / 2 and Rules.STRIKES_TO_BUST - strikes >= 2
+
+
 ## Dice-choice bot. caps = [with 3 Strikes left, 2 left, 1 left].
 static func chooser(p_target_dice: int, caps: Array, p_bank_at := 9999, p_pay_below := 99999):
 	var b = load("res://ai/bot_policy.gd").new(p_target_dice, p_pay_below, 0, p_bank_at)
@@ -66,9 +103,11 @@ func wants_indulgence(p, _game) -> bool:
 func wants_press(p, game, turn_points: int, strikes: int) -> bool:
 	var total: int = p.score + turn_points
 	if game.finish_round and game.end_triggered:
-		# Someone already hit 1000: press until we beat them, there's no next turn.
+		# Someone already hit 1000, or the Master's final round: press until we beat them, there's no next turn.
 		return total <= game.leader_score()
-	if total >= Rules.WIN_SCORE and total > game.leader_score():
+	if must_chase(p, game, turn_points, strikes):  # the call: behind in the penultimate round
+		return true
+	if wins_now(game, total):
 		return false
 	if press_max_strikes < 0:
 		return false
@@ -100,7 +139,9 @@ func wants_throw(p, game, turn_points: int, strikes: int) -> bool:
 	# Pride's Hubris: a bet turn scores 0 below the target, so never bank short of it.
 	if game.turn.min_points >= 0 and turn_points < game.turn.min_points:
 		return true
-	if total >= Rules.WIN_SCORE and total > game.leader_score():
+	if must_chase(p, game, turn_points, strikes):  # the call: behind in the penultimate round
+		return true
+	if wins_now(game, total):
 		return false
 	if turn_points >= bank_at:
 		return false
@@ -132,9 +173,9 @@ static func _fact(n: int) -> float:
 
 func _normal_roll(p, game, turn_points: int, strikes: int) -> int:
 	var total: int = p.score + turn_points
-	if turn_points > 0 and total >= Rules.WIN_SCORE and total > game.leader_score():
+	if turn_points > 0 and wins_now(game, total):
 		return 0
-	if turn_points >= bank_at:
+	if turn_points >= bank_at and not must_chase(p, game, turn_points, strikes):
 		return 0
 	if p.sin and p.sin.has_method("bot_bank_now") and game.turn != null and p.sin.bot_bank_now(game.turn):
 		return 0
@@ -197,8 +238,8 @@ func offer_value(game, p, from, offer: Dictionary) -> float:
 	var left: int = Rules.STRIKES_TO_BUST - t.strikes
 	var ev_throw := expected_after_throw(n, t.points, left, game.chain, game.face_mult)
 	var best_now := maxf(ev_throw, float(t.points)) if game.may_bank(p) else ev_throw
-	var progress := clampf(float(game.leader_score()) / Rules.WIN_SCORE, 0.0, 1.0)
-	var die_worth := 110.0 * (1.0 - progress) + 20.0       # a die for the rest of the game
+	var prog := progress(game)
+	var die_worth := 110.0 * (1.0 - prog) + 20.0       # a die for the rest of the game
 	var base_turn: float = 45.0 * p.dice                        # a typical banked turn with these dice
 	var gain := 0.0
 	match offer.gain:
@@ -215,7 +256,7 @@ func offer_value(game, p, from, offer: Dictionary) -> float:
 		"die":
 			gain = die_worth
 	var cost := 0.0
-	var later := 1.0 - 0.5 * progress  # a later turn may never come
+	var later := 1.0 - 0.5 * prog  # a later turn may never come
 	match offer.cost:
 		"lose":
 			cost = mini(offer.c, p.score)
@@ -230,7 +271,7 @@ func offer_value(game, p, from, offer: Dictionary) -> float:
 	var sname: String = from.sin.sin_name
 	var mark: float = MARK_COST
 	if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
-		mark = CLAIM_COST * (1.0 - progress * 0.5)
+		mark = CLAIM_COST * (1.0 - prog * 0.5)
 	return gain - cost - mark
 
 
