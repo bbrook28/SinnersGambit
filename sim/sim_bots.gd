@@ -98,9 +98,22 @@ class Plain extends "res://ai/bot_policy.gd":
 		return part
 
 	func ev(game, n: int, tp: int, left: int) -> float:
+		var v: float
+		var ch: float = game.chain_for(game.current) if game.has_method("chain_for") else game.chain
 		if game.opt("strike_cap", false):
-			return ev_capped(n, tp, left, game.chain, game.face_mult)
-		return expected_after_throw(n, tp, left, game.chain, game.face_mult)
+			v = ev_capped(n, tp, left, ch, game.face_mult)
+		else:
+			v = expected_after_throw(n, tp, left, ch, game.face_mult)
+		if str(game.opt("soften", "")) == "half" and game.turn != null:  # REPLY 14: a bust still keeps half the face points
+			v += bust_chance(n, left) * float(int(game.turn.get_meta("face_pts", 0)) / 2 / 5 * 5)
+		return v
+
+	## The chance one throw of n dice brings at least `left` Strikes (a Strike is a 1 or 2).
+	static func bust_chance(n: int, left: int) -> float:
+		var keep := 0.0
+		for k in mini(left, n + 1):
+			keep += _fact(n) / (_fact(k) * _fact(n - k)) * pow(1.0 / 3.0, k) * pow(2.0 / 3.0, n - k)
+		return 1.0 - keep
 
 	func wants_throw(p, game, turn_points: int, strikes: int) -> bool:
 		if game.turn.throws == 0:

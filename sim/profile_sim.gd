@@ -92,6 +92,10 @@ func _play(game) -> Dictionary:
 	while game.winner == null and game.round_count < game.MAX_ROUNDS:
 		game.round_count += 1
 		st.round_start = game.players.map(func(q): return q.score)
+		if opts.has("mark"):  # REPLY 14: the Master marks the strict leader at the round's start
+			var top: int = game.leader_score()
+			var at: Array = game.players.filter(func(q): return q.score == top)
+			game.marked = at[0].seat if top > 0 and at.size() == 1 else -1
 		if master_at > 0 and called >= 0 and game.round_count == called + 2:
 			game.finish_round = true  # the final round: everyone throws once more, then the highest wins
 			game.end_triggered = true
@@ -319,7 +323,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])
