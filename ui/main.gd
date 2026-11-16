@@ -27,6 +27,7 @@ const TablePlay = preload("res://ui/table_play.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 3  # 3: Rules.V4 with temptations (Docs/TableDesign.md); a V3 save can't replay
+const SAVE_VERSION_V5 := 4  # 4: Rules.V5 on the table view; a V4 save can't replay into V5 or back
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
 const MENU_SEAL := 280
@@ -132,6 +133,17 @@ var _first_game := false           # the game in progress is a First Game
 
 func is_first_game() -> bool:
 	return first_game_enabled and games_finished == 0
+
+
+## The table game's rules: Rules.V5 on the table view (TableDesign §10), V4 on the legacy board.
+static func table_rules() -> Dictionary:
+	return Rules.V5 if Tuning.table_view() else Rules.V4
+
+
+static func save_version() -> int:
+	return SAVE_VERSION_V5 if Tuning.table_view() else SAVE_VERSION
+
+
 var _menu_seals: Array = []
 var _settings: Control            # the Settings page while open
 var _desk: Control
@@ -885,21 +897,26 @@ func _start(my_sin: Script, saved := {}) -> void:
 		_first_game = bool(saved.get("first", false))
 		for e in saved.seats:
 			order.append([int(e[0]), bool(e[1])])
+	if _first_game:
+		bot = BotPolicy.first_game()  # gentler bots in game one (Docs/Onboarding.md, TableDesign §10)
 	var bots := []
 	var sins := []
 	for e in order:
 		bots.append(human if e[1] else bot)
 		sins.append(SIN_SCRIPTS[e[0]].new())
-	var options := Rules.V4.duplicate()
+	var options := table_rules().duplicate()
 	options["tier2"] = not _first_game
 	options["temptations"] = not _first_game  # no temptations in a First Game (TableDesign §7)
+	options["powers"] = options.get("powers", false) and not _first_game  # nor powers (Onboarding game one)
 	_line_turn = -1
 	_lines_used = {}
+	_master_turn = -1
+	_master_used = {}
 	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
 	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
 	game = Game.new(bots, seed_value, options, sins)
 	game.view = self
-	_save = {"v": SAVE_VERSION, "seed": seed_value, "seats": order, "choices": human.record, "first": _first_game}
+	_save = {"v": save_version(), "seed": seed_value, "seats": order, "choices": human.record, "first": _first_game}
 	human.on_answer = _save_game
 	_build_board()
 	if _wash:
@@ -960,7 +977,7 @@ static func load_save() -> Dictionary:
 	if not FileAccess.file_exists(SAVE):
 		return {}
 	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE))
-	if not (d is Dictionary) or int(d.get("v", 0)) != SAVE_VERSION or not d.has("seats") or not d.has("choices"):
+	if not (d is Dictionary) or int(d.get("v", 0)) != save_version() or not d.has("seats") or not d.has("choices"):
 		return {}
 	return d
 
@@ -1885,7 +1902,8 @@ func _snapshot() -> Dictionary:
 	var t = game.turn
 	if t:
 		var faces: Array = (t.faces if t.throws > 0 else t.redeem_faces).duplicate()
-		s.turn = {"faces": faces, "throws": t.throws, "points": t.points, "strikes": t.strikes, "added": 0, "tint": Color(0, 0, 0, 0)}
+		s.turn = {"faces": faces, "throws": t.throws, "points": t.points, "strikes": t.strikes, "added": 0, "tint": Color(0, 0, 0, 0),
+			"power_used": t.power_used, "min_points": t.min_points}
 		# Dice an ability added to this throw (Envy's copies) sit past the ones thrown.
 		if t.throws > 0 and game.current:
 			s.turn.added = maxi(0, faces.size() - game._max_throw(game.current))
@@ -2473,6 +2491,15 @@ func _show_prompt_now(text: String, options: Array) -> void:
 		_seal_feel(throw_b, "roll", func(): human.answered.emit(throw_b.get_meta("value")))
 		throw_b.material = Art.glint_material(-Tuning.GLINT_STAGGER * (most + 1))
 	for o in options:
+		if o[0].begins_with("@"):  # Rules.V5 power answers (ui/human.gd wants_power): "@seal", "@stand"; the table draws them
+			var pb := Button.new()
+			pb.set_meta("kind", o[0].get_slice(" ", 0).substr(1))
+			pb.set_meta("value", o[1])
+			pb.text = o[0].substr(1)
+			var pv = o[1]
+			pb.pressed.connect(func(): human.answered.emit(pv))
+			_buttons.add_child(pb)
+			continue
 		var kind := "pill"
 		if o[0].is_valid_int():
 			if counts.size() < 2:
@@ -3187,6 +3214,11 @@ func _show_offer_now(_text: String, options: Array, offer: Dictionary) -> void:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	frame.add_child(win)
+	if offer.get("master", "") != "":  # Rules.V5: the Master of the Dance announces the Sin as it enters
+		var host := Style.body("[i]%s[/i]" % offer.master, Tuning.OFFER_CONTEXT_FONT, Style.C_BONE, 6)
+		host.custom_minimum_size.x = _fx.size.x * Tuning.OFFER_PORTRAIT_W
+		host.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(host)
 	v.add_child(frame)
 	var name_l := Style.label(sname, Tuning.OFFER_NAME_FONT, col.lightened(0.4), true, 8)
 	v.add_child(name_l)
@@ -3355,6 +3387,9 @@ func clear_speech(bub: Control) -> void:
 ## core/game.gd calls this at a bust, a big Bank, a change of leader and an attack: about half the
 ## time one Sin bot says a line about it (RulesText.LINES), at most one a turn, never one twice a game.
 func table_event(kind: String, p, other = null) -> void:
+	if kind in ["power_ready", "power"]:
+		_power_event(kind, p)
+		return
 	if game == null or not game.v4 or _tutor != null:
 		return
 	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
@@ -3431,3 +3466,112 @@ func _menu_words(on: bool) -> void:
 			for c in s.get_children():
 				if c.has_meta("caption"):
 					c.visible = on
+
+
+# ---------- Rules.V5: powers and the Master of the Dance (Docs/TableDesign.md §10) ----------
+
+var _power_before: Array = []  # the throw as it was when the power became ready
+var _master_turn := -1         # the turn the Master last spoke (at most one line a turn)
+var _master_used := {}
+
+
+## A power became ready (keep the throw) or fired: one beat showing what it changed (ui/table_play.gd).
+func _power_event(kind: String, p) -> void:
+	if game == null:
+		return
+	if kind == "power_ready":
+		_power_before = game.turn.faces.duplicate()
+		return
+	var now: Array = game.turn.faces
+	var changed := []
+	for i in now.size():
+		if i >= _power_before.size() or now[i] != _power_before[i]:
+			changed.append(i)
+	var snap := _snapshot()
+	_last_snap = snap
+	var seat: int = game.players.find(p)
+	var sname: String = p.sin.sin_name
+	_q.push(func():
+		_refresh(snap, ["plates", "glow", "banner", "turn", "strikes"])
+		if _table:
+			await _table.power_fired(seat, sname, changed))
+
+
+## core/game.gd _master: a fact happened. Pick his line for it (only lines whose fact is true),
+## at most one a turn, on about MASTER_CHANCE of events; offers announce inside the offer's entrance.
+func master_event(kind: String, p, facts: Dictionary) -> void:
+	if game == null or not game.opt("v5", false) or _tutor != null:
+		return
+	var me = _me()
+	var mine: bool = p == me
+	var ev := ""
+	var holds := []
+	var args := {}
+	match kind:
+		"start":
+			ev = "start"
+			if game.players[0] == me:
+				holds.append("first")
+		"bust":
+			ev = "my_bust" if mine else "rival_bust"
+			args = {"strikes": int(facts.get("strikes", 3)), "name": p.sin.sin_name}
+			if int(facts.get("stake", 0)) >= 100:
+				holds.append("stake")
+		"bank":
+			if mine:
+				ev = "my_bank"
+		"mark":
+			if mine:
+				ev = "mark"
+				args = {"name": facts.from.sin.sin_name}
+				if facts.get("first", false):
+					holds.append("first_mark")
+		"claim":
+			if mine:
+				ev = "claim"
+				args = {"name": facts.from.sin.sin_name}
+		"end":
+			ev = "my_win" if mine else "my_loss"
+			if not mine and me and p.score - me.score <= Tuning.MASTER_CLOSE:
+				holds.append("close")
+	if ev == "":
+		return
+	var always: bool = kind in ["start", "end", "claim"]
+	if not always and randf() >= Tuning.MASTER_CHANCE:
+		return
+	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
+	if _master_turn == turn_id and kind != "end":
+		return
+	var pool: Array = RulesText.master_lines(ev, holds, args)
+	var fresh := pool.filter(func(l): return not _master_used.has(l))
+	if fresh.is_empty():
+		fresh = pool
+	if fresh.is_empty():
+		return
+	var line: String = fresh[randi() % fresh.size()]
+	_master_used[line] = true
+	_master_turn = turn_id
+	_q.push(func():
+		if _table:
+			await _table.master_say(line))
+
+
+## The Master's announcement for an offer to me, shown as part of its entrance (ui/human.gd).
+func master_offer_line(from) -> String:
+	if game == null or not game.opt("v5", false):
+		return ""
+	var pool: Array = RulesText.master_lines("offer", [], {"name": from.sin.sin_name})
+	return pool[randi() % pool.size()] if not pool.is_empty() else ""
+
+
+## No answer at my decision for a while: one idle line a turn (ui/table_play.gd asks).
+func master_idle() -> void:
+	if game == null or not game.opt("v5", false):
+		return
+	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
+	if _master_turn == turn_id:
+		return
+	var pool: Array = RulesText.master_lines("idle", [])
+	_master_turn = turn_id
+	if _table and not pool.is_empty():
+		_table.master_say(pool[randi() % pool.size()])

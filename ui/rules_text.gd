@@ -580,6 +580,7 @@ const TABLE := {
 	"chip_fewer": "-{n} dice\nnext turn",
 	"chip_fewer_1": "-1 die\nnext turn",
 	"chip_die": "-1 die\nat turn end",
+	"hubris_name": "Name {n}",
 }
 
 
@@ -592,10 +593,15 @@ static func tempt_terms(id: String) -> Array:
 	for sname in Temptations.OFFERS:
 		for o in Temptations.OFFERS[sname]:
 			if o.id == id:
-				var gk: String = o.gain + ("_leader" if o.get("leader", false) else "")
-				var ck: String = o.cost + ("_1" if o.cost == "fewer" and o.c == 1 else "")
-				return [_term(GAIN_TERMS[gk], o.g), _term(COST_TERMS[ck], o.c)]
+				return offer_terms(o)
 	return []
+
+
+## The terms of this offer as made (Rules.V5 scales a trailing seat's gain: core/game.gd scaled_offer).
+static func offer_terms(o: Dictionary) -> Array:
+	var gk: String = o.gain + ("_leader" if o.get("leader", false) else "")
+	var ck: String = o.cost + ("_1" if o.cost == "fewer" and o.c == 1 else "")
+	return [_term(GAIN_TERMS[gk], o.g), _term(COST_TERMS[ck], o.c)]
 
 
 ## Both terms on one line (the log).

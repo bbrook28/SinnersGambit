@@ -67,6 +67,10 @@ func dice_to_roll(p, game, turn_points: int, _strikes: int) -> int:
 ## Throw-all mode (Rules.V3): one Throw seal for all your dice, plus Bank after the first throw.
 ## (The dice count is the seal's only number option, so main shows the Throw seal alone.)
 func wants_throw(p, game, turn_points: int, _strikes: int) -> bool:
+	if _then != null:  # answered with the power (wants_power)
+		var go: bool = _then
+		_then = null
+		return go
 	var n: int = game._max_throw(p)
 	var text := "Throw your dice." if game.turn.throws == 0 else "Throw again, or bank?"
 	if p.drag > 0:
@@ -89,7 +93,7 @@ func wants_temptation(game, p, from, offer: Dictionary) -> bool:
 	var lead: int = rival.score if rival else 0
 	var ctx: String = RulesText.table("tempt_context_lead" if p.score > lead else "tempt_context", {
 		"pts": game.turn.points, "strikes": "%d Strike%s" % [s, "" if s == 1 else "s"], "me": p.score, "lead": lead})
-	var card := {"sin": sname, "say": RulesText.tempt_say(offer.id), "terms": RulesText.tempt_terms(offer.id),
+	var card := {"sin": sname, "say": RulesText.tempt_say(offer.id), "terms": RulesText.offer_terms(offer), "master": view.master_offer_line(from) if view and view.has_method("master_offer_line") else "",
 		"text": RulesText.tempt(offer.id), "tip": "", "context": ctx}
 	if view and not view.tempt_tip_seen:
 		card.tip = RulesText.table("tempt_tip")
@@ -127,3 +131,33 @@ func choose_target(game, me, ability: String):
 			options.append(["%s (%d)" % [game.pname(o), o.score], o])
 	options.append(["Skip", null])
 	return await _choose("%s: pick a target." % ability, options)
+
+
+## Rules.V5: my power is ready (core/game.gd _power). No prompt sentence: the seal glows on my edge.
+## Throw window: tap the seal to use it, or the dice to let the throw stand. Pride (before the first
+## throw): name a Bank on the seal, or just Throw. Greed (at the decision): the seal, Throw or Bank.
+## Pride's naming and Greed's Throw or Bank also answer the decision that follows (_then).
+var _then = null
+
+
+func wants_power(game, p, _sname: String):
+	var n: int = game._max_throw(p)
+	match p.sin.power_window():
+		"start":
+			var options := []
+			for t in game.opt("hubris_targets", [150, 200, 250]):
+				options.append(["@seal %d" % t, t])
+			options.append([str(n), false])
+			var v = await _choose("", options)
+			_then = true
+			return v
+		"decide":
+			var options := [["@seal", true], [str(n), "throw"]]
+			if game.may_bank(p):
+				options.append(["Bank %d" % game.turn.points, "bank"])
+			var v = await _choose("", options)
+			if v is String:
+				_then = v == "throw"
+				return false
+			return true
+	return await _choose("", [["@seal", true], ["@stand", false]])
