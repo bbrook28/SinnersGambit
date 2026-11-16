@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_rules()
 	_bot()
 	await _windows()
+	_comeback()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -119,3 +120,32 @@ func _windows() -> void:
 	off.players[0].sin = s2
 	await off.take_turn(off.players[0])
 	check(s2.asked == 0 and s2.used == 0, "powers off: never asked")
+
+
+## Item 4: an offer's gain scales with the deficit (points to 5, dice rounded, others not); the mark rule.
+func _comeback() -> void:
+	var g := _table()
+	var p = g.players[0]
+	var lead = g.players[1]
+	lead.score = 500
+	p.score = 500
+	check(g.comeback_factor(p) == 1.0, "level: x1")
+	p.score = 300
+	check(is_equal_approx(g.comeback_factor(p), 2.0), "200 behind: x2")
+	p.score = 0
+	check(is_equal_approx(g.comeback_factor(p), 3.0), "500 behind: capped at x3")
+	p.score = 400
+	var pts: Dictionary = g.scaled_offer(p, {"id": "t", "gain": "points", "g": 50, "cost": "lose", "c": 25})
+	check(pts.g == 75 and pts.c == 25, "100 behind: 50 points -> 75, cost unchanged")
+	p.score = 340
+	pts = g.scaled_offer(p, {"id": "t", "gain": "points", "g": 60, "cost": "lose", "c": 25})
+	check(pts.g == 105, "160 behind: 60 x1.8 = 108 -> 105")
+	var dice: Dictionary = g.scaled_offer(p, {"id": "t", "gain": "dice", "g": 2, "cost": "bank", "c": 50})
+	check(dice.g == 4, "160 behind: 2 extra dice -> 4")
+	var x2: Dictionary = g.scaled_offer(p, {"id": "t", "gain": "x2", "g": 1, "cost": "bank", "c": 50})
+	check(x2.g == 1 and not x2.has("scaled"), "x2 doesn't scale")
+	check(g.mark_is_free(p), "160 behind: the mark is free")
+	p.score = 400
+	check(not g.mark_is_free(p), "100 behind: the mark counts")
+	var v4 := Game.new([p.bot, p.bot], 1, Rules.V4.duplicate(), [])
+	check(v4.comeback_factor(v4.players[0]) == 1.0 and not v4.mark_is_free(v4.players[0]), "V4: no comeback, every mark counts")

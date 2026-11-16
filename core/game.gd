@@ -628,6 +628,7 @@ func _tempt(p) -> bool:
 	offer_stats[offer.id][0] += 1
 	if view:
 		say("  %s's temptation: %s" % [pname(from), offer.id])
+	offer = scaled_offer(p, offer)  # Rules.V5: a comeback scales the gain
 	var yes: bool = await p.bot.wants_temptation(self, p, from, offer)
 	if view:
 		say("  %s's answer: %s" % [pname(p), "accepts" if yes else "refuses"])
@@ -637,7 +638,8 @@ func _tempt(p) -> bool:
 	p.offers_taken += 1
 	offer_stats[offer.id][1] += 1
 	var throws_now := Temptations.apply(offer, self, p)
-	p.marks[sname] = int(p.marks.get(sname, 0)) + 1
+	if not mark_is_free(p):  # Rules.V5: a mark taken far behind doesn't count toward a claim
+		p.marks[sname] = int(p.marks.get(sname, 0)) + 1
 	p.marks_taken[sname] = int(p.marks_taken.get(sname, 0)) + 1
 	if p.marks[sname] >= marks_to_claim:
 		p.marks[sname] = 0
@@ -675,3 +677,31 @@ func _power(p, window: String) -> bool:
 	var on: bool = await p.sin.use_power(self, p, turn, choice)
 	_view_event("power", p)
 	return on
+
+
+## Rules.V5 comeback: a seat D behind the leader sees an offer's gain x(1 + D / comeback_per), up to
+## x comeback_cap. Points round down to 5 and extra dice round; a cleared Strike, x2 and a free die don't scale.
+func comeback_factor(p) -> float:
+	if int(opt("comeback_per", 0)) <= 0:
+		return 1.0
+	var d := float(maxi(0, leader_score() - p.score))
+	return minf(float(opt("comeback_cap", 1.0)), 1.0 + d / float(opt("comeback_per", 200)))
+
+
+func scaled_offer(p, offer: Dictionary) -> Dictionary:
+	var f := comeback_factor(p)
+	if f <= 1.0 or not offer.gain in ["points", "dice"]:
+		return offer
+	var out := offer.duplicate()
+	if offer.gain == "points":
+		out.g = int(offer.g * f) / 5 * 5
+	else:
+		out.g = int(round(offer.g * f))
+	out["scaled"] = f
+	return out
+
+
+## Rules.V5 mark rule: a mark taken mark_free_behind or more behind the leader doesn't count toward a claim.
+func mark_is_free(p) -> bool:
+	var at := int(opt("mark_free_behind", 0))
+	return at > 0 and leader_score() - p.score >= at
