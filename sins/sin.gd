@@ -58,6 +58,26 @@ func bounces(_game, _me, _attacker, _kind: String) -> bool:
 	return false
 
 
+
+# --- Rules.V5 power (Docs/TableDesign.md §10): the Basic as a once-a-turn seal ---
+
+## When the power can act: "start" (before the first throw), "throw" (after a throw, before its Strikes
+## count) or "decide" (at throw-or-bank). "" = no power.
+func power_window() -> String:
+	return ""
+
+
+## Can the power change something now? (core/game.gd _power asks only in this Sin's window.)
+func power_ready(_game, _me, _turn) -> bool:
+	return false
+
+
+## Use it. `choice` is the player's answer (true, or Pride's named Bank). Returns true when the turn
+## throws on at once (Greed).
+func use_power(_game, _me, _turn, _choice) -> bool:
+	return false
+
+
 ## Log an ability firing (UI only). Call as `if game.view: fired(game, me, "Feast", "...")`.
 func fired(game, me, ability: String, what: String) -> void:
 	game.say("  %s's %s: %s" % [game.pname(me), ability, what])

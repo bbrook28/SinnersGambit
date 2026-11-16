@@ -26,6 +26,8 @@ func check(ok: bool, what: String) -> void:
 func _initialize() -> void:
 	_rules()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
+	var base = preload("res://sins/sin.gd").new()
+	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
 	for f in fails:
 		print("FAIL ", f)
 	print("V5 CHECK %s: %d checks" % ["PASSED" if fails.is_empty() else "FAILED (%d)" % fails.size(), checks])
