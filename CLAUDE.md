@@ -15,6 +15,7 @@ Mobile version of Ben's tabletop dice game. Rulebook (source of truth): https://
 ## Commands (godot = the Godot 4.7.2 console exe; `tests/run_all.sh` has the path)
 - Full suite: `bash tests/run_all.sh` (`tests/load_check.gd` first; stops on a load error).
 - Sim: `godot --headless --path . --script res://sim/check_v3.gd -- 4000 v4 [key=value]` (V4, win share per Sin; without `v4`, V2 vs V3). Run game (parked): `sim/run_sim.gd -- runs=20 [sin=Lust]`, one process per Sin with `out=<dir>/part_X.json`, then `-- merge=<dir>`. Smoke-test one run before going parallel.
+- Agency measures (sim only, TableDesign §10): `godot --headless --path . --script res://sim/agency_sim.gd -- base|skill|tune|first [games] [key=value]` (e.g. `purgatory=false rethrow=true tempt_comeback=true`; `best=4,0.9,0,0.5,0.3` for skill).
 - One fixture: `godot --path . --fixed-fps 60 --script res://tools/show.gd -- <fixture> [se|std|max] [out.png]`. Fixtures: `tools/fixtures/<name>.json`.
 - Gallery: `godot --path . --script res://tools/gallery.gd [-- --only a,b] [--sizes se] [--check] [--packet <topic>] [--approve <fixture>]` (`--check` diffs against `tests/golden/`; `--approve` only when Ben says).
 - Text audit: `godot --path . --fixed-fps 60 --script res://tools/ui_audit.gd -- fixtures [size] [names]` into `build/audit/<size>.txt`. Clip: `tools/clip.gd -- <fixture> [beat] [seconds] [size]` (ffmpeg). Audit first, then `--check`, then open only changed images.
