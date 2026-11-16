@@ -2525,6 +2525,7 @@ func _show_prompt_now(text: String, options: Array) -> void:
 				b.material = Art.glint_material(-Tuning.GLINT_STAGGER * int(o[0]))  # glints travel along the row
 				var n := int(o[0])
 				var cv = o[1]
+				b.set_meta("value", cv)  # the table answers with it (ui/table_play.gd _choices)
 				b.toggled.connect(func(on: bool):
 					if on and throw_b:
 						throw_b.set_meta("value", cv)
