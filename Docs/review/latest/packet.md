@@ -1,28 +1,28 @@
-# Packet: REPLY 15 (new rules built, the Master behind the windows, pushed)
-**Built and pushed** (main 2d85ff5; TestFlight run 17 = build 117, internal only):
-- `Rules.V5`: chain capped at x2; a bust keeps half the turn's face points (to 5); Cash Out x1.25; the Master marks each round's strict leader: no chain for them that round. His mark line (new pools, 5 lines each) and mark pose play live, and a gold ring stays on the marked window all round. Save version 5. TableDesign §10 records it. v5_check adds 11 checks, including whole games where he marks the right seat.
-- The Master stands behind the window row: hood and mask in a 130 px band above it, plum robe to both screen edges behind the windows. The offer card rests just above its window, scaled to it. `table_end`: the post's 600 now sits beside the post, clear of my 640.
-- Suite: all pass. Text audit: 32/32 clean at se and std. Fixture changed: `table_master_mark` (now marked).
+# Packet: REPLY 16 (the Master as a figure, windows back to size, offer beat, call 550)
+**Pushed** (main f44ffee; TestFlight run 18 = build 118, internal only). Build 117 never ran: GitHub had no macOS runner free.
+- **Master:** stands behind the window row over the longest run of rival windows; for a mark or an offer, away from its window. His hood is two rival windows wide and flares into shoulders above the rivals' tops. His robe runs to both edges and down to the page top (no black band). His arm is a rival window thick.
+- **Windows:** build 116's size at std and SE, and at 7 seats (std 386x694, rivals 193x347; SE 273x491, rivals 136x246). To get them back, the row took the old gap under it (22 px left) and the track band's pads went from 30 to 14 px. Rivals are lifted to 0.3 with an ink frame. A rival's stake, spoken lines and choice rows now sit on dark plates over the windows' feet.
+- **Offer card:** centred just above its window, inside that window's width (std 170 px in a 193 window, SE 120 in 136).
+- **Offer beat:** before the card screen, he holds the card up toward the offering Sin's window for 1.2 s; a tap skips. `table_play_check` sees it in play (92 frames) and the mark (84 frames).
+- **Rules:** Devour +45; the call at 550 (item 4's rule: see the sim). Suite: all pass. Text audit: 32/32 clean at se and std. Every table_master fixture now posts at 550.
 
-**Sheet** (std): before (REPLY 13 build), rest, mark, offer, calling, table_end. `sheet_se.png`: rest, mark, offer, calling at SE.
-**What I see:** at std the active window is smaller than in the REPLY 13 build (the hood band takes 130 px from the wall), but larger than in REPLY 14. At SE the wall is short, so the windows are small and the robe is a thin strip. The offer card to Greed sits close to my window's top-right corner.
+**Sheets:** `sheet.png` (std) and `sheet_se.png`: build 116 rest, mark, offer, calling, then the same four now. `boxes.txt`: pixel boxes for head, mask, shoulders, robe, arm and card in each pose, plus the windows, at std and SE (from `tools/boxes.gd`).
+**What I see:** at SE the raised arm in calling reaches y 41, above the 58 px safe line. His line's plate covers the middle of the rival windows. At 7 seats the hood is narrower (two 7-seat windows, 244 px).
 
-**Sim** (20000 mixed, new baseline = the build's rules, call at 600 unless noted):
-| run | Sin range | Gluttony | Sloth | rounds (over 6) | last seat wins |
-|---|---|---|---|---|---|
-| baseline | 18.9-32.0 | 32.0 | 18.9 | 5.57 (16.7%) | 5.7% |
-| Devour +45 (from 60) | 19.5-28.9 | 27.8 | 19.5 | 5.61 (18.1%) | 5.9% |
-| Devour +30 | 19.7-29.4 | 24.4 | 19.7 | 5.65 (19.2%) | 5.8% |
-| Drag 6 (from 4) | 18.9-32.0 | 32.0 | 18.9 | 5.57 (16.7%) | 5.8% |
-| Idle turns Strikes to 4s (from 3s) | 17.9-34.1 | 29.0 | 34.1 | 5.45 (13.1%) | 5.8% |
-| call at 550 | 19.1-31.8 | 31.8 | 19.1 | 5.32 (11.2%) | 5.8% |
-| call at 500 | 19.4-31.7 | 31.7 | 19.4 | 5.06 (6.8%) | 5.9% |
-| **call at 500 + Devour +45** | **19.7-30.2** | 28.1 | 19.7 | **5.10 (7.5%)** | 6.2% |
-
-**What it says:** Devour +45 fixes Gluttony. The call at 500 is the only lever that brings games past 6 rounds under 10%; 550 lands at 11%. Drag doesn't touch Sloth, and Idle to 4s overshoots. Sloth and Pride (about 20) stay low, and Greed (30) is now the top Sin.
+**Sim** (20000 mixed, Devour +45, the build's rules):
+| run | Sin range | Greed / Pride / Sloth | over 6 rounds | 4 or fewer |
+|---|---|---|---|---|
+| call 500 | 19.7-30.2 | 30.2 / 20.2 / 19.7 | 7.5% | 29.0% |
+| call 550 (built) | 19.7-29.5 | 29.5 / 20.2 / 19.7 | 12.0% | 20.4% |
+| call 600 | 19.5-28.9 | 28.9 / 20.1 / 19.5 | 18.1% | 14.1% |
+| 550 + Idle's first Strike to a 4 | 18.8-28.8 | 28.8 / 18.8 / 28.4 | 10.1% | 21.9% |
+| 550 + Cash Out x1.2 | 19.7-29.4 | 29.4 / 20.1 / 19.7 | 12.1% | 20.2% |
+| 550 + Hubris x2.0 (from 1.75) | 19.3-28.5 | 28.5 / 24.7 / 19.3 | 11.1% | 22.5% |
+| 550 + all three | **19.9-27.8** | 27.8 / 23.6 / 27.5 | 9.6% | 23.7% |
+**What it says:** no call meets both bars. Short games (4 rounds or fewer) and long ones (past 6) trade against each other, and even 600 leaves 14% short. Idle-one lifts Sloth (19.7 → 28.4) and Hubris x2.0 lifts Pride (20.2 → 24.7). Cash Out x1.2 doesn't move Greed. Lower Hubris targets can't be measured: the sim's Pride bots pick fixed targets.
 
 **Questions**
-1. Build the call at 500 and Devour +45? Rec: yes. It is the only pair here that meets your 10% bar with the narrowest range.
-2. Sloth: should I sim Idle turning one Strike to a 4 (the rest to 3s)? Rec: yes. Both ends of the knob are measured; the middle is untried.
-3. At SE the hood band leaves small windows. Should the band shrink on short screens (a quarter of the wall, at most 130 px)? Rec: yes.
-4. The table hides during an offer, so the Master's offer pose is still fixture-only. Should the offer show on the table, with the card in his hand, before the card screen opens? Rec: yes, as the offer's anticipation beat.
+1. Lock this layout? Rec: yes, and art can start from `boxes.txt`.
+2. Build Idle-one and Hubris x2.0 (the "all three" row, without Cash Out x1.2)? Rec: yes. It gives the narrowest range measured so far (19.9-27.8).
+3. Short games: should I sim a minimum of 5 rounds before the call can fire? Rec: yes. It targets the 20% of games that end in 4 rounds or fewer without lengthening the rest.
+4. Should the raised arm in calling stay under the safe line at SE? Rec: yes. I'll clamp the hand to the safe line.
