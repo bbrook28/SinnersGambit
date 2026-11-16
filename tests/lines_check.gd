@@ -63,6 +63,26 @@ func _initialize() -> void:
 	for k in T.TABLE:
 		if T.table(k, {"n": 1, "sin": "Wrath", "claim": "x", "pts": 80, "strikes": "1 Strike", "me": 30, "lead": 665}).find("{") >= 0:
 			fails.append("table word %s unfilled" % k)
+	# The Master of the Dance (TableDesign §10): 5 lines an event, 6 words max, none twice, all filled;
+	# each power line beside the seal 10 words max.
+	var facts := ["first", "stake", "first_mark", "close"]
+	for ev in T.MASTER:
+		var ls: Array = T.master_lines(ev, facts, {"name": "Wrath", "strikes": 3})
+		if ls.size() < 5:
+			fails.append("Master %s: %d lines (5 needed)" % [ev, ls.size()])
+		for l in ls:
+			if l.find("{") >= 0:
+				fails.append("Master %s unfilled: %s" % [ev, l])
+			if l.split(" ", false).size() > 6:
+				fails.append("Master %s: \"%s\" over 6 words" % [ev, l])
+			if seen.has(l):
+				fails.append("\"%s\" twice" % l)
+			seen[l] = "Master %s" % ev
+		if T.master_lines(ev, []).size() < 4:
+			fails.append("Master %s: fewer than 4 lines without conditions" % ev)
+	for s in T.SIN_ORDER:
+		if T.power(s).split(" ", false).size() > 10:
+			fails.append("%s power over 10 words: %s" % [s, T.power(s)])
 	for f in fails:
 		print(f)
 	print("LINES %s (%d lines)" % ["PASSED" if fails.is_empty() else "FAILED (%d)" % fails.size(), seen.size()])

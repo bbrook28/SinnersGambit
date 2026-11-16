@@ -55,7 +55,7 @@ func _initialize() -> void:
 	main._settings = null
 	# The rulebook: a few page kinds (contents, an illustrated page, the Sins, the glossary).
 	main.open_rulebook("contents")
-	for id in ["contents", "scoring", "purgatory", "all_sins", "glossary"]:
+	for id in ["contents", "scoring", "strikes", "all_sins", "glossary"]:
 		main._overlay.show_page(main.RulesText.page_index(id))
 		await _settle(30)
 		await _check("rulebook %s" % id)

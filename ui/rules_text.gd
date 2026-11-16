@@ -12,14 +12,24 @@ const Envy = preload("res://sins/envy.gd")
 const Pride = preload("res://sins/pride.gd")
 const Gluttony = preload("res://sins/gluttony.gd")
 const Sloth = preload("res://sins/sloth.gd")
+const Tuning = preload("res://ui/tuning.gd")
 const Temptations = preload("res://sins/temptations.gd")
 
 const SIN_ORDER := ["Wrath", "Greed", "Lust", "Envy", "Pride", "Gluttony", "Sloth"]
 
 
+## The rules the text describes: the table (Tuning.table_view()) plays Rules.V5; the legacy board V4.
+static func rules() -> Dictionary:
+	return Rules.V5 if Tuning.table_view() else Rules.V4
+
+
+static func v5() -> bool:
+	return rules().get("v5", false)
+
+
 ## Every number the text uses, from the config.
 static func vals() -> Dictionary:
-	var r: Dictionary = Rules.V4  # the table game plays V4 (Docs/TableDesign.md)
+	var r: Dictionary = rules()
 	var fm: int = r.face_mult
 	var chain: float = r.chain
 	var targets: Array = r.hubris_targets
@@ -27,17 +37,20 @@ static func vals() -> Dictionary:
 	return {
 		"win": Rules.WIN_SCORE, "strikes": Rules.STRIKES_TO_BUST, "greater_at": Rules.TIER2_SCORE,
 		"start_dice": Rules.START_DICE, "min_dice": Rules.MIN_DICE,
-		"die_cost": r.die_cost, "purg_cost": r.purgatory_cost, "seat_bonus": r.seat_bonus,
+		"die_cost": r.die_cost, "purg_cost": r.get("purgatory_cost", 0), "seat_bonus": r.seat_bonus,
 		"f4": 4 * fm, "f5": 5 * fm, "f6": 6 * fm, "face_mult": _num_word(fm),
 		"x2": _mult(1.0 + chain), "x3": _mult(1.0 + chain * 2), "x4": _mult(1.0 + chain * 3),
 		# Worked example: 4, 6, 3.
 		"ex_sum": 10 * fm, "ex_total": int(10 * fm * (1.0 + chain)),
-		"rage": r.rage, "fury_dice": _num_word(r.fury_dice), "fury_trigger": r.fury_trigger,
+		"rage": r.get("rage", Wrath.RAGE), "fury_dice": _num_word(r.fury_dice), "fury_trigger": r.fury_trigger,
 		"vig": r.vig, "interest": r.interest, "interest_pct": Greed.INTEREST_PCT, "interest_cap": Greed.INTEREST_CAP,
-		"pact": r.pact, "pact_pct": Lust.PACT_PCT, "mimic": _num_word(Envy.MIMIC_COPIES),
-		"hubris_targets": tstr, "hubris_mult": _mult(Pride.MULT),
-		"feast": r.feast, "gorge": r.gorge,
+		"pact": r.pact, "pact_pct": Lust.PACT_PCT, "mimic": _num_word(int(r.get("mimic", Envy.MIMIC_COPIES))),
+		"hubris_targets": tstr, "hubris_mult": _mult(float(r.get("hubris_mult", Pride.MULT))),
+		"feast": r.get("feast", Gluttony.FEAST), "gorge": r.gorge,
 		"drag": r.drag, "marks": _num_word(r.marks_to_claim).capitalize(),
+		# Rules.V5 powers and the Master of the Dance.
+		"wrath_rethrow": _num_word(int(r.get("wrath_rethrow", 2))), "greed_mult": _mult(float(r.get("greed_mult", 1.5))),
+		"eat": r.get("eat", 0), "claim_marks": _num_word(r.marks_to_claim).capitalize(), "close": Tuning.MASTER_CLOSE,
 	}
 
 
@@ -61,7 +74,7 @@ const FIVE := [
 	"On your turn, throw all your dice as often as you like, then Bank to keep this turn's points.",
 	"4, 5 and 6 score {face_mult} times their face; 3 does nothing; 1 and 2 are Strikes.",
 	"Scoring several dice in one throw is worth more.",
-	"Bust: your third Strike in a turn loses this turn's points and starts your next turn in Purgatory.",
+	"Bust: your third Strike in a turn loses this turn's points.",
 	"After you bank you may buy dice for {die_cost} each, and the first to {win} wins.",
 ]
 
@@ -88,23 +101,19 @@ const PAGES := [
 		"Example: you throw 4, 6 and 3. The 4 and 6 score {ex_sum}, and two scorers make it {x2}: {ex_total}."]},
 	{"id": "strikes", "title": "Strikes and Busting", "art": "strikes", "body": [
 		"Every 1 and 2 you throw is a Strike. Strikes add up over your whole turn: each one snuffs a candle beside the dice.",
-		"Bust: your third Strike in a turn loses this turn's points and starts your next turn in Purgatory.",
+		"Bust: your third Strike in a turn loses this turn's points.",
 		"Your Strikes clear when your turn ends."]},
 	{"id": "banking", "title": "Banking", "art": "bank", "body": [
 		"Bank to add this turn's points to your score. Your turn then ends.",
 		"Banking early is safe. Throwing again can win more, or lose it all."]},
-	{"id": "purgatory", "title": "Purgatory", "art": "purgatory", "body": [
-		"A player who busts starts their next turn in Purgatory.",
-		"You throw all your dice once, for free. Any 6 frees you. Otherwise you pay {purg_cost} (nothing if you can't).",
-		"Either way, you then play your turn as normal."]},
 	{"id": "buying", "title": "Buying Dice", "art": "buying", "body": [
 		"After you bank, you may buy dice for {die_cost} each. They're yours for the rest of the game.",
 		"More dice score more, but they also throw more Strikes.",
 		"The table holds a limited supply of dice. When it runs out, no one can buy."]},
 	{"id": "sins", "title": "Sins and Greater Abilities", "art": "tiers", "body": [
-		"Every Sin has a Basic ability you can use from the start.",
+		"Every Sin has a power: once a turn, when its seal glows, tap it to use it.",
 		"The first time you reach {greater_at} points, your Greater ability unlocks for good. You can use it once a round.",
-		"First Game: Basic abilities only, at a table of 4. Finishing a game unlocks Greater abilities and the Table of 7."]},
+		"First Game: no powers or Greater abilities, at a table of 4. Finishing a game unlocks them and the Table of 7."]},
 	{"id": "temptations", "title": "Temptations", "art": "", "body": [
 		"Once a turn, a rival Sin may offer you a deal: a gain now for a cost later. Accept or refuse with one tap.",
 		"Accepting gives you that Sin's mark. A Sin whose mark you hold comes back to tempt you again.",
@@ -124,50 +133,73 @@ static func page_index(id: String) -> int:
 
 
 # ---------- Sins ----------
-## epithet, playstyle (one line), complexity (1-3), [Basic name, text], [Greater name, text].
+## epithet, playstyle (one line), complexity (1-3), [Basic name, text], [Greater name, text],
+## [power name, text] (Rules.V5: the Basic as a once-a-turn seal, 10 words max; TableDesign §10),
+## greater_v5 where V5 changes the Greater's numbers.
 const SINS := {
 	"Wrath": {"epithet": "the Avenger", "play": "Profit when others fall.", "pips": 1,
+		"power": ["Rethrow", "Rethrow up to {wrath_rethrow} of this throw's Strikes."],
 		"basic": ["Spark of Rage", "+{rage} whenever a rival busts."],
 		"greater": ["Fury", "The first rival throw worth {fury_trigger}+ rerolls its {fury_dice} best dice."]},
 	"Greed": {"epithet": "the Hoarder", "play": "Grow rich on everyone's spending.", "pips": 1,
+		"power": ["Cash Out", "Bank half your stake at {greed_mult}; keep throwing."],
 		"basic": ["The Vig", "When a rival buys a die, you get {vig} of its price."],
 		"greater": ["Interest", "Bank and buy no dice: +{interest}."]},
 	"Lust": {"epithet": "the Temptress", "play": "Take the best of what others throw.", "pips": 2,
+		"power": ["Desire", "Turn a Strike into the last player's best die."],
 		"basic": ["Whisper of Desire", "Once a turn, your 3 or 2 becomes the last player's best die."],
 		"greater": ["Binding Pact", "Pick a rival; take {pact} of the next turn they Bank."]},
 	"Envy": {"epithet": "the Mirror", "play": "Copy the previous player's best die.", "pips": 2,
+		"power": ["Copy", "Copy your best die: it scores its face again."],
+		"greater_v5": ["Mimicry", "Once a round, a scoring throw gains {mimic} copies of the last best die."],
 		"basic": ["Green-Eyed Glance", "While behind, your first scoring throw each turn copies the last player's best die."],
 		"greater": ["Mimicry", "That throw gains two copies instead."]},
 	"Pride": {"epithet": "the Untouchable", "play": "Bet on yourself and win big.", "pips": 3,
+		"power": ["Hubris", "Name your Bank: reach it for {hubris_mult}, else nothing."],
 		"basic": ["Hubris", "Before throwing, bet {hubris_targets}: Bank that much for {hubris_mult}, else 0."],
 		"greater": ["Untouchable", "The first ability aimed at you bounces back."]},
 	"Gluttony": {"epithet": "the Devourer", "play": "Trade dice for points.", "pips": 3,
+		"power": ["Devour", "Eat a Strike die: +{eat} to your stake."],
 		"basic": ["Feast", "Once a turn, feed a thrown die for +{feast}; a fed Strike doesn't count."],
 		"greater": ["Gorge", "Your first die each turn costs {gorge}."]},
 	"Sloth": {"epithet": "the Delayer", "play": "Shrug off a Strike every turn.", "pips": 1,
+		"power": ["Idle", "Ignore this throw's Strikes."],
 		"basic": ["Lazy Bones", "Your first Strike each turn doesn't count."],
 		"greater": ["Drag", "Pick a rival; they throw {drag} fewer dice next turn (never below 1)."]},
 }
 
 
-## "Name: text" for a Sin's Basic (0) or Greater (1) ability.
+## A Sin's Basic (greater false) or Greater ability, [name, text]. Under Rules.V5 the Basic is the power.
+static func _ability(sin_name: String, greater: bool) -> Array:
+	var s: Dictionary = SINS[sin_name]
+	if v5():
+		return s.get("greater_v5", s.greater) if greater else s.power
+	return s.greater if greater else s.basic
+
+
+## "Name: text" for a Sin's Basic (or V5 power) or Greater ability.
 static func ability(sin_name: String, greater: bool) -> String:
-	var a: Array = SINS[sin_name]["greater" if greater else "basic"]
+	var a := _ability(sin_name, greater)
 	return "%s: %s" % [a[0], fill(a[1])]
 
 
 static func ability_text(sin_name: String, greater: bool) -> String:
-	return fill(SINS[sin_name]["greater" if greater else "basic"][1])
+	return fill(_ability(sin_name, greater)[1])
 
 
 static func ability_name(sin_name: String, greater: bool) -> String:
-	return SINS[sin_name]["greater" if greater else "basic"][0]
+	return _ability(sin_name, greater)[0]
+
+
+## The power's line beside my seal (Rules.V5), 10 words max.
+static func power(sin_name: String) -> String:
+	return fill(SINS[sin_name].power[1])
 
 
 ## The Sin and which ability an ability name belongs to: [sin, greater] or [] if none.
 static func ability_owner(name: String) -> Array:
 	for s in SINS:
-		if SINS[s].basic[0] == name:
+		if SINS[s].power[0] == name or SINS[s].basic[0] == name:
 			return [s, false]
 		if SINS[s].greater[0] == name:
 			return [s, true]
@@ -189,9 +221,10 @@ const TERMS := {
 	"Multiplier": ["Scoring several dice in one throw is worth more: two scoring dice {x2}, three {x3}, four {x4}. The game does the sum for you.", "scoring"],
 	"Strike": ["Every 1 or 2 you throw is a Strike. They add up over your turn. A third Strike is a bust.", "strikes"],
 	"Strikes": ["The three candles beside the dice: each Strike this turn snuffs one. All three out is a bust.", "strikes"],
-	"Bust": ["Your third Strike in a turn: you lose this turn's points and start your next turn in Purgatory.", "strikes"],
+	"Bust": ["Your third Strike in a turn: you lose this turn's points.", "strikes"],
 	"Bank": ["Keep this turn's points: they're added to your score and your turn ends.", "banking"],
-	"Purgatory": ["Where a bust sends you. Your next turn starts with a free throw: any 6 frees you, otherwise you pay {purg_cost} (nothing if you can't). Then you play as normal.", "purgatory"],
+	"Power": ["Your Sin's seal: once a turn, when it glows, tap it to use it.", "sins"],
+	"The Vig": ["Greed's lasting rule: when a rival buys a die, Greed gets {vig} of its price.", "all_sins"],
 	"Buy dice": ["After you bank, buy dice for {die_cost} each. More dice score more, and throw more Strikes.", "buying"],
 	"Supply": ["The dice left on the table to buy. When it's empty, no one can buy.", "buying"],
 	"Sin": ["The character you play. Each of the seven Sins bends one rule with its abilities.", "all_sins"],
@@ -203,19 +236,30 @@ const TERMS := {
 	"Temptation": ["A rival Sin's offer on your turn: a gain now for a cost later. Accepting gives you its mark.", "temptations"],
 	"Mark": ["What you take from a Sin when you accept its temptation. {marks} from one Sin, and it claims you.", "temptations"],
 	"Claim": ["A Sin's lasting rule on you once you hold {marks} of its marks. It binds you for the rest of the game.", "temptations"],
-	"First Game": ["Your first game: a table of 4, Basic abilities only, slower opponents. Finish it to unlock Greater abilities and the Table of 7.", "sins"],
+	"First Game": ["Your first game: a table of 4, no powers or Greater abilities, gentler opponents. Finish it to unlock them and the Table of 7.", "sins"],
 }
 
+## Rules.V4 only (the legacy board and the retired tutorial). Rules.V5 has no Purgatory (TableDesign §10).
+const LEGACY_PURGATORY := "Where a bust sends you. Your next turn starts with a free throw: any 6 frees you, otherwise you pay {purg_cost} (nothing if you can't). Then you play as normal."
 
-## term -> [paragraph, page id], with every ability added as its own term.
+
+## term -> [paragraph, page id], with every ability added as its own term (V4's Basics and V5's
+## powers both: core logs either).
 static func glossary() -> Dictionary:
 	var g := {}
 	for k in TERMS:
 		g[k] = [fill(TERMS[k][0]), TERMS[k][1]]
+	if not v5():
+		g["Purgatory"] = [fill(LEGACY_PURGATORY), "strikes"]
 	for s in SINS:
-		for greater in [false, true]:
-			var a: Array = SINS[s]["greater" if greater else "basic"]
-			g[a[0]] = ["%s's %s ability. %s" % [s, "Greater" if greater else "Basic", fill(a[1])], "all_sins"]
+		var b: Array = SINS[s].basic
+		var p: Array = SINS[s].power
+		var gr: Array = SINS[s].get("greater_v5", SINS[s].greater) if v5() else SINS[s].greater
+		var basic := ["%s's Basic ability. %s" % [s, fill(b[1])], "all_sins"]
+		var pw := ["%s's power. %s" % [s, fill(p[1])], "all_sins"]
+		g[b[0]] = basic
+		g[p[0]] = pw if v5() or p[0] != b[0] else basic  # Pride's Hubris is both
+		g[gr[0]] = ["%s's Greater ability. %s" % [s, fill(gr[1])], "all_sins"]
 	return g
 
 
@@ -354,7 +398,8 @@ const SAY := [
 	["^(.+?) throws to leave Purgatory: (.+)$", "$1 throws to leave Purgatory: $2"],
 	["^\\s+Fury \\(bounced\\) rerolls (\\d+): (.+)$", "Fury bounces back: the best $1 dice are thrown again: $2"],
 	["^\\s+Rerolled: (.+)$", "Thrown again: $1"],
-	["^\\s+\\d+ Strikes: (.+?) BUSTS and goes to Purgatory\\.$", "Third Strike! $1 busts, off to Purgatory."],
+	["^\\s+\\d+ Strikes: (.+?) BUSTS and goes to Purgatory\\.$", "Third Strike! $1 busts, off to Purgatory."],  # Rules.V4 (legacy board)
+	["^\\s+\\d+ Strikes: (.+?) BUSTS\\.$", "Third Strike! $1 busts."],
 	["^\\s+\\+0 \\(turn (\\d+), Strikes \\d+\\)$", "{who} scores nothing ($1 this turn)."],
 	["^\\s+\\+(\\d+) \\(turn (\\d+), Strikes \\d+\\)$", "{who} scores $1 ($2 this turn)."],
 	["^\\s+Hubris pays off: (\\d+) -> (\\d+)$", "Hubris pays off: $1 becomes $2."],
@@ -571,7 +616,7 @@ static func table(key: String, args := {}) -> String:
 
 
 static func _v4_vals() -> Dictionary:
-	var r: Dictionary = Rules.V4
+	var r: Dictionary = rules()
 	return {"claim_bust": r.claim_bust, "claim_greed": r.claim_greed, "claim_envy": r.claim_envy,
 		"claim_pride_min": r.claim_pride_min, "claim_sloth_fewer": _num_word(r.claim_sloth_fewer).capitalize().to_lower(),
 		"min_dice": Rules.MIN_DICE, "marks": _num_word(r.marks_to_claim).capitalize()}
@@ -658,3 +703,35 @@ const LINES := {
 		"recall": ["Back again? Already? Ugh.", "Didn't {host} tire you out?", "Circle {n} again? So tiring.", "Five more minutes. Then you.", "You woke me for this?"],
 	},
 }
+
+
+# ---------- The Master of the Dance (Docs/TableDesign.md §10) ----------
+## His lines by event, 6 words max. A line [text, condition] states a fact and plays only when it is
+## true (ui/main.gd master_event): "first" I throw first; "stake" my bust lost 100+; "first_mark" my
+## first mark of that Sin; "close" I lost within {close} of the winner. Numbers through vals().
+const MASTER := {
+	"start": ["Take your seats. The dance begins.", "Dice ready. Souls ready. Shall we?", "Seven Sins, one table. Delightful.", "Mind your candles. Let us begin.", ["You throw first. Do begin.", "first"]],
+	"my_bust": ["Ah. The dice have spoken.", "{strikes} candles out. Do sit.", "A misstep. Everyone stumbles.", "Gone. Shall we try again?", ["Pity. It was going beautifully.", "stake"]],
+	"my_bank": ["Splendid. Do bank like that again.", "Well kept. The Sins noticed.", "A fine harvest, if I may.", "Bravo. My compliments to your nerve.", "Into your keeping. Nicely done."],
+	"rival_bust": ["Oh dear. Not you this time.", "{name} trips. How very human.", "Snuffed. Do take note.", "The dance claims {name}. Briefly.", "Careful steps win. Usually."],
+	"offer": ["{name} has a little proposal.", "A word from {name}, please.", "Ah, {name} wishes to bargain.", "Listen closely. {name} is generous.", "{name} approaches. Mind your purse."],
+	"mark": ["Marked. {name} will remember.", "A small price. For now.", "Signed in ink. How brave.", "{name} smiles. That's rarely good.", ["One mark. {claim_marks} and it claims.", "first_mark"]],
+	"claim": ["{claim_marks} marks. {name} owns you now.", "Claimed. I did mention it.", "{name} will keep you close.", "Bound. The dance goes on.", "Well. A lasting arrangement, then."],
+	"my_win": ["The dance is yours. Well played.", "{win}. I'm genuinely impressed.", "Victory. The Sins will sulk.", "Bow, please. You've earned it.", "Splendid. Do come again."],
+	"my_loss": ["Not tonight. There's always another.", "The dice were unkind. Again?", "A good dance, all the same.", "Rest. The table will wait.", ["Close. Closer than they'd admit.", "close"]],
+	"idle": ["Throw, or keep? Your call.", "Candles are patient. I am less.", "Courage or caution, dear guest?", "Another throw? Purely a suggestion.", "Take your time. Eternity's long."],
+}
+
+
+## The lines for an event whose conditions hold (facts: the condition names that are true), filled.
+static func master_lines(ev: String, facts: Array, args := {}) -> Array:
+	var v := vals()
+	v.merge(args, true)
+	var out := []
+	for l in MASTER.get(ev, []):
+		if l is Array:
+			if l[1] in facts:
+				out.append(String(l[0]).format(v))
+		else:
+			out.append(String(l).format(v))
+	return out

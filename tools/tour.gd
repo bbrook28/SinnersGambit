@@ -73,7 +73,7 @@ func _run() -> void:
 	await _wait(0.6)
 	# 3. Rulebook.
 	main.open_rulebook("contents")
-	for id in ["contents", "scoring", "strikes", "purgatory", "all_sins", "glossary"]:
+	for id in ["contents", "scoring", "strikes", "all_sins", "glossary"]:
 		var i: int = main.RulesText.page_index(id)
 		if i < 0:
 			continue

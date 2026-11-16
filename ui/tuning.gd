@@ -18,6 +18,9 @@ const TABLE_VIEW := false  # debug (blockout 4, Ben 2026-11-15): play on the tab
 static func table_view() -> bool:
 	return TABLE_VIEW or OS.has_feature("table_view") or OS.get_cmdline_user_args().has("--table")
 const LINE_CHANCE := 0.5   # a Sin says a line on about this share of events (TableDesign §3)
+const MASTER_CHANCE := 0.33  # the Master of the Dance says a line on about this share of events (TableDesign §10)
+const MASTER_CLOSE := 100    # a loss this close to the winner gets his "close" line
+const MASTER_FOR := 2.6      # s his line stays by the skeleton
 const LINE_HOLD := 0.8     # a line stays up this long, at reading speed even on a bot's turn
 const MARKS_FONT := 36     # mark pips and claims under each window
 const LINE_FONT := 40      # a Sin's line, in the speech tab at its window's foot
