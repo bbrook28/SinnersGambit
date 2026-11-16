@@ -1,6 +1,20 @@
 # Table design: rules and content (V4; owner of the table game's rules)
 The table game is the real game: Play opens it. Your opponents are the Seven Sins, and they tempt you to push too far. Numbers here are checked against `core/rules.gd` `Rules.V4` and `sins/`; where they differ, the code wins. How the table looks and behaves as built: `Docs/TableSpec.md`. Phase status: `Docs/UXPlan.md`. Draft 2 with its build plan and sim log: `Docs/archive/TableDesign_draft2.md`.
 
+## 0. The table game as built (`Rules.V5`, REPLY 21; checked against `core/` and `sins/` on 2026-11-16)
+Seats: you and 3 Sins (first game) or the table size you pick, 2-7. Everyone starts with 3 dice; the supply is 27 in all. No win score: the Master calls the end.
+**A round:** (1) the Master marks the strict leader (score above 0): that seat scores no chain this round. (2) Each seat takes a turn in order. (3) At the round's end, if the leader has 550+ and at least 3 rounds are done, he calls it: one more round, then the final round; the highest total wins (a tie is drawn at random).
+**A turn:**
+1. Start: Pride may name a Bank (Hubris).
+2. Throw all your dice (fewer if a debt or Drag says so; never below 1).
+3. Rivals react (Greater abilities, from game two), then your own power if it is a throw power (Wrath, Lust, Envy, Gluttony, Sloth), once a turn.
+4. Strikes: every 1 and 2 is a Strike; 3 in the turn is a bust. A bust loses the stake but keeps half the turn's face points (to 5), and the turn ends (no buying).
+5. Score: 4, 5, 6 score 5x their face; each scorer past the first adds x0.5, capped at x2 (none for the marked seat); rounded down to 5. It adds to your stake.
+6. Decide: first an offer, if one is due (from round 2, at most every other turn of yours; every turn when you're 150+ behind). Accepting takes its effect now. Then Greed's Cash Out if you use it (it forces a throw). Then throw again (step 2) or bank.
+7. Bank: the stake joins your total (Hubris x2 if it reached its named Bank, else 0).
+8. Buy: after banking, buy dice for 100 each (Gluttony's Gorge makes the first 40, from game two), at most 5 at once, as many as you can afford and the supply holds. Greed's Vig: when a rival buys, Greed gets 60 a die.
+**Powers (once a turn, free):** Wrath rethrows up to 2 of this throw's Strikes (they can land as Strikes again). Greed's Cash Out banks half the stake (to 5) at x1.25 and throws on; the other half stays as stake. Lust turns one Strike into the best face of the previous turn's last throw (only if that face is 4+). Envy adds her best die's face x5 to the stake again (best die 4+, and not on a busting throw). Pride names 150, 200 or 250 before throwing: bank at least that for x2, else the Bank is 0. Gluttony eats one Strike die (it leaves this throw; she keeps her dice) for +45 to the stake. Sloth's Idle makes this throw's first Strike a 4 and the rest 3s.
+
 ## 1. Base rules (`Rules.V4`; V2 and V3 stay unchanged so old tests and saves replay)
 - Throw all your dice; 4, 5, 6 score 5x face; several scorers in one throw x1.5 / x2 / x2.5 (+x0.5 each); a throw's points round down to a multiple of 5.
 - 1 and 2 are Strikes; three Strikes bust: you lose the turn and its stake.

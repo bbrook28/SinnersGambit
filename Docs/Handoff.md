@@ -1,23 +1,21 @@
-# Handoff (2026-11-15): owner of now, next, waiting on Ben, open faults
-Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-11-15: `Docs/archive/Handoff_2026-11-13_to_15.md`.
+# Handoff (2026-11-16): owner of now, next, waiting on Ben, open faults
+Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-11-15: `Docs/archive/Handoff_2026-11-13_to_15.md`. Ben's replies arrive in `Docs/review/inbox/reply.md` (REPLY n); each gets a packet in `Docs/review/latest/`.
 
 ## Now
-- Phase 8, the table: playable behind `Tuning.table_view()` (`Docs/TableSpec.md`). TestFlight build 115 (V5 on the table, preset "iOS (table)") went to internal testers on 2026-11-16 (`CLAUDE.md` TestFlight).
-- Ben played build 114 (Sloth, 4 seats): far more approachable, so the table stays. Problems: he finished on 20 against 390-545 with no way back, spent turns in Purgatory, never saw his ability do anything, and felt the dice decided everything.
-- The agency and comeback pass is built as `Rules.V5` (`Docs/TableDesign.md` §10), pushed and playable on the table view (powers on my seal, comeback offers, the mark rule, first-game bots, the Master's lines, no Purgatory). The old board stays on V4. Build sheet: `Docs/review/archive/2026-11-15-v5-build/sheet.png`.
-- Win target stays 1000 for this playtest (REPLY 4).
+- Phase 8, the table, playing `Rules.V5` (rules as built: `Docs/TableDesign.md` §0). Pushed and on TestFlight: build 118 (main f44ffee): the Master as a figure, the call at 550, Devour +45.
+- **Local only, not pushed** (Ben: no push until he has played 118): the Master's line in his robe and the hand clamp (REPLY 17); Idle-one and Hubris x2 (17); the call floor, no call before round 3's end (18); the dim post, game end on the page, the one-line buy row and the 5-dice cap (19-21).
+- Layout not locked; no art.
 
 ## Next
-1. Ben plays build 115, then judges feel. Greed's Cash Out to x2.25 waits on that play (REPLY 5).
-2. Next UI pass, first item: the offer card's small text at se (context line, the Master's announcement, Accept and Refuse at 13.2-13.6 pt; min 15).
-3. Only after Ben approves the layout: the 2.5D test (`Docs/UXPlan.md` §8).
-4. Then 7b pass-and-play, which also tunes 7 seats (`Docs/TableDesign.md` §9).
+1. REPLY 21 order: the line-time proposal (19 item 4), then REPLY 20's option A (the rival plays on my page) after Ben sees it with a gain and a line together.
+2. Ben plays 118; then push the local work.
+3. Only after Ben approves the layout: the 2.5D test (`Docs/UXPlan.md` §8). Then 7b pass-and-play (`Docs/TableDesign.md` §9).
 
 ## Waiting on Ben
 - Are claims too rare? (0.19 a game under V5; `Docs/TableDesign.md` §9 has the fallback.)
 
 ## Open faults
-- **Known V5 gaps:** hold to explain is not built on the table; the gallery's golden images are not yet approved (`tests/golden/` is empty, so `--check` compares nothing); the Master's line on the table is small ink text (44 px, one line) under the dice.
+- **Known V5 gaps:** hold to explain is not built on the table; the gallery's golden images are not yet approved (`tests/golden/` is empty, so `--check` compares nothing); why build 118's top buy row was dead on the phone is not found (desktop clicks and touch work in the new single row; the old layout is gone).
 - **Portraits (parked for the clean-up pass, `Docs/UXPlan.md`; no third attempt, no edits, no credits):** Gluttony's pinky is cut off the palm by a dark line (the goblet collar's painted edge in the arm layer; two fixes failed). Wrath's arm layers don't meet the sleeves. Greed's dice pile has smeared, miscounted pips. Until the pass, every Sin shows its flat portrait with living-glass light only (`Tuning.LAYERS_PARKED`, all seven).
 - **"Greater" is still on screen** in the rulebook and glossary (`ui/rules_text.gd:104-107,199`), though `Docs/TableDesign.md` §1 plans to remove it.
 - **Balance (V4):** 7 seats are off (Greed 29.4 vs 14.3 fair); claims come 0.14 a game against a 0.5-1.5 target.
