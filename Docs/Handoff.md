@@ -2,19 +2,18 @@
 Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-11-15: `Docs/archive/Handoff_2026-11-13_to_15.md`.
 
 ## Now
-- Phase 8, the table: blockout 4b is playable behind `Tuning.table_view()` (`Docs/TableSpec.md`). TestFlight build 114 (preset "iOS (table)") went to internal testers (`CLAUDE.md` TestFlight).
+- Phase 8, the table: playable behind `Tuning.table_view()` (`Docs/TableSpec.md`). TestFlight build 115 (V5 on the table, preset "iOS (table)") went to internal testers on 2026-11-16 (`CLAUDE.md` TestFlight).
 - Ben played build 114 (Sloth, 4 seats): far more approachable, so the table stays. Problems: he finished on 20 against 390-545 with no way back, spent turns in Purgatory, never saw his ability do anything, and felt the dice decided everything.
-- The agency and comeback pass is built as `Rules.V5` (`Docs/TableDesign.md` §10): local commits only, playable on the table view (powers on my seal, comeback offers, the mark rule, first-game bots, the Master's lines, no Purgatory). The old board stays on V4. Build sheet: `Docs/review/archive/2026-11-15-v5-build/sheet.png`.
+- The agency and comeback pass is built as `Rules.V5` (`Docs/TableDesign.md` §10), pushed and playable on the table view (powers on my seal, comeback offers, the mark rule, first-game bots, the Master's lines, no Purgatory). The old board stays on V4. Build sheet: `Docs/review/archive/2026-11-15-v5-build/sheet.png`.
 - Win target stays 1000 for this playtest (REPLY 4).
 
 ## Next
-1. Ben plays V5 on TestFlight (after the push), then judges feel.
+1. Ben plays build 115, then judges feel. Greed's Cash Out to x2.25 waits on that play (REPLY 5).
 2. Next UI pass, first item: the offer card's small text at se (context line, the Master's announcement, Accept and Refuse at 13.2-13.6 pt; min 15).
 3. Only after Ben approves the layout: the 2.5D test (`Docs/UXPlan.md` §8).
 4. Then 7b pass-and-play, which also tunes 7 seats (`Docs/TableDesign.md` §9).
 
 ## Waiting on Ben
-- The push of main and the TestFlight table build: `git push origin main`, then `gh workflow run ios.yml --ref main -f table=true`.
 - Are claims too rare? (0.19 a game under V5; `Docs/TableDesign.md` §9 has the fallback.)
 
 ## Open faults
