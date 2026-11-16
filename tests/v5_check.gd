@@ -359,10 +359,13 @@ func _sins() -> void:
 	S.Pride.use_power(g, me, t, 999)
 	check(t.min_points == 150, "Pride: an unknown Bank names the lowest")
 	t.points = 200
+	t.face_pts = 160
+	t.face_out = 0
 	me.score = 100
 	check(S.Greed.power_window() == "decide" and S.Greed.power_ready(g, me, t), "Greed: ready with a stake")
 	check(S.Greed.use_power(g, me, t, true) == true, "Greed: throws on")
 	check(me.score == 100 + int(100 * Rules.V5.greed_mult) / 5 * 5 and t.points == 100, "Greed: half banked at greed_mult")
+	check(t.face_out == 80 and g.bust_keep(t.face_pts - t.face_out) == 40, "Greed (REPLY 22): a bust after Cash Out keeps half of only the face points still in the stake")
 	# Basics off under V5, on under V4.
 	t.faces = F([1, 3, 5])
 	t.used_t1 = false

@@ -15,4 +15,5 @@ var x2 := false             # the next throw scores double (a temptation)
 var extra_dice := 0         # the next throw has this many more dice (a temptation)
 var lazy_used := 0         # Sloth's Lazy Bones: Strikes ignored this turn
 var power_used := false     # Rules.V5: this turn's power (the seal) is spent
+var face_out := 0          # face points that left the stake (Greed's Cash Out): a bust keeps half of the rest only (REPLY 22)
 var face_pts := 0          # the turn's face points so far, before chain (a bust keeps half: Rules.V5 "soften")

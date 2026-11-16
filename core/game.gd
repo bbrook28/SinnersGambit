@@ -380,7 +380,7 @@ func take_turn(p) -> void:
 			if view:
 				say("  %d Strikes: %s BUSTS%s." % [turn.strikes, pname(p), " and goes to Purgatory" if purgatory_on else ""])
 			_bust(p)
-			var keep := bust_keep(face_pts)
+			var keep := bust_keep(face_pts - turn.face_out)  # REPLY 22: not the face points Cash Out already banked
 			if keep > 0:
 				p.score += keep
 				if view:

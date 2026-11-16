@@ -8,7 +8,7 @@ Seats: you and 3 Sins (first game) or the table size you pick, 2-7. Everyone sta
 1. Start: Pride may name a Bank (Hubris).
 2. Throw all your dice (fewer if a debt or Drag says so; never below 1).
 3. Rivals react (Greater abilities, from game two), then your own power if it is a throw power (Wrath, Lust, Envy, Gluttony, Sloth), once a turn.
-4. Strikes: every 1 and 2 is a Strike; 3 in the turn is a bust. A bust loses the stake but keeps half the turn's face points (to 5), and the turn ends (no buying).
+4. Strikes: every 1 and 2 is a Strike; 3 in the turn is a bust. A bust loses the stake but keeps half the turn's face points still in the stake (to 5; not the share Cash Out banked, REPLY 22), and the turn ends (no buying). Kept or not, by power: Lust's and Sloth's changed dice and Wrath's rethrows count as faces; Envy's copy, Devour's +45 and any chain are stake only and are lost; Hubris doesn't touch a bust.
 5. Score: 4, 5, 6 score 5x their face; each scorer past the first adds x0.5, capped at x2 (none for the marked seat); rounded down to 5. It adds to your stake.
 6. Decide: first an offer, if one is due (from round 2, at most every other turn of yours; every turn when you're 150+ behind). Accepting takes its effect now. Then Greed's Cash Out if you use it (it forces a throw). Then throw again (step 2) or bank.
 7. Bank: the stake joins your total (Hubris x2 if it reached its named Bank, else 0).

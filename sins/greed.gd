@@ -44,6 +44,8 @@ func power_ready(game, me, turn) -> bool:
 
 func use_power(game, me, turn, _choice) -> bool:
 	var half: int = turn.points / 2 / 5 * 5
+	# REPLY 22: the cashed half takes its share of the face points with it, so a later bust can't pay it twice
+	turn.face_out += (turn.face_pts - turn.face_out) * half / maxi(1, turn.points)
 	var banked: int = int(half * float(game.opt("greed_mult", 1.5))) / 5 * 5
 	me.score += banked
 	turn.points -= half

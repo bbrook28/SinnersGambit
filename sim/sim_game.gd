@@ -121,7 +121,7 @@ func take_turn(p) -> void:
 				"first":
 					keep = first_base
 				"half":
-					keep = base_sum / 2
+					keep = (base_sum - turn.face_out) / 2  # REPLY 22: not what Cash Out banked
 			keep = keep / 5 * 5
 			if audit:
 				audit_turns.append([kind, held, round_count, keep, true, keep, 0, 0])
@@ -675,6 +675,8 @@ func _power_greed(p) -> bool:
 	if not go:
 		return false
 	p.score += int(half * float(opt("greed_mult", 1.0))) / 5 * 5
+	var fp: int = int(turn.get_meta("face_pts", 0))
+	turn.face_out += (fp - turn.face_out) * half / maxi(1, turn.points)  # REPLY 22
 	turn.points -= half
 	_use(p, first)
 	return true
