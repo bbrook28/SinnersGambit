@@ -293,8 +293,8 @@ func _word(b: Button) -> String:
 	return rs[0].get_parsed_text() if not rs.is_empty() else str(b.get_meta("value", "?"))
 
 
-## A choice that is neither Bank nor Throw (an ability's yes or no, a target): flat bone buttons in the
-## dark gap under the windows, with the prompt's words above them.
+## A choice that is neither Bank nor Throw (an ability's yes or no, a target, buying): the view draws
+## the row (TableBlockout.choice_row); each button answers with its prompt button's value.
 func _choices(others: Array) -> void:
 	if is_instance_valid(_extra):
 		_extra.queue_free()
@@ -305,50 +305,11 @@ func _choices(others: Array) -> void:
 	_extra.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_extra.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.add_child(_extra)
-	var vp: Vector2 = view.get_viewport_rect().size
-	var top: float = view.page_rect.position.y - TableBlockout.UNDER_WIN + 22.0  # under my crimson bar
-	var words := Label.new()
-	words.text = "Buy dice?" if _text.begins_with("Buy dice?") else _text.replace("\n", "  ")  # Ben: just the question
-	words.add_theme_font_override("font", Style.SERIF)
-	words.add_theme_font_size_override("font_size", 36)
-	words.add_theme_color_override("font_color", TableBlockout.BONE)
-	words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	words.clip_text = true
-	words.position = Vector2(56, top)
-	words.size = Vector2(vp.x - 112, 40)
-	_extra.add_child(words)
-	var bw: float = minf(320.0, (vp.x - 112.0 - (others.size() - 1) * 40.0) / others.size())
-	var x: float = (vp.x - (others.size() * bw + (others.size() - 1) * 40.0)) / 2.0
-	for o in others:
-		var b := Button.new()
-		b.text = _word(o)
-		b.clip_text = true
-		b.add_theme_font_override("font", Style.BLACKLETTER)
-		var fs := 42
-		while fs > 28 and Style.BLACKLETTER.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > bw - 24.0:
-			fs -= 2
-		b.add_theme_font_size_override("font_size", fs)
-		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-			b.add_theme_color_override(st, TableBlockout.INK)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = TableBlockout.BONE
-		sb.border_color = TableBlockout.INK
-		sb.set_border_width_all(4)
-		sb.set_corner_radius_all(10)
-		sb.content_margin_left = 8
-		sb.content_margin_right = 8
-		for st in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(st, sb)
-		b.position = Vector2(x, top + 40.0)
-		b.size = Vector2(bw, 122)  # 44 pt
-		var val = o.get_meta("value")
+	var question: String = "Buy dice?" if _text.begins_with("Buy dice?") else _text.replace("\n", "  ")  # Ben: just the question
+	var items := others.map(func(o): return {"text": _word(o), "value": o.get_meta("value")})
+	for b in view.choice_row(_extra, question, items):
+		var val = b.get_meta("value")
 		b.pressed.connect(func(): main.human.answered.emit(val))
-		if val is int and val > 0 and val - 1 < view.ghost_nodes.size():  # buying: pressing lights its ghost
-			var gh: Control = view.ghost_nodes[val - 1]
-			b.button_down.connect(func(): if is_instance_valid(gh): gh.modulate.a = 1.0)
-			b.button_up.connect(func(): if is_instance_valid(gh): gh.modulate.a = 0.45)
-		_extra.add_child(b)
-		x += bw + 40.0
 
 
 ## Simple motion: a new throw's dice drop in, the stake swells when it grows, a Strike flashes its

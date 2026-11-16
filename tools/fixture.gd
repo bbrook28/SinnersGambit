@@ -157,6 +157,15 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.safe = safe(size)
 	layer.add_child(t)
 	t.build()
+	if fx.has("choices"):  # a choice row as the table draws it: [{text, value}], with "question"
+		var row := Control.new()
+		row.set_anchors_preset(Control.PRESET_FULL_RECT)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.add_child(row)
+		var items: Array = fx.choices.map(func(c): return {"text": c.text, "value": int(c.value) if c.value is float else c.value})  # JSON numbers load as floats
+		for b in t.choice_row(row, str(fx.get("question", "")), items):
+			if fx.has("press") and b.get_meta("value") == int(fx.press):  # a choice held down
+				b.button_down.emit()
 	main._overlay = t  # so tools/ui_audit.gd audits the blockout, not the title under it
 	moment_frame = Engine.get_process_frames()
 	await frames(tree, 6)

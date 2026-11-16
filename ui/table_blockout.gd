@@ -53,6 +53,10 @@ const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
 const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
 const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
+const GHOST_ALPHA := 0.38   # buying: a ghost marker, and the line tying it to its choice, at rest (REPLY 10)
+const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
+const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
+const CHOICE_PER_ROW := 5
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
@@ -83,6 +87,8 @@ var master_line := ""
 var rival_seal := ""     # the active rival's seal: "" none, "idle", "spent"
 var buy_ghosts: Array = []  # buying: the score each purchase would leave me on (REPLY 9)
 var ghost_nodes: Array = []  # their ghost markers, in that order
+var my_marker_c := Vector2.ZERO  # where my marker sits on the track (buying: "Buy none" points here)
+var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
@@ -321,33 +327,31 @@ func build() -> void:
 			var hx: float = ax0 + head[i]
 			_line([Vector2(mx, ay), Vector2(mx, ay - 8.0), Vector2(hx, top)], INK, 3.0)
 			centres[i] = Vector2(hx, top - MARK / 2.0)
-	# Buying (REPLY 9): where each purchase would leave me, as a faded ghost of my marker along my
-	# side of the line, joined back to my marker by a crimson stroke. ui/table_play.gd lights one.
+	# Buying (REPLY 9, 10): where each purchase would leave me, a ghost of my marker along my side of
+	# the line: hollow, in faint ink, never my crimson. choice_row() ties each to its button.
 	ghost_nodes.clear()
-	if not buy_ghosts.is_empty():
-		var lo_x: float = centres[me].x
-		for s in buy_ghosts:
-			var gx: float = ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0)
-			lo_x = minf(lo_x, gx)
-		_line([Vector2(lo_x, centres[me].y), centres[me]], Color(CRIMSON, 0.55), 6.0)
-		for s in buy_ghosts:
-			var gc := Vector2(ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0), centres[me].y)
-			var gh := Control.new()
-			gh.position = gc
-			gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			gh.modulate.a = 0.45
-			add_child(gh)
-			_disc(Vector2.ZERO, MARK / 2.0, Color(BONE, 0.9), CRIMSON, gh)
-			_sigil(seats[me].sin, Rect2(-Vector2(MARK, MARK) * 0.42, Vector2(MARK, MARK) * 0.84), CRIMSON, gh)
-			ghost_nodes.append(gh)
+	my_marker_c = centres[me]
+	for s in buy_ghosts:
+		var gh := Control.new()
+		gh.position = Vector2(ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0), centres[me].y)
+		gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gh.modulate.a = GHOST_ALPHA
+		add_child(gh)
+		var ring := []
+		for j in 41:
+			ring.append(Vector2.from_angle(TAU * j / 40.0) * MARK / 2.0)
+		_line(ring, INK, 5.0, Color(0, 0, 0, 0), gh)
+		_sigil(seats[me].sin, Rect2(-Vector2(MARK, MARK) * 0.36, Vector2(MARK, MARK) * 0.72), INK, gh)
+		ghost_nodes.append(gh)
 	for i in draw:
 		_marker(centres[i], i, me, lead)
 	var track := Button.new()  # the whole band is one tap target: the standings
 	track.flat = true
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		track.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	track.position = Vector2(56.0, pg.position.y)  # inside the side margins
-	track.size = Vector2(vp.x - 112.0, band_h)
+	band_bottom = pg.position.y + band_h
+	track.position = Vector2(56.0, pg.position.y + 44.0)  # inside the side margins, clear of a choice row above the page
+	track.size = Vector2(vp.x - 112.0, band_h - 44.0)
 	track.focus_mode = Control.FOCUS_NONE
 	track.pressed.connect(func(): standings_pressed.emit())
 	add_child(track)
@@ -562,7 +566,7 @@ func _rect(r: Rect2, c: Color, parent: Node = self) -> ColorRect:
 	return cr
 
 
-func _line(pts: Array, c: Color, w: float, edge := Color(0, 0, 0, 0), parent: Node = self) -> void:
+func _line(pts: Array, c: Color, w: float, edge := Color(0, 0, 0, 0), parent: Node = self) -> Line2D:
 	if edge.a > 0.0:  # an ink edge under gold, so it reads on parchment
 		_line(pts, edge, w + 6.0, Color(0, 0, 0, 0), parent)
 	var ln := Line2D.new()
@@ -572,6 +576,7 @@ func _line(pts: Array, c: Color, w: float, edge := Color(0, 0, 0, 0), parent: No
 	ln.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	ln.end_cap_mode = Line2D.LINE_CAP_ROUND
 	parent.add_child(ln)
+	return ln
 
 
 func _disc(c: Vector2, r: float, fill: Color, edge: Color, parent: Node = self) -> void:
@@ -771,3 +776,86 @@ func _centre(g: Array, span: float) -> float:
 	for i in g:
 		s += span * clampf(seats[i].score / GOAL, 0.0, 1.0)
 	return s / g.size()
+
+
+## A choice that is neither Bank nor Throw (an ability's yes or no, a target, buying dice): flat bone
+## buttons in the dark gap under the windows, the question above. items: [{text, value}]. Buying
+## (buy_ghosts set, REPLY 10): the buttons stand in the order of where they'd leave me on the track,
+## each joined by a faint line down to its ghost ("Buy none" to my marker); pressing one lights its
+## ghost and line. Returns the buttons in order (ui/table_play.gd connects them; tools/fixture.gd draws
+## them for a still).
+func choice_row(parent: Node, question: String, items: Array) -> Array:
+	var vp: Vector2 = get_viewport_rect().size
+	var top: float = page_rect.position.y - UNDER_WIN + 18.0  # under my crimson bar
+	var words := Label.new()
+	words.text = question
+	words.add_theme_font_override("font", Style.SERIF)
+	words.add_theme_font_size_override("font_size", 44)
+	words.add_theme_color_override("font_color", BONE)
+	words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.clip_text = true
+	words.position = Vector2(56, top)
+	words.size = Vector2(vp.x - 112, 46)
+	parent.add_child(words)
+	var buying := not buy_ghosts.is_empty()
+	var row := items.duplicate()
+	if buying:  # left to right as on the track: most dice (lowest score) first, "Buy none" last
+		row.sort_custom(func(a, b): return int(a.value) > int(b.value))
+	var per: int = mini(row.size(), CHOICE_PER_ROW)  # past five, rows wrap onto the page under the track
+	var bw: float = minf(320.0, (vp.x - 112.0 - (per - 1) * CHOICE_GAP) / per)
+	var out := []
+	for i in row.size():
+		var it: Dictionary = row[i]
+		var line: int = i / per
+		var in_line: int = mini(per, row.size() - line * per)
+		var x: float = (vp.x - (in_line * bw + (in_line - 1) * CHOICE_GAP)) / 2.0 + (i % per) * (bw + CHOICE_GAP)
+		var y: float = top + 46.0 if line == 0 else band_bottom + 40.0 + (line - 1) * (CHOICE_H + CHOICE_GAP)
+		var val = it.value
+		var b := Button.new()
+		b.text = str(it.text)
+		b.set_meta("value", val)
+		b.clip_text = true
+		b.add_theme_font_override("font", Style.BLACKLETTER)
+		var fs := 42
+		while fs > 28 and Style.BLACKLETTER.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > bw - 24.0:
+			fs -= 2
+		b.add_theme_font_size_override("font_size", fs)
+		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(st, INK)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = BONE
+		sb.border_color = INK
+		sb.set_border_width_all(4)
+		sb.set_corner_radius_all(10)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 8
+		for st in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(st, sb)
+		b.position = Vector2(x, y)
+		b.size = Vector2(bw, CHOICE_H)
+		if buying and val is int and val >= 0 and val <= ghost_nodes.size():
+			var to: Vector2 = my_marker_c if val == 0 else ghost_nodes[val - 1].position
+			var pts := []
+			if line == 0:  # down from the button's foot to the ghost's head
+				var from := Vector2(x + bw / 2.0, y + CHOICE_H)
+				pts = [from, from + Vector2(0, 24), to - Vector2(0, MARK / 2.0 + 6.0)]
+			else:  # up from the button's head to the ghost's foot
+				var from := Vector2(x + bw / 2.0, y)
+				pts = [from, from - Vector2(0, 16), to + Vector2(0, MARK / 2.0 + 6.0)]
+			var tie := _line(pts, Color(INK, GHOST_ALPHA), 4.0, Color(0, 0, 0, 0), parent)
+			var gh: Control = null if val == 0 else ghost_nodes[val - 1]
+			b.button_down.connect(func(): _light_tie(tie, gh, true))
+			b.button_up.connect(func(): _light_tie(tie, gh, false))
+		parent.add_child(b)
+		out.append(b)
+	return out
+
+
+## Buying: a pressed choice lights its line and ghost (crimson, full strength, a little larger).
+func _light_tie(tie: Node, gh: Control, on: bool) -> void:
+	if is_instance_valid(tie) and tie is Line2D:
+		tie.default_color = Color(CRIMSON, 0.9) if on else Color(INK, GHOST_ALPHA)
+		tie.width = 6.0 if on else 4.0
+	if is_instance_valid(gh):
+		gh.modulate.a = 1.0 if on else GHOST_ALPHA
+		gh.scale = Vector2.ONE * (1.15 if on else 1.0)
