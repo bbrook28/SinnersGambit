@@ -1,4 +1,5 @@
-# Run design (revision 3: Phase 8 sim numbers, 2026-11-14; revision 2 approved for Phase 8)
+# Run design (parked; revision 3, 2026-11-14)
+Parked behind `Tuning.RUN_MODE` (`Docs/UXPlan.md`). "Phase 7" and "Phase 8" below are the run-era phases (run design, core loop), not today's numbering.
 Solo roguelike runs replace the bot table. Keep: throw, push your luck, Bank, bust, all the art. Strikes are gone: you bust when a throw has nothing you can keep. Numbers are starting guesses; the Phase 8 sim sets them. Points in multiples of 5, Mult and gold in whole numbers, multipliers only "x2", no percentages.
 
 ## 1. Run structure
