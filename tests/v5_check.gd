@@ -25,6 +25,7 @@ func check(ok: bool, what: String) -> void:
 
 func _initialize() -> void:
 	_rules()
+	_bot()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -66,3 +67,16 @@ func _rules() -> void:
 		check(Rules.V5.has(k) and Rules.V5[k] == Rules.V4[k], "V5 keeps V4's %s" % k)
 	var g := _table()
 	check(not g.purgatory_on and not g.auto_purgatory, "V5 game: Purgatory off")
+
+
+## Item 11: the bot presses at the first chance; Pride names the lowest Bank; Greed weighs half now.
+func _bot() -> void:
+	var g := _table()
+	var b = g.players[0].bot
+	check(b.wants_power(g, g.players[0], "Wrath") == true, "bot: Wrath presses at once")
+	check(b.wants_power(g, g.players[0], "Pride") == 150, "bot: Pride names 150")
+	g.turn.points = 20
+	check(b.wants_power(g, g.players[0], "Greed") == false, "bot: Greed keeps a small stake whole")
+	g.turn.points = 400
+	g.turn.strikes = 2
+	check(b.wants_power(g, g.players[0], "Greed") == true, "bot: Greed banks half of 400 on 2 Strikes")

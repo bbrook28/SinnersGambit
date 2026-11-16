@@ -232,3 +232,25 @@ func offer_value(game, p, from, offer: Dictionary) -> float:
 	if int(p.marks.get(sname, 0)) + 1 >= game.marks_to_claim and not p.claims.has(sname):
 		mark = CLAIM_COST * (1.0 - progress * 0.5)
 	return gain - cost - mark
+
+
+# ---------- Rules.V5: powers (Docs/TableDesign.md §10) ----------
+
+## The power is ready: use it? Returns false, true, or Pride's named Bank. Pressing at the first chance
+## was the best policy in the sim for six Sins (sim/agency_sim.gd skill); Greed weighs half now at
+## greed_mult against throwing the whole stake on.
+func wants_power(game, p, sname: String):
+	match sname:
+		"Pride":
+			return int(game.opt("hubris_targets", [150])[0])
+		"Greed":
+			var t = game.turn
+			if t.points < int(game.opt("greed_min", 50)):
+				return false
+			var n: int = game._max_throw(p)
+			var left: int = Rules.STRIKES_TO_BUST - t.strikes
+			var half: int = t.points / 2 / 5 * 5
+			var ev_all: float = maxf(float(t.points), expected_after_throw(n, t.points, left, game.chain, game.face_mult))
+			var ev_half: float = half * float(game.opt("greed_mult", 1.5)) + expected_after_throw(n, t.points - half, left, game.chain, game.face_mult)
+			return ev_half > ev_all
+	return true
