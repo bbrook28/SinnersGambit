@@ -53,11 +53,11 @@ const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
 const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
 const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
-const GHOST_ALPHA := 0.38   # buying: a ghost marker, and the line tying it to its choice, at rest (REPLY 10)
 const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
 const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
 const CHOICE_PER_ROW := 5
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
+const MASTER_BELOW_POST := 48.0  # under the call, the Master's line drops this far below the band, under the post's number
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -87,7 +87,6 @@ var master_line := ""
 var rival_seal := ""     # the active rival's seal: "" none, "idle", "spent"
 var buy_ghosts: Array = []  # buying: the score each purchase would leave me on (REPLY 9)
 var ghost_nodes: Array = []  # their ghost markers, in that order
-var my_marker_c := Vector2.ZERO  # where my marker sits on the track (buying: "Buy none" points here)
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
 var call_at := 0       # REPLY 10: the Master calls the end when the leader reaches this (0: first to 1000 wins)
 var rounds_left := 0   # after his call: 2 (penultimate round), 1 (final round)
@@ -321,7 +320,7 @@ func build() -> void:
 		var px: float = ax0 + span * clampf(float(call_at) / GOAL, 0.0, 1.0)
 		var pc: Color = CRIMSON if rounds_left > 0 else GOLD
 		_line([Vector2(px, ay - 40), Vector2(px, ay + 40)], pc, 16.0, INK)
-		var cl := _label(str(call_at), 46, pc, INK)
+		var cl := _label(str(call_at), 46, BONE, INK)  # REPLY 11: bone on a dark outline (4.5:1); the post carries the colour
 		cl.size = Vector2(150, 60)
 		cl.position = Vector2(px - 75.0, ay + STEM + MARK + 10.0)  # below my marker, which hangs under the line
 		for pip in rounds_left:
@@ -341,15 +340,15 @@ func build() -> void:
 			var hx: float = ax0 + head[i]
 			_line([Vector2(mx, ay), Vector2(mx, ay - 8.0), Vector2(hx, top)], INK, 3.0)
 			centres[i] = Vector2(hx, top - MARK / 2.0)
-	# Buying (REPLY 9, 10): where each purchase would leave me, a ghost of my marker along my side of
-	# the line: hollow, in faint ink, never my crimson. choice_row() ties each to its button.
+	# Buying (REPLY 9, 10, 11): where each purchase would leave me, a ghost of my marker along my side
+	# of the line: hollow, in ink, never my crimson. Hidden at rest; choice_row() shows one while its
+	# button is held.
 	ghost_nodes.clear()
-	my_marker_c = centres[me]
 	for s in buy_ghosts:
 		var gh := Control.new()
 		gh.position = Vector2(ax0 + span * clampf(float(s) / GOAL, 0.0, 1.0), centres[me].y)
 		gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		gh.modulate.a = GHOST_ALPHA
+		gh.visible = false
 		add_child(gh)
 		var ring := []
 		for j in 41:
@@ -438,10 +437,8 @@ func build() -> void:
 		throw.modulate = Color(1, 1, 1, 0.35)
 	# Rules.V5: my Sin's seal, the third control, centred over Throw: glowing and live when my power is
 	# ready, plain when unspent, dark and crossed once spent this turn.
-	var power_r := Rect2()
 	if seal != "":
 		var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
-		power_r = Rect2(pc - Vector2(POWER_SEAL, POWER_SEAL) / 2.0, Vector2(POWER_SEAL, POWER_SEAL))
 		_power_seal(near, pc, seats[me].sin, seal, POWER_SEAL, not firing.is_empty() and int(firing.seat) == me, seal_face)
 		_seal_hit(near, pc)
 
@@ -507,15 +504,16 @@ func build() -> void:
 			_flame(near, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
 	var skel := Rect2(c_l + cw - 36.0, ct - 118.0, 100, 118)
 	_ink_figure(Art.MARGINALIA.skeleton[0], skel, near)
-	# The Master's line: one line of ink on the page just under the dice, right-aligned to end over
-	# the skeleton (or at my seal's left), never under 44 px (15 pt). It does not dim with my edge.
+	# The Master's line (REPLY 11): one line of ink centred on the page at the top of the strip between
+	# the track band and the dice, clear of the candles and the skeleton; under the call it sits below
+	# the post's number. Never under 44 px (15 pt). It does not dim with my edge.
 	if master_line != "":
-		var right: float = (power_r.position.x - 24.0) if seal != "" else skel.end.x + 40.0
 		var left: float = px0 + 40.0
-		var ml := _label(master_line, 44, INK, Color(0, 0, 0, 0))
+		var right: float = px1 - 40.0
+		var ml := _label(master_line, 44, INK, BONE)  # a bone edge keeps it legible under a seat's cone of light
 		ml.add_theme_font_override("font", Style.SERIF)
-		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		ml.position = Vector2(left, dice_area.end.y + 24.0)
+		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ml.position = Vector2(left, band_bottom + (MASTER_BELOW_POST if call_at > 0 else 8.0))
 		ml.size = Vector2(right - left, 56.0)
 		master_label = ml
 
@@ -794,9 +792,9 @@ func _centre(g: Array, span: float) -> float:
 
 ## A choice that is neither Bank nor Throw (an ability's yes or no, a target, buying dice): flat bone
 ## buttons in the dark gap under the windows, the question above. items: [{text, value}]. Buying
-## (buy_ghosts set, REPLY 10): the buttons stand in the order of where they'd leave me on the track,
-## each joined by a faint line down to its ghost ("Buy none" to my marker); pressing one lights its
-## ghost and line. Returns the buttons in order (ui/table_play.gd connects them; tools/fixture.gd draws
+## (buy_ghosts set, REPLY 10, 11): the buttons stand in the order of where they'd leave me on the track;
+## holding one shows the ghost of my marker where it would leave me (none at rest, no tie lines).
+## Returns the buttons in order (ui/table_play.gd connects them; tools/fixture.gd draws
 ## them for a still).
 func choice_row(parent: Node, question: String, items: Array) -> Array:
 	var vp: Vector2 = get_viewport_rect().size
@@ -847,29 +845,16 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 			b.add_theme_stylebox_override(st, sb)
 		b.position = Vector2(x, y)
 		b.size = Vector2(bw, CHOICE_H)
-		if buying and val is int and val >= 0 and val <= ghost_nodes.size():
-			var to: Vector2 = my_marker_c if val == 0 else ghost_nodes[val - 1].position
-			var pts := []
-			if line == 0:  # down from the button's foot to the ghost's head
-				var from := Vector2(x + bw / 2.0, y + CHOICE_H)
-				pts = [from, from + Vector2(0, 24), to - Vector2(0, MARK / 2.0 + 6.0)]
-			else:  # up from the button's head to the ghost's foot
-				var from := Vector2(x + bw / 2.0, y)
-				pts = [from, from - Vector2(0, 16), to + Vector2(0, MARK / 2.0 + 6.0)]
-			var tie := _line(pts, Color(INK, GHOST_ALPHA), 4.0, Color(0, 0, 0, 0), parent)
-			var gh: Control = null if val == 0 else ghost_nodes[val - 1]
-			b.button_down.connect(func(): _light_tie(tie, gh, true))
-			b.button_up.connect(func(): _light_tie(tie, gh, false))
+		if buying and val is int and val >= 1 and val <= ghost_nodes.size():  # "Buy none" has no ghost
+			var gh: Control = ghost_nodes[val - 1]
+			b.button_down.connect(func(): _show_ghost(gh, true))
+			b.button_up.connect(func(): _show_ghost(gh, false))
 		parent.add_child(b)
 		out.append(b)
 	return out
 
 
-## Buying: a pressed choice lights its line and ghost (crimson, full strength, a little larger).
-func _light_tie(tie: Node, gh: Control, on: bool) -> void:
-	if is_instance_valid(tie) and tie is Line2D:
-		tie.default_color = Color(CRIMSON, 0.9) if on else Color(INK, GHOST_ALPHA)
-		tie.width = 6.0 if on else 4.0
+## Buying: a held choice shows its ghost; letting go hides it (REPLY 11: no ghosts at rest).
+func _show_ghost(gh: Control, on: bool) -> void:
 	if is_instance_valid(gh):
-		gh.modulate.a = 1.0 if on else GHOST_ALPHA
-		gh.scale = Vector2.ONE * (1.15 if on else 1.0)
+		gh.visible = on
