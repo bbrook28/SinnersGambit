@@ -1,4 +1,4 @@
-# Onboarding plan (draft for Ben, 2026-11-15)
+# Onboarding plan (approved by Ben, 2026-11-15)
 
 No rules text before play. The first three games teach by doing; each adds one idea. The separate scripted tutorial goes; game one is the tutorial. The rulebook stays in the pause menu, and a hold explains anything.
 
