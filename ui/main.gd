@@ -917,6 +917,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 	_lines_used = {}
 	_master_round = -1
 	_master_used = {}
+	_glog = {"rounds": [], "buys": {}, "round": 0}
 	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
 	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
 	game = Game.new(bots, seed_value, options, sins)
@@ -942,6 +943,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 	log_line("")
 	log_line("[b]%s WIN%s with %d![/b]" % [player_name(w).to_upper(), "" if w.bot == human else "S", w.score])
 	_end_line(w)
+	_glog_write(w)
 	_q.push(func(): _set_banner("%s %s" % [player_name(w), "win!" if w.bot == human else "wins"], w))
 	show_prompt("The game is done. %s reached %d." % [player_name(w), w.score], [["New game", "new"]])
 	_on_new_game_wait()
@@ -2257,6 +2259,7 @@ func player_name(p) -> String:
 
 ## Every rules log line becomes one queued beat that shows the state as it was when said.
 func log_line(text: String) -> void:
+	_glog_buy(text)
 	var tm := text.find("'s temptation: ")
 	if tm >= 0:
 		text = text.substr(0, tm) + "'s %s: %s" % [RulesText.table("temptation"), RulesText.tempt(text.substr(tm + 15).strip_edges())]
@@ -2355,6 +2358,7 @@ func _with_sigils(bb: String) -> String:
 
 ## Turn change: its own beat (longer when it's yours). Docs/archive/UXPass.md #1.
 func turn_started(p) -> void:
+	_glog_round()
 	if _tutor:
 		_tutor.on_turn_started(p)  # rigs a Purgatory throw before core draws it
 	var snap := _snapshot()
@@ -3638,3 +3642,47 @@ func master_idle() -> void:
 	if _table and not pool.is_empty():
 		_table.master_say(pool[randi() % pool.size()])
 
+
+# ---------- REPLY 23: the real-game log (local only, no rule change) ----------
+# At each game's end one JSON line goes to GAME_LOG: each seat's Sin, score at the end of every round,
+# busts and dice bought. A write that fails is skipped: the end screen never waits on it.
+const GAME_LOG := "user://game_log.jsonl"
+var _glog := {"rounds": [], "buys": {}, "round": 0}
+
+
+## A new round has begun (the first turn of it): the scores as round (n - 1) left them.
+func _glog_round() -> void:
+	if game == null or int(game.round_count) == int(_glog.round):
+		return
+	if int(_glog.round) > 0:
+		_glog.rounds.append(game.players.map(func(q): return int(q.score)))
+	_glog.round = int(game.round_count)
+
+
+## core/game.gd says "<name> buys <n> dice ..." on the buyer's turn.
+func _glog_buy(text: String) -> void:
+	if game == null or game.current == null or text.find(" buys ") < 0:
+		return
+	var m := RegEx.create_from_string(" buys ([0-9]+) ").search(text)
+	if m:
+		var seat: int = game.players.find(game.current)
+		_glog.buys[seat] = int(_glog.buys.get(seat, 0)) + int(m.get_string(1))
+
+
+func _glog_write(w) -> void:
+	if game == null or not save_enabled or _tutor != null:
+		return
+	var rounds: Array = _glog.rounds.duplicate()
+	rounds.append(game.players.map(func(q): return int(q.score)))  # the last round
+	var seats := []
+	for i in game.players.size():
+		var q = game.players[i]
+		seats.append({"sin": q.sin.sin_name if q.sin else "?", "you": q.bot == human, "busts": int(q.busts), "bought": int(_glog.buys.get(i, 0))})
+	var line := JSON.stringify({"time": Time.get_datetime_string_from_system(), "table": Tuning.table_view(), "first": _first_game,
+		"rounds": int(game.round_count), "winner": game.players.find(w), "seats": seats, "scores": rounds})
+	var f := FileAccess.open(GAME_LOG, FileAccess.READ_WRITE if FileAccess.file_exists(GAME_LOG) else FileAccess.WRITE)
+	if f == null:
+		return
+	f.seek_end()
+	f.store_line(line)
+	f.close()
