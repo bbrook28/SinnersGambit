@@ -728,7 +728,7 @@ func _master(kind: String, p, facts: Dictionary) -> void:
 		view.master_event(kind, p, facts)
 
 
-## The winner's lead over the next seat.
+## The winner's lead over the best other seat (negative when a rival passed them off-turn, by the Vig or a claim).
 func _margin() -> int:
 	if winner == null:
 		return 0
@@ -736,4 +736,4 @@ func _margin() -> int:
 	for o in players:
 		if o != winner:
 			second = maxi(second, o.score)
-	return winner.score - maxi(0, second)
+	return winner.score - second

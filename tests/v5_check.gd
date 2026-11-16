@@ -68,10 +68,10 @@ func _rules() -> void:
 	check(Rules.V5.v5 and Rules.V5.v4 and Rules.V5.powers, "V5 flags")
 	check(Rules.V5.vig == 60 and Rules.V5.fury_trigger == 300 and Rules.V5.fury_grudge == 200, "V5: Vig 60, Fury 300 / 200")
 	check(Rules.V5.hubris_mult == 1.75 and Rules.V5.hubris_targets == [150, 200, 250], "V5: Hubris x1.75 at 150 / 200 / 250")
-	check(Rules.V5.eat == 90 and Rules.V5.greed_mult == 1.5 and Rules.V5.wrath_rethrow == 2, "V5: power numbers")
+	check(Rules.V5.eat == 60 and Rules.V5.greed_mult == 2.0 and Rules.V5.wrath_rethrow == 2 and Rules.V5.mimic == 3 and Rules.V5.drag == 4, "V5: power numbers")
 	check(Rules.V5.comeback_per == 200 and Rules.V5.comeback_cap == 3.0 and Rules.V5.mark_free_behind == 150, "V5: comeback numbers")
 	for k in Rules.V4:
-		if k in ["purgatory", "auto_purgatory", "purgatory_cost", "vig", "fury_trigger", "fury_grudge", "hubris_mult", "feast", "rage", "glance_trail"]:
+		if k in ["purgatory", "auto_purgatory", "purgatory_cost", "vig", "fury_trigger", "fury_grudge", "hubris_mult", "feast", "rage", "glance_trail", "drag"]:
 			continue
 		check(Rules.V5.has(k) and Rules.V5[k] == Rules.V4[k], "V5 keeps V4's %s" % k)
 	var g := _table()
@@ -215,7 +215,7 @@ func _master() -> void:
 				"mark":
 					check(e[2].has("first") and e[2].has("free"), "mark facts")
 				"end":
-					check(e[2].margin >= 0, "end facts: margin")
+					check(e[2].has("margin"), "end facts: margin (negative when a rival passed the winner off-turn)")
 	for k in ["start", "bust", "bank", "offer", "mark", "end"]:
 		check(kinds.get(k, 0) > 0, "12 games show a %s event" % k)
 

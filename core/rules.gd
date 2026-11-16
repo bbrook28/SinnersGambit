@@ -70,17 +70,18 @@ const V4 := {
 
 ## Rules.V5 (Docs/TableDesign.md §10): V4 without Purgatory, with active powers (each Basic becomes a
 ## once-a-turn seal; Greater stays), comeback offers and the mark rule. V4 is untouched, so V4 replays still play.
+## Numbers tuned with bots that press each power at the first chance: every Sin 22.3-28.7 at 4 seats.
 const V5 := {
 	"throw_all": true, "chain": 0.5, "face_mult": 5, "die_cost": 100, "seat_bonus": 20, "supply_per_player": 8,
 	"v4": true, "v5": true, "round5": true,
 	"purgatory": false, "auto_purgatory": false,
-	"vig": 60, "interest": 75, "pact": 50, "gorge": 40, "mimic": 2,
+	"vig": 60, "interest": 75, "pact": 50, "gorge": 40, "mimic": 3,
 	"hubris_targets": [150, 200, 250], "hubris_mult": 1.75,
-	"fury_dice": 3, "fury_trigger": 300, "fury_grudge": 200, "drag": 3,
+	"fury_dice": 3, "fury_trigger": 300, "fury_grudge": 200, "drag": 4,
 	"powers": true,
 	"wrath_rethrow": 2,      # Wrath: rethrow up to this many of this throw's Strikes
-	"greed_mult": 1.5,       # Greed: half the stake banks at this
-	"eat": 90,               # Gluttony: eating a Strike die adds this to the stake
+	"greed_mult": 2.0,       # Greed: half the stake banks at this
+	"eat": 60,               # Gluttony: eating a Strike die adds this to the stake
 	"temptations": true, "tempt_chance": 1.0, "tempt_gap": 2, "mark_weight": 4, "marks_to_claim": 2,
 	"comeback_per": 200,     # an offer's gain x(1 + D / comeback_per) for a seat D behind the leader...
 	"comeback_cap": 3.0,     # ...up to x this
