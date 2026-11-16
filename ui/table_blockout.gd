@@ -44,7 +44,9 @@ const EDGE := 76.0         # seals and candles stand this far in from the page's
 const CANDLE := Vector2(84, 300)
 const CANDLE_GAP := 30.0
 const MARK := 60.0         # track marker, px: display only (the track is the tap target)
-const LEVEL := 70.0        # a rival stem level: marker + gap
+const LEVEL := 70.0        # a rival stem level: marker + gap (plus TOTAL_H for the total above each head)
+const TOTAL_SIZE := 44     # each player's total at their marker (REPLY 12), px: 15 pt at the smallest phone
+const TOTAL_H := 46.0      # the room a total takes above a rival's head or under my marker
 const STEM := 24.0         # the shortest stem
 const DIE_MAX := 186.0
 const DIE_MAX_ROWS := 140.0  # two rows of dice
@@ -135,7 +137,10 @@ func build() -> void:
 	var order := range(n)
 	order.sort_custom(func(a, b): return seats[a].score < seats[b].score)
 	var span: float = vp.x - 48.0 - 160.0
-	var gap: float = MARK + 16.0
+	var widest := 0.0  # heads on one level stand far enough apart for their totals (REPLY 12)
+	for s in seats:
+		widest = maxf(widest, Style.NUMERAL.get_string_size(str(int(s.score)), HORIZONTAL_ALIGNMENT_LEFT, -1, TOTAL_SIZE).x)
+	var gap: float = maxf(MARK, widest) + 16.0
 	var lvl := {}
 	var head := {}  # seat -> head x, track coordinates (0 = score 0)
 	var prev := -1
@@ -151,8 +156,9 @@ func build() -> void:
 		lvl[i] = l
 		head[i] = x
 		prev = i
-	var lo: float = 80.0 - (24.0 + 80.0)
-	var hi: float = vp.x - 80.0 - (24.0 + 80.0)
+	var edge: float = maxf(80.0, gap / 2.0 + 48.0)  # a head's total stays inside the side margins
+	var lo: float = edge - (24.0 + 80.0)
+	var hi: float = vp.x - edge - (24.0 + 80.0)
 	for l in 2:
 		var row: Array = order.filter(func(i): return lvl.has(i) and lvl[i] == l)
 		# Groups of heads, each centred on its scores' mean; touching groups merge.
@@ -180,8 +186,8 @@ func build() -> void:
 	var max_l: int = 0
 	for j in lvl:
 		max_l = maxi(max_l, lvl[j])
-	var above: float = 44.0 + MARK + STEM + max_l * LEVEL  # crown + marker + stems
-	var band_h: float = 30.0 + above + STEM + MARK + 30.0
+	var above: float = 44.0 + TOTAL_H + MARK + STEM + max_l * (LEVEL + TOTAL_H)  # crown + total + marker + stems
+	var band_h: float = 30.0 + above + STEM + MARK + TOTAL_H + 30.0  # mine hangs below, its total under it
 
 	# Bottom up: my near edge, seals, stake, dice; then the track band; then the page round them.
 	var pb: float = vp.y - safe.y - 12.0
@@ -322,7 +328,7 @@ func build() -> void:
 		_line([Vector2(px, ay - 40), Vector2(px, ay + 40)], pc, 16.0, INK)
 		var cl := _label(str(call_at), 46, BONE, INK)  # REPLY 11: bone on a dark outline (4.5:1); the post carries the colour
 		cl.size = Vector2(150, 60)
-		cl.position = Vector2(px - 75.0, ay + STEM + MARK + 10.0)  # below my marker, which hangs under the line
+		cl.position = Vector2(px - 75.0, ay + STEM + MARK + TOTAL_H + 10.0)  # below my marker and its total
 		for pip in rounds_left:
 			_disc(Vector2(px + (pip - (rounds_left - 1) / 2.0) * 40.0, ay - 66.0), 14.0, CRIMSON, INK)
 	var draw := order.filter(func(i): return i != me and i != lead)
@@ -336,7 +342,7 @@ func build() -> void:
 			_line([Vector2(mx, ay), Vector2(mx, ay + STEM)], CRIMSON, 4.0)
 			centres[i] = Vector2(mx, ay + STEM + MARK / 2.0)
 		else:  # a leaning stem from the true score up to the head
-			var top: float = ay - STEM - lvl[i] * LEVEL
+			var top: float = ay - STEM - lvl[i] * (LEVEL + TOTAL_H)
 			var hx: float = ax0 + head[i]
 			_line([Vector2(mx, ay), Vector2(mx, ay - 8.0), Vector2(hx, top)], INK, 3.0)
 			centres[i] = Vector2(hx, top - MARK / 2.0)
@@ -535,10 +541,14 @@ func _dashed_box(r: Rect2, c: Color) -> void:
 ## the leader wears a gold ring and a gold crown.
 func _marker(c: Vector2, i: int, me: int, lead: int) -> void:
 	var r: float = MARK / 2.0
+	# The total (REPLY 12), always shown: above a rival's head, under mine (mine hangs below the line).
+	var tl := _label(str(int(seats[i].score)), TOTAL_SIZE, BONE, INK)  # bone on ink: legible on the vignette and the cone
+	tl.size = Vector2(maxf(MARK, tl.get_minimum_size().x) + 16.0, TOTAL_H)
+	tl.position = Vector2(c.x - tl.size.x / 2.0, (c.y + r + 6.0) if i == me else (c.y - r - 4.0 - TOTAL_H))
 	if i == lead:
 		_disc(c, r + 6.0, GOLD, INK)
 		var p := Polygon2D.new()
-		var top := c - Vector2(0, r + 4.0)
+		var top := c - Vector2(0, r + 4.0 + (0.0 if i == me else TOTAL_H))  # a rival's crown sits over its total
 		p.polygon = PackedVector2Array([top + Vector2(-20, 0), top + Vector2(-23, -24), top + Vector2(-10, -12),
 			top + Vector2(0, -30), top + Vector2(10, -12), top + Vector2(23, -24), top + Vector2(20, 0)])
 		p.color = GOLD
