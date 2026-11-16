@@ -4,7 +4,7 @@ Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-1
 ## Now
 - Phase 8, the table, playing `Rules.V5` (rules as built: `Docs/TableDesign.md` §0). Pushed and on TestFlight: build 118 (main f44ffee): the Master as a figure, the call at 550, Devour +45.
 - **Local only, not pushed** (Ben: no push until he has played 118): the Master's line in his robe and the hand clamp (REPLY 17); Idle-one and Hubris x2 (17); the call floor, no call before round 3's end (18); the dim post, game end on the page, the one-line buy row and the 5-dice cap (19-21).
-- Layout not locked; no art.
+- Layout locked (REPLY 24): `Docs/TableSpec.md`, reference `Docs/table_lock/boxes.txt`. Art batch 1 in fixtures only.
 
 ## Next
 1. REPLY 21 order: the line-time proposal (19 item 4), then REPLY 20's option A (the rival plays on my page) after Ben sees it with a gain and a line together.
