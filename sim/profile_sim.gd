@@ -41,8 +41,9 @@ func _init() -> void:
 		"replay":
 			await _replay(int(args[1]), args[2] if args.size() > 2 else "mixed")
 		"odd":
+			var only: Array = str(opts.get("odd_kinds", "")).split(",", false) if opts.has("odd_kinds") else []
 			for k in KINDS:
-				if k != "plain":
+				if k != "plain" and (only.is_empty() or k in only):
 					_report("odd:" + k, await _run(games, "odd:" + k), true)
 		_:
 			_report(mode, await _run(games, mode), false)
@@ -318,7 +319,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])

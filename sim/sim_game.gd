@@ -75,6 +75,7 @@ func take_turn(p) -> void:
 	var held: int = p.dice
 	var base_sum := 0
 	var chain_sum := 0
+	var first_base := 0  # the face points of the turn's first throw (soften=first)
 	var cap: int = int(opt("turn_cap", 0)) if called_round < 0 else 0  # turn_cap=N: one turn banks at most N before the call
 	var count: int = p.dice
 	if dice_choice:
@@ -113,16 +114,28 @@ func take_turn(p) -> void:
 		if audit:
 			audit_throws.append([kind, turn.faces.size(), turn.strikes >= Rules.STRIKES_TO_BUST])
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
+			# soften (REPLY 13): a bust keeps the first throw's face points ("first") or half the turn's
+			# face points ("half"), never the chain.
+			var keep := 0
+			match str(opt("soften", "")):
+				"first":
+					keep = first_base
+				"half":
+					keep = base_sum / 2
+			keep = keep / 5 * 5
 			if audit:
-				audit_turns.append([kind, held, round_count, 0, true, 0, 0, 0])
+				audit_turns.append([kind, held, round_count, keep, true, keep, 0, 0])
 			if view:
 				say("  %d Strikes: %s BUSTS and goes to Purgatory." % [turn.strikes, pname(p)])
 			_bust(p)
+			p.score += keep
 			await beat(p, "end")
 			return
 		turn.throw_points = throw_score(turn.faces)
 		var base := Rules.score(Array(turn.faces, TYPE_INT, "", null), 0.0, face_mult)
 		base_sum += base
+		if turn.throws == 1:
+			first_base = base
 		chain_sum += turn.throw_points - base
 		if doubled:
 			turn.throw_points *= 2
@@ -295,6 +308,18 @@ func _start_costs(p) -> void:
 # ---------- Prototype: dice and Strikes ----------
 
 ## strike_cap: true -- dice beyond the third add at most one Strike to a throw.
+## chain_cap (REPLY 13): the chain multiplier tops out at this (x2: chain 0.5 stops at three scorers).
+func throw_score(faces: Array) -> int:
+	var cap := float(opt("chain_cap", 0.0))
+	if cap <= 0.0:
+		return super(faces)
+	var f := Array(faces, TYPE_INT, "", null)
+	var base := Rules.score(f, 0.0, face_mult)
+	var scorers := f.filter(func(x): return x >= 4).size()
+	var pts := int(base * minf(1.0 + chain * maxi(0, scorers - 1), cap))
+	return pts / 5 * 5 if round5 else pts
+
+
 func _strikes(faces: Array) -> int:
 	var s := Rules.count_strikes(Array(faces, TYPE_INT, "", null))
 	if not opt("strike_cap", false) or faces.size() <= 3:
