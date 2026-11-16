@@ -1,10 +1,10 @@
-# Table spec: the table as built (Phase 8, blockout 4b, 2026-11-15)
+# Table spec: the table as built (Phase 8, blockout 4b + V5, 2026-11-15)
 Layout and behaviour only, as the code draws it today; every number is from the code. Art rules: `Docs/ArtDirection.md` (its table direction and restraint win). Rules and content: `Docs/TableDesign.md`. Flat shapes in the five-colour palette; nothing is painted yet.
 
 ## Code
-- `ui/table_blockout.gd` draws the table whole from one state (`build()`): seats, active seat, dice, stake, Strikes, moment (decision / rival / bust / wait), spoken line, ability die, pending Bank loss, safe insets. Fixtures (`tools/fixtures/table_*.json`, screen "table") draw one moment.
+- `ui/table_blockout.gd` draws the table whole from one state (`build()`): seats, active seat, dice, stake, Strikes, moment (decision / rival / bust / wait), spoken line, ability die, pending Bank loss, safe insets; under V5 my seal, a power firing, the dice as "let it stand", the Master's line. The table plays `Rules.V5` (`ui/main.gd` `table_rules()`); the old board stays V4. Fixtures (`tools/fixtures/table_*.json`, screen "table") draw one moment.
 - `ui/table_play.gd` is a layer over main's board (built in `ui/main.gd` `_build_board`): it redraws the blockout from main's snapshots and turns its seals into main's answers. The game, director, prompts, offer screen, overlays and game end stay main's; the table hides while main shows one of them.
-- On only when `Tuning.table_view()`: const `TABLE_VIEW` (false), export feature `table_view` (presets "iOS (table)" and "Web (table)"), or `-- --table`. Test: `tests/table_play_check.gd -- --table` (full games through the table).
+- On only when `Tuning.table_view()`: const `TABLE_VIEW` (false), export feature `table_view` (presets "iOS (table)" and "Web (table)"), or `-- --table`. Test: `tests/table_play_check.gd -- --table` (full V5 games through the table, using the power).
 
 ## Layout (1080 px wide; top is them, bottom is me)
 - **Windows** across the top, `SIDE` 40 px margins, `WIN_GAP` 12, crop ratio 1:1.8; the active one twice the width, lit in its colour, grown into spare wall above; the others dark.
@@ -14,13 +14,17 @@ Layout and behaviour only, as the code draws it today; every number is from the 
 - **Dice** one row up to 186 px (`DIE_MAX`), two rows at 140, never under 110 (`DIE_MIN`), 18 px apart; the dice shrink before the windows do. Under each: gold if it scores, crimson if a Strike, nothing if dead. A dashed crimson ghost die for each die a pending cost will take.
 - **Stake** one gold numeral above Bank, 120 to 190 px as it grows (to 600); a pending Bank loss in crimson beside it; a bust blots it with spilled ink.
 - **Near edge** (`EDGE` 76 px in): Bank (left, gold leaf) and Throw (right, crimson) seals, 236 px (86 pt); my three Strike candles between them (84x300 px, flames steady, restless or guttering); my marks as sigil stamps (52 px) along the edge.
+- **My seal** (`Rules.V5` power, `POWER_SEAL` 180 px, 66 pt), the third control: centred over Throw, 16 px above it. Ready: a glow and ring of my glass colour, bone disc, my sigil in ink, live. Unspent: bone disc, not live. Spent this turn: dark, sigil faint, a crimson stroke. Lust's seal shows the face it would give (a 70 px die).
+- **The Master's line** ink on the page (serif, 44 px, down to 30 to fit two lines), right-aligned, ending at the skeleton (100x118 px, right of the candles); between the stake and my seal, above the flames, below the dice. It does not dim with my edge.
 - **Page** lit in a pool round the dice and decision, falling to shadow; the desk is dark.
 
 ## Behaviour
 - Motion is simple: a throw's dice drop in, the stake swells when it grows, a Strike flashes its candle, a bust shakes the page.
 - A spoken line (`Tuning.LINE_CHANCE` 0.5 of events) shows for 2.6 s in blackletter 84 px in the speaker's colour, under its window (over the window's foot on a rival's turn).
 - Choices other than Bank and Throw (an ability's yes or no, a target, buying dice) are flat bone buttons in the gap under the windows with the prompt's words above; the buy prompt reads just "Buy dice?".
-- Not built on the table: hold to explain (still a rule, `CLAUDE.md`), the jester and skeleton, painted pieces.
+- Powers (`Rules.V5`): when my power could change the throw just made, the beat holds with no time limit: tap my seal to use it, or the dice to let the throw stand; no prompt sentence. Pride names a Bank (150, 200, 250) on bone buttons in the gap, or just throws. Greed's seal sits beside Bank and Throw at the decision. A power firing (mine or a rival's, at its window) holds `Tuning.POWER_FOR` 1.1 s: a ring of that Sin's colour and its sigil on each die it changed, or round the stake it took (a rival's sigil beside its Strike marks).
+- The Master's line shows for `Tuning.MASTER_FOR` 2.6 s, at most one a turn, never with a Sin's line (each clears the other); said while the table is hidden (an offer), it waits for the table. His idle line after `MASTER_IDLE` 9 s at my decision. At an offer his announcement sits above the portrait.
+- Not built on the table: hold to explain (still a rule, `CLAUDE.md`), painted pieces. The jester is cut (REPLY 1); the skeleton is a flat ink placeholder.
 - No tutorial in the table build (`ui/main.gd` skips it when `table_view()` is on).
 
 ## Offer screen (main's, shown over the table)
