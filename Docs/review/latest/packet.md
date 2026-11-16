@@ -1,5 +1,5 @@
 # Packet: REPLY 20 confirm (rival plate, top row; nothing built)
-REPLY 19's two questions are still open; nothing from 19 or 20 is built.
+REPLY 19's two questions are still open (`Docs/review/archive/2026-11-16-reply19/packet.md`); nothing from 19 or 20 is built.
 
 **Why it runs off:** the plate is 566 px wide (stake 270 + 3 marks + the 110 px seal + pads), but its clamp keeps only 400 px from the page's right edge (`table_blockout.gd` ~305). The seal was added beside the marks later and the clamp wasn't widened. At 7 seats, windows 5 and 6 overflow; at 4 seats, window 3 cuts the seal. The spoken line uses the same spot (`sr.end.y - 130`), so the two always collide on a rival's own line.
 
