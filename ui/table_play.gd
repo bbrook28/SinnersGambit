@@ -10,6 +10,7 @@ const TableBlockout = preload("res://ui/table_blockout.gd")
 const Rules = preload("res://core/rules.gd")
 const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
+const RulesText = preload("res://ui/rules_text.gd")
 
 const SPEAK_FOR := 2.6   # s a spoken line stays
 
@@ -27,6 +28,11 @@ var _landed := ""         # the throw last landed (seat, faces, throw count)
 var _gain := 0             # its points, shown over the dice until the stake takes them
 var _gain_base := 0
 var _standings: Control
+var _firing := {}          # Rules.V5: a power firing now {seat, dice}
+var _master := ""          # the Master's line by the skeleton
+var _master_left := 0.0
+var _master_pending := ""  # said while the table was hidden: shown when it returns
+var _idle := 0.0           # s at my decision with no answer (his idle line)
 
 
 func setup(m) -> void:
@@ -37,6 +43,8 @@ func setup(m) -> void:
 	view.throw_pressed.connect(func(): _answer("roll"))
 	view.bank_pressed.connect(func(): _answer("bank"))
 	view.standings_pressed.connect(_open_standings)
+	view.seal_pressed.connect(func(): _answer("seal"))
+	view.stand_pressed.connect(func(): _answer("stand"))
 
 
 ## Is the table showing (main's own screens are hidden under it)?
@@ -66,6 +74,32 @@ func say(seat: int, line: String) -> void:
 		return
 	_speak = {"seat": seat, "line": line}
 	_speak_left = SPEAK_FOR
+	_master = ""  # never the Master and a Sin at once
+	_master_left = 0.0
+	_draw()
+
+
+## Rules.V5: a power fired (ui/main.gd _power_event, a queued beat): a ring and its Sin's sigil on the
+## dice it changed, or round the stake it took, held for Tuning.POWER_FOR.
+func power_fired(seat: int, _sname: String, changed: Array) -> void:
+	_firing = {"seat": seat, "dice": changed}
+	_draw()
+	if visible:
+		await main.get_tree().create_timer(Tuning.POWER_FOR / maxf(Tuning.pace, 0.01)).timeout
+	_firing = {}
+	_draw()
+
+
+## The Master of the Dance says a line (ui/main.gd master_event): ink by the skeleton for
+## Tuning.MASTER_FOR; while the table is hidden it waits until the table returns.
+func master_say(line: String) -> void:
+	if not visible:
+		_master_pending = line
+		return
+	_speak = {}
+	_speak_left = 0.0
+	_master = line
+	_master_left = Tuning.MASTER_FOR
 	_draw()
 
 
@@ -76,11 +110,28 @@ func _process(delta: float) -> void:
 		and not (main._log_overlay and main._log_overlay.visible) and not _snap.is_empty()
 	if on != visible:
 		visible = on
+		if on and _master_pending != "":
+			var l := _master_pending
+			_master_pending = ""
+			master_say(l)
 	if _speak_left > 0.0:
 		_speak_left -= delta * Tuning.pace
 		if _speak_left <= 0.0:
 			_speak = {}
 			_draw()
+	if _master_left > 0.0:
+		_master_left -= delta * Tuning.pace
+		if _master_left <= 0.0:
+			_master = ""
+			_draw()
+	# No answer at my decision for a while: the Master's idle line (one a turn; main decides).
+	if visible and (_live("roll") or _live("bank") or _live("seal")):
+		_idle += delta
+		if _idle >= Tuning.MASTER_IDLE:
+			_idle = -INF  # once per decision
+			main.master_idle()
+	else:
+		_idle = 0.0
 
 
 func _live(kind: String) -> Button:
@@ -129,9 +180,19 @@ func _draw() -> void:
 		moment = "bust"
 	elif cur != me:
 		moment = "rival"
-	elif roll or bank:
+	elif roll or bank or _live("seal") or _live("stand"):
 		moment = "decision"
 	var others := _buttons.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion() and b.get_meta("kind", "") in ["pill", "num", "new"])
+	# Rules.V5: my seal. Ready while main offers it; spent once used this turn; else unspent.
+	var seals := _buttons.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion() and b.get_meta("kind", "") == "seal")
+	if seals.size() > 1:  # Pride names a Bank: each one a bone button too
+		others += seals
+	var mine_p = g.players[me]
+	var seal := ""
+	if g.opt("powers", false) and mine_p.sin.power_window() != "":
+		seal = "ready" if not seals.is_empty() else ("spent" if s.cur == me and t.get("power_used", false) else "idle")
+	var seal_face: int = int(mine_p.sin.power_face(g)) if seal == "ready" and mine_p.sin.has_method("power_face") else 0
+	var stand := _live("stand") != null
 	if not others.is_empty() and cur != me:  # my choice between turns (buying dice): my side of the table
 		cur = me
 		moment = "wait"
@@ -147,8 +208,9 @@ func _draw() -> void:
 		_gain_base = int(t.points)
 	if key != _landed or int(t.points) != _gain_base or moment == "bust":
 		_gain = 0
-	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
-		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null]), int(t.throws) * 100000 + _gain]
+	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
+		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
+		seal + str(seal_face), str(_firing), _master]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -165,6 +227,11 @@ func _draw() -> void:
 	view.can_bank = bank != null
 	view.can_throw = roll != null
 	view.safe = main._safe_insets()
+	view.seal = seal
+	view.seal_face = seal_face
+	view.firing = _firing
+	view.stand_live = stand
+	view.master_line = _master
 	view.build()
 	_choices(others)
 	if view.gain_label:
@@ -178,6 +245,8 @@ func _draw() -> void:
 
 ## The words on one of main's prompt Buttons.
 func _word(b: Button) -> String:
+	if b.get_meta("kind", "") == "seal":
+		return RulesText.table("hubris_name", {"n": b.get_meta("value")})
 	if b.text != "":
 		return b.text
 	var ls := b.find_children("*", "Label", true, false)
@@ -318,8 +387,6 @@ func _open_standings() -> void:
 		for m in p.marks:
 			if int(p.marks[m]) > 0:
 				notes.append("%s mark x%d" % [m, int(p.marks[m])])
-		if p.in_purgatory:
-			notes.append("in Purgatory")
 		if p.pend_bank > 0:
 			notes.append("next Bank -%d" % p.pend_bank)
 		if p.pend_strike > 0:

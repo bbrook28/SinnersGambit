@@ -17,6 +17,8 @@ extends Control
 signal throw_pressed
 signal bank_pressed
 signal standings_pressed
+signal seal_pressed
+signal stand_pressed
 
 const Art = preload("res://ui/art.gd")
 const Style = preload("res://ui/style.gd")
@@ -50,6 +52,7 @@ const DIE_MIN := 110.0
 const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
 const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
+const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -68,12 +71,22 @@ var gain := 0            # the throw's points, shown over the dice until the sta
 var can_bank := true     # in play: Bank is offered (not before the first throw)
 var can_throw := true
 var safe := Vector2.ZERO
+## Rules.V5: my seal ("" none, "ready" glowing and live, "idle" unspent, "spent"), the face Lust's seal
+## shows (0 none), a power firing ({seat, dice: [indices it changed]}), the dice live as "let it stand",
+## and the Master's line by the skeleton.
+var seal := ""
+var seal_face := 0
+var firing := {}
+var stand_live := false
+var master_line := ""
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
 var candle_rects: Array = []
 var stake_label: Label
 var gain_label: Label
+var master_label: Label
+var seal_button: Button  # my Sin's seal (Rules.V5), when drawn
 var page_rect := Rect2()
 var dice_area := Rect2()
 
@@ -257,6 +270,9 @@ func build() -> void:
 		rs.position = Vector2(clampf(wr.get_center().x - 130.0 - 60.0, px0 + 20.0, px1 - 400.0), under - 22.0)
 		for s in 3:
 			_rect(Rect2(rs.position.x + 270.0 + s * 46.0, under + 30.0, 32, 48), CRIMSON if s < strikes else Color(BONE, 0.22))
+		if not firing.is_empty() and firing.get("dice", []).is_empty():  # its power took the stake (Cash Out, Hubris)
+			var rw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, 92).x
+			_stake_ring(Rect2(rs.position.x + (rs.size.x - rw) / 2.0, rs.position.y + rs.size.y * 0.2, rw, rs.size.y * 0.6), int(firing.seat), self, BONE, Vector2(rs.position.x + 270.0 + 3 * 46.0 + 16.0, under + 10.0))
 	# A Sin's spoken line, anchored under its window, in its colour. On a rival's turn its stake has the
 	# gap, so the line sits over the foot of the speaker's window instead.
 	if not speak.is_empty():
@@ -310,20 +326,12 @@ func build() -> void:
 	track.pressed.connect(func(): standings_pressed.emit())
 	add_child(track)
 
-	# The jester, top right of the page under the track; at a bust he leans in.
-	var js: float = 170.0 if bust else 130.0
-	var jr := Rect2(pg.end.x - js - 20.0, pg.position.y + band_h - 10.0, js, js)
-	var row1: int = mini(per, dn)
-	var row_r: float = dl + (dw + row1 * ds + (row1 - 1) * DIE_GAP) / 2.0
-	if not (jr.end.y > dy and jr.position.x < row_r):  # never over the dice: he steps out when they fill the row
-		var jest := _ink_figure(Art.MARGINALIA.jester[0], jr)
-		jest.pivot_offset = jest.size / 2.0
-		jest.rotation = deg_to_rad(-14.0) if bust else 0.0
-
 	# Dice, one or two rows, then a ghost for each die a pending cost will take.
 	# Under each: gold if it scores, crimson if a Strike, nothing if dead.
 	dice_area = Rect2(dl, dy, dw, rows * ds + (rows - 1) * 34.0)
 	gain_label = null
+	master_label = null
+	seal_button = null
 	if gain > 0:  # the throw's points, gold, in the strip just above the dice
 		var gain_l := _label("+%d" % gain, gain_size, GAIN_GOLD, BLACK)
 		gain_l.add_theme_font_override("font", Style.NUMERAL)
@@ -345,9 +353,11 @@ func build() -> void:
 			_dashed_box(Rect2(p + Vector2(ds, ds) * 0.06, Vector2(ds, ds) * 0.88), CRIMSON)
 			continue
 		var f := int(faces[d])
-		if d == ability:  # my Sin's ability just changed this die: a ring of my glass colour, my sigil above
-			_disc(p + Vector2(ds, ds) / 2.0, ds * 0.72, Color(Style.SIN_COLORS[seats[me].sin], 0.55), Color(0, 0, 0, 0))
-			_sigil(seats[me].sin, Rect2(p + Vector2(ds * 0.2, -ds * 0.62), Vector2(ds * 0.6, ds * 0.6)), INK)
+		# A Sin's ability or power just changed this die: a ring of that Sin's glass colour, its sigil above.
+		var by: int = me if d == ability else (int(firing.seat) if not firing.is_empty() and d in firing.get("dice", []) else -1)
+		if by >= 0:
+			_disc(p + Vector2(ds, ds) / 2.0, ds * 0.72, Color(Style.SIN_COLORS[seats[by].sin], 0.55), Color(0, 0, 0, 0))
+			_sigil(seats[by].sin, Rect2(p + Vector2(ds * 0.2, -ds * 0.62), Vector2(ds * 0.6, ds * 0.6)), INK)
 		var die := Die.new(f, int(ds), d)
 		die.position = p
 		die.size = Vector2(ds, ds)
@@ -355,6 +365,16 @@ func build() -> void:
 		dice_nodes.append(die)
 		var mk: Color = GOLD if f >= 4 else (CRIMSON if f <= 2 else Color(0, 0, 0, 0))
 		_rect(Rect2(p.x + ds * 0.15, p.y + ds + 10.0, ds * 0.7, 9.0), mk)
+	if stand_live:  # my power is ready on this throw: a tap on the dice lets the throw stand
+		var st := Button.new()
+		st.flat = true
+		for k2 in ["normal", "hover", "pressed", "focus", "disabled"]:
+			st.add_theme_stylebox_override(k2, StyleBoxEmpty.new())
+		st.position = dice_area.position - Vector2(0, 20)
+		st.size = dice_area.size + Vector2(0, 50)
+		st.focus_mode = Control.FOCUS_NONE
+		st.pressed.connect(func(): stand_pressed.emit())
+		add_child(st)
 
 	# My near edge. On a rival's turn all of it dims.
 	var near := Control.new()
@@ -371,6 +391,14 @@ func build() -> void:
 		bank.modulate = Color(1, 1, 1, 0.35)
 	if mine and not (live and can_throw):
 		throw.modulate = Color(1, 1, 1, 0.35)
+	# Rules.V5: my Sin's seal, the third control, centred over Throw: glowing and live when my power is
+	# ready, plain when unspent, dark and crossed once spent this turn.
+	var power_r := Rect2()
+	if seal != "":
+		var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
+		power_r = Rect2(pc - Vector2(POWER_SEAL, POWER_SEAL) / 2.0, Vector2(POWER_SEAL, POWER_SEAL))
+		_power_seal(near, pc, seats[me].sin)
+
 	# The stake: one gold numeral directly above Bank (what Bank keeps), a pending Bank loss in crimson
 	# beside it. A bust blots it.
 	var cw: float = 3.0 * CANDLE.x + 2.0 * CANDLE_GAP
@@ -391,6 +419,8 @@ func build() -> void:
 			var ll := _label(loss, 64, CRIMSON, BONE, false, near)
 			ll.size = Vector2(loss_w, 90)
 			ll.position = Vector2(num.position.x + num.size.x - 8.0, stake_top - 18.0)  # raised, clear of the flames
+		if not firing.is_empty() and int(firing.seat) == me and firing.get("dice", []).is_empty():
+			_stake_ring(Rect2(num.position.x + 12.0, stake_top + stake_h * 0.12, tw, stake_h * 0.76), me, near)
 		if bust:  # the blot covers the figure itself
 			_blot(near, Vector2(num.position.x + num.size.x / 2.0, stake_top + stake_h / 2.0), Vector2((tw / 2.0 + 28.0) / 0.91, stake_size * 0.64))
 	# Marks I hold: small sigil stamps along the page's near edge.
@@ -429,7 +459,19 @@ func build() -> void:
 			near.add_child(glow)
 			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, near)  # wick
 			_flame(near, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
-	_ink_figure(Art.MARGINALIA.skeleton[0], Rect2(c_l + cw - 36.0, ct - 118.0, 100, 118), near)
+	var skel := Rect2(c_l + cw - 36.0, ct - 118.0, 100, 118)
+	_ink_figure(Art.MARGINALIA.skeleton[0], skel, near)
+	# The Master's line: one line of ink on the page just under the dice, right-aligned to end over
+	# the skeleton (or at my seal's left), never under 44 px (15 pt). It does not dim with my edge.
+	if master_line != "":
+		var right: float = (power_r.position.x - 24.0) if seal != "" else skel.end.x + 40.0
+		var left: float = px0 + 40.0
+		var ml := _label(master_line, 44, INK, Color(0, 0, 0, 0))
+		ml.add_theme_font_override("font", Style.SERIF)
+		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		ml.position = Vector2(left, dice_area.end.y + 24.0)
+		ml.size = Vector2(right - left, 56.0)
+		master_label = ml
 
 
 ## A dashed outline (a ghost die).
@@ -553,6 +595,65 @@ func _ink_figure(tex: Texture2D, r: Rect2, parent: Node = self) -> TextureRect:
 	t.material = _ink_lines()
 	parent.add_child(t)
 	return t
+
+
+## Rules.V5: my Sin's seal. Ready: a glow of my glass colour round a bone disc, my sigil in ink, live
+## (seal_pressed). Idle: the bone disc and sigil, not live. Spent: dark, the sigil faint, crossed.
+## Firing: a ring of my colour round it. Lust's seal shows the face it would turn a Strike into.
+func _power_seal(parent: Node, c: Vector2, sname: String) -> void:
+	var r: float = POWER_SEAL / 2.0
+	var col: Color = Style.SIN_COLORS[sname]
+	var ready := seal == "ready"
+	var spent := seal == "spent"
+	if ready:
+		var glow := TextureRect.new()
+		glow.texture = Art.soft_dot(64, col.lightened(0.3))
+		glow.material = Art.additive()
+		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glow.size = Vector2(POWER_SEAL, POWER_SEAL) * 1.7
+		glow.position = c - glow.size / 2.0
+		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		parent.add_child(glow)
+		_disc(c, r + 10.0, col, Color(0, 0, 0, 0), parent)
+	if not firing.is_empty() and seats[int(firing.seat)].get("you", false):
+		_disc(c, r + 18.0, Color(col, 0.55), Color(0, 0, 0, 0), parent)
+	var fill: Color = INK.lerp(BLACK, 0.4) if spent else BONE
+	_disc(c, r, fill, INK, parent)
+	_sigil(sname, Rect2(c - Vector2(r, r) * 0.78, Vector2(r, r) * 1.56), Color(BONE, 0.3) if spent else INK, parent)
+	if spent:
+		_line([c + Vector2(-r, -r) * 0.55, c + Vector2(r, r) * 0.55], CRIMSON, 10.0, Color(0, 0, 0, 0), parent)
+	if seal_face > 0 and not spent:  # Lust: the face her seal gives
+		var fd := Die.new(seal_face, 70, 0)
+		fd.position = c + Vector2(r * 0.42, r * 0.42)
+		fd.size = Vector2(70, 70)
+		fd.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		parent.add_child(fd)
+	var b := Button.new()
+	b.flat = true
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	b.position = c - Vector2(r, r)
+	b.size = Vector2(POWER_SEAL, POWER_SEAL)
+	b.focus_mode = Control.FOCUS_NONE
+	b.disabled = not ready
+	b.pressed.connect(func(): seal_pressed.emit())
+	parent.add_child(b)
+	seal_button = b
+
+
+## A power that took the stake (Greed's Cash Out, Pride's Hubris): a ring of that Sin's colour round
+## the figure and its sigil at the ring's left.
+func _stake_ring(r: Rect2, seat: int, parent: Node = self, ink := INK, at := Vector2(-1, -1)) -> void:
+	var col: Color = Style.SIN_COLORS[seats[seat].sin]
+	var pts := []
+	var c := r.get_center()
+	var rr := r.size / 2.0 + Vector2(24, 16)
+	for k in 41:
+		pts.append(c + Vector2(cos(TAU * k / 40.0) * rr.x, sin(TAU * k / 40.0) * rr.y))
+	_line(pts, col, 9.0, INK, parent)
+	var s: float = minf(90.0, rr.y * 1.2)
+	var sp := at if at.x >= 0.0 else Vector2(c.x - rr.x - s * 0.6, c.y - rr.y - s * 0.3)  # at: where its sigil goes instead
+	_sigil(seats[seat].sin, Rect2(sp, Vector2(s, s)), ink, parent)
 
 
 ## A seal: a flat disc with its word (Bank gold leaf, Throw crimson).
