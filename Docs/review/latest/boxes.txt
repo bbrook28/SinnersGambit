@@ -1,0 +1,62 @@
+## table_master_rest (std, layout 1080x2341 px)
+  head      540,166 398x318
+  mask      659,197 159x145
+  shoulders 453,468 573x8
+  robe      0,472 1080x411
+  windows   40,166 386x694 | 438,513 193x347 | 642,513 193x347 | 847,513 193x347
+## table_master_mark (std, layout 1080x2341 px)
+  head      438,166 398x318
+  mask      557,197 159x145
+  shoulders 350,468 573x8
+  robe      0,472 1080x411
+  arm       769,243 271x296
+  line      426,380 614x127
+  windows   40,166 386x694 | 438,513 193x347 | 642,513 193x347 | 847,513 193x347
+## table_master_offer (std, layout 1080x2341 px)
+  head      642,166 398x318
+  mask      762,197 159x145
+  shoulders 555,468 573x8
+  robe      0,472 1080x411
+  arm       438,177 271x362
+  card      449,263 170x238
+  line      619,380 421x127
+  windows   40,166 386x694 | 438,513 193x347 | 642,513 193x347 | 847,513 193x347
+## table_master_calling (std, layout 1080x2341 px)
+  head      540,166 398x318
+  mask      659,197 159x145
+  shoulders 453,468 573x8
+  robe      0,472 1080x411
+  arm       396,165 210x374
+  line      606,380 434x127
+  windows   40,166 386x694 | 438,513 193x347 | 642,513 193x347 | 847,513 193x347
+## table_master_rest (se, layout 1080x1920 px)
+  head      540,62 285x225
+  mask      625,83 114x103
+  shoulders 477,274 410x8
+  robe      0,278 1080x297
+  windows   181,62 273x491 | 466,307 136x246 | 614,307 136x246 | 763,307 136x246
+## table_master_mark (se, layout 1080x1920 px)
+  head      466,62 285x225
+  mask      551,83 114x103
+  shoulders 403,274 410x8
+  robe      0,278 1080x297
+  arm       704,116 195x209
+  line      454,174 586x127
+  windows   181,62 273x491 | 466,307 136x246 | 614,307 136x246 | 763,307 136x246
+## table_master_offer (se, layout 1080x1920 px)
+  head      614,62 285x225
+  mask      700,83 114x103
+  shoulders 552,274 410x8
+  robe      0,278 1080x297
+  arm       466,68 195x257
+  card      474,127 120x169
+  line      594,174 446x127
+  windows   181,62 273x491 | 466,307 136x246 | 614,307 136x246 | 763,307 136x246
+## table_master_calling (se, layout 1080x1920 px)
+  head      540,62 285x225
+  mask      625,83 114x103
+  shoulders 477,274 410x8
+  robe      0,278 1080x297
+  arm       438,61 149x265
+  line      587,174 453x127
+  windows   181,62 273x491 | 466,307 136x246 | 614,307 136x246 | 763,307 136x246
