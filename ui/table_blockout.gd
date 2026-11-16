@@ -40,6 +40,7 @@ const WIN_GAP := 12.0
 const WIN_RATIO := 1.8     # window crop height / width (as the board windows)
 const UNDER_WIN := 190.0   # the zone at the windows' feet: a rival's stake, a spoken line, a choice row (REPLY 16: over the windows)
 const SPEAK_SIZE := 60  # REPLY 22 (A2): a Sin's line on the Master's plate spot, in blackletter
+const SPEAK_SMALL := 48  # REPLY 24: a Sin's line that would wrap at SPEAK_SIZE
 const SPEAK_SIGIL := 56.0  # its speaker's sigil disc, at the plate's left
 const LINE_MIN_W := 380.0  # the Master's plate is never narrower for his arm (REPLY 17: a 6-word line in two lines)
 const ROW_GAP := 22.0      # the gap left under the window row: my crimson bar (REPLY 16; the windows took the rest)
@@ -98,6 +99,7 @@ var choice_question := ""  # REPLY 23: a choice row to come (set before build())
 var choice_items: Array = []  # so the page keeps room for its plate under the track; the dice give way
 var buy_ghosts: Array = []  # buying: the score each purchase would leave me on (REPLY 9)
 var ghost_nodes: Array = []  # their ghost markers, in that order
+var seal_top := 0.0     # REPLY 24: the top of my seal's slot (the game end's plate stands 16 px over it)
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
 var call_at := 0       # REPLY 10: the Master calls the end when the leader reaches this (0: first to 1000 wins)
 var call_live := true  # REPLY 21: false before the round he may first call it (the post is dim)
@@ -457,6 +459,7 @@ func build() -> void:
 	# Rules.V5: my Sin's seal, the third control, centred over Throw: glowing and live when my power is
 	# ready, plain when unspent, dark and crossed once spent this turn.
 	var pc := Vector2(throw.position.x + SEAL / 2.0, sy - 40.0 - POWER_SEAL / 2.0)
+	seal_top = pc.y - POWER_SEAL / 2.0
 	if seal != "" and mine:
 		_power_seal(near, pc, seats[me].sin, seal, POWER_SEAL, not firing.is_empty() and int(firing.seat) == me, seal_face)
 		_seal_hit(near, pc)
@@ -740,6 +743,9 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			lw = hi - lo - sg
 			ml.custom_minimum_size = Vector2(lw, 0)
 			ml.size = Vector2(lw, 0)
+			th = ml.get_minimum_size().y
+		if who != "" and ml.get_line_count() > 1:  # REPLY 24: a Sin's line that would wrap drops to SPEAK_SMALL
+			ml.add_theme_font_size_override("font_size", SPEAK_SMALL)
 			th = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
 		ml.position = Vector2(lo + sg, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
@@ -1089,7 +1095,9 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 	# REPLY 19 item 3: the game's end ("New game") sits on the page where the dice were, so my window and every
 	# total on the track stay in view.
 	var at_end: bool = items.any(func(it): return str(it.value) == "new")
-	var top: float = dice_area.position.y - 30.0 if at_end else band_bottom + 30.0
+	var top: float = band_bottom + 30.0
+	if at_end:  # REPLY 24: its plate's foot 16 px over my seal (the plate is 18 px above the words to 36 px under the row)
+		top = seal_top - 16.0 - (46.0 + CHOICE_H + 36.0) + 18.0
 	var words_h: float = plate.words_h
 	var back := ColorRect.new()
 	back.color = Color(BLACK, 0.85)
