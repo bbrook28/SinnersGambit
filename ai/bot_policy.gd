@@ -254,3 +254,12 @@ func wants_power(game, p, sname: String):
 			var ev_half: float = half * float(game.opt("greed_mult", 1.5)) + expected_after_throw(n, t.points - half, left, game.chain, game.face_mult)
 			return ev_half > ev_all
 	return true
+
+
+## Onboarding game one (Docs/Onboarding.md): an easier table, banking at 200, risk 1.55, buying to 4.
+## A novice stand-in wins about 40% against two of these (sim/agency_sim.gd first).
+static func first_game():
+	var b = chooser(4, [99, 2, 0], 200)
+	b.risk = 1.55
+	b.label = "first game"
+	return b

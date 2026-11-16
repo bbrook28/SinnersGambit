@@ -34,6 +34,7 @@ func _initialize() -> void:
 	_sins()
 	await _fury()
 	_apply()
+	_bots()
 	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	var base = preload("res://sins/sin.gd").new()
 	check(base.power_window() == "" and not base.power_ready(null, null, null) and not base.use_power(null, null, null, true), "a Sin has no power by default")
@@ -330,3 +331,14 @@ func _apply() -> void:
 	check(p.score == 75, "apply: scaled points land")
 	Temptations.apply({"id": "t", "gain": "dice", "g": 4, "cost": "bank", "c": 50}, g, p)
 	check(g.turn.extra_dice == 4 and p.pend_bank == 50, "apply: scaled extra dice land, the cost doesn't change")
+
+
+## Item 12: the per-Sin risk tilt stays under V5. Item 13: the first-game bot.
+func _bots() -> void:
+	var g := _table(1)
+	var p = g.players[0]
+	var b = p.bot
+	p.sin = SIN_SCRIPTS[6].new()  # Sloth banks early
+	check(is_equal_approx(b.risk_for(p, g), b.risk * BotPolicy.SIN_RISK.Sloth), "V5 keeps the Sin risk tilt")
+	var f = BotPolicy.first_game()
+	check(f.bank_at == 200 and is_equal_approx(f.risk, 1.55) and f.target_dice == 4, "first-game bot: 200, 1.55, 4 dice")
