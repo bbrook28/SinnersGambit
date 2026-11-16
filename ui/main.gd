@@ -684,7 +684,7 @@ func _open_settings() -> void:
 	_setting_row(v, "Reduce Motion", _segmented(["On", "Off"], 0 if Tuning.reduce_motion else 1, func(i: int):
 		Tuning.reduce_motion = i == 0
 		_save_settings()))
-	if true:  # the tutorial teaches the table game
+	if not Tuning.table_view():  # the tutorial plays on the old board (Rules.V3), so never in the table build (REPLY 12)
 		var tut := _segmented([RulesText.tutorial("settings_play")], -1, func(_i: int):
 			_replay_tutorial())
 		_setting_row(v, "Tutorial", tut)
@@ -1108,6 +1108,27 @@ func _build_board() -> void:
 		_table = TablePlay.new()
 		_board.add_child(_table)
 		_table.setup(self)
+		_cover_old_board(thumb)
+
+
+## The table build (REPLY 12): the old board's glance and stage (its scores, dice and chain) never
+## show. When the table steps aside for one of main's screens (an offer, a page, settings, the log),
+## a dark cover hides everything above the thumb zone, which keeps the buttons those screens use.
+func _cover_old_board(thumb: Control) -> void:
+	var holder := Control.new()  # fills the board (a MarginContainer child); the cover inside is sized by hand
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_board.add_child(holder)
+	var cover := ColorRect.new()
+	cover.color = Color("140d0b")  # the table's own dark (ui/table_blockout.gd BLACK)
+	cover.mouse_filter = Control.MOUSE_FILTER_STOP  # nothing under it can be pressed
+	holder.add_child(cover)
+	var fit := func():
+		if is_instance_valid(cover) and is_instance_valid(thumb):
+			cover.position = Vector2(-holder.global_position.x, -holder.global_position.y)
+			cover.size = Vector2(size.x, thumb.global_position.y)
+	thumb.item_rect_changed.connect(fit)
+	holder.item_rect_changed.connect(fit)
+	fit.call_deferred()
 
 
 func focus_groups() -> Dictionary:

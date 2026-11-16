@@ -129,7 +129,7 @@ func master_say(line: String) -> void:
 
 func _process(delta: float) -> void:
 	var g = main.game
-	var on: bool = g != null and main._tutor == null and g.winner == null \
+	var on: bool = g != null and main._tutor == null \
 		and not is_instance_valid(main._offer_card) and main._overlay == null and main._settings == null \
 		and not (main._log_overlay and main._log_overlay.visible) and not _snap.is_empty()
 	if on != visible:
@@ -197,6 +197,11 @@ func _draw() -> void:
 	var cur: int = s.cur
 	var faces: Array = t.faces
 	var strikes: int = int(t.strikes)
+	if s.get("winner", false):  # the game is done (REPLY 12: it ends on the table): my side, no dice
+		cur = me
+		faces = []
+		strikes = 0
+		t = {"points": 0, "throws": 0}
 	var roll := _live("roll")
 	var bank := _live("bank")
 	var moment := "wait"

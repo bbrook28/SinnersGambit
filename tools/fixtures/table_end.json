@@ -1,0 +1,14 @@
+{
+	"screen": "table", "seed": 7, "moment": "wait",
+	"seats": [
+		{"sin": "Envy", "you": true, "score": 640},
+		{"sin": "Greed", "score": 1725},
+		{"sin": "Wrath", "score": 905},
+		{"sin": "Gluttony", "score": 1180}
+	],
+	"cur": 0,
+	"turn": {"faces": [], "points": 0, "strikes": 0},
+	"seal": "idle", "call_at": 600, "rounds_left": 0,
+	"question": "The game is done. Greed reached 1725.",
+	"choices": [{"text": "New game", "value": "new"}]
+}
