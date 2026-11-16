@@ -12,8 +12,6 @@ const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const RulesText = preload("res://ui/rules_text.gd")
 
-const SPEAK_FOR := 2.6   # s a spoken line stays
-
 var main               # ui/main.gd
 var view               # ui/table_blockout.gd
 var _snap := {}
@@ -35,6 +33,8 @@ var _master_target := -1     # the seat his "mark" arm reaches to
 var _offer_seat := -1        # REPLY 16: the offer beat, his card held toward this seat's window
 var _master_left := 0.0
 var _master_pending := ""  # said while the table was hidden: shown when it returns
+var _pending_must := false
+var line_stats := {"shown": 0, "dropped": 0, "waited": 0, "cut": 0}  # REPLY 22: counted for tools (line pace)
 var rounds_left := 0      # REPLY 10: after the Master's call, rounds left (2 penultimate, 1 final); ui/main.gd sets it
 var _idle := 0.0           # s at my decision with no answer (his idle line)
 
@@ -76,10 +76,26 @@ func prompt_cleared() -> void:
 func say(seat: int, line: String) -> void:
 	if seat < 0:
 		return
-	_speak = {"seat": seat, "line": line}
-	_speak_left = SPEAK_FOR
-	_master = ""  # never the Master and a Sin at once
-	_master_left = 0.0
+	if _line_up():  # REPLY 22: a line always holds its minimum; one arriving meanwhile is dropped
+		line_stats.dropped += 1
+		return
+	_show_line(line, {"seat": seat, "line": line})
+
+
+## A line is up and has not held Tuning.LINE_MIN yet.
+func _line_up() -> bool:
+	return _speak_left > 0.0 or _master_left > 0.0
+
+
+## Shows a line: a Sin's (speak set) or the Master's; never both at once.
+func _show_line(line: String, speak: Dictionary) -> void:
+	if _line_up():
+		line_stats.cut += 1
+	line_stats.shown += 1
+	_speak = speak
+	_speak_left = Tuning.LINE_MIN if not speak.is_empty() else 0.0
+	_master = "" if not speak.is_empty() else line
+	_master_left = Tuning.LINE_MIN if speak.is_empty() else 0.0
 	_draw()
 
 
@@ -124,18 +140,25 @@ func master_offer(seat: int) -> void:
 
 
 ## The Master of the Dance says a line (ui/main.gd master_event) from his figure, in a pose, for
-## Tuning.MASTER_FOR; while the table is hidden it waits until the table returns.
-func master_say(line: String, pose := "speak", target := -1) -> void:
+## at least Tuning.LINE_MIN; while the table is hidden it waits until the table returns. REPLY 22: while
+## another line holds, his line is dropped, unless it must be heard (his call, his mark, the end): that waits.
+func master_say(line: String, pose := "speak", target := -1, must := false) -> void:
+	if not visible:
+		_master_pose = pose
+		_master_target = target
+		_master_pending = line
+		_pending_must = must
+		return
+	if _line_up():
+		if not must:
+			line_stats.dropped += 1
+			return
+		line_stats.waited += 1
+		while _line_up():
+			await main.get_tree().process_frame
 	_master_pose = pose
 	_master_target = target
-	if not visible:
-		_master_pending = line
-		return
-	_speak = {}
-	_speak_left = 0.0
-	_master = line
-	_master_left = Tuning.MASTER_FOR
-	_draw()
+	_show_line(line, {})
 
 
 func _process(delta: float) -> void:
@@ -148,14 +171,14 @@ func _process(delta: float) -> void:
 		if on and _master_pending != "":
 			var l := _master_pending
 			_master_pending = ""
-			master_say(l, _master_pose, _master_target)
+			master_say(l, _master_pose, _master_target, _pending_must)
 	if _speak_left > 0.0:
-		_speak_left -= delta * Tuning.pace
+		_speak_left -= delta * Tuning.speed  # real seconds at 1x, bots' turns too
 		if _speak_left <= 0.0:
 			_speak = {}
 			_draw()
 	if _master_left > 0.0:
-		_master_left -= delta * Tuning.pace
+		_master_left -= delta * Tuning.speed
 		if _master_left <= 0.0:
 			_master = ""
 			_draw()

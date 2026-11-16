@@ -915,7 +915,7 @@ func _start(my_sin: Script, saved := {}) -> void:
 	options["powers"] = options.get("powers", false) and not _first_game  # nor powers (Onboarding game one)
 	_line_turn = -1
 	_lines_used = {}
-	_master_turn = -1
+	_master_round = -1
 	_master_used = {}
 	Tuning.bot_pace_scale = Tuning.FIRST_GAME_BOT_PACE if _first_game else 1.0
 	var seed_value: int = randi() if saved.is_empty() else int(saved.seed)
@@ -3500,7 +3500,7 @@ func _menu_words(on: bool) -> void:
 # ---------- Rules.V5: powers and the Master of the Dance (Docs/TableDesign.md §10) ----------
 
 var _power_before: Array = []  # the throw as it was when the power became ready
-var _master_turn := -1         # the turn the Master last spoke (at most one line a turn)
+var _master_round := -1        # REPLY 22: the round he last said a line other than his call, mark or end (one a round)
 var _master_used := {}
 
 
@@ -3527,7 +3527,7 @@ func _power_event(kind: String, p) -> void:
 
 
 ## core/game.gd _master: a fact happened. Pick his line for it (only lines whose fact is true),
-## at most one a turn, on about MASTER_CHANCE of events; offers announce inside the offer's entrance.
+## at most one a round besides his call, mark and end (REPLY 22), on about MASTER_CHANCE of events; offers announce inside the offer's entrance.
 func master_event(kind: String, p, facts: Dictionary) -> void:
 	if game == null or not game.opt("v5", false) or _tutor != null:
 		return
@@ -3573,8 +3573,8 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 	var always: bool = kind in ["start", "end", "claim", "call", "final", "leader_mark"]
 	if not always and randf() >= Tuning.MASTER_CHANCE:
 		return
-	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
-	if _master_turn == turn_id and not kind in ["end", "call", "final", "leader_mark"]:
+	var must: bool = kind in ["end", "call", "final", "leader_mark"]  # these wait for a line up (REPLY 22)
+	if not must and _master_round == game.round_count:
 		return
 	if kind == "end":  # REPLY 12: his win line reads the winner's score, not 1000 or the call
 		args["win"] = int(p.score)
@@ -3586,7 +3586,8 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 		return
 	var line: String = fresh[randi() % fresh.size()]
 	_master_used[line] = true
-	_master_turn = turn_id
+	if not must:
+		_master_round = game.round_count
 	var left: int = 2 if kind == "call" else (1 if kind == "final" else 0)  # rounds the track shows left
 	var pose: String = "call" if left > 0 else ("mark" if kind == "leader_mark" else "speak")
 	var target: int = game.players.find(p) if kind == "leader_mark" else -1
@@ -3594,7 +3595,7 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 		if _table:
 			if left > 0:
 				_table.rounds_left = left
-			await _table.master_say(line, pose, target)
+			await _table.master_say(line, pose, target, must)
 			if left > 0:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
 
@@ -3627,10 +3628,9 @@ func master_offer_line(from) -> String:
 func master_idle() -> void:
 	if game == null or not game.opt("v5", false):
 		return
-	var turn_id: int = game.round_count * 10 + game.players.find(game.current)
-	if _master_turn == turn_id:
+	if _master_round == game.round_count:
 		return
 	var pool: Array = RulesText.master_lines("idle", [])
-	_master_turn = turn_id
+	_master_round = game.round_count
 	if _table and not pool.is_empty():
 		_table.master_say(pool[randi() % pool.size()])
