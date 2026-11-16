@@ -127,7 +127,8 @@ func _play(game) -> Dictionary:
 			var sc: Array = game.players.map(func(q): return q.score)
 			sc.sort()
 			st.lead2 = [sc[3] - sc[2], sc[3] - sc[0]]
-		if master_at > 0 and called < 0 and game.leader_score() >= master_at:
+		# call_floor=R (REPLY 17): the call can fire at the end of round R at the earliest (R 3: games of 5+ rounds)
+		if master_at > 0 and called < 0 and game.leader_score() >= master_at and game.round_count >= int(opts.get("call_floor", 0)):
 			called = game.round_count  # the Master calls it: the next round is the penultimate
 			game.called_round = called
 			st.called = called
@@ -321,7 +322,7 @@ func _pct(a: float, b: float) -> float:
 func _report(name: String, r: Dictionary, short: bool) -> void:
 	var g: float = r.games
 	var rules := []
-	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark", "eat", "idle_face", "idle_one", "hubris_mult", "hubris_targets"]:
+	for k in ["borrow", "borrow_every", "swap", "swap_every", "master_round", "buy_from_bank", "win_score", "scale_bots", "temptations", "turn_cap", "first_ones", "greed_mult", "audit", "chain", "chain_cap", "soften", "mark", "eat", "idle_face", "idle_one", "hubris_mult", "hubris_targets", "call_floor"]:
 		if opts.has(k) and not (k == "win_score" and master_at > 0) and not (k == "temptations" and opts[k] == true):
 			rules.append("%s=%s" % [k, str(opts[k])])
 	print("== %s | seed %d, %d games, 4 seats, V5%s" % [name, seed0, r.games, (" " + " ".join(rules)) if not rules.is_empty() else ""])
