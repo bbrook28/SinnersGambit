@@ -1,19 +1,26 @@
-# Packet: REPLY 12 (totals, old board, roll and bust audit, bank caps; local, not pushed)
-**Built:** a6c35bf every total at its track marker (bone on ink; above a rival's head with its crown above, under mine; heads on a level spread to fit) · 79fdfa9 old board out of the build · 3d006db the Master's win line reads the winner's score · 39500f4 sim audit, roll audit, turn_cap and first_ones. Suite: all 10 pass. Text audit: all 28 table fixtures clean at se and std (new: table_end).
-**How a player reached the old board in 116:** (1) the game end. With a winner the table hid itself, and main's old board showed (banner, final scores, chain "x3.5", "New game"). That matches your 1725. (2) The table also hides under an offer, a page, settings or the log, with the old board drawn beneath. (3) Settings > Tutorial ran the V3 tutorial on the old board. **Now:** the game ends on the table ("New game" in the choice row). A dark cover hides the old board's scores and dice whenever the table steps aside (the thumb row stays, since offers use it), and the tutorial row is gone from the table build.
-**Sheet:** before and after: table_master_call, table_buy; then after only: table_close_7 (7 seats), table_end. Seen: with totals the band grows, so 7-seat windows shrink. The totals of the two head levels sit close. On table_end, my 640 sits over the post's 600.
-**Roll audit (1M dice each, raw throws before any power):** Rules.roll 33.35% Strikes, chi 8.4 · player seat 33.35%, chi 1.9 · bots 33.34%, chi 7.3 (fair is below 11.07). The dice are fair and the same for everyone.
-**Why it busts:** the chance that one throw from scratch reaches 3 Strikes, exactly: 3 dice 4%, 4 dice 11%, 5 dice 21%, 6 dice 32%, 7 dice 43%, 8 dice 53%. Per throw in play (Novice / Gambler): 3 dice 12/16%, 5 dice 33/27%, 6 dice 31/36%, 8 dice 55/41%. Per turn: Novice 28-44%, Gambler 50-56%. Turns banking 0: 42% overall, Gambler 53%.
-**Banks (call at 600):** median / p90 / max: round 1 110/315/1390, round 2 130/405/2205, round 4 45/435/2185. Points come 46% from faces, **44% from the chain multiplier**, and 10% from everything else.
-**Tests** (20000 mixed games, call at 600; Sin range · lead after round 2 over 2nd / last · last seat wins · zero-bank turns):
-- base: 19.3-33.1 · 202 / 445 · 3.9% · 42.3%
-- (a) cap 300 before the call: 17.1-34.9 · 165 / 378 · 4.9% · 40.8% (Greed 34.9: Cash Out multiplies the capped bank)
-- (a) cap 400: 18.4-33.3 · 177 / 409 · 4.4% · 41.6%
-- (b) only 1s strike on the first throw: 14.0-38.6 · 222 / 498 · 3.7% · 38.6% (Envy 38.6, Greed 37.0)
-- Greed Cash Out x1.25: 20.3-34.8; Greed drops 32.1 → 24.5, and Envy (34.8) is now on top.
+# Packet: REPLY 13 (chain multiplier and bust softener; sim only)
+**Setup:** de05313 adds `chain_cap`, `soften=first|half` and `odd_kinds` to the sim. Every run uses the call at 600 and Greed Cash Out x1.25, seed 1, 20000 mixed games, and 4000 games for each odd seat. Bots don't know about the softener: they still treat a bust as 0. No build.
+
+| run | Sin range | Envy | Greed | lead after r2 (2nd / last) | last seat wins | 0-bank turns (all / Gambler) | chain share | rounds | odd seat Novice / Banker / Gambler |
+|---|---|---|---|---|---|---|---|---|---|
+| chain 0.5 (base) | 20.3-34.8 | 34.8 | 24.5 | 189 / 424 | 4.2% | 41% / 52% | 44% | 5.10 | 19.4 / 22.1 / 21.3 |
+| chain 0.25 | 15.8-31.7 | 31.7 | 30.3 | 146 / 322 | 3.3% | 41% / 51% | 28% | 5.83 | 20.0 / 24.1 / 19.8 |
+| chain 0.5, capped x2 | **20.1-29.7** | 25.1 | 29.4 | 170 / 394 | 3.4% | 42% / 53% | 38% | 5.26 | 20.2 / 24.2 / 20.3 |
+| chain off (ref) | 9.1-44.0 | 23.0 | 44.0 | 111 / 235 | 1.7% | 41% / 51% | 0% | 7.20 | 24.4 / 32.7 / 18.0 |
+| base + (a) first throw | 20.0-34.6 | 34.6 | 25.9 | 183 / 411 | 4.7% | 12% / 13% | 40% | 5.02 | 19.4 / 21.6 / 22.1 |
+| base + (b) half faces | 19.8-34.7 | 34.7 | 25.4 | 185 / 414 | 4.4% | 11% / 12% | 40% | 5.04 | 19.6 / 22.7 / 22.8 |
+| cap x2 + (a) | 19.5-31.8 | 24.3 | 31.8 | 164 / 382 | 3.7% | 12% / 14% | 34% | 5.15 | 20.1 / 24.2 / 22.6 |
+| cap x2 + (b) | 19.6-30.8 | 24.5 | 30.8 | 166 / 384 | 3.6% | 11% / 12% | 35% | 5.19 | 20.3 / 24.6 / 22.6 |
+
+**Bank per turn, median / p90 / max** (round 1 · round 3 · round 5):
+- base: 115/315/1390 · 110/405/2245 · 0/435/2310 · chain 0.25: 90/265/1075 · 90/305/1425 · 40/320/1680
+- cap x2: 115/315/1390 · 105/360/1415 · 0/350/1875 · chain off: 75/205/775 · 70/200/715 · 55/200/885
+- cap x2 + (a): 115/315/1390 · 110/360/1435 · 85/350/1450 · cap x2 + (b): 115/315/1390 · 105/360/1435 · 75/350/1715
+
+**What it says:** the x2 cap is the best single change: it ends Envy's lead (34.8 → 25.1) and gives the narrowest range, with rounds nearly unchanged. Chain 0.25 tames the lead most but adds 0.7 of a round (24% of games go past 6 rounds) and spreads the Sins. Either softener cuts zero-bank turns from 41% to 11-12% without moving the Sin balance. The last seat's chance stays at 3-5% in every run. Under the cap, Greed (29-32) and Gluttony (29-30) are the high pair.
 
 **Questions**
-1. The chain multiplier makes up 44% of all points and causes the spikes. Should I sim chain 0.25 (from 0.5) under the call? Rec: yes, before any cap.
-2. Cap 300 narrows the lead after round 2 by about 40 but widens the Sin range. Should I test it with the cap applied after Cash Out? Rec: hold it until question 1 is answered.
-3. Only-1s on the first throw cuts zero-bank turns by 4 points but feeds Envy and Greed. Drop it? Rec: drop it.
-4. Greed x1.25 brings Greed back to fair. Make it the next sim baseline (still sim only)? Rec: yes.
+1. Take chain capped at x2 as the rule for the next build? Rec: yes.
+2. Which softener: (b) half the turn's face points, or (a) the first throw's? Rec: (b). It is one rule ("a bust keeps half your face points") and gives the fewest zero-bank turns.
+3. Should I teach the bots the softener (a bust is worth half the face points) and re-run cap x2 + (b), before the build? Rec: yes. Today's bots under-press, so the numbers above are conservative.
+4. Under the cap, Greed sits at 31%. Should I sim Cash Out at x1.1? Rec: hold it until question 3 is in.
