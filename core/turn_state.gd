@@ -14,3 +14,4 @@ var tempt_ready := false    # an offer may still be made this turn (Rules.V4)
 var x2 := false             # the next throw scores double (a temptation)
 var extra_dice := 0         # the next throw has this many more dice (a temptation)
 var lazy_used := 0         # Sloth's Lazy Bones: Strikes ignored this turn
+var power_used := false     # Rules.V5: this turn's power (the seal) is spent

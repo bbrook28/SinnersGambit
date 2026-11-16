@@ -25,6 +25,7 @@ func check(ok: bool, what: String) -> void:
 
 func _initialize() -> void:
 	_rules()
+	check(TurnState.new().power_used == false, "a new turn has its power unspent")
 	for f in fails:
 		print("FAIL ", f)
 	print("V5 CHECK %s: %d checks" % ["PASSED" if fails.is_empty() else "FAILED (%d)" % fails.size(), checks])
