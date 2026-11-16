@@ -3586,7 +3586,7 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 		if _table:
 			if left > 0:
 				_table.rounds_left = left
-			await _table.master_say(line)
+			await _table.master_say(line, "call" if left > 0 else "speak")
 			if left > 0:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
 

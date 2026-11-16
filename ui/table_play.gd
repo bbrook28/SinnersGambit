@@ -29,7 +29,8 @@ var _gain := 0             # its points, shown over the dice until the stake tak
 var _gain_base := 0
 var _standings: Control
 var _firing := {}          # Rules.V5: a power firing now {seat, dice}
-var _master := ""          # the Master's line by the skeleton
+var _master := ""          # the Master's line, spoken from his figure over the windows
+var _master_pose := "speak"  # REPLY 14: "speak", or "call" (arm raised) for his call and the final round
 var _master_left := 0.0
 var _master_pending := ""  # said while the table was hidden: shown when it returns
 var rounds_left := 0      # REPLY 10: after the Master's call, rounds left (2 penultimate, 1 final); ui/main.gd sets it
@@ -114,12 +115,14 @@ func power_fired(seat: int, _sname: String, changed: Array) -> void:
 	_draw()
 
 
-## The Master of the Dance says a line (ui/main.gd master_event): ink by the skeleton for
+## The Master of the Dance says a line (ui/main.gd master_event) from his figure, in a pose, for
 ## Tuning.MASTER_FOR; while the table is hidden it waits until the table returns.
-func master_say(line: String) -> void:
+func master_say(line: String, pose := "speak") -> void:
 	if not visible:
 		_master_pending = line
+		_master_pose = pose
 		return
+	_master_pose = pose
 	_speak = {}
 	_speak_left = 0.0
 	_master = line
@@ -137,7 +140,7 @@ func _process(delta: float) -> void:
 		if on and _master_pending != "":
 			var l := _master_pending
 			_master_pending = ""
-			master_say(l)
+			master_say(l, _master_pose)
 	if _speak_left > 0.0:
 		_speak_left -= delta * Tuning.pace
 		if _speak_left <= 0.0:
@@ -251,7 +254,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master]
+		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -275,6 +278,8 @@ func _draw() -> void:
 	view.firing = _firing
 	view.stand_live = stand
 	view.master_line = _master
+	view.master_pose = _master_pose if _master != "" else "rest"
+	view.master_target = -1
 	if g.called_round < 0:
 		rounds_left = 0  # a new game
 	view.call_at = int(g.master_call)

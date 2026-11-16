@@ -1,0 +1,13 @@
+{
+	"screen": "table", "seed": 7, "moment": "decision",
+	"seats": [
+		{"sin": "Pride", "you": true, "score": 610},
+		{"sin": "Greed", "score": 410},
+		{"sin": "Wrath", "score": 280},
+		{"sin": "Gluttony", "score": 720}
+	],
+	"cur": 0,
+	"turn": {"faces": [5, 4, 3, 6, 1], "points": 210, "strikes": 1},
+	"seal": "spent", "call_at": 600,
+	"master": "Gluttony leads. Her chain sleeps this round.", "master_pose": "mark", "master_target": 3
+}

@@ -59,7 +59,9 @@ const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
 const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
 const CHOICE_PER_ROW := 5
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
-const MASTER_BELOW_POST := 48.0  # under the call, the Master's line drops this far below the band, under the post's number
+const MASTER_GAP := 24.0   # between the Master's band and the window row (REPLY 14)
+const MASTER_MAX := 1.0    # the Master stands at most one active window tall (twice a rival's window)
+const ROBE := Color("5b3a52")  # the Master's blockout robe: flat, muted plum, edged in bone
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -80,7 +82,7 @@ var can_throw := true
 var safe := Vector2.ZERO
 ## Rules.V5: my seal ("" none, "ready" glowing and live, "idle" unspent, "spent"), the face Lust's seal
 ## shows (0 none), a power firing ({seat, dice: [indices it changed]}), the dice live as "let it stand",
-## and the Master's line by the skeleton.
+## and the Master's line (spoken from his figure over the windows, REPLY 14).
 var seal := ""
 var seal_face := 0
 var firing := {}
@@ -92,6 +94,10 @@ var ghost_nodes: Array = []  # their ghost markers, in that order
 var band_bottom := 0.0  # the foot of the track band (a choice row past five wraps below it)
 var call_at := 0       # REPLY 10: the Master calls the end when the leader reaches this (0: first to 1000 wins)
 var rounds_left := 0   # after his call: 2 (penultimate round), 1 (final round)
+## The Master's figure (REPLY 14, blockout): rest, speak, call (arm raised), mark (arm to master_target's
+## window, a ring on it), offer (both hands out to master_target's window, a card held).
+var master_pose := "rest"
+var master_target := -1
 
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
@@ -208,21 +214,23 @@ func build() -> void:
 	var bw: float = (vp.x - 2.0 * SIDE - (n - 1) * WIN_GAP) / (n + 1)
 	var wh_active: float = 2.0 * bw * WIN_RATIO
 	var wy_min: float = safe.x + 20.0
+	# REPLY 14: the Master stands over the row, as tall as the active window (twice a rival's), so the
+	# wall must hold both. The dice give way first, then every window together.
+	var wall: float = wh_active * 2.0 + MASTER_GAP
 	# Dice give way before the windows do.
 	var ds: float = minf(DIE_MAX if rows == 1 else DIE_MAX_ROWS, (dw - (per - 1) * DIE_GAP) / per)
 	var dy: float = 0.0
 	while true:
 		dy = stake_top - 56.0 - rows * ds - (rows - 1) * 34.0
-		if dy - 40.0 - band_h - gain_h >= wy_min + wh_active + UNDER_WIN or ds <= DIE_MIN:
+		if dy - 40.0 - band_h - gain_h >= wy_min + wall + UNDER_WIN or ds <= DIE_MIN:
 			break
 		ds -= 6.0
-	var pt: float = maxf(dy - 70.0 - band_h - gain_h, wy_min + wh_active + UNDER_WIN)
+	var pt: float = maxf(dy - 70.0 - band_h - gain_h, wy_min + wall + UNDER_WIN)
 	pt = minf(pt, dy - 40.0 - band_h - gain_h)
 	var room: float = pt - UNDER_WIN - wy_min
-	var k: float = minf(1.0, room / wh_active)  # only if even the smallest dice leave no room
-	# The active window grows into spare wall above, as wide as the row allows.
-	var aw: float = minf(room / WIN_RATIO, vp.x - 2.0 * SIDE - (n - 1) * (bw * k + WIN_GAP))
-	aw = maxf(aw, 2.0 * bw * k)
+	var k: float = minf(1.0, (room - MASTER_GAP) / (wh_active * 2.0))  # only if even the smallest dice leave no room
+	var aw: float = 2.0 * bw * k  # the active window: twice a rival's; spare wall goes to the Master
+	var mh: float = minf(room - MASTER_GAP - aw * WIN_RATIO, aw * WIN_RATIO * MASTER_MAX)
 	var pg := Rect2(px0, pt, px1 - px0, pb - pt)
 	page_rect = pg
 
@@ -250,6 +258,7 @@ func build() -> void:
 			wr = r
 		if i == me:  # yours: a crimson bar under it
 			_rect(Rect2(r.get_center().x - minf(w, 120.0) * 0.4, r.end.y + 8, minf(w, 120.0) * 0.8, 10), CRIMSON)
+	_master_figure(Rect2(0.0, wb - aw * WIN_RATIO - MASTER_GAP - mh, vp.x, mh), win_rects, px0, px1)
 
 	# Light through the active window, down across the gap and onto the page, in its colour.
 	var shaft := Polygon2D.new()
@@ -508,19 +517,89 @@ func build() -> void:
 			near.add_child(glow)
 			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, near)  # wick
 			_flame(near, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
-	var skel := Rect2(c_l + cw - 36.0, ct - 118.0, 100, 118)
-	_ink_figure(Art.MARGINALIA.skeleton[0], skel, near)
-	# The Master's line (REPLY 11): one line of ink centred on the page at the top of the strip between
-	# the track band and the dice, clear of the candles and the skeleton; under the call it sits below
-	# the post's number. Never under 44 px (15 pt). It does not dim with my edge.
-	if master_line != "":
-		var left: float = px0 + 40.0
-		var right: float = px1 - 40.0
-		var ml := _label(master_line, 44, INK, BONE)  # a bone edge keeps it legible under a seat's cone of light
-		ml.add_theme_font_override("font", Style.SERIF)
-		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		ml.position = Vector2(left, band_bottom + (MASTER_BELOW_POST if call_at > 0 else 8.0))
-		ml.size = Vector2(right - left, 56.0)
+	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
+
+
+## The Master of the Dance (REPLY 14), a flat blockout in the band over the windows: hood, bone mask,
+## robe edged in bone, a gold collar; his arms by pose. His line sits in the band on the side away from
+## his reach, bone on ink, never under 44 px.
+func _master_figure(band: Rect2, win_rects: Array, px0: float, px1: float) -> void:
+	var H: float = band.size.y
+	if H < 120.0:
+		return
+	var cx: float = band.get_center().x
+	var y0: float = band.position.y
+	var edge := Color(BONE, 0.85)
+	var none := Color(0, 0, 0, 0)
+	var sh_l := Vector2(cx - 0.15 * H, y0 + 0.30 * H)
+	var sh_r := Vector2(cx + 0.15 * H, y0 + 0.30 * H)
+	var hem_l := Vector2(cx - 0.27 * H, y0 + H)
+	var hem_r := Vector2(cx + 0.27 * H, y0 + H)
+	var robe := Polygon2D.new()
+	robe.polygon = PackedVector2Array([sh_l, sh_r, hem_r, hem_l])
+	robe.color = ROBE
+	add_child(robe)
+	_line([sh_l, sh_r, hem_r, hem_l, sh_l], edge, 3.0, none)
+	var hood := Vector2(cx, y0 + 0.17 * H)
+	_disc(hood, 0.12 * H, ROBE, edge)
+	_disc(hood + Vector2(0, 0.02 * H), 0.065 * H, BONE, INK)  # the mask
+	_line([sh_l + Vector2(0.03 * H, 0.03 * H), Vector2(cx, y0 + 0.38 * H), sh_r + Vector2(-0.03 * H, 0.03 * H)], GOLD, 5.0, none)
+	# Arms: shoulder to hand; mark and offer reach for the target window's top centre.
+	var tgt := Vector2.ZERO
+	if master_target >= 0 and master_target < win_rects.size():
+		var tr: Rect2 = win_rects[master_target]
+		tgt = Vector2(tr.get_center().x, tr.position.y + minf(40.0, tr.size.y * 0.15))
+	var hand_l := Vector2(cx - 0.19 * H, y0 + 0.64 * H)
+	var hand_r := Vector2(cx + 0.19 * H, y0 + 0.64 * H)
+	var reach_left := false
+	var reaching: bool = master_pose in ["mark", "offer"] and tgt != Vector2.ZERO
+	match master_pose:
+		"speak":
+			hand_r = Vector2(cx + 0.32 * H, y0 + 0.46 * H)
+		"call":
+			hand_r = Vector2(cx + 0.24 * H, y0 + 0.02 * H)
+	if reaching:
+		reach_left = tgt.x < cx
+		var sh: Vector2 = sh_l if reach_left else sh_r
+		var hand: Vector2 = tgt - (tgt - sh).normalized() * 18.0
+		var other: Vector2 = sh_r if reach_left else sh_l
+		if reach_left:
+			hand_l = hand
+		else:
+			hand_r = hand
+		if master_pose == "offer":  # the other hand follows, the card between
+			if reach_left:
+				hand_r = other.lerp(hand, 0.55)
+			else:
+				hand_l = other.lerp(hand, 0.55)
+	for arm in [[sh_l, hand_l], [sh_r, hand_r]]:
+		_line([arm[0], arm[1]], ROBE, 0.06 * H, none)
+		_disc(arm[1], 0.035 * H, BONE, INK)
+	if reaching and master_pose == "mark":  # his mark on the leader's window: a gold ring
+		var ring := []
+		var rr: float = minf(34.0, (win_rects[master_target] as Rect2).size.x * 0.3)
+		for j in 41:
+			ring.append(tgt + Vector2.from_angle(TAU * j / 40.0) * rr)
+		_line(ring, GOLD, 6.0, none)
+	if reaching and master_pose == "offer":  # the offer: a bone card in his reaching hand
+		var hc: Vector2 = hand_l if reach_left else hand_r
+		var card := Rect2(hc - Vector2(26, 36), Vector2(52, 72))
+		_rect(card, BONE)
+		_line([card.position, Vector2(card.end.x, card.position.y), card.end, Vector2(card.position.x, card.end.y), card.position], INK, 3.0, none)
+	if master_line != "":  # his words, in the band on the side away from his reach (left otherwise)
+		var on_left: bool = not (reaching and reach_left)
+		var fig_w: float = 0.30 * H
+		var l: float = maxf(px0 + 16.0, 52.0) if on_left else cx + fig_w + 16.0  # 52 px: clear of the 16 pt side margin
+		var r: float = cx - fig_w - 16.0 if on_left else minf(px1 - 16.0, band.end.x - 52.0)
+		# Built wrapping from the start (_label is one line; a Label never shrinks below its unwrapped width).
+		var ml := Style.label(master_line, 44, BONE, false, 10)
+		ml.add_theme_color_override("font_outline_color", INK)
+		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if on_left else HORIZONTAL_ALIGNMENT_LEFT
+		ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		ml.custom_minimum_size = Vector2(r - l, 0)
+		ml.position = Vector2(l, y0)
+		ml.size = Vector2(r - l, H * 0.7)
+		add_child(ml)
 		master_label = ml
 
 
