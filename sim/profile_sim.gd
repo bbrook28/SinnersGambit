@@ -289,6 +289,14 @@ func _audit_report(r: Dictionary) -> void:
 				var e: Array = table[1][k].get(d, [0, 0])
 				row += " %d: %s" % [d, ("%.0f%% (n %d)" % [_pct(e[1], e[0]), e[0]]) if e[0] > 0 else "-"]
 			print(row)
+	var tl := "  bust per turn, all dice (REPLY 22):"
+	for k in r.au_turn:
+		var e := [0, 0]
+		for d in r.au_turn[k]:
+			e[0] += r.au_turn[k][d][0]
+			e[1] += r.au_turn[k][d][1]
+		tl += " %s %.3f" % [k, float(e[1]) / maxf(1.0, e[0])]
+	print(tl)
 	var zl := "  turns banking 0:"
 	var zt := [0, 0]
 	for k in r.au_zero:
