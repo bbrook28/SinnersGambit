@@ -31,7 +31,7 @@ func _initialize() -> void:
 		var vp: Vector2 = t.get_viewport_rect().size
 		print("## %s (%s, layout %dx%d px)" % [name, size, int(vp.x), int(vp.y)])
 		var b: Dictionary = t.boxes
-		for k in ["head", "mask", "shoulders", "robe", "arm", "card"]:
+		for k in ["head", "mask", "shoulders", "robe", "arm", "card", "line"]:
 			if b.has(k):
 				print("  %-9s %s" % [k, _r(b[k])])
 		var ws := []

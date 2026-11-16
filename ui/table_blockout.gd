@@ -38,6 +38,7 @@ const SIDE := 40.0         # px, screen side margin
 const WIN_GAP := 12.0
 const WIN_RATIO := 1.8     # window crop height / width (as the board windows)
 const UNDER_WIN := 190.0   # the zone at the windows' feet: a rival's stake, a spoken line, a choice row (REPLY 16: over the windows)
+const LINE_MIN_W := 380.0  # the Master's plate is never narrower for his arm (REPLY 17: a 6-word line in two lines)
 const ROW_GAP := 22.0      # the gap left under the window row: my crimson bar (REPLY 16; the windows took the rest)
 const GOAL := 1000.0       # first to 1000 wins
 const SEAL := 236.0        # Bank and Throw, px (86 pt)
@@ -597,7 +598,7 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	add_child(hp)
 	_line(cowl.slice(0, 27), edge, 5.0, none)
 	_line([cowl[0], cowl[26]], edge, 5.0, none)
-	var mask := Rect2(cx - head_w * 0.2, cy - ry * 0.35, head_w * 0.4, ry * 1.1)
+	var mask := Rect2(cx - head_w * 0.2, top + ry * 0.2, head_w * 0.4, ry * 0.95)  # high in the hood: his line sits under it (REPLY 17)
 	_ellipse(mask, BONE, INK, 4.0)
 	for e in [-1, 1]:  # eye holes
 		_ellipse(Rect2(cx + e * head_w * 0.085 - head_w * 0.04, mask.position.y + mask.size.y * 0.32, head_w * 0.08, mask.size.y * 0.16), INK, none, 0.0)
@@ -606,7 +607,7 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	boxes["mask"] = mask
 	boxes["shoulders"] = Rect2(cx - sw, y_sh - 4.0, 2.0 * sw, 8.0)
 	boxes["robe"] = Rect2(0, y_sh, w, bottom - y_sh)
-	return {"cx": cx, "top": top, "y_sh": y_sh, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y,
+	return {"cx": cx, "top": top, "y_sh": y_sh, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y, "act": win_rects[cur],
 		"sh_l": Vector2(cx - sw * 0.8, y_sh - rw * 0.15), "sh_r": Vector2(cx + sw * 0.8, y_sh - rw * 0.15)}  # arm joints on the shoulder line
 
 
@@ -666,8 +667,12 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 				var card := Rect2(tr.get_center().x - cw / 2.0, tr.position.y - 12.0 - cw * 1.4, cw, cw * 1.4)
 				card.position.y = maxf(card.position.y, mf.top)
 				boxes["card"] = card
+				card.position.y = maxf(card.position.y, safe.x + 4.0)
+				boxes["card"] = card
 				hand = Vector2(card.get_center().x, card.position.y + 10.0)
 	if hand != Vector2.ZERO:
+		# REPLY 17: never above the safe line, the sleeve's round end (half the arm's width) and its outline included
+		hand.y = maxf(hand.y, safe.x + maxf(aw * 0.5, minf(aw * 0.36, 60.0)) + 3.0)
 		if master_pose != "call":
 			reach_left = hand.x < cx
 		var sh: Vector2 = mf.sh_l if reach_left else mf.sh_r
@@ -678,14 +683,32 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			_rect(card, BONE)
 			_line([card.position, Vector2(card.end.x, card.position.y), card.end, Vector2(card.position.x, card.end.y), card.position], INK, 4.0, none)
 		_disc(hand, minf(aw * 0.36, 60.0), BONE, INK)
-	if master_line != "":  # his words on an ink plate across the rivals' middles, centred on him (their tops and rings stay clear)
-		var lw: float = clampf(mf.head_w * 1.3, 300.0, px1 - px0 - 32.0)
-		var l: float = clampf(cx - lw / 2.0, maxf(px0 + 16.0, 52.0), minf(px1 - 16.0, vp_w - 52.0) - lw)
+	if master_line != "":  # REPLY 17: his words on an ink plate in his robe, just above the rivals' tops, centred on him
+		var act: Rect2 = mf.act  # never across the active window, which is as tall as the wall
+		var lo: float = maxf(px0 + 16.0, 52.0)
+		var hi: float = minf(px1 - 16.0, vp_w - 52.0)
+		if act.get_center().x < cx:
+			lo = maxf(lo, act.end.x + 12.0)
+		else:
+			hi = minf(hi, act.position.x - 12.0)
+		for k in ["card", "arm"]:  # nor across the card in his hand, nor his reaching arm if two lines still fit
+			if not boxes.has(k):
+				continue
+			var r: Rect2 = boxes[k]
+			var l2: float = lo
+			var h2: float = hi
+			if r.get_center().x < cx:
+				l2 = maxf(lo, r.end.x + 12.0)
+			else:
+				h2 = minf(hi, r.position.x - 12.0)
+			if k == "card" or h2 - l2 >= LINE_MIN_W:
+				lo = l2
+				hi = h2
+		var lw: float = hi - lo
 		var ml := Style.label(master_line, 44, BONE, false, 10)
 		ml.add_theme_color_override("font_outline_color", INK)
 		ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		ml.custom_minimum_size = Vector2(lw, 0)
-		ml.position = Vector2(l, mf.rt + (mf.wb - mf.rt) * 0.4)
 		ml.size = Vector2(lw, 0)
 		var plate := ColorRect.new()
 		plate.color = Color(BLACK, 0.8)
@@ -694,8 +717,10 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		add_child(ml)
 		var th: float = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
+		ml.position = Vector2(lo, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
 		plate.position = ml.position - Vector2(12, 6)
 		plate.size = Vector2(lw + 24, th + 12)
+		boxes["line"] = Rect2(plate.position, plate.size)
 		master_label = ml
 
 
