@@ -1574,7 +1574,11 @@ func _build_thumb(zone: VBoxContainer) -> void:
 
 func _show_skip(on: bool) -> void:
 	if _skip:
-		_skip.visible = on and not _replaying and _tutor == null
+		_skip.visible = on and not _replaying and _tutor == null and not _table_showing()
+
+
+func _table_showing() -> bool:
+	return _table != null and _table.showing()
 
 
 func _build_log_overlay() -> void:
@@ -1738,7 +1742,7 @@ func _input(event: InputEvent) -> void:
 	if _long_fired or event.position.distance_to(at) > PRESS_SLOP or _hovered_button() == _summary:
 		return  # explained already, a drag, or the summary's own tap (the Chronicle)
 	if _q.busy():
-		if now - _last_tap < DOUBLE_TAP:
+		if now - _last_tap < DOUBLE_TAP and not _table_showing():  # the table (REPLY 35): a tap finishes one beat, never more
 			_show_skip(false)
 			_q.skip_to_decision()
 		else:
