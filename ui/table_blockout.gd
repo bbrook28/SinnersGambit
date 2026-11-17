@@ -277,6 +277,17 @@ func build() -> void:
 		t.position = r.position
 		t.size = r.size
 		t.modulate = Color.WHITE if i == cur else Color(0.3, 0.28, 0.3)  # REPLY 16: rivals readable against the plum
+		if i != cur:  # REPLY 25: a rival's glass is dimmed by darkening only; nothing behind shows through it
+			var back := _solid(t.texture)
+			if back:
+				var bk := TextureRect.new()
+				bk.texture = back
+				bk.expand_mode = t.expand_mode
+				bk.stretch_mode = t.stretch_mode
+				bk.position = t.position
+				bk.size = t.size
+				bk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				add_child(bk)
 		add_child(t)
 		_line([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), r.position], INK, 5.0)
 		if i == cur:
@@ -938,6 +949,25 @@ func _halo_tex() -> GradientTexture2D:
 		_halo.width = 128
 		_halo.height = 128
 	return _halo
+
+
+## A window's shape in solid near-black (every pixel the glass covers at all), to back a dimmed window. Cached.
+static var _solids := {}
+func _solid(tex: Texture2D) -> Texture2D:
+	var key := tex.get_instance_id()
+	if not _solids.has(key):
+		var img: Image = tex.get_image()
+		if img == null:  # headless: no pixels
+			return null
+		img = img.duplicate()
+		if img.is_compressed():
+			img.decompress()
+		img.convert(Image.FORMAT_RGBA8)
+		for y in img.get_height():
+			for x in img.get_width():
+				img.set_pixel(x, y, Color(BLACK, 1.0) if img.get_pixel(x, y).a > 0.02 else Color(0, 0, 0, 0))
+		_solids[key] = ImageTexture.create_from_image(img)
+	return _solids[key]
 
 
 ## A flat flame: 0 steady (tall, still, gold), 1 restless (wider, leaning), 2 guttering (low, crimson).
