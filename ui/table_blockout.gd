@@ -97,6 +97,7 @@ const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painte
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
+const PLATE_OVER := 92.0  # REPLY 28: the most his plate may cover the rival windows' tops (as sheeted, REPLY 26)
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -711,14 +712,11 @@ func _run_mid(win_rects: Array, run: Array) -> float:
 	return ((win_rects[run[-1]] as Rect2).end.x + (win_rects[run[0]] as Rect2).position.x) / 2.0
 
 
-## His arm by pose, in front of the windows and as thick as a rival window is wide: rest and speak (none),
-## call (raised), mark (reaching to master_target's window, a gold ring on it), offer (a card held centred
-## just above that window, inside its width). The round's mark stays as a ring on marked_seat's window.
-## His line sits under his collar, on an ink plate, centred on him.
+## His gestures (REPLY 28: no arm in any pose): the round's mark is a gold ring on marked_seat's window.
+## His line sits under his jaw, on the painted plate, centred on him.
 func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> void:
 	var none := Color(0, 0, 0, 0)
 	var cx: float = mf.cx
-	var aw: float = mf.arm_w
 	var vp_w: float = get_viewport_rect().size.x
 	if marked_seat >= 0 and marked_seat < win_rects.size():
 		var mr: Rect2 = win_rects[marked_seat]
@@ -728,37 +726,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		for j in 41:
 			ring.append(rc + Vector2.from_angle(TAU * j / 40.0) * rr)
 		_line(ring, GOLD, 7.0, none)
-	var tr := Rect2()
-	if master_target >= 0 and master_target < win_rects.size():
-		tr = win_rects[master_target]
-	var hand := Vector2.ZERO
-	var reach_left := false
-	match master_pose:
-		# "call": no arm (REPLY 27); his call is the plate alone.
-		"mark":
-			if tr.size.x > 0.0:
-				hand = Vector2(tr.get_center().x, tr.position.y - aw * 0.9)  # pointing at it, clear of the ring
-		"offer":
-			if tr.size.x > 0.0:
-				var cw: float = minf(tr.size.x - 16.0, 170.0)  # inside its window's width: never over a neighbour
-				var card := Rect2(tr.get_center().x - cw / 2.0, tr.position.y - 12.0 - cw * 1.4, cw, cw * 1.4)
-				card.position.y = maxf(card.position.y, mf.top)
-				boxes["card"] = card
-				card.position.y = maxf(card.position.y, safe.x + 4.0)
-				boxes["card"] = card
-				hand = Vector2(card.get_center().x, card.position.y + 10.0)
-	if hand != Vector2.ZERO:
-		# REPLY 17: never above the safe line, the sleeve's round end (half the arm's width) and its outline included
-		hand.y = maxf(hand.y, safe.x + maxf(aw * 0.5, minf(aw * 0.36, 60.0)) + 3.0)
-		reach_left = hand.x < cx
-		var sh: Vector2 = mf.sh_l if reach_left else mf.sh_r
-		_line([sh, hand], ROBE, aw, Color(BONE, 0.7))
-		boxes["arm"] = Rect2(minf(sh.x, hand.x) - aw / 2.0, minf(sh.y, hand.y) - aw / 2.0, absf(sh.x - hand.x) + aw, absf(sh.y - hand.y) + aw)
-		if boxes.has("card"):  # the card, then the hand holding it by its top
-			var card: Rect2 = boxes.card
-			_rect(card, BONE)
-			_line([card.position, Vector2(card.end.x, card.position.y), card.end, Vector2(card.position.x, card.end.y), card.position], INK, 4.0, none)
-		_disc(hand, minf(aw * 0.36, 60.0), BONE, INK)
+	# REPLY 28: no arm in any pose (call, mark, offer): his plate and the mark's gold ring only.
 	# REPLY 22 (A2): a Sin's spoken line takes the same spot, in its blackletter and colour, its sigil at the left.
 	var text: String = master_line
 	var who := ""
@@ -819,6 +787,10 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		if who != "" and ml.get_line_count() > 1:  # REPLY 24: a Sin's line that would wrap drops to SPEAK_SMALL
 			ml.add_theme_font_size_override("font_size", SPEAK_SMALL)
 			th = ml.get_minimum_size().y
+		if who == "":  # REPLY 28: his plate stands at most PLATE_OVER px over the rival tops; his words step down to fit
+			while ml.get_theme_font_size("font_size") > 34 and mf.jaw_y + PLATE_GAP + th + 2.0 * PLATE_PAD.y - mf.rt > PLATE_OVER:
+				ml.add_theme_font_size_override("font_size", ml.get_theme_font_size("font_size") - 2)
+				th = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
 		# REPLY 27: its top 8 px under his jaw; it may stand over the rival windows' tops (TableSpec).
 		ml.position = Vector2(lo + sg, mf.jaw_y + PLATE_GAP + PLATE_PAD.y)
