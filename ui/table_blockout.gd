@@ -97,6 +97,7 @@ const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painte
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
+const MIN_TEXT := 44  # REPLY 28: no text under 15 pt on the smallest phone (375 pt wide: 1080 / 375 px per pt)
 const WORDS_DROP := 9.0  # REPLY 28: a choice row's question sits this far lower inside its plate, off the gold border (the row keeps its height: the layout is locked)
 const PLATE_OVER := 92.0  # REPLY 28: the most his plate may cover the rival windows' tops (as sheeted, REPLY 26)
 
@@ -789,7 +790,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			ml.add_theme_font_size_override("font_size", SPEAK_SMALL)
 			th = ml.get_minimum_size().y
 		if who == "":  # REPLY 28: his plate stands at most PLATE_OVER px over the rival tops; his words step down to fit
-			while ml.get_theme_font_size("font_size") > 34 and mf.jaw_y + PLATE_GAP + th + 2.0 * PLATE_PAD.y - mf.rt > PLATE_OVER:
+			while ml.get_theme_font_size("font_size") - 2 >= MIN_TEXT and mf.jaw_y + PLATE_GAP + th + 2.0 * PLATE_PAD.y - mf.rt > PLATE_OVER:
 				ml.add_theme_font_size_override("font_size", ml.get_theme_font_size("font_size") - 2)
 				th = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
@@ -1207,11 +1208,11 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 		b.set_meta("value", val)
 		b.clip_text = true
 		b.add_theme_font_override("font", Style.BLACKLETTER)
-		var fs := 42
+		var fs := MIN_TEXT + 4
 		var widest := 0.0
 		for part in b.text.split("\n"):
 			widest = maxf(widest, Style.BLACKLETTER.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
-		while fs > 28 and widest > bw - 24.0:
+		while fs > MIN_TEXT and widest > bw - 24.0:
 			fs -= 2
 			widest = 0.0
 			for part in b.text.split("\n"):
@@ -1226,7 +1227,7 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 				var pl := Label.new()
 				pl.text = parts[j]
 				pl.add_theme_font_override("font", Style.BLACKLETTER if j == 0 else NUM_FONT)
-				pl.add_theme_font_size_override("font_size", fs if j == 0 else fs - 6)
+				pl.add_theme_font_size_override("font_size", fs)  # REPLY 28: both at the button's size, never under MIN_TEXT
 				pl.add_theme_color_override("font_color", INK)
 				pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
