@@ -556,12 +556,12 @@ func build() -> void:
 	while stake_size > 90 and STAKE_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
 		stake_size -= 4  # never under the candles
 	stake_label = null
-	# REPLY 22 (A2): a rival's stake stands where mine does, in its colour, undimmed, "<Sin>'s turn" over it.
+	# REPLY 22 (A2): a rival's stake stands where mine does, undimmed, "<Sin>'s turn" over it in its colour (REPLY 28: the stake in ink).
 	var rcol: Color = on_page(col)  # REPLY 27: the Sin's colour darkened to 4.5:1 on the page
 	if not mine or buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
 		var tw: float = STAKE_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
-		var num := _label(str(points), stake_size, INK if mine else rcol, Color(0, 0, 0, 0), false, near if mine else self)
+		var num := _label(str(points), stake_size, INK, Color(0, 0, 0, 0), false, near if mine else self)  # REPLY 28: every stake in ink
 		num.add_theme_font_override("font", STAKE_FONT)  # REPLY 28: the heaviest thing on the page
 		num.size = Vector2(tw + 24.0, stake_h)
 		num.position = Vector2(maxf(px0 + 70.0, bc - num.size.x / 2.0), stake_top)
