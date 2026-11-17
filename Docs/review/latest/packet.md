@@ -4,8 +4,7 @@
 - A bot turn: median 8.2 s (today 4.1 s). A round: 43 s at 4 seats, 69 s at 7. Today's match: 3.9 min at 4 seats. Speed setting: Normal and Fast on the table (Fast halves the beats but not the lines).
 **3. Match length** (`proposal.md` item 3, `sims.txt`; sim and docs only). Simmed at 4 seats with mixed profiles:
 - **A: three dances, scores carried** (races to 1200 and 2400, then the call at 3600; between dances one rule changes and a power may be swapped):
-  - 14.9 min (12.2-18.4).
-  - Lead changes: 18.7.
+  - 14.9 min (12.2-18.4); lead changes: 18.7.
   - The leader entering the last dance loses 63%.
   - Sins (by start): 21.6-32.7.
 - **B: three dances, scores reset** (each dance is today's game with the call at 750; placings 4/2/1/0, the last dance double):
