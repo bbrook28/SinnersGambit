@@ -1,8 +1,7 @@
 # Packet: REPLY 34 items 2-5 (pacing floor, match length, frame composite, Greed quote)
 **Local only. 0 credits. No game code changed.** New sim tool: `sim/match_sim.gd` (c919115). Item 1's packet: `Docs/review/archive/2026-11-17-reply34-item1/`.
 **2. Pacing floor** (`proposal.md`, item 2). Every beat has a minimum: throw 0.7 s, result 0.9 s, then bank 0.9 s or bust 1.4 s. A line stays up 2.5 s, and the turn waits for it.
-- A bot turn: median 8.2 s (today 4.1 s). A round: 43 s at 4 seats, 69 s at 7. Today's match: 3.9 min at 4 seats.
-- Speed setting: Normal and Fast on the table (Fast halves the beats but not the lines).
+- A bot turn: median 8.2 s (today 4.1 s). A round: 43 s at 4 seats, 69 s at 7. Today's match: 3.9 min at 4 seats. Speed setting: Normal and Fast on the table (Fast halves the beats but not the lines).
 **3. Match length** (`proposal.md` item 3, `sims.txt`; sim and docs only). Simmed at 4 seats with mixed profiles:
 - **A: three dances, scores carried** (races to 1200 and 2400, then the call at 3600; between dances one rule changes and a power may be swapped):
   - 14.9 min (12.2-18.4).
