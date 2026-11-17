@@ -97,6 +97,7 @@ const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painte
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
+const RING_GAP := 12.0  # REPLY 33: his widened plate ends this far short of the mark's gold ring
 const NOTCH := Vector2(40, 22)  # REPLY 32: a rival's line plate's notch, pointing up at its window: width, height
 const LINE_EDGE := 18.0  # the gutter a Sin's line plate keeps from the screen's edges and the active window (12 px at SE, REPLY 33)
 const LINE_STRADDLE := 10.0  # a rival's line plate's foot, this far onto the page's top edge (above the track's tokens)
@@ -738,6 +739,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		for j in 41:
 			ring.append(rc + Vector2.from_angle(TAU * j / 40.0) * rr)
 		_line(ring, GOLD, 7.0, none)
+		boxes["ring"] = Rect2(rc - Vector2(rr + 3.5, rr + 3.5), Vector2(rr + 3.5, rr + 3.5) * 2.0)
 	# REPLY 28: no arm in any pose (call, mark, offer): his plate and the mark's gold ring only.
 	# REPLY 22 (A2): a Sin's spoken line takes the same spot, in its blackletter and colour, its sigil at the left.
 	var text: String = master_line  # REPLY 32: a Sin's line is on its own window (_sin_line), never here
@@ -783,6 +785,13 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		# middle of a two-line plate (one pass; his own line never narrower than LINE_MIN_W).
 		var fs: float = 44.0 if who == "" else float(SPEAK_SIZE)
 		var room := Vector2(lo, hi)  # the room clear of the active window and the card, before his outline narrows it
+		var clear := room  # REPLY 33: that room less the mark's gold ring and RING_GAP, preferred when one line fits
+		if boxes.has("ring"):
+			var rg: Rect2 = boxes["ring"]
+			if rg.get_center().x > cx:
+				clear.y = minf(clear.y, rg.position.x - RING_GAP - PLATE_PAD.x)
+			else:
+				clear.x = maxf(clear.x, rg.end.x + RING_GAP + PLATE_PAD.x)
 		var hw: float = _figure_half_w(mf, mf.rt - 12.0 - 6.0 - fs * 1.25) - 12.0
 		var l3: float = maxf(lo, mf.cx - hw + 12.0)
 		var h3: float = minf(hi, mf.cx + hw - 12.0)
@@ -796,7 +805,9 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			th = ml.get_minimum_size().y
 		if who == "" and ml.get_line_count() > 1:  # REPLY 32: his line widens to one line when the room beside him allows
 			var one: float = ml.get_theme_font("font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs)).x + 4.0
-			if one <= room.y - room.x:
+			if one <= clear.y - clear.x:
+				room = clear
+			if one <= room.y - room.x:  # REPLY 33: one line even if it then meets the ring, never wrapped (reported)
 				lw = one
 				lo = clampf(mf.cx - one / 2.0, room.x, room.y - one)
 				hi = lo + one
