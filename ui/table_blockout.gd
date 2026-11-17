@@ -75,8 +75,21 @@ const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
 const CHOICE_PER_ROW := 4  # REPLY 23: a target's name over its total fits four a line at SE
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
 const BAND_PAD := 14.0    # the track band's top and bottom padding (REPLY 16: from 30, so the windows get build 116's size)
-const HOOD := Color("3f2639")  # the Master's hood, darker than his robe
-const ROBE := Color("5b3a52")  # the Master's blockout robe: flat, muted plum, edged in bone
+const ROBE := Color("5b3a52")  # the Master's sleeve (mark and offer arms, still blockout)
+# REPLY 27: the Master is the painted fiddle piece (cb2feec5) as a bust: masked to crown, hood, skull and
+# shoulders (no hands, bow or fiddle), its jaw cut out as its own piece. Source px of the 998 px piece:
+const MASTER_BUST := preload("res://assets/art/runtime/table/master_bust.png")  # the piece from (64, 0)
+const MASTER_JAW := preload("res://assets/art/runtime/table/master_jaw.png")    # the jaw from (417, 226)
+const M_SRC := 998.0
+const M_BUST_AT := Vector2(64, 0)
+const M_JAW_AT := Vector2(417, 226)
+const M_SPAN := 391.0  # the hood's width at mid-skull (row 167): spans the hood box (REPLY 26)
+const M_TOP := 2.0     # the crown's top row
+const M_JAW := 279.0   # the jaw's line
+const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painted plate (8de13e46)
+const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
+const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
+const PLATE_GAP := 8.0  # the plate's top under his jaw
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
 ## points: at stake, strikes: 0-3, moment: "decision" | "rival" | "bust" | "wait",
@@ -125,6 +138,8 @@ var boxes := {}
 ## Built nodes other scripts move (ui/table_play.gd): dice in face order, candles, stake label.
 var dice_nodes: Array = []
 var candle_rects: Array = []
+var master_node: Control  # REPLY 27: the painted bust (ui/table_play.gd moves it)
+var master_jaw: Control   # its jaw, hinged while his line shows
 var stake_label: Label
 var gain_label: Label
 var master_label: Label
@@ -621,42 +636,38 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	cx = clampf(cx, 16.0 + head_w / 2.0, w - 16.0 - head_w / 2.0)
 	var y_sh: float = rt - maxf(24.0, (rt - top) * 0.12)  # shoulders, above the rivals' tops
 	var hood := Rect2(cx - head_w / 2.0, top, head_w, (y_sh - top) * 1.04)
-	var edge := Color(BONE, 0.85)
-	var none := Color(0, 0, 0, 0)
 	var fall: float = y_sh + (bottom - y_sh) * 0.25
 	var sw: float = head_w * 0.72  # shoulders: half-width from his centre
-	var outline := [Vector2(cx - sw, y_sh), Vector2(maxf(0.0, cx - sw * 1.9), fall), Vector2(0, fall), Vector2(0, bottom),
-		Vector2(w, bottom), Vector2(w, fall), Vector2(minf(w, cx + sw * 1.9), fall), Vector2(cx + sw, y_sh)]
-	var robe := Polygon2D.new()
-	robe.polygon = PackedVector2Array(outline)
-	robe.color = ROBE
-	add_child(robe)
-	_line([outline[2], outline[1], outline[0], outline[7], outline[6], outline[5]], edge, 4.0, none)
-	# The hood: a dome two windows wide whose sides flare down into the shoulders.
-	var ry: float = (y_sh - top) * 0.5
-	var cy: float = top + ry
-	var cowl := []
-	for j in 25:
-		var t: float = PI + PI * j / 24.0
-		cowl.append(Vector2(cx + cos(t) * head_w / 2.0, cy + sin(t) * ry))
-	cowl.append(Vector2(cx + sw * 0.95, y_sh + 12.0))
-	cowl.append(Vector2(cx - sw * 0.95, y_sh + 12.0))
-	var hp := Polygon2D.new()
-	hp.polygon = PackedVector2Array(cowl)
-	hp.color = HOOD
-	add_child(hp)
-	_line(cowl.slice(0, 27), edge, 5.0, none)
-	_line([cowl[0], cowl[26]], edge, 5.0, none)
-	var mask := Rect2(cx - head_w * 0.2, top + ry * 0.2, head_w * 0.4, ry * 0.95)  # high in the hood: his line sits under it (REPLY 17)
-	_ellipse(mask, BONE, INK, 4.0)
-	for e in [-1, 1]:  # eye holes
-		_ellipse(Rect2(cx + e * head_w * 0.085 - head_w * 0.04, mask.position.y + mask.size.y * 0.32, head_w * 0.08, mask.size.y * 0.16), INK, none, 0.0)
-	_line([Vector2(cx - sw * 0.55, y_sh + 6.0), Vector2(cx, y_sh + sw * 0.35), Vector2(cx + sw * 0.55, y_sh + 6.0)], GOLD, 8.0, none)
+	# REPLY 27: the painted bust, his hood at mid-skull spanning the hood box, the crown at its top.
+	var ms: float = head_w / M_SPAN
+	var mo := Vector2(cx - M_SRC * ms / 2.0, top - M_TOP * ms)  # the piece's origin
+	var mb := Control.new()
+	mb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mb.position = mo
+	mb.size = Vector2(M_SRC, M_SRC)
+	mb.scale = Vector2(ms, ms)
+	add_child(mb)
+	var bust := TextureRect.new()
+	bust.texture = MASTER_BUST
+	bust.position = M_BUST_AT
+	bust.size = MASTER_BUST.get_size()
+	bust.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mb.add_child(bust)
+	var jaw := TextureRect.new()
+	jaw.texture = MASTER_JAW
+	jaw.position = M_JAW_AT
+	jaw.size = MASTER_JAW.get_size()
+	jaw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mb.add_child(jaw)
+	master_node = mb
+	master_jaw = jaw
+	var jaw_y: float = mo.y + M_JAW * ms
+	var mask := Rect2(mo + Vector2(410, 110) * ms, Vector2(150, 205) * ms)  # the skull
 	boxes["head"] = hood
 	boxes["mask"] = mask
 	boxes["shoulders"] = Rect2(cx - sw, y_sh - 4.0, 2.0 * sw, 8.0)
 	boxes["robe"] = Rect2(0, y_sh, w, bottom - y_sh)
-	return {"cx": cx, "top": top, "y_sh": y_sh, "sw": sw, "fall": fall, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y, "act": win_rects[cur],
+	return {"jaw_y": jaw_y, "cx": cx, "top": top, "y_sh": y_sh, "sw": sw, "fall": fall, "head_w": head_w, "arm_w": rw, "rt": rt, "wb": (win_rects[cur] as Rect2).end.y, "act": win_rects[cur],
 		"sh_l": Vector2(cx - sw * 0.8, y_sh - rw * 0.15), "sh_r": Vector2(cx + sw * 0.8, y_sh - rw * 0.15)}  # arm joints on the shoulder line
 
 
@@ -664,21 +675,6 @@ func _run_mid(win_rects: Array, run: Array) -> float:
 	if run.is_empty():
 		return INF
 	return ((win_rects[run[-1]] as Rect2).end.x + (win_rects[run[0]] as Rect2).position.x) / 2.0
-
-
-## A flat ellipse filling r, with an optional edge.
-func _ellipse(r: Rect2, fill: Color, edge: Color, width: float) -> void:
-	var pts := PackedVector2Array()
-	for j in 48:
-		pts.append(r.get_center() + Vector2(cos(TAU * j / 48.0) * r.size.x / 2.0, sin(TAU * j / 48.0) * r.size.y / 2.0))
-	var poly := Polygon2D.new()
-	poly.polygon = pts
-	poly.color = fill
-	add_child(poly)
-	if width > 0.0 and edge.a > 0.0:
-		var ring := Array(pts)
-		ring.append(pts[0])
-		_line(ring, edge, width, Color(0, 0, 0, 0))
 
 
 ## His arm by pose, in front of the windows and as thick as a rival window is wide: rest and speak (none),
@@ -704,9 +700,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 	var hand := Vector2.ZERO
 	var reach_left := false
 	match master_pose:
-		"call":
-			reach_left = cx > vp_w / 2.0  # raised on the side with more room
-			hand = Vector2(cx + (-1.0 if reach_left else 1.0) * mf.head_w * 0.62, mf.top + aw * 0.35)
+		# "call": no arm (REPLY 27); his call is the plate alone.
 		"mark":
 			if tr.size.x > 0.0:
 				hand = Vector2(tr.get_center().x, tr.position.y - aw * 0.9)  # pointing at it, clear of the ring
@@ -722,8 +716,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 	if hand != Vector2.ZERO:
 		# REPLY 17: never above the safe line, the sleeve's round end (half the arm's width) and its outline included
 		hand.y = maxf(hand.y, safe.x + maxf(aw * 0.5, minf(aw * 0.36, 60.0)) + 3.0)
-		if master_pose != "call":
-			reach_left = hand.x < cx
+		reach_left = hand.x < cx
 		var sh: Vector2 = mf.sh_l if reach_left else mf.sh_r
 		_line([sh, hand], ROBE, aw, Color(BONE, 0.7))
 		boxes["arm"] = Rect2(minf(sh.x, hand.x) - aw / 2.0, minf(sh.y, hand.y) - aw / 2.0, absf(sh.x - hand.x) + aw, absf(sh.y - hand.y) + aw)
@@ -766,8 +759,12 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		ml.custom_minimum_size = Vector2(lw, 0)
 		ml.size = Vector2(lw, 0)
-		var plate := ColorRect.new()
-		plate.color = Color(BLACK, 0.8)
+		var plate := NinePatchRect.new()  # REPLY 27: the painted plate
+		plate.texture = PLATE_TEX
+		plate.patch_margin_left = PLATE_EDGE
+		plate.patch_margin_right = PLATE_EDGE
+		plate.patch_margin_top = PLATE_EDGE
+		plate.patch_margin_bottom = PLATE_EDGE
 		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(plate)
 		add_child(ml)
@@ -790,9 +787,10 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			ml.add_theme_font_size_override("font_size", SPEAK_SMALL)
 			th = ml.get_minimum_size().y
 		ml.size = Vector2(lw, th)
-		ml.position = Vector2(lo + sg, mf.rt - 12.0 - th)  # its foot just above the rivals' tops
-		plate.position = Vector2(lo, ml.position.y) - Vector2(12, 6)
-		plate.size = Vector2(lw + sg + 24, th + 12)
+		# REPLY 27: its top 8 px under his jaw; it may stand over the rival windows' tops (TableSpec).
+		ml.position = Vector2(lo + sg, mf.jaw_y + PLATE_GAP + PLATE_PAD.y)
+		plate.position = Vector2(lo - PLATE_PAD.x, mf.jaw_y + PLATE_GAP)
+		plate.size = Vector2(lw + sg + 2.0 * PLATE_PAD.x, th + 2.0 * PLATE_PAD.y)
 		boxes["line"] = Rect2(plate.position, plate.size)
 		if who != "":
 			var c := Vector2(lo + SPEAK_SIGIL / 2.0, ml.position.y + th / 2.0)
