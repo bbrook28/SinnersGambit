@@ -728,7 +728,7 @@ const MASTER := {
 	"call": ["{call} reached. Two rounds left.", "Two rounds left. Then I judge.", "The music slows. Two rounds.", "Nearly done. Two rounds remain.", "Savour it. Two rounds to go."],
 	"final": ["Last round. Highest score wins.", "Final round. Make it count.", "Last dance. No second chances.", "One last throw each. Choose well.", "The end. Dance it well."],
 	"marked_me": ["You lead. No chain this round.", "Ahead? Then no chain this round.", "First place. No chain this round.", "Marked. No chain this round.", "Leader's toll: no chain this round."],
-	"marked_rival": ["{name} leads. No chain this round.", "{name} leads. Chain off this round.", "I mark {name}. No chain.", "Marked: {name}. No chain this round.", "{name} pays: no chain this round."],
+	"marked_rival": ["{name} leads. No chain.", "{name} leads. Chain off this round.", "I mark {name}. No chain.", "Marked: {name}. No chain this round.", "{name} pays: no chain this round."],
 	"idle": ["Throw, or keep? Your call.", "Candles are patient. I am less.", "Courage or caution, dear guest?", "Another throw? Purely a suggestion.", "Take your time. Eternity's long."],
 }
 
