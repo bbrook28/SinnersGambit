@@ -97,6 +97,7 @@ const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painte
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
+const WORDS_DROP := 9.0  # REPLY 28: a choice row's question sits this far lower inside its plate, off the gold border (the row keeps its height: the layout is locked)
 const PLATE_OVER := 92.0  # REPLY 28: the most his plate may cover the rival windows' tops (as sheeted, REPLY 26)
 
 ## seats: [{sin, score, you, marks {Sin: n}, pend [cost]}], cur: active seat, faces: dice on the page,
@@ -1178,7 +1179,7 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(back)
 	var words := _choice_words(question, vp.x)
-	words.position = Vector2(56, top - 4.0)
+	words.position = Vector2(56, top - 4.0 + (WORDS_DROP if words_h <= 46.0 else 0.0))  # REPLY 28: one line drops clear of the gold border; two lines already clear it
 	words.size = Vector2(vp.x - 112, words_h)
 	parent.add_child(words)
 	var buying := not buy_ghosts.is_empty()
