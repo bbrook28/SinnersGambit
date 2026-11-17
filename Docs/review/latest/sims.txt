@@ -1,0 +1,85 @@
+== today call 550 floor 3 | 4 seats, 2000 matches, mixed profiles, V5
+  minutes: median 3.9, p10 3.3, p90 4.8, max 7.2 | rounds 5.6 (dances 5.6/0.0/0.0)
+  lead changes 5.70 a match | the leader at the call loses: 56.1% | close entering it (within 250): 77.2% | seat 0 (you) wins 16.6% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 21.6 Gree 26.7 Lust 27.7 Envy 28.9 Prid 17.2 Glut 32.1 Slot 20.6 | range 17.2-32.1
+== carry t1 1000 t2 2000 t3 3000 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 12.7, p10 10.6, p90 15.7, max 24.4 | rounds 18.3 (dances 5.8/5.1/7.4)
+  lead changes 16.36 a match | the leader entering the last dance loses: 62.7% | close entering it (within 250): 61.4% | seat 0 (you) wins 15.9% | power swaps 3.6 a match
+  win % by starting Sin (fair 25.0): Wrat 24.0 Gree 20.7 Lust 26.6 Envy 31.9 Prid 23.9 Glut 25.3 Slot 22.9 | range 20.7-31.9
+== carry t1 800 t2 1600 t3 2400 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 10.5, p10 8.9, p90 12.8, max 19.6 | rounds 15.0 (dances 4.7/4.0/6.3)
+  lead changes 13.84 a match | the leader entering the last dance loses: 64.3% | close entering it (within 250): 63.9% | seat 0 (you) wins 16.7% | power swaps 3.6 a match
+  win % by starting Sin (fair 25.0): Wrat 25.6 Gree 20.1 Lust 23.7 Envy 31.0 Prid 26.6 Glut 23.7 Slot 24.4 | range 20.1-31.0
+== carry t1 1000 t2 2000 t3 3000 rules false swap false | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 13.5, p10 11.0, p90 17.4, max 43.4 | rounds 19.5 (dances 5.9/5.6/7.9)
+  lead changes 16.88 a match | the leader entering the last dance loses: 59.6% | close entering it (within 250): 67.9% | seat 0 (you) wins 17.6% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 15.2 Gree 38.6 Lust 15.3 Envy 55.5 Prid 22.4 Glut 19.4 Slot 8.4 | range 8.4-55.5
+== reset call 550 floor 3 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 12.3, p10 10.8, p90 14.8, max 20.0 | rounds 16.6 (dances 5.6/5.5/5.5)
+  lead changes 6.86 a match | the leader entering the last dance loses: 37.5% | close entering it (within 2 dance points): 71.9% | seat 0 (you) wins 16.4% | power swaps 3.5 a match
+  win % by starting Sin (fair 25.0): Wrat 22.9 Gree 27.9 Lust 19.8 Envy 35.9 Prid 17.2 Glut 29.1 Slot 21.6 | range 17.2-35.9
+== reset call 700 floor 4 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 14.3, p10 12.7, p90 17.0, max 27.6 | rounds 19.4 (dances 6.5/6.5/6.5)
+  lead changes 7.65 a match | the leader entering the last dance loses: 35.4% | close entering it (within 2 dance points): 70.9% | seat 0 (you) wins 14.8% | power swaps 3.6 a match
+  win % by starting Sin (fair 25.0): Wrat 22.6 Gree 26.2 Lust 21.7 Envy 34.2 Prid 20.8 Glut 24.7 Slot 24.6 | range 20.8-34.2
+== today call 550 floor 3 | 7 seats, 1000 matches, mixed profiles, V5
+  minutes: median 5.8, p10 5.4, p90 6.3, max 8.2 | rounds 5.0 (dances 5.0/0.0/0.0)
+  lead changes 6.35 a match | the leader at the call loses: 66.6% | close entering it (within 250): 81.1% | seat 0 (you) wins 7.4% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 11.7 Gree 25.5 Lust 14.5 Envy 14.6 Prid 9.4 Glut 15.7 Slot 8.6 | range 8.6-25.5
+== carry t1 600 t2 1200 t3 1800 rules true swap true | 7 seats, 600 matches, mixed profiles, V5
+  minutes: median 11.9, p10 10.5, p90 13.7, max 16.0 | rounds 10.4 (dances 2.4/2.7/5.3)
+  lead changes 12.97 a match | the leader entering the last dance loses: 76.5% | close entering it (within 250): 72.7% | seat 0 (you) wins 8.7% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 13.2 Gree 11.0 Lust 12.5 Envy 25.2 Prid 11.3 Glut 16.7 Slot 10.2 | range 10.2-25.2
+== reset call 550 floor 3 rules true swap true | 7 seats, 600 matches, mixed profiles, V5
+  minutes: median 18.2, p10 17.3, p90 19.7, max 23.2 | rounds 15.2 (dances 5.0/5.1/5.1)
+  lead changes 7.65 a match | the leader entering the last dance loses: 33.3% | close entering it (within 2 dance points): 82.7% | seat 0 (you) wins 5.8% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 8.0 Gree 23.8 Lust 10.5 Envy 26.2 Prid 10.2 Glut 16.5 Slot 4.8 | range 4.8-26.2
+
+== today call 550 floor 3 | 4 seats, 2000 matches, mixed profiles, V5
+  minutes: median 3.9, p10 3.3, p90 4.8, max 7.2 | rounds 5.6 (dances 5.6/0.0/0.0)
+  bot turn seconds: p10 5.1, median 8.2, p90 10.6, max 46.6 | seconds a round 43.0
+  lead changes 5.70 a match | the leader at the call loses: 56.1% | close entering it (within 250): 77.2% | seat 0 (you) wins 16.6% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 21.6 Gree 26.7 Lust 27.7 Envy 28.9 Prid 17.2 Glut 32.1 Slot 20.6 | range 17.2-32.1
+== carry t1 1200 t2 2400 t3 3600 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 14.9, p10 12.2, p90 18.4, max 48.2 | rounds 21.5 (dances 6.9/6.2/8.4)
+  bot turn seconds: p10 4.6, median 8.2, p90 10.3, max 43.9 | seconds a round 42.4
+  lead changes 18.70 a match | the leader entering the last dance loses: 63.4% | close entering it (within 250): 60.2% | seat 0 (you) wins 17.0% | power swaps 3.6 a match
+  win % by starting Sin (fair 25.0): Wrat 23.1 Gree 23.8 Lust 23.4 Envy 32.7 Prid 23.3 Glut 26.9 Slot 21.6 | range 21.6-32.7
+  win % by the Sin held at the end: Wrat 23.2 Gree 18.5 Lust 27.9 Envy 39.5 Prid 23.7 Glut 26.1 Slot 14.9 | range 14.9-39.5
+== carry t1 1200 t2 2400 t3 3600 rules true swap false | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 14.9, p10 12.0, p90 19.2, max 58.9 | rounds 22.2 (dances 7.0/6.5/8.7)
+  bot turn seconds: p10 4.6, median 8.2, p90 10.3, max 51.9 | seconds a round 41.8
+  lead changes 18.07 a match | the leader entering the last dance loses: 53.4% | close entering it (within 250): 60.3% | seat 0 (you) wins 19.5% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 14.3 Gree 39.9 Lust 15.0 Envy 59.5 Prid 25.5 Glut 12.6 Slot 8.2 | range 8.2-59.5
+== carry t1 1200 t2 2400 t3 3600 rules false swap false | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 15.8, p10 12.9, p90 20.7, max 55.7 | rounds 23.2 (dances 7.0/6.9/9.3)
+  bot turn seconds: p10 4.6, median 8.2, p90 10.6, max 48.3 | seconds a round 42.6
+  lead changes 19.62 a match | the leader entering the last dance loses: 58.3% | close entering it (within 250): 67.8% | seat 0 (you) wins 17.3% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 17.9 Gree 34.8 Lust 16.0 Envy 59.4 Prid 20.6 Glut 16.8 Slot 9.5 | range 9.5-59.4
+== reset call 750 floor 4 rules true swap true | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 14.6, p10 12.8, p90 17.5, max 27.6 | rounds 19.8 (dances 6.7/6.6/6.6)
+  bot turn seconds: p10 5.1, median 8.2, p90 11.9, max 45.1 | seconds a round 45.2
+  lead changes 7.85 a match | the leader entering the last dance loses: 34.5% | close entering it (within 2 dance points): 70.8% | seat 0 (you) wins 13.6% | power swaps 3.6 a match
+  win % by starting Sin (fair 25.0): Wrat 22.7 Gree 24.6 Lust 20.1 Envy 35.7 Prid 23.5 Glut 24.4 Slot 23.7 | range 20.1-35.7
+  win % by the Sin held at the end: Wrat 20.6 Gree 21.7 Lust 21.6 Envy 48.0 Prid 17.5 Glut 25.5 Slot 16.9 | range 16.9-48.0
+== reset call 750 floor 4 rules true swap false | 4 seats, 1000 matches, mixed profiles, V5
+  minutes: median 14.6, p10 12.5, p90 18.7, max 34.6 | rounds 20.3 (dances 6.8/6.7/6.8)
+  bot turn seconds: p10 4.7, median 8.2, p90 11.9, max 58.3 | seconds a round 44.9
+  lead changes 7.74 a match | the leader entering the last dance loses: 30.3% | close entering it (within 2 dance points): 65.4% | seat 0 (you) wins 18.7% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 11.7 Gree 45.1 Lust 13.4 Envy 61.8 Prid 22.4 Glut 14.1 Slot 6.2 | range 6.2-61.8
+== today call 550 floor 3 | 7 seats, 1000 matches, mixed profiles, V5
+  minutes: median 5.8, p10 5.4, p90 6.3, max 8.2 | rounds 5.0 (dances 5.0/0.0/0.0)
+  bot turn seconds: p10 5.1, median 8.3, p90 10.6, max 35.9 | seconds a round 69.3
+  lead changes 6.35 a match | the leader at the call loses: 66.6% | close entering it (within 250): 81.1% | seat 0 (you) wins 7.4% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 11.7 Gree 25.5 Lust 14.5 Envy 14.6 Prid 9.4 Glut 15.7 Slot 8.6 | range 8.6-25.5
+== carry t1 900 t2 1800 t3 2700 rules true swap true | 7 seats, 600 matches, mixed profiles, V5
+  minutes: median 15.9, p10 14.0, p90 18.4, max 22.6 | rounds 14.2 (dances 3.7/4.1/6.4)
+  bot turn seconds: p10 5.1, median 8.2, p90 10.3, max 47.1 | seconds a round 68.0
+  lead changes 17.49 a match | the leader entering the last dance loses: 73.0% | close entering it (within 250): 67.2% | seat 0 (you) wins 9.8% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 12.0 Gree 9.7 Lust 14.3 Envy 26.8 Prid 11.8 Glut 17.2 Slot 8.2 | range 8.2-26.8
+== reset call 550 floor 3 rules true swap true | 7 seats, 600 matches, mixed profiles, V5
+  minutes: median 18.2, p10 17.3, p90 19.7, max 23.2 | rounds 15.2 (dances 5.0/5.1/5.1)
+  bot turn seconds: p10 5.1, median 8.6, p90 11.9, max 50.3 | seconds a round 72.8
+  lead changes 7.65 a match | the leader entering the last dance loses: 33.3% | close entering it (within 2 dance points): 82.7% | seat 0 (you) wins 5.8% | power swaps 0.0 a match
+  win % by starting Sin (fair 14.3): Wrat 8.0 Gree 23.8 Lust 10.5 Envy 26.2 Prid 10.2 Glut 16.5 Slot 4.8 | range 4.8-26.2
+
