@@ -89,6 +89,8 @@ const M_JAW_AT := Vector2(417, 226)
 const M_SPAN := 391.0  # the hood's width at mid-skull (row 167): spans the hood box (REPLY 26)
 const M_TOP := 2.0     # the crown's top row
 const M_JAW := 279.0   # the jaw's line
+const M_FOOT := Vector2(400, 546)  # the bust's foot: he breathes and sways from here
+const M_HINGE := Vector2(430, 230)  # the jaw's hinge, under the ear
 const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painted plate (8de13e46)
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
@@ -143,6 +145,7 @@ var dice_nodes: Array = []
 var candle_rects: Array = []
 var master_node: Control  # REPLY 27: the painted bust (ui/table_play.gd moves it)
 var master_jaw: Control   # its jaw, hinged while his line shows
+static var _clock := 0.0  # REPLY 27: the Master's motion runs on across rebuilds (every beat redraws the view)
 var stake_label: Label
 var gain_label: Label
 var master_label: Label
@@ -150,6 +153,25 @@ var seal_button: Button  # my Sin's seal (Rules.V5), when drawn
 var flare_node: Control  # the seal whose power is firing now (ui/table_play.gd pulses it)
 var page_rect := Rect2()
 var dice_area := Rect2()
+
+
+## REPLY 27: the Master breathes, sways and tilts his head; while his own line shows, his jaw moves.
+func _process(delta: float) -> void:
+	_clock += delta
+	if master_node == null or not is_instance_valid(master_node):
+		return
+	var b: float = sin(TAU * _clock / Tuning.MASTER_BREATH_PERIOD)
+	var base: float = master_node.get_meta("scale", master_node.scale.x)
+	master_node.set_meta("scale", base)
+	master_node.scale = Vector2(base, base * (1.0 + Tuning.MASTER_BREATH * (b * 0.5 + 0.5)))
+	master_node.rotation = deg_to_rad(Tuning.MASTER_SWAY_DEG * sin(TAU * _clock / Tuning.MASTER_SWAY_PERIOD)
+		+ Tuning.MASTER_TILT_DEG * sin(TAU * _clock / Tuning.MASTER_TILT_PERIOD + 1.3))
+	var open := 0.0
+	if master_line != "" and is_instance_valid(master_label):
+		var syl: float = maxf(0.0, sin(TAU * _clock / Tuning.MASTER_JAW_PERIOD))
+		open = Tuning.MASTER_JAW_DEG * syl * (0.65 + 0.35 * sin(TAU * _clock * 0.37))
+	if is_instance_valid(master_jaw):
+		master_jaw.rotation = deg_to_rad(open)
 
 
 func build() -> void:
@@ -654,7 +676,9 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	jaw.position = M_JAW_AT
 	jaw.size = MASTER_JAW.get_size()
 	jaw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	jaw.pivot_offset = M_HINGE - M_JAW_AT
 	mb.add_child(jaw)
+	mb.pivot_offset = M_FOOT
 	master_node = mb
 	master_jaw = jaw
 	var jaw_y: float = mo.y + M_JAW * ms

@@ -24,6 +24,15 @@ const LINE_MIN := 3.5        # s any spoken line (a Sin's or the Master's) alway
 const MASTER_OFFER_BEAT := 1.2  # s the Master holds an offer's card up on the table before the card screen opens; a tap skips (REPLY 16)
 const MASTER_CALL_HOLD := 1.6  # s the table holds on the Master's call and on the final round, so neither is missed (REPLY 10)
 const MASTER_IDLE := 9.0     # s at my decision with no answer before his idle line (one a turn)
+# REPLY 27: the painted Master moves in Godot (no generated frames). Ambient, so at 1x whatever Tuning.speed.
+const MASTER_BREATH := 0.006        # his bust swells this much (a fraction of its height) on each breath
+const MASTER_BREATH_PERIOD := 4.2   # s a breath
+const MASTER_SWAY_DEG := 0.5        # he sways this far either side, from the foot of the bust
+const MASTER_SWAY_PERIOD := 6.6     # s a sway
+const MASTER_TILT_DEG := 0.35       # and his head tilts this much more, slower
+const MASTER_TILT_PERIOD := 9.7     # s a tilt
+const MASTER_JAW_DEG := 5.0         # while his line shows, his jaw opens up to this far on its hinge
+const MASTER_JAW_PERIOD := 0.32     # s a syllable
 const POWER_FOR := 0.7       # s a power firing holds (real seconds, bots too): seal blazes, ring and sigil on what it changed
 const SEAL_FLARE := 0.22     # s the firing seal swells (it settles over 1.5x that; its ring spreads over 2.5x)
 const SEAL_READY_PULSE := 1.1  # s one breath of a seal that can fire now (glow swells and fades, looping)
