@@ -1,13 +1,20 @@
 ## Art mock (REPLY 24 item 6): a fixture with art pieces swapped in at the locked boxes. Not used by the game.
-## godot --path . --fixed-fps 60 --script res://tools/art_mock.gd -- <fixture> <size> <master 0-3> <out.png> [art dir]
-## master 0 keeps the blockout figure. Pieces: master_N.png, candle_lit/out.png, seal_bank/throw.png, page.jpg, table.jpg.
-## Prints the hood's top against the safe line (viewport px).
+## godot --path . --fixed-fps 60 --script res://tools/art_mock.gd -- <fixture> <size> <master 0-3> <out.png> [art dir] [seal 0-2]
+## master 0 keeps the blockout figure; seal 0 keeps the blockout seals. Pieces in the art dir: master_N.png, candle_lit/out.png,
+## bank_N.png and throw_N.png (no word on the wax: the word sits under the seal, inside its box).
+## REPLY 25: the Master is scaled so his jaw clears a two-line plate standing on the rival windows' tops.
+## Prints the hood's top against the safe line and the jaw against the plate (viewport px).
 extends SceneTree
 
 const Fixture = preload("res://tools/fixture.gd")
 const Blockout = preload("res://ui/table_blockout.gd")
 
-var dir := "res://build/art24"
+const Style = preload("res://ui/style.gd")
+const JAW := {1: 0.31, 2: 0.28, 3: 0.28}  # the jaw's line, a fraction of each piece's height from its top (measured by eye)
+const PLATE2 := 168.0  # a two-line plate at SPEAK_SIZE 60 (2 x 60 x 1.3 + 12)
+const WORD_H := 58.0   # the word's strip under the wax, inside the seal's box
+
+var dir := "res://build/art25"
 
 
 func _initialize() -> void:
@@ -28,22 +35,8 @@ func _initialize() -> void:
 	var main = await Fixture.apply(self, fx, size)
 	await process_frame
 	var t = main._overlay
-	var vp: Vector2 = t.get_viewport_rect().size
 	var kids: Array = t.get_children()
-	var pg: Rect2 = t.page_rect
-
-	# Table surface under the page, from the page's top down; the page itself in parchment.
-	for i in kids.size():
-		var c = kids[i]
-		if c is ColorRect and c.color == Blockout.PARCH and c.get_rect().is_equal_approx(pg):
-			var tb := _tex("table.jpg", Rect2(0, pg.position.y, vp.x, vp.y - pg.position.y), true)
-			t.add_child(tb)
-			t.move_child(tb, i)
-			var pt := _tex("page.jpg", pg, false)
-			t.add_child(pt)
-			t.move_child(pt, i + 1)
-			c.visible = false
-			break
+	var sv: int = int(a[5]) if a.size() > 5 else 0
 
 	# The Master: the blockout figure (robe polygon up to the first window) hidden, the piece in its place.
 	if mv > 0:
@@ -58,14 +51,24 @@ func _initialize() -> void:
 				break
 		var head: Rect2 = t.boxes.head
 		var img := _img("master_%d.png" % mv)
-		var span := _span(img, 0.25)
-		var s: float = head.size.x / span.y
+		var rt := 1e9  # the rival windows' tops
+		for i in t.boxes.windows.size():
+			if i != t.cur:
+				rt = minf(rt, t.boxes.windows[i].position.y)
+		if rt > 1e8:
+			rt = head.end.y
+		var plate_top: float = rt - PLATE2
+		if t.boxes.has("line"):
+			plate_top = minf(plate_top, t.boxes.line.position.y)
+		var jaw_y: float = plate_top - 8.0
+		var s: float = (jaw_y - head.position.y) / (JAW[mv] * img.get_height())
 		var sz := Vector2(img.get_width(), img.get_height()) * s
 		var mr := TextureRect.new()
 		mr.texture = ImageTexture.create_from_image(img)
 		mr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		mr.size = sz
-		mr.position = Vector2(head.get_center().x - (span.x + span.y / 2.0) * s, head.position.y)
+		mr.position = Vector2(head.get_center().x - sz.x / 2.0, head.position.y)
+		print("ART JAW %s %s m%d jaw %.0f plate %.0f rival tops %.0f skull-row width %.0f hood box %.0f" % [name, a[1], mv, jaw_y, plate_top, rt, _span(img, JAW[mv] * 0.6).y * s, head.size.x])
 		mr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for i in range(r0, w0):
 			kids[i].visible = false
@@ -100,13 +103,36 @@ func _initialize() -> void:
 		ct.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		(par if par else t).add_child(ct)
 
-	# Bank and Throw: the wax seals as their faces, the words left on top.
-	for n in _all(t):
-		if n is Button and n.text in ["Bank", "Throw"]:
-			var sb := StyleBoxTexture.new()
-			sb.texture = ImageTexture.create_from_image(_img("seal_bank.png" if n.text == "Bank" else "seal_throw.png"))
-			for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-				n.add_theme_stylebox_override(st, sb)
+	# Bank and Throw: the wax over the top of the box, no word on it; the word under it, inside the box.
+	if sv > 0:
+		for n in _all(t):
+			if n is Button and n.text in ["Bank", "Throw"]:
+				var word: String = n.text
+				var none := StyleBoxEmpty.new()
+				for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+					n.add_theme_stylebox_override(st, none)
+				n.text = ""
+				var d: float = n.size.x - WORD_H
+				var wax := TextureRect.new()
+				wax.texture = ImageTexture.create_from_image(_img("%s_%d.png" % [word.to_lower(), sv]))
+				wax.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				wax.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				wax.position = Vector2(WORD_H / 2.0, 0)
+				wax.size = Vector2(d, d)
+				wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				n.add_child(wax)
+				var l := Label.new()
+				l.text = word
+				l.add_theme_font_override("font", Style.BLACKLETTER)
+				l.add_theme_font_size_override("font_size", 48)
+				l.add_theme_color_override("font_color", Blockout.GOLD if word == "Bank" else Blockout.CRIMSON.lightened(0.35))
+				l.add_theme_color_override("font_outline_color", Blockout.BLACK)
+				l.add_theme_constant_override("outline_size", 10)
+				l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				l.position = Vector2(-20, d - 6)
+				l.size = Vector2(n.size.x + 40, WORD_H + 6)
+				n.add_child(l)
 
 	await RenderingServer.frame_post_draw
 	var im := root.get_texture().get_image()
