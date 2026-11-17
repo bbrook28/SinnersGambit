@@ -30,6 +30,9 @@ const HALO_ALPHA := 0.85  # REPLY 25: the ink shadow under light text on the pag
 const HALO_GROW := 0.35   # its reach past the text box, a fraction of the box each side
 const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
 const SEAL_TEX := {"Bank": preload("res://assets/art/runtime/table/seal_bank.png"), "Throw": preload("res://assets/art/runtime/table/seal_throw.png")}  # REPLY 26: painted wax, key 453b9d40, dice a72f0f1c
+const CANDLE_TEX := {true: preload("res://assets/art/runtime/table/candle_lit.png"), false: preload("res://assets/art/runtime/table/candle_out.png")}  # REPLY 26: painted wax, a3e8ded5
+const CANDLE_TOP := {true: 135.0, false: 211.0}  # each piece's first row of full-width wax (above: flame or smoke), source px
+const SNUFFED := Color(0.42, 0.38, 0.36)  # a snuffed candle, darkened, no glow (REPLY 26: reads at a glance)
 const SEAL_WORD_H := 58.0  # the word's strip under the wax, inside the seal's box (no word on the wax)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
@@ -546,8 +549,8 @@ func build() -> void:
 			_disc(c, STAMP / 2.0, BONE, CRIMSON, near)
 			_sigil(s, Rect2(c - Vector2(STAMP, STAMP) * 0.42, Vector2(STAMP, STAMP) * 0.84), CRIMSON, near)
 			mx0 += STAMP + 12.0
-	# My three Strike candles, large, on my edge between the seals: lit (the flame steady, restless or
-	# guttering with the Strikes taken), or snuffed with a crimson cap and a thread of smoke. A Strike
+	# My three Strike candles, large, on my edge between the seals: painted, lit (their glow shrinking
+	# with the Strikes taken), or snuffed, darkened with no glow (REPLY 26). A Strike
 	# I'll start my next turn with is a crimson band round the first candle to go.
 	var struck: int = 3 if bust else strikes  # REPLY 22 (A2): a rival's Strikes on my candles, undimmed, on its turn
 	var risk: int = clampi(strikes, 0, 2)
@@ -556,13 +559,8 @@ func build() -> void:
 	for c in 3:
 		var p := Vector2(c_l + c * (CANDLE.x + CANDLE_GAP), ct)
 		candle_rects.append(Rect2(p, CANDLE))
-		_rect(Rect2(p, CANDLE), BONE, cpar)
-		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go
-			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, cpar)
-		if c >= 3 - struck:
-			_rect(Rect2(p, Vector2(CANDLE.x, 26)), CRIMSON, cpar)
-			_line([p + Vector2(CANDLE.x / 2.0, -8), p + Vector2(CANDLE.x / 2.0 + 14, -40), p + Vector2(CANDLE.x / 2.0 - 6, -72)], Color(INK, 0.55), 5.0, Color(0, 0, 0, 0), cpar)
-		else:
+		var lit: bool = c < 3 - struck
+		if lit:
 			var glow := TextureRect.new()  # candlelight
 			glow.texture = Art.soft_dot(64, Color("ffcf7a"))
 			glow.material = Art.additive()
@@ -572,8 +570,19 @@ func build() -> void:
 			glow.modulate.a = 0.35
 			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cpar.add_child(glow)
-			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, cpar)  # wick
-			_flame(cpar, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
+		var tex: Texture2D = CANDLE_TEX[lit]  # REPLY 26: the painted candle, its wax fitted to the candle's box
+		var cs: float = CANDLE.y / (tex.get_height() - CANDLE_TOP[lit])
+		var wax := TextureRect.new()
+		wax.texture = tex
+		wax.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		wax.size = Vector2(tex.get_width(), tex.get_height()) * cs
+		wax.position = Vector2(p.x + CANDLE.x / 2.0 - wax.size.x / 2.0, p.y + CANDLE.y - wax.size.y)
+		wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if not lit:
+			wax.modulate = SNUFFED
+		cpar.add_child(wax)
+		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go
+			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, cpar)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
 	_page_halos()
 
@@ -970,18 +979,6 @@ func _solid(tex: Texture2D) -> Texture2D:
 				img.set_pixel(x, y, Color(BLACK, 1.0) if img.get_pixel(x, y).a > 0.02 else Color(0, 0, 0, 0))
 		_solids[key] = ImageTexture.create_from_image(img)
 	return _solids[key]
-
-
-## A flat flame: 0 steady (tall, still, gold), 1 restless (wider, leaning), 2 guttering (low, crimson).
-func _flame(parent: Node, base: Vector2, risk: int, s: float) -> void:
-	var h: float = [46.0, 40.0, 20.0][risk] * s
-	var w: float = [14.0, 22.0, 16.0][risk] * s
-	var lean: float = [0.0, 12.0, -4.0][risk] * s
-	var p := Polygon2D.new()
-	p.polygon = PackedVector2Array([base + Vector2(-w / 2.0, 0), base + Vector2(-w * 0.55, -h * 0.35),
-		base + Vector2(lean, -h), base + Vector2(w * 0.55, -h * 0.35), base + Vector2(w / 2.0, 0)])
-	p.color = CRIMSON if risk == 2 else GOLD
-	parent.add_child(p)
 
 
 ## A marginalia figure reduced to its ink lines (dark strokes kept as flat ink, colour and parchment
