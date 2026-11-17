@@ -26,5 +26,18 @@ if timeout 600 "$G" --headless --path . --script res://tests/table_play_check.gd
 else
 	echo "FAIL table_play_check (build/t_table_play_check.log)"; fail=1
 fi
+# REPLY 35: the table's pace, taps that finish one beat only, and Continue's pace once caught up
+run_table() {  # name, then the PASSED word
+	local t=$1
+	if timeout 600 "$G" --headless --path . --script "res://tests/$t.gd" -- --table > "build/t_$t.log" 2>&1 && grep -q "$2" "build/t_$t.log" && ! grep -qE "SCRIPT ERROR|FAILED" "build/t_$t.log"; then
+		echo "ok   $t: $(grep -E 'pace at|decision|PASSED' "build/t_$t.log" | tail -2 | head -1)"
+	else
+		echo "FAIL $t (build/t_$t.log)"; fail=1
+	fi
+}
+run_table table_pace_check "TABLE PACE PASSED"
+run_table table_tap_check "TABLE TAP PASSED"
+run_table resume_pace_check "RESUME PACE PASSED"
+run table_tap_check --headless  # off the table, a double tap still skips to my decision
 run glass_check
 exit $fail
