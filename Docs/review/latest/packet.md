@@ -1,28 +1,29 @@
-# Packet: REPLY 28-30 (Master fixes, numerals, Sin plates, menus, motion list, frame and tracery quotes)
-**Local only, not pushed. 0 credits spent (162 left).** Suite: all pass (load check, then 9 tests). Text audit: 35/35 clean at se and std. Lock: the nine locked states keep their window boxes (std and SE). Page sheet (28.2) dropped per REPLY 29.
-**28.3 Numerals** (ee55d18, 0790712; `sheet.png`: Pirata before over Cinzel after). The audit then caught my own fault: the choice number sat 6 px under its word (12.5-13.1 pt). Now no table text goes under 15 pt on the smallest phone (MIN_TEXT 44 px); a number is the same size as its word.
-**28.4 Master** (a9a4c83; `master.png`). Mark and offer have no arm: plate and gold ring only. His plate over the rival tops: mark 82 std; **103 at SE**. His words can't step down there without going under 15 pt (Q1). At SE his skull sits under his own mark and offer plate.
-**28.5** (30bdbf5, b65e6b1): a rival's stake is in ink; only "<Sin>'s turn" is coloured. "Buy dice?" drops 9 px inside its plate, off the gold border; the row keeps its height. A two-line question stays where it was (dropping it touched the buttons).
-**28.6 Jaw** (cd205aa; `master.png` right): only the jaw's connected piece is kept; the chin rest's sliver and the flecks are gone. Size and hinge are unchanged.
-**28.1 Sin plates** (9359854; `sin_plates.png`, mock `tools/sin_plate_mock.gd`, not wired). Recorded in TableSpec as exception 2, "sheeted, not wired". No Master plate while a Sin speaks. The border is the plate's gold recoloured to the Sin's colour.
-- Active Sin: across the foot of its window, at the window's width (385 std, 276 SE). A long line wraps to 3 lines at std and **5 at SE**, covering the face; "underpriced" splits from its comma.
-- Rival Sin: hung over its window, notch down. It is wider than its window (282-618 px) and sits over the band above. At std it covers the Master's jaw. At SE his face shows; the plate covers part of his crown of roses. At std the long line leaves "4." alone on a line.
-**28.7 / 30.2 Motion**: `animations.md` lists the table (18 items) and the Sin selection screen (8). Not animated: candle flames, window light, track tokens (they jump), the plates.
-**28.8 Menus** (`menus.png`, 18 screens, before and after; mock `tools/menu_restyle_mock.gd`, not wired).
-- Painted page or plate in place of flat panels; buttons on the plate in gold Pirata; a selected toggle is the plate dyed crimson; text in IM Fell, ink on light and bone on dark.
-- Screens with no flat panels (title, Sin select, offer) barely change. The Chronicle's plate stretches its wood grain full height. The accept, refuse, claim, score and end overlays are the old board's.
-**29 Target frame**: not made; waiting for your word.
-- Plan: Nano Banana 2.1 at 2K 9:16, built on today's std table screenshot, with the kept windows, seals and candles as references. 18 credits each; 2 tries = 36. Cut to 750x1334.
-- Touches nothing in the build; files go in `Docs/review/latest/` only.
-- To be restyled: the page (with frame), track, tokens, pointer, dice, window light, a third seal and the top band. I will overlay the lock boxes on the result and list every element that moved.
-**30 Sin selection window** (`sin_window.png`: none lit, Lust lit top tier, Sloth lit bottom tier; mock `tools/sin_window_mock.gd`, placeholder tracery, 0 credits).
-- Lancets 4 over 3, 231x463 layout px = 160x321 px at 750 wide. Each kept window is cropped from the top to 2.0:1 (they are 3.4:1), so every Sin loses the lower ~40% of its window and the bottom of its own frame.
-- Unlit and lit are one shader. The plate shows the power only; the seal is the Throw art as a stand-in.
-- Tracery quote: GPT 2.5 Flare 2K, transparent, the target frame as reference: 22 credits each, 2 tries = 44. Touches nothing now; wired later it touches the selection scene and its input only.
+# Packet: REPLY 31 (target frame, SE Master plate, Sin plates, selection window, tracery plan)
+**Local only, not pushed. 18 credits spent (144 left).** Suite: all pass (load check, then 9 tests). Text audit: 35/35 clean at se and std. Lock: OK at std and SE. Wired this round: item 2 only.
+**31.1 Target frame** (one try; `frame.png`: today | frame | frame with the lock boxes; `target_frame.png` at 750x1334). No lettering.
+- Same boxes: windows, dice, Bank and Throw, my seal, the page.
+- Moved or restyled: the top band is carved stone niches. The Master is the full fiddle piece (bow and fiddle), right of and higher than his head box. The page has a gilded carved border with a deckled page inside. The track tokens are darker medallions. The dead die is cracked. The ability seal is pink wax with a rose (its die badge kept). Stake and numbers are blank.
+- Not as asked: the window light is still a hard-edged polygon; the coloured bars under the dice remain; the pointer is still a pill with a triangle; the snuffed candle is ivory, not dark.
+**31.2 Master plate** (67ec6c5, b90ff4f; `master.png`).
+- The cause was that his breath scaled about his foot, so at SE he drew 150 px low and his plate covered his skull. His position now takes that pivot back out, so he draws where his boxes say at every size.
+- Wording: "{name} leads. No chain this round." is now "{name} leads. No chain." No other line was reworded.
+- Plate over the rivals: 103 to 44 px at SE (one line); 82 px at std, unchanged, where it still wraps after "No".
+**31.3 Sin plates** (`sin_plates.png`, 8 cases plus each seat's longest line, std and SE; `tools/sin_plate_mock.gd`; not wired). No plate touches his skull or jaw.
+- Every plate is at its own window's foot. A rival's notch points up and its window brightens.
+- At std every line fits on 1-2 lines at 60. At SE only Wrath's "You burned / past Lust. / Not me." takes 3 lines; the rest take 2 at 60.
+- A rival's plate now sits over the top of the page's track. At std it spans y 878-1061 and covers the rival tokens and totals.
+**31.4 Selection window** (`sin_window.png`: none lit, Lust lit, Sloth lit; `tools/sin_window_mock.gd`; not wired).
+- Unlit is moonlit grey with a tint of each Sin. "Choose thy Sin" and the Table of 4 / 7 control are back. Tiers are 8 px apart. Lancets are 236x423 (164x294 at 750 wide).
+- Crop: 1.79:1 of the 3.4:1 windows (was 2.0:1). Most of the height goes to the plate, which carries both abilities.
+- Carried over: sheen and backlight, the Recommended tag on Sloth, epithet, play, and both abilities. Cannot show in a still: the breathing glow; the "plaque" sound and sting; keyboard; Reduce Motion. These are design only until it is wired. Dots and swipe are replaced by dragging across the lancets.
+- Name contrast on the plate, raised to at least 4.5:1 where it fell short: Wrath 4.1 to 4.6, Lust 4.4 to 4.6, Pride 4.3 to 4.5, Sloth 4.3 to 4.6; the rest pass as they are.
+**31.5 Tracery plan** (no credits):
+- Generate one lancet module: canopy and side posts, transparent, made once. Code tiles it 4 + 3 at the exact lancet rects, so the holes line up by construction. A separate outer frame and base band go around it. The other way, fitting the lancets to one generated piece, means measuring holes that drift each try.
+**31.6 Menus**: on hold until the frame. Pirata stays for the title wordmark and the screen headings. **31.7 VFX notes** (line fades, token motion, the Strike box): recorded for the VFX pass, not built.
+**Touches / could break**: wired code touches only the Master's position and one line of `ui/rules_text.gd` (with its fixture). It could break his placement at other sizes, which the lock, the audit and the suite cover.
 
 **Questions**
-1. SE mark plate is 103 px over the rivals, not 92, because of the 15 pt floor: accept it, shorten that line, or tighten line spacing (91 px, letters near the gold border)? Rec: shorten that line.
-2. Make the target frame: 2 tries, 36 credits? Rec: yes.
-3. Make the tracery after the frame is approved: 2 tries, 44 credits? Rec: yes, after Q2.
-4. A Sin's line over 2 lines on its own window (SE): show it on a plate hung from the window top, like a rival's? Rec: yes.
-5. Wire the Sin plates as sheeted, with Q4? Rec: yes.
+1. Second frame try (18 credits), fixing the four "not as asked" items? Rec: yes, after your look.
+2. Plates: rival plates cover the track top. Accept that while a rival speaks? Rec: yes; the track is display only.
+3. Selection crop 1.79:1: move the table-size control onto the heading row to gain about 100 px of lancet? Rec: yes.
+4. Tracery as one repeated lancet module plus a frame? Rec: yes.
