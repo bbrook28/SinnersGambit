@@ -26,6 +26,8 @@ const Tuning = preload("res://ui/tuning.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const RulesText = preload("res://ui/rules_text.gd")
 const TABLE_TEX := preload("res://assets/art/runtime/table/table.jpg")  # REPLY 25: the painted table top (SpriteCook ebfa78e3)
+const HALO_ALPHA := 0.85  # REPLY 25: the ink shadow under light text on the page (_page_halos)
+const HALO_GROW := 0.35   # its reach past the text box, a fraction of the box each side
 const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
@@ -501,7 +503,7 @@ func build() -> void:
 		stake_size -= 4  # never under the candles
 	stake_label = null
 	# REPLY 22 (A2): a rival's stake stands where mine does, in its colour, undimmed, "<Sin>'s turn" over it.
-	var rcol: Color = col.lightened(0.3)  # 5:1 or more on ink for every Sin
+	var rcol: Color = col.lightened(0.4)  # REPLY 25: 5:1 or more on its ink shadow (_page_halos) for every Sin
 	if not mine or buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
 		var tw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
@@ -560,6 +562,7 @@ func build() -> void:
 			_rect(Rect2(p + Vector2(CANDLE.x / 2.0 - 3, -14), Vector2(6, 16)), INK, cpar)  # wick
 			_flame(cpar, p + Vector2(CANDLE.x / 2.0, -12.0), risk, 2.0)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
+	_page_halos()
 
 
 ## The Master of the Dance (REPLY 16), a flat blockout and the largest figure on screen. He stands behind
@@ -890,6 +893,51 @@ func _label(text: String, size: int, c: Color, outline: Color, blackletter := fa
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	parent.add_child(l)
 	return l
+
+
+## REPLY 25: light text on the painted page (stake, totals, 1000, a rival's turn) reads at 4.5:1 against
+## the page itself, not only its outline: a soft ink shadow under each, drawn behind the text and moving with it.
+func _page_halos() -> void:
+	var todo: Array = [self]
+	while not todo.is_empty():
+		var n: Node = todo.pop_back()
+		todo.append_array(n.get_children())
+		if not (n is Label) or not n.visible or n.text == "":
+			continue
+		var r: Rect2 = Rect2(n.position, n.size)
+		if n.get_parent() != self and n.get_parent() is Control:
+			r.position += (n.get_parent() as Control).position
+		if not page_rect.encloses(r) or n.get_theme_color("font_color").get_luminance() < 0.3:
+			continue
+		var h := TextureRect.new()
+		h.texture = _halo_tex()
+		h.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.show_behind_parent = true
+		h.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var gx: float = n.size.x * HALO_GROW
+		var gy: float = n.size.y * HALO_GROW
+		h.offset_left = -gx
+		h.offset_right = gx
+		h.offset_top = -gy
+		h.offset_bottom = gy
+		n.add_child(h)
+
+
+static var _halo: GradientTexture2D
+func _halo_tex() -> GradientTexture2D:
+	if _halo == null:
+		_halo = GradientTexture2D.new()
+		_halo.fill = GradientTexture2D.FILL_RADIAL
+		_halo.fill_from = Vector2(0.5, 0.5)
+		_halo.fill_to = Vector2(1.0, 0.5)
+		var gr := Gradient.new()
+		gr.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+		gr.colors = PackedColorArray([Color(BLACK, HALO_ALPHA), Color(BLACK, HALO_ALPHA * 0.85), Color(BLACK, 0.0)])
+		_halo.gradient = gr
+		_halo.width = 128
+		_halo.height = 128
+	return _halo
 
 
 ## A flat flame: 0 steady (tall, still, gold), 1 restless (wider, leaning), 2 guttering (low, crimson).
