@@ -36,6 +36,7 @@ const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25
 const SEAL_TEX := {"Bank": preload("res://assets/art/runtime/table/seal_bank.png"), "Throw": preload("res://assets/art/runtime/table/seal_throw.png")}  # REPLY 26: painted wax, key 453b9d40, dice a72f0f1c
 const CANDLE_TEX := {true: preload("res://assets/art/runtime/table/candle_lit.png"), false: preload("res://assets/art/runtime/table/candle_out.png")}  # REPLY 26: painted wax, a3e8ded5
 const CANDLE_TOP := {true: 135.0, false: 211.0}  # each piece's first row of full-width wax (above: flame or smoke), source px
+const WAX_DYE := Color(0.95, 0.16, 0.16)  # the next-to-go band: the candle's own wax, dyed crimson (REPLY 27)
 const SNUFFED := Color(0.42, 0.38, 0.36)  # a snuffed candle, darkened, no glow (REPLY 26: reads at a glance)
 const SEAL_WORD_H := 58.0  # the word's strip under the wax, inside the seal's box (no word on the wax)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
@@ -615,8 +616,19 @@ func build() -> void:
 		if not lit:
 			wax.modulate = SNUFFED
 		cpar.add_child(wax)
-		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go
-			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, cpar)
+		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go: REPLY 27, a band of the wax itself dyed crimson
+			var band_y: float = CANDLE.y * 0.42
+			var at := AtlasTexture.new()
+			at.atlas = tex
+			at.region = Rect2(0, (p.y + band_y - wax.position.y) / cs, tex.get_width(), 22.0 / cs)
+			var band := TextureRect.new()
+			band.texture = at
+			band.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			band.position = Vector2(wax.position.x, p.y + band_y)
+			band.size = Vector2(wax.size.x, 22.0)
+			band.modulate = WAX_DYE
+			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cpar.add_child(band)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
 
 
