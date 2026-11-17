@@ -3,7 +3,9 @@ Layout and behaviour only, as the code draws it today; every number is from the 
 
 
 **Layout locked** (REPLY 24, 2026-11-16). The reference is `Docs/table_lock/boxes.txt` (every element's position and size, in layout px, for nine states at std and SE, from `tools/boxes.gd`) with `Docs/table_lock/sheet.png`. From here a layout change needs Ben's word; art is made to these boxes.
-**The one change since** (REPLY 26 Q1, REPLY 27, 2026-11-16): the Master's line plate stands 8 px under his painted jaw and may cover the rival windows' tops, drawn over them, by up to 92 px (as sheeted in REPLY 26).
+**Approved exceptions:**
+1. (REPLY 26 Q1, REPLY 27, 2026-11-16) The Master's line plate stands 8 px under his painted jaw and may cover the rival windows' tops, drawn over them, by up to 92 px (as sheeted in REPLY 26). It carries his own lines and calls only.
+2. (REPLY 28, 2026-11-16; sheeted, not wired yet) A Sin's line sits on its own window: the active Sin's plate across the foot of its large window at the window's width; a rival's plate hung over its small window's top, a notch pointing down at it, drawn over the band above. Border in that Sin's colour. Mock: `tools/sin_plate_mock.gd`.
 ## Code
 - `ui/table_blockout.gd` draws the table whole from one state (`build()`): seats, active seat, dice, stake, Strikes, moment (decision / rival / bust / wait), spoken line, ability die, pending Bank loss, safe insets; under V5 my seal, a power firing, the dice as "let it stand", the Master's line. The table plays `Rules.V5` (`ui/main.gd` `table_rules()`); the old board stays V4. Fixtures (`tools/fixtures/table_*.json`, screen "table") draw one moment.
 - `ui/table_play.gd` is a layer over main's board (built in `ui/main.gd` `_build_board`): it redraws the blockout from main's snapshots and turns its seals into main's answers. The game, director, prompts, offer screen, overlays and game end stay main's; the table hides while main shows one of them.
