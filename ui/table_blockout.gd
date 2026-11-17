@@ -25,6 +25,7 @@ const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const RulesText = preload("res://ui/rules_text.gd")
+const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
 # The palette: black, parchment, bone, crimson, gold leaf (+ the active Sin's glass colour).
@@ -289,7 +290,14 @@ func build() -> void:
 	shaft.vertex_colors = PackedColorArray([Color(col, 0.3), Color(col, 0.3), Color(col, 0.0), Color(col, 0.0)])
 
 	# The page, lit in a pool round the dice and decision, falling to shadow at its edges.
-	_rect(pg, PARCH)
+	var paper := TextureRect.new()  # REPLY 25: the painted page
+	paper.texture = PAGE_TEX
+	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	paper.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	paper.position = pg.position
+	paper.size = pg.size
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(paper)
 	var pool_c := Vector2(0.5, (stake_top - pg.position.y) / pg.size.y)
 	var shade := TextureRect.new()
 	var g := GradientTexture2D.new()
