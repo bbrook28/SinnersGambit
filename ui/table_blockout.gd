@@ -678,7 +678,10 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	var mo := Vector2(cx - M_SRC * ms / 2.0, top - M_TOP * ms)  # the piece's origin
 	var mb := Control.new()
 	mb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mb.position = mo
+	mb.pivot_offset = M_FOOT
+	# REPLY 31: it scales round its foot (for the breath), so its position takes the pivot back out; drawn
+	# where its boxes say at every size (at SE it had sat 150 px low, his plate over his skull).
+	mb.position = mo - M_FOOT * (1.0 - ms)
 	mb.size = Vector2(M_SRC, M_SRC)
 	mb.scale = Vector2(ms, ms)
 	add_child(mb)
@@ -695,7 +698,6 @@ func _master_body(win_rects: Array, cur: int, top: float, bottom: float, w: floa
 	jaw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	jaw.pivot_offset = M_HINGE - M_JAW_AT
 	mb.add_child(jaw)
-	mb.pivot_offset = M_FOOT
 	master_node = mb
 	master_jaw = jaw
 	var jaw_y: float = mo.y + M_JAW * ms
