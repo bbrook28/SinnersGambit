@@ -98,7 +98,7 @@ const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
 const NOTCH := Vector2(40, 22)  # REPLY 32: a rival's line plate's notch, pointing up at its window: width, height
-const LINE_EDGE := 16.0  # the screen gutter a Sin's line plate keeps
+const LINE_EDGE := 18.0  # the gutter a Sin's line plate keeps from the screen's edges and the active window (12 px at SE, REPLY 33)
 const LINE_STRADDLE := 10.0  # a rival's line plate's foot, this far onto the page's top edge (above the track's tokens)
 const SHORT_SCREEN := 2100.0  # layout height under which a rival's line may take 3 lines (SE: 1920)
 const RECOLOUR := preload("res://ui/shaders/plate_recolour.gdshader")
@@ -642,7 +642,7 @@ func build() -> void:
 			cpar.add_child(band)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
 	if master_line == "" and not speak.is_empty():
-		_sin_line(win_rects[int(speak.seat)], int(speak.seat) == cur, str(seats[int(speak.seat)].sin), str(speak.line))
+		_sin_line(win_rects[int(speak.seat)], win_rects[cur], int(speak.seat) == cur, str(seats[int(speak.seat)].sin), str(speak.line))
 
 
 ## The Master of the Dance (REPLY 16), a flat blockout and the largest figure on screen. He stands behind
@@ -830,7 +830,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 ## and grows upward over the rival row, never down over the track; a notch points up at its window.
 ## At most 2 lines (a rival 3 on a short screen): the plate widens first, then the size steps down; the lines are
 ## balanced, never a one-word line.
-func _sin_line(win: Rect2, active: bool, who: String, text: String) -> void:
+func _sin_line(win: Rect2, act: Rect2, active: bool, who: String, text: String) -> void:
 	var vw: float = get_viewport_rect().size.x
 	var col: Color = Style.SIN_COLORS[who]
 	var ml := Style.label(text, SPEAK_SIZE, on_plate(col.lightened(0.25)), true)
@@ -845,11 +845,21 @@ func _sin_line(win: Rect2, active: bool, who: String, text: String) -> void:
 	add_child(plate)
 	add_child(ml)
 	var max_lines: int = 2 if active or get_viewport_rect().size.y >= SHORT_SCREEN else 3
-	var maxw: float = vw - 2.0 * LINE_EDGE
+	# REPLY 33: the room: the screen less LINE_EDGE; a rival's never over the active window, on its own side of it
+	var lo: float = LINE_EDGE
+	var hi: float = vw - LINE_EDGE
+	if not active:
+		if act.get_center().x < win.get_center().x:
+			lo = maxf(lo, act.end.x + LINE_EDGE)
+		else:
+			hi = minf(hi, act.position.x - LINE_EDGE)
+	var maxw: float = hi - lo
 	var fit: Vector3 = _fit_line(ml, win.size.x - 2.0 * PLATE_PAD.x, maxw - 2.0 * PLATE_PAD.x, max_lines)
 	var w: float = maxf(win.size.x, fit.x + 2.0 * PLATE_PAD.x)
 	var h: float = fit.y + 2.0 * PLATE_PAD.y
-	var x: float = clampf(win.get_center().x - w / 2.0, LINE_EDGE, vw - LINE_EDGE - w)
+	var x: float = clampf(win.get_center().x - w / 2.0, lo, hi - w)
+	if not active:  # REPLY 33: from its own window's edge away from the active window, growing over the other rivals
+		x = clampf(win.position.x if act.get_center().x < win.get_center().x else win.end.x - w, lo, hi - w)
 	var foot: float = win.end.y if active else page_rect.position.y + LINE_STRADDLE
 	var rect := Rect2(x, foot - h, w, h)
 	if not active:
