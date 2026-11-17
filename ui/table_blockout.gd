@@ -26,8 +26,12 @@ const Tuning = preload("res://ui/tuning.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const RulesText = preload("res://ui/rules_text.gd")
 const TABLE_TEX := preload("res://assets/art/runtime/table/table.jpg")  # REPLY 25: the painted table top (SpriteCook ebfa78e3)
-const HALO_ALPHA := 0.85  # REPLY 25: the ink shadow under light text on the page (_page_halos)
-const HALO_GROW := 0.35   # its reach past the text box, a fraction of the box each side
+# REPLY 27 lettering (the REPLY 26 type sheet): dark ink on the page, no shadows or outlines; gold and light
+# colours only on dark (the painted plates); Pirata One (blackletter, every numeral) and IM Fell English.
+const NUM_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")  # every numeral
+const PAGE_SHADE := 0.3  # the page's shadow at its edges (REPLY 27: from 0.88; dark ink needs a light page)
+const PAGE_L := 0.25   # the page's darkest 5% under that shadow, relative luminance (0.62 unshaded, x 0.7^2.2, rounded down)
+const PLATE_L := 0.03  # the plate's centre, lightest 5% (plate.png, measured 0.026)
 const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
 const SEAL_TEX := {"Bank": preload("res://assets/art/runtime/table/seal_bank.png"), "Throw": preload("res://assets/art/runtime/table/seal_throw.png")}  # REPLY 26: painted wax, key 453b9d40, dice a72f0f1c
 const CANDLE_TEX := {true: preload("res://assets/art/runtime/table/candle_lit.png"), false: preload("res://assets/art/runtime/table/candle_out.png")}  # REPLY 26: painted wax, a3e8ded5
@@ -68,7 +72,6 @@ const DIE_MAX_ROWS := 140.0  # two rows of dice
 const DIE_MIN := 110.0
 const DIE_GAP := 18.0
 const STAMP := 52.0        # a mark's sigil stamp on the near edge
-const GAIN_GOLD := Color("c98a12")  # deep gold: a throw's points, the boldest thing on the page for that beat
 const POWER_SEAL := 180.0  # my Sin's seal (Rules.V5 power), px (66 pt), above Throw
 const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
 const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
@@ -183,7 +186,7 @@ func build() -> void:
 	var span: float = vp.x - 48.0 - 160.0
 	var widest := 0.0  # heads on one level stand far enough apart for their totals (REPLY 12)
 	for s in seats:
-		widest = maxf(widest, Style.NUMERAL.get_string_size(str(int(s.score)), HORIZONTAL_ALIGNMENT_LEFT, -1, TOTAL_SIZE).x)
+		widest = maxf(widest, NUM_FONT.get_string_size(str(int(s.score)), HORIZONTAL_ALIGNMENT_LEFT, -1, TOTAL_SIZE).x)
 	var gap: float = maxf(MARK, widest) + 16.0
 	var lvl := {}
 	var head := {}  # seat -> head x, track coordinates (0 = score 0)
@@ -348,7 +351,7 @@ func build() -> void:
 	g.fill_to = pool_c + Vector2(0.0, 0.62)
 	var grad := Gradient.new()
 	grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
-	grad.colors = PackedColorArray([Color(BLACK, 0.0), Color(BLACK, 0.45), Color(BLACK, 0.88)])
+	grad.colors = PackedColorArray([Color(BLACK, 0.0), Color(BLACK, PAGE_SHADE * 0.5), Color(BLACK, PAGE_SHADE)])  # REPLY 27: from 0.88, so ink reads to the page's edge
 	g.gradient = grad
 	g.width = 256
 	g.height = 256
@@ -374,7 +377,7 @@ func build() -> void:
 	_line([Vector2(ax0, ay - 18), Vector2(ax0, ay + 18)], INK, 6.0)
 	if call_at <= 0:
 		_line([Vector2(ax1, ay - 40), Vector2(ax1, ay + 40)], GOLD, 16.0, INK)
-		var gl := _label("1000", 46, GOLD, INK)
+		var gl := _label("1000", 46, INK, Color(0, 0, 0, 0))
 		gl.size = Vector2(150, 60)
 		gl.position = Vector2(ax1 - 75.0, ay + 44.0)
 	else:  # REPLY 10: no finish line; the Master's post where he calls the end, crimson once called,
@@ -383,10 +386,10 @@ func build() -> void:
 		var px: float = ax0 + span * clampf(float(call_at) / GOAL, 0.0, 1.0)
 		var pc: Color = CRIMSON if rounds_left > 0 else (GOLD if call_live else Color("8a7a5c"))  # dim: a grey-gold bar, the number keeps its contrast
 		_line([Vector2(px, ay - 40), Vector2(px, ay + 40)], pc, 16.0, INK)
-		var cl := _label(str(call_at), 46, BONE, INK)  # REPLY 11: bone on a dark outline (4.5:1); the post carries the colour
+		var cl := _label(str(call_at), 46, on_page(CRIMSON), Color(0, 0, 0, 0))  # REPLY 27: crimson ink on the page
 		# REPLY 15: just under the line at the post, never stacked on my total; when my marker hangs near the
 		# post, the number moves beside the post, on the side away from my marker.
-		var post_w: float = Style.NUMERAL.get_string_size(str(call_at), HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x + 24.0
+		var post_w: float = NUM_FONT.get_string_size(str(call_at), HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x + 24.0
 		cl.size = Vector2(post_w, 60)
 		var my_x: float = ax0 + span * clampf(seats[me].score / GOAL, 0.0, 1.0)
 		var clear: float = MARK / 2.0 + 10.0
@@ -448,13 +451,7 @@ func build() -> void:
 	seal_button = null
 	flare_node = null
 	if gain > 0 and row_h <= 0.0:  # the throw's points, gold, in the strip just above the dice
-		var gain_l := _label("+%d" % gain, gain_size, GAIN_GOLD, BLACK)
-		gain_l.add_theme_font_override("font", Style.NUMERAL)
-		gain_l.add_theme_constant_override("outline_size", 22)  # a dark edge
-		gain_l.add_theme_color_override("font_shadow_color", Color(BLACK, 0.7))
-		gain_l.add_theme_constant_override("shadow_offset_x", 5)
-		gain_l.add_theme_constant_override("shadow_offset_y", 7)
-		gain_l.add_theme_constant_override("shadow_outline_size", 22)
+		var gain_l := _label("+%d" % gain, gain_size, INK, Color(0, 0, 0, 0))  # REPLY 27: ink, no edge or shadow
 		gain_l.size = Vector2(dw, gain_size * 1.45)
 		# Glyphs centred in the strip just above the dice (the line box overhangs it, the glyphs don't).
 		gain_l.position = Vector2(dl, dy - gain_h / 2.0 - 4.0 - gain_l.size.y / 2.0)
@@ -529,26 +526,26 @@ func build() -> void:
 	var cw: float = 3.0 * CANDLE.x + 2.0 * CANDLE_GAP
 	var c_l: float = (bank.position.x + SEAL + throw.position.x) / 2.0 - cw / 2.0
 	var loss := ("-%d" % bank_loss) if bank_loss > 0 else ""
-	var loss_w: float = (Style.NUMERAL.get_string_size(loss, HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x + 16.0) if loss != "" else 0.0
-	while stake_size > 90 and Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
+	var loss_w: float = (NUM_FONT.get_string_size(loss, HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x + 16.0) if loss != "" else 0.0
+	while stake_size > 90 and NUM_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
 		stake_size -= 4  # never under the candles
 	stake_label = null
 	# REPLY 22 (A2): a rival's stake stands where mine does, in its colour, undimmed, "<Sin>'s turn" over it.
-	var rcol: Color = col.lightened(0.4)  # REPLY 25: 5:1 or more on its ink shadow (_page_halos) for every Sin
+	var rcol: Color = on_page(col)  # REPLY 27: the Sin's colour darkened to 4.5:1 on the page
 	if not mine or buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
-		var tw: float = Style.NUMERAL.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
-		var num := _label(str(points), stake_size, GOLD if mine else rcol, INK, false, near if mine else self)
+		var tw: float = NUM_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
+		var num := _label(str(points), stake_size, INK if mine else rcol, Color(0, 0, 0, 0), false, near if mine else self)
 		num.size = Vector2(tw + 24.0, stake_h)
 		num.position = Vector2(maxf(px0 + 70.0, bc - num.size.x / 2.0), stake_top)
 		stake_label = num
 		var ringed: bool = not firing.is_empty() and int(firing.seat) == cur and firing.get("dice", []).is_empty()
 		if not mine and not ringed:  # REPLY 23: hidden while a power's ring is round the stake
-			var whose := _label(RulesText.word("their_turn", {"name": seats[cur].sin}), 44, rcol, INK, false, self)
+			var whose := _label(RulesText.word("their_turn", {"name": seats[cur].sin}), 44, rcol, Color(0, 0, 0, 0), false, self)
 			whose.size = Vector2(maxf(num.size.x, whose.get_minimum_size().x + 16.0), 56.0)
 			whose.position = Vector2(maxf(px0 + 16.0, num.position.x + (num.size.x - whose.size.x) / 2.0), stake_top - 24.0)
 		if loss != "" and mine:
-			var ll := _label(loss, 64, CRIMSON, BONE, false, near)
+			var ll := _label(loss, 64, on_page(CRIMSON), Color(0, 0, 0, 0), false, near)
 			ll.size = Vector2(loss_w, 90)
 			ll.position = Vector2(num.position.x + num.size.x - 8.0, stake_top - 18.0)  # raised, clear of the flames
 		if not firing.is_empty() and int(firing.seat) == cur and firing.get("dice", []).is_empty():
@@ -599,7 +596,6 @@ func build() -> void:
 		if mine and pend.has("strike") and c == 2 - struck:  # the next candle to go
 			_rect(Rect2(p + Vector2(0, CANDLE.y * 0.42), Vector2(CANDLE.x, 22)), CRIMSON, cpar)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
-	_page_halos()
 
 
 ## The Master of the Dance (REPLY 16), a flat blockout and the largest figure on screen. He stands behind
@@ -754,8 +750,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 				hi = h2
 		var sg: float = 0.0 if who == "" else SPEAK_SIGIL + 14.0  # the speaker's sigil, left of the words
 		var lw: float = hi - lo - sg
-		var ml := Style.label(text, 44 if who == "" else SPEAK_SIZE, BONE if who == "" else Style.SIN_COLORS[who].lightened(0.25), who != "", 10)
-		ml.add_theme_color_override("font_outline_color", INK if who == "" else BLACK)  # a Sin's colour reads 4.5:1 on black
+		var ml := Style.label(text, 44 if who == "" else SPEAK_SIZE, BONE if who == "" else on_plate(Style.SIN_COLORS[who].lightened(0.25)), who != "")  # REPLY 27: no outline, 4.5:1 on the plate
 		ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		ml.custom_minimum_size = Vector2(lw, 0)
 		ml.size = Vector2(lw, 0)
@@ -831,7 +826,7 @@ func _dashed_box(r: Rect2, c: Color) -> void:
 func _marker(c: Vector2, i: int, me: int, lead: int) -> void:
 	var r: float = MARK / 2.0
 	# The total (REPLY 12), always shown: above a rival's head, under mine (mine hangs below the line).
-	var tl := _label(str(int(seats[i].score)), TOTAL_SIZE, BONE, INK)  # bone on ink: legible on the vignette and the cone
+	var tl := _label(str(int(seats[i].score)), TOTAL_SIZE, INK, Color(0, 0, 0, 0))  # REPLY 27: ink on the page
 	tl.size = Vector2(maxf(MARK, tl.get_minimum_size().x) + 16.0, TOTAL_H)
 	tl.position = Vector2(c.x - tl.size.x / 2.0, (c.y + r + 6.0) if i == me else (c.y - r - 4.0 - TOTAL_H))
 	if i == lead:
@@ -905,59 +900,14 @@ func _disc(c: Vector2, r: float, fill: Color, edge: Color, parent: Node = self) 
 func _label(text: String, size: int, c: Color, outline: Color, blackletter := false, parent: Node = self) -> Label:
 	var l := Style.label(text, size, c, blackletter, 10 if outline.a > 0.0 else 0)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF  # one line; sizes below are set to fit
-	if text.is_valid_int():  # numbers in Cinzel (Style.NUMERAL), never the old-style Fell figures
-		l.add_theme_font_override("font", Style.NUMERAL)
+	if text.lstrip("+-").is_valid_int():  # REPLY 27: every numeral in Pirata One, never the old-style Fell figures
+		l.add_theme_font_override("font", NUM_FONT)
 	if outline.a > 0.0:
 		l.add_theme_color_override("font_outline_color", outline)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	parent.add_child(l)
 	return l
-
-
-## REPLY 25: light text on the painted page (stake, totals, 1000, a rival's turn) reads at 4.5:1 against
-## the page itself, not only its outline: a soft ink shadow under each, drawn behind the text and moving with it.
-func _page_halos() -> void:
-	var todo: Array = [self]
-	while not todo.is_empty():
-		var n: Node = todo.pop_back()
-		todo.append_array(n.get_children())
-		if not (n is Label) or not n.visible or n.text == "":
-			continue
-		var r: Rect2 = Rect2(n.position, n.size)
-		if n.get_parent() != self and n.get_parent() is Control:
-			r.position += (n.get_parent() as Control).position
-		if not page_rect.encloses(r) or n.get_theme_color("font_color").get_luminance() < 0.3:
-			continue
-		var h := TextureRect.new()
-		h.texture = _halo_tex()
-		h.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.show_behind_parent = true
-		h.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var gx: float = n.size.x * HALO_GROW
-		var gy: float = n.size.y * HALO_GROW
-		h.offset_left = -gx
-		h.offset_right = gx
-		h.offset_top = -gy
-		h.offset_bottom = gy
-		n.add_child(h)
-
-
-static var _halo: GradientTexture2D
-func _halo_tex() -> GradientTexture2D:
-	if _halo == null:
-		_halo = GradientTexture2D.new()
-		_halo.fill = GradientTexture2D.FILL_RADIAL
-		_halo.fill_from = Vector2(0.5, 0.5)
-		_halo.fill_to = Vector2(1.0, 0.5)
-		var gr := Gradient.new()
-		gr.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
-		gr.colors = PackedColorArray([Color(BLACK, HALO_ALPHA), Color(BLACK, HALO_ALPHA * 0.85), Color(BLACK, 0.0)])
-		_halo.gradient = gr
-		_halo.width = 128
-		_halo.height = 128
-	return _halo
 
 
 ## A window's shape in solid near-black (every pixel the glass covers at all), to back a dimmed window. Cached.
@@ -1112,9 +1062,7 @@ func _seal(parent: Node, word: String, pos: Vector2, fill: Color, ink: Color, li
 	l.text = word
 	l.add_theme_font_override("font", Style.BLACKLETTER)
 	l.add_theme_font_size_override("font_size", 48)
-	l.add_theme_color_override("font_color", fill if word == "Bank" else fill.lightened(0.35))
-	l.add_theme_color_override("font_outline_color", BLACK)
-	l.add_theme_constant_override("outline_size", 10)
+	l.add_theme_color_override("font_color", INK if word == "Bank" else on_page(fill))  # REPLY 27: ink on the page
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.position = Vector2(-20, d - 6)
@@ -1188,7 +1136,7 @@ func _choice_words(question: String, vw: float) -> Label:
 	words.text = question
 	words.add_theme_font_override("font", Style.SERIF)
 	words.add_theme_font_size_override("font_size", 44)
-	words.add_theme_color_override("font_color", BONE)
+	words.add_theme_color_override("font_color", GOLD)  # REPLY 27: gold on the plate
 	words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1209,8 +1157,12 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 	if at_end:  # REPLY 24: its plate's foot 16 px over my seal (the plate is 18 px above the words to 36 px under the row)
 		top = seal_top - 16.0 - (46.0 + CHOICE_H + 36.0) + 18.0
 	var words_h: float = plate.words_h
-	var back := ColorRect.new()
-	back.color = Color(BLACK, 0.85)
+	var back := NinePatchRect.new()  # REPLY 27: the painted plate, not a flat bar
+	back.texture = PLATE_TEX
+	back.patch_margin_left = PLATE_EDGE
+	back.patch_margin_right = PLATE_EDGE
+	back.patch_margin_top = PLATE_EDGE
+	back.patch_margin_bottom = PLATE_EDGE
 	back.position = Vector2(page_rect.position.x, top - 18.0)
 	back.size = Vector2(page_rect.size.x, (46.0 + CHOICE_H + 36.0) if at_end else plate.h)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1282,3 +1234,33 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 func _show_ghost(gh: Control, on: bool) -> void:
 	if is_instance_valid(gh):
 		gh.visible = on
+
+
+## REPLY 27: a colour darkened in steps until it reads 4.5:1 on the page's darkest 5%.
+static func on_page(c: Color) -> Color:
+	var out := c
+	for i in 40:
+		if _contrast(_rl(out), PAGE_L) >= 4.5:
+			break
+		out = out.darkened(0.05)
+	return out
+
+
+## A colour lightened in steps until it reads 4.5:1 on the plate's lightest 5%.
+static func on_plate(c: Color) -> Color:
+	var out := c
+	for i in 40:
+		if _contrast(_rl(out), PLATE_L) >= 4.5:
+			break
+		out = out.lightened(0.05)
+	return out
+
+
+static func _contrast(a: float, b: float) -> float:
+	return (maxf(a, b) + 0.05) / (minf(a, b) + 0.05)
+
+
+## WCAG relative luminance.
+static func _rl(c: Color) -> float:
+	var f := func(v: float) -> float: return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * f.call(c.r) + 0.7152 * f.call(c.g) + 0.0722 * f.call(c.b)
