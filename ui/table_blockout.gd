@@ -782,6 +782,7 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		# REPLY 23: the plate ends inside his figure, never on the black wall: its ends follow his outline at the
 		# middle of a two-line plate (one pass; his own line never narrower than LINE_MIN_W).
 		var fs: float = 44.0 if who == "" else float(SPEAK_SIZE)
+		var room := Vector2(lo, hi)  # the room clear of the active window and the card, before his outline narrows it
 		var hw: float = _figure_half_w(mf, mf.rt - 12.0 - 6.0 - fs * 1.25) - 12.0
 		var l3: float = maxf(lo, mf.cx - hw + 12.0)
 		var h3: float = minf(hi, mf.cx + hw - 12.0)
@@ -793,6 +794,15 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			ml.custom_minimum_size = Vector2(lw, 0)
 			ml.size = Vector2(lw, 0)
 			th = ml.get_minimum_size().y
+		if who == "" and ml.get_line_count() > 1:  # REPLY 32: his line widens to one line when the room beside him allows
+			var one: float = ml.get_theme_font("font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs)).x + 4.0
+			if one <= room.y - room.x:
+				lw = one
+				lo = clampf(mf.cx - one / 2.0, room.x, room.y - one)
+				hi = lo + one
+				ml.custom_minimum_size = Vector2(lw, 0)
+				ml.size = Vector2(lw, 0)
+				th = ml.get_minimum_size().y
 		if who != "" and ml.get_line_count() > 1:  # REPLY 24: a Sin's line that would wrap drops to SPEAK_SMALL
 			ml.add_theme_font_size_override("font_size", SPEAK_SMALL)
 			th = ml.get_minimum_size().y
