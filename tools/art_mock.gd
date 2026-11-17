@@ -1,6 +1,6 @@
 ## Art mock (REPLY 24 item 6): a fixture with art pieces swapped in at the locked boxes. Not used by the game.
-## godot --path . --fixed-fps 60 --script res://tools/art_mock.gd -- <fixture> <size> <master 0-3> <out.png> [art dir]
-## master 0 keeps the blockout figure. Pieces in the art dir: master_N.png. (Seals and candles are in the game, REPLY 26.)
+## godot --path . --fixed-fps 60 --script res://tools/art_mock.gd -- <fixture> <size> <master 0-3> <out.png> [art dir] [frame]
+## [frame]: an idle frame in place of the still, at the still's size. master 0 keeps the blockout figure. Pieces in the art dir: master_N.png. (Seals and candles are in the game, REPLY 26.)
 ## REPLY 26: the Master LARGE (his hood spans the hood box); the line plate moves under his jaw, over the rival windows.
 ## Prints the hood's top against the safe line and the jaw against the plate (viewport px).
 extends SceneTree
@@ -52,6 +52,10 @@ func _initialize() -> void:
 		var jaw_y: float = head.position.y + (JAW[mv] * img.get_height() - _top_row(img)) * s
 		var mr := TextureRect.new()
 		mr.texture = ImageTexture.create_from_image(img)
+		if a.size() > 5:  # REPLY 26 item 4: frame N of master_N_idle.png (8 square frames in a row, the still's framing)
+			var sheet := _img("master_%d_idle.png" % mv)
+			var fw: int = sheet.get_height()
+			mr.texture = ImageTexture.create_from_image(sheet.get_region(Rect2i(int(a[5]) * fw, 0, fw, fw)))
 		mr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		mr.size = sz
 		mr.position = Vector2(head.get_center().x - sz.x / 2.0, head.position.y - _top_row(img) * s)
