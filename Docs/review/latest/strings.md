@@ -373,8 +373,8 @@ WORDS: seals, banners, the opening card, results, Sin select, the pause menu, th
 
 Typed in table code:
 
-- `ui/table_blockout.gd:486` Bank
-- `ui/table_blockout.gd:487` Throw
+- `ui/table_blockout.gd:521` Bank
+- `ui/table_blockout.gd:522` Throw
 - `ui/table_play.gd:429` Standings
 - `ui/table_play.gd:463` Close
 - `ui/table_play.gd:464` Menu

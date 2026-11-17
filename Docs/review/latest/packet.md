@@ -1,25 +1,27 @@
-# Packet: REPLY 26 (seals and candles wired; large fiddle Master; type sheet; idle test; strings)
-**Local only, not pushed.** Suite: all pass. Text audit: 35/35 clean at se and std. Gallery goldens not re-approved (every table fixture differs).
-**2. Wired** (`sheet.png`: the code before and after, 4 fixtures, std and SE):
-- 794e842 seals: painted wax (key, dice) at the top of the 236 px tap box, the word under it (blackletter 48, gold / light crimson, black outline). Pressed darkens the wax; dimmed states as before.
-- 85dad1b candles: painted; snuffed is darkened with no glow; the next-to-go crimson band unchanged. Lit flames no longer change shape with the Strikes taken; only the glow shrinks.
-- Seen: the bust blot still covers the first candle's top; a snuffed candle's smoke rises about 70 px above its box; the seal words still sit on the ink shadows (to go in the lettering pass).
-**1. Master** (`master.png`: a Sin's line, his line, his call; std row over SE row). Mock only (`tools/art_mock.gd`); TableSpec records the plate change (4d102b5).
-- His hood at mid-skull spans the hood box: piece 1015 px (std), 727 px (SE). The hood's top is 2 px under the safe line at both sizes.
-- The plate's top sits 8 px under his jaw and is drawn over the windows. It covers the rival windows' tops by 33 to 70 px (std) and 33 to 92 px (SE); the call's plate is the deepest.
-- Seen: the fiddle, bow and hands fall behind the rival windows; the bow hand reaches the screen's right edge; in his call the blockout's raised arm and hand still show (the piece has no call pose).
-**3. Type sheet** (`type.png`, nothing wired): dark ink on the page, no shadows. Lines and questions sit on a painted plate (new, 12 credits). The faces are Pirata One (blackletter) and IM Fell English (plain, numerals too); Cinzel is dropped.
-- Measured against what is behind each sample with the text hidden; std and SE agree. Lowest: median 5.2:1, worst 5% 4.7:1 (Sloth's turn on the page; Lust on a plate).
-- Page: stake, totals, goal 12-13:1; Bank 11.6, Throw 5.9; crimson loss and post 6.0; each Sin's turn colour darkened to 5.2-5.8. Plates: the Master's line 11.8; Sin colours lightened to 5.3-8.7; gold 9.2-9.7.
-- Seen: IM Fell's numerals are old-style (the 3 in 230 drops below the line).
-**4. Idle test** (`clip.mp4` 5 s on table_master std; `idle_strip.png`: the still, then 8 frames). One 8-frame loop: **20 credits**.
-- Frames are 640 px; at std the Master shows at 1015 px, 1.6x up. Frame 0 differs from the still by a mean 5.7/255; the head bobs 14 px in the frame. The framing and design hold.
-- Cost: a speaking motion or a mark/call gesture is 20 credits per 8-frame loop each (same engine). Not made.
-**5. Strings** (`strings.md`): 567 lines from `tools/strings_export.gd`, grouped Master, each Sin, questions (file:line), labels, rulebook, log, tutorial. No wording changed.
-**Credits:** 32 used (162 left). Kept ids: idle de061633, plate 8de13e46; seals 453b9d40, a72f0f1c; candles a3e8ded5; Master cb2feec5; page 56d071ca; table ebfa78e3.
+# Packet: REPLY 27 (painted Master bust, lettering, idle and jaw in Godot, candle band)
+**Local only, not pushed. 0 credits.** Suite: all pass. Text audit: 35/35 clean at se and std. Gallery goldens not re-approved.
+**1. Master** (5c98d07; `master.png`: no line, a Sin's line, his line, his call; std row over SE row). The fiddle piece is now a bust.
+- Mask: crown, hood, skull and the left shoulder. The bow, fiddle, hands and the chin rest are cut out, with soft edges (7 px blur in the source).
+- Plate: the painted plate (8de13e46), 8 px under his jaw, drawn over the windows. His call has no arm.
+- Plate over the rival tops (px): a Sin's line 45 std, 52 SE; his line and call 42 std, 91 SE; mark 82 std and 103 SE, the only one past the 92 sheeted.
+- Seen: the right shoulder ends in a soft vertical edge under the skull (no line: it shows between jaw and windows). His mark and offer arms are still the blockout's. His SE line now wraps to two lines.
+**2. Lettering** (1fcf581; `sheet.png`: 3 fixtures, before and after, std and SE). Changes:
+- Dark ink on the page; no shadows or outlines. Every numeral in Pirata One; Cinzel is gone from the table.
+- Gold and light colours only on plates; the choice row's black bar is now the painted plate.
+- Changed to make ink read: the page's edge shade went from 0.88 to 0.3 black, since ink failed (1.4-2.4:1) where the page fell into shadow.
+- Numerals measured with the text hidden, 8 fixtures: lowest median 5.9:1 at both sizes (rival totals on the track). The 5% worst reads 1.0 where an ink stem or post crosses a number.
+- Layout: the nine locked states keep their boxes. In table_master, _calling and _offer, the narrower numerals fan the track markers less, so the band is shorter and the windows sit 40 px lower (std) or larger (SE).
+- Seen: a rival's stake in its colour darkened to 4.5:1 reads near black (Gluttony). "Buy dice?" sits on the plate's top gold border. The post's "550" touches its bar.
+**3-4. Motion** (6cd1941; `clip.mp4` 5 s idle on table_master_rest std, no line; `speak.mp4` 4 s on table_master std). Timings are in Tuning.
+- Idle: breath 0.6% over 4.2 s, sway 0.5° over 6.6 s and a 0.35° head tilt over 9.7 s, all from the bust's foot. The plate's gap moves by about 2 px.
+- Jaw: cut from the still along the bite line. Closed, it matches the still pixel for pixel. It hinges under the ear, up to 5° per 0.32 s syllable, only while his own line shows.
+- Seen: at full open the chin comes within about 1 px of the plate. A small dark wedge of the chin rest stays on the jaw piece's right.
+- Loop de061633 is dropped. A call pose (a hand raised by the skull) would be one still edit at 12 credits; not made.
+**5. Candles** (b7bfb64; `candles.png`): the next-to-go band is the candle's own wax dyed crimson; its edges are still straight. The candles were already drawn after the blot, and with the Pirata stake the blot now ends about 60 px left of the first candle (std).
+`strings.md` re-exported for the wording pass (wording unchanged).
+Not pushed. Parked as before.
 
 **Questions**
-1. Wire the fiddle Master at this size for 121, with the plate under his jaw? Rec: yes, his call shown by the plate alone until a call gesture exists.
-2. Adopt the type sheet (dark ink on the page, painted plates, two faces, no shadows)? Rec: yes.
-3. Idle: the generated loop, or the still moved in Godot (breath, sway)? Rec: Godot on the still (stays sharp at 1015 px); spend credits on the speak and call gestures (40).
-4. Numerals in IM Fell's old-style figures? Rec: yes, to keep two faces.
+1. A rival's stake: keep its colour darkened to 4.5:1 (near black for Gluttony), or set it in ink with only "<Sin>'s turn" in colour? Rec: ink stake, coloured words.
+2. Make the call pose still edit (12 credits)? Rec: yes, after you've seen the jaw clip.
+3. Draw his mark and offer gestures without the blockout arm (plate and the gold ring only, like the call)? Rec: yes.
