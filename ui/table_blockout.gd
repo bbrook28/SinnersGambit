@@ -25,6 +25,7 @@ const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const Die = preload("res://ui/widgets/die.gd")
 const RulesText = preload("res://ui/rules_text.gd")
+const TABLE_TEX := preload("res://assets/art/runtime/table/table.jpg")  # REPLY 25: the painted table top (SpriteCook ebfa78e3)
 const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
@@ -290,6 +291,14 @@ func build() -> void:
 	shaft.vertex_colors = PackedColorArray([Color(col, 0.3), Color(col, 0.3), Color(col, 0.0), Color(col, 0.0)])
 
 	# The page, lit in a pool round the dice and decision, falling to shadow at its edges.
+	var board := TextureRect.new()  # REPLY 25: the table top, from the page's top line down, under the page
+	board.texture = TABLE_TEX
+	board.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	board.stretch_mode = TextureRect.STRETCH_TILE
+	board.position = Vector2(0, pg.position.y)
+	board.size = Vector2(vp.x, vp.y - pg.position.y)
+	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(board)
 	var paper := TextureRect.new()  # REPLY 25: the painted page
 	paper.texture = PAGE_TEX
 	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
