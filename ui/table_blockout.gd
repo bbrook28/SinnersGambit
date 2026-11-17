@@ -29,6 +29,8 @@ const TABLE_TEX := preload("res://assets/art/runtime/table/table.jpg")  # REPLY 
 const HALO_ALPHA := 0.85  # REPLY 25: the ink shadow under light text on the page (_page_halos)
 const HALO_GROW := 0.35   # its reach past the text box, a fraction of the box each side
 const PAGE_TEX := preload("res://assets/art/runtime/table/page.jpg")  # REPLY 25: painted parchment (SpriteCook 56d071ca)
+const SEAL_TEX := {"Bank": preload("res://assets/art/runtime/table/seal_bank.png"), "Throw": preload("res://assets/art/runtime/table/seal_throw.png")}  # REPLY 26: painted wax, key 453b9d40, dice a72f0f1c
+const SEAL_WORD_H := 58.0  # the word's strip under the wax, inside the seal's box (no word on the wax)
 const INK_EMBLEM = preload("res://ui/shaders/ink_emblem.gdshader")
 
 # The palette: black, parchment, bone, crimson, gold leaf (+ the active Sin's glass colour).
@@ -1088,24 +1090,42 @@ func _stake_ring(r: Rect2, seat: int, parent: Node = self, ink := INK, at := Vec
 
 ## A seal: a flat disc with its word (Bank gold leaf, Throw crimson).
 func _seal(parent: Node, word: String, pos: Vector2, fill: Color, ink: Color, live: bool) -> Button:
+	# REPLY 26: painted wax over the top of the box, no word on it; the word under it, inside the box.
+	# The box is still the tap target. Pressed darkens the wax; not live, the caller dims the whole seal.
 	var b := Button.new()
+	var none := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = fill.darkened(0.15) if st == "pressed" else fill
-		sb.set_corner_radius_all(int(SEAL))
-		sb.set_border_width_all(6)
-		sb.border_color = INK
-		b.add_theme_stylebox_override(st, sb)
-	b.text = word
-	b.add_theme_font_override("font", Style.BLACKLETTER)
-	b.add_theme_font_size_override("font_size", 64)
-	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color", "font_focus_color"]:
-		b.add_theme_color_override(k, ink)
+		b.add_theme_stylebox_override(st, none)
 	b.size = Vector2(SEAL, SEAL)
 	b.custom_minimum_size = b.size
 	b.position = pos
 	b.disabled = not live
 	b.focus_mode = Control.FOCUS_NONE
+	b.set_meta("word", word)
+	var d: float = SEAL - SEAL_WORD_H
+	var wax := TextureRect.new()
+	wax.texture = SEAL_TEX[word]
+	wax.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	wax.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	wax.position = Vector2(SEAL_WORD_H / 2.0, 0)
+	wax.size = Vector2(d, d)
+	wax.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(wax)
+	b.button_down.connect(func(): wax.modulate = Color(0.7, 0.7, 0.7))
+	b.button_up.connect(func(): wax.modulate = Color.WHITE)
+	var l := Label.new()
+	l.text = word
+	l.add_theme_font_override("font", Style.BLACKLETTER)
+	l.add_theme_font_size_override("font_size", 48)
+	l.add_theme_color_override("font_color", fill if word == "Bank" else fill.lightened(0.35))
+	l.add_theme_color_override("font_outline_color", BLACK)
+	l.add_theme_constant_override("outline_size", 10)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.position = Vector2(-20, d - 6)
+	l.size = Vector2(SEAL + 40, SEAL_WORD_H + 6)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(l)
 	parent.add_child(b)
 	return b
 
