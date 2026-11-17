@@ -28,7 +28,8 @@ const RulesText = preload("res://ui/rules_text.gd")
 const TABLE_TEX := preload("res://assets/art/runtime/table/table.jpg")  # REPLY 25: the painted table top (SpriteCook ebfa78e3)
 # REPLY 27 lettering (the REPLY 26 type sheet): dark ink on the page, no shadows or outlines; gold and light
 # colours only on dark (the painted plates); Pirata One (blackletter, every numeral) and IM Fell English.
-const NUM_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")  # every numeral
+const NUM_FONT := preload("res://assets/fonts/cinzel_bold.tres")  # REPLY 28: every small numeral in Cinzel (lining figures)
+const STAKE_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")  # the stake alone in Pirata One
 const PAGE_SHADE := 0.3  # the page's shadow at its edges (REPLY 27: from 0.88; dark ink needs a light page)
 const PAGE_L := 0.25   # the page's darkest 5% under that shadow, relative luminance (0.62 unshaded, x 0.7^2.2, rounded down)
 const PLATE_L := 0.03  # the plate's centre, lightest 5% (plate.png, measured 0.026)
@@ -550,15 +551,16 @@ func build() -> void:
 	var c_l: float = (bank.position.x + SEAL + throw.position.x) / 2.0 - cw / 2.0
 	var loss := ("-%d" % bank_loss) if bank_loss > 0 else ""
 	var loss_w: float = (NUM_FONT.get_string_size(loss, HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x + 16.0) if loss != "" else 0.0
-	while stake_size > 90 and NUM_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
+	while stake_size > 90 and STAKE_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x > c_l - 40.0 - (px0 + 70.0):
 		stake_size -= 4  # never under the candles
 	stake_label = null
 	# REPLY 22 (A2): a rival's stake stands where mine does, in its colour, undimmed, "<Sin>'s turn" over it.
 	var rcol: Color = on_page(col)  # REPLY 27: the Sin's colour darkened to 4.5:1 on the page
 	if not mine or buy_ghosts.is_empty():  # buying: the stake has landed on the track (REPLY 9)
 		var bc: float = bank.position.x + SEAL / 2.0
-		var tw: float = NUM_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
+		var tw: float = STAKE_FONT.get_string_size(str(points), HORIZONTAL_ALIGNMENT_LEFT, -1, stake_size).x
 		var num := _label(str(points), stake_size, INK if mine else rcol, Color(0, 0, 0, 0), false, near if mine else self)
+		num.add_theme_font_override("font", STAKE_FONT)  # REPLY 28: the heaviest thing on the page
 		num.size = Vector2(tw + 24.0, stake_h)
 		num.position = Vector2(maxf(px0 + 70.0, bc - num.size.x / 2.0), stake_top)
 		stake_label = num
@@ -936,7 +938,7 @@ func _disc(c: Vector2, r: float, fill: Color, edge: Color, parent: Node = self) 
 func _label(text: String, size: int, c: Color, outline: Color, blackletter := false, parent: Node = self) -> Label:
 	var l := Style.label(text, size, c, blackletter, 10 if outline.a > 0.0 else 0)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF  # one line; sizes below are set to fit
-	if text.lstrip("+-").is_valid_int():  # REPLY 27: every numeral in Pirata One, never the old-style Fell figures
+	if text.lstrip("+-").is_valid_int():  # REPLY 28: small numerals in Cinzel (the stake overrides to Pirata One)
 		l.add_theme_font_override("font", NUM_FONT)
 	if outline.a > 0.0:
 		l.add_theme_color_override("font_outline_color", outline)
@@ -1234,18 +1236,31 @@ func choice_row(parent: Node, question: String, items: Array) -> Array:
 		b.add_theme_font_override("font", Style.BLACKLETTER)
 		var fs := 42
 		var widest := 0.0
-		for part in b.text.split("
-"):
+		for part in b.text.split("\n"):
 			widest = maxf(widest, Style.BLACKLETTER.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
 		while fs > 28 and widest > bw - 24.0:
 			fs -= 2
 			widest = 0.0
-			for part in b.text.split("
-"):
+			for part in b.text.split("\n"):
 				widest = maxf(widest, Style.BLACKLETTER.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
 		b.add_theme_font_size_override("font_size", fs)
 		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(st, INK)
+		var parts: PackedStringArray = b.text.split("\n")
+		if parts.size() == 2 and parts[1].is_valid_int():  # REPLY 28: the word in Pirata One over its number in Cinzel
+			b.text = ""
+			for j in 2:
+				var pl := Label.new()
+				pl.text = parts[j]
+				pl.add_theme_font_override("font", Style.BLACKLETTER if j == 0 else NUM_FONT)
+				pl.add_theme_font_size_override("font_size", fs if j == 0 else fs - 6)
+				pl.add_theme_color_override("font_color", INK)
+				pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				pl.position = Vector2(0, 8.0 + j * (CHOICE_H - 16.0) / 2.0)
+				pl.size = Vector2(bw, (CHOICE_H - 16.0) / 2.0)
+				pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				b.add_child(pl)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = BONE
 		sb.border_color = INK
