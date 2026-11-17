@@ -97,6 +97,11 @@ const PLATE_TEX := preload("res://assets/art/runtime/table/plate.png")  # painte
 const PLATE_EDGE := 22  # its nine-patch margins (the gold border), px
 const PLATE_PAD := Vector2(30, 12)  # text inset from the plate's edge
 const PLATE_GAP := 8.0  # the plate's top under his jaw
+const NOTCH := Vector2(40, 22)  # REPLY 32: a rival's line plate's notch, pointing up at its window: width, height
+const LINE_EDGE := 16.0  # the screen gutter a Sin's line plate keeps
+const LINE_STRADDLE := 10.0  # a rival's line plate's foot, this far onto the page's top edge (above the track's tokens)
+const SHORT_SCREEN := 2100.0  # layout height under which a rival's line may take 3 lines (SE: 1920)
+const RECOLOUR := preload("res://ui/shaders/plate_recolour.gdshader")
 const MIN_TEXT := 44  # REPLY 28: no text under 15 pt on the smallest phone (375 pt wide: 1080 / 375 px per pt)
 const WORDS_DROP := 9.0  # REPLY 28: a choice row's question sits this far lower inside its plate, off the gold border (the row keeps its height: the layout is locked)
 const PLATE_OVER := 92.0  # REPLY 28: the most his plate may cover the rival windows' tops (as sheeted, REPLY 26)
@@ -326,7 +331,8 @@ func build() -> void:
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		t.position = r.position
 		t.size = r.size
-		t.modulate = Color.WHITE if i == cur else Color(0.3, 0.28, 0.3)  # REPLY 16: rivals readable against the plum
+		var speaking: bool = master_line == "" and not speak.is_empty() and int(speak.seat) == i  # REPLY 32: a speaking rival's window brightens
+		t.modulate = Color.WHITE if i == cur or speaking else Color(0.3, 0.28, 0.3)  # REPLY 16: rivals readable against the plum
 		if i != cur:  # REPLY 25: a rival's glass is dimmed by darkening only; nothing behind shows through it
 			var back := _solid(t.texture)
 			if back:
@@ -635,6 +641,8 @@ func build() -> void:
 			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cpar.add_child(band)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
+	if master_line == "" and not speak.is_empty():
+		_sin_line(win_rects[int(speak.seat)], int(speak.seat) == cur, str(seats[int(speak.seat)].sin), str(speak.line))
 
 
 ## The Master of the Dance (REPLY 16), a flat blockout and the largest figure on screen. He stands behind
@@ -732,11 +740,8 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 		_line(ring, GOLD, 7.0, none)
 	# REPLY 28: no arm in any pose (call, mark, offer): his plate and the mark's gold ring only.
 	# REPLY 22 (A2): a Sin's spoken line takes the same spot, in its blackletter and colour, its sigil at the left.
-	var text: String = master_line
+	var text: String = master_line  # REPLY 32: a Sin's line is on its own window (_sin_line), never here
 	var who := ""
-	if text == "" and not speak.is_empty():
-		text = str(speak.line)
-		who = str(seats[int(speak.seat)].sin)
 	if text != "":  # REPLY 17: his words on an ink plate in his robe, just above the rivals' tops, centred on him
 		var act: Rect2 = mf.act  # never across the active window, which is as tall as the wall
 		var lo: float = maxf(px0 + 16.0, 52.0)
@@ -807,6 +812,125 @@ func _master_arms(mf: Dictionary, win_rects: Array, px0: float, px1: float) -> v
 			_sigil(who, Rect2(c - Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.39, Vector2(SPEAK_SIGIL, SPEAK_SIGIL) * 0.78), INK)
 		else:
 			master_label = ml
+
+
+## A Sin's line (TableSpec exception 2, REPLY 28/31/32) at the foot of its own window, on the painted plate with
+## its gold border recoloured in that Sin's colour. Active: inside its window's foot, at least the window's width,
+## centred and clamped to the screen. Rival: its foot on the page's top edge, so it straddles its window's foot
+## and grows upward over the rival row, never down over the track; a notch points up at its window.
+## At most 2 lines (a rival 3 on a short screen): the plate widens first, then the size steps down; the lines are
+## balanced, never a one-word line.
+func _sin_line(win: Rect2, active: bool, who: String, text: String) -> void:
+	var vw: float = get_viewport_rect().size.x
+	var col: Color = Style.SIN_COLORS[who]
+	var ml := Style.label(text, SPEAK_SIZE, on_plate(col.lightened(0.25)), true)
+	ml.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plate := NinePatchRect.new()
+	plate.texture = PLATE_TEX
+	for m in ["patch_margin_left", "patch_margin_right", "patch_margin_top", "patch_margin_bottom"]:
+		plate.set(m, PLATE_EDGE)
+	plate.material = _recolour(col.lightened(0.15))
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(plate)
+	add_child(ml)
+	var max_lines: int = 2 if active or get_viewport_rect().size.y >= SHORT_SCREEN else 3
+	var maxw: float = vw - 2.0 * LINE_EDGE
+	var fit: Vector3 = _fit_line(ml, win.size.x - 2.0 * PLATE_PAD.x, maxw - 2.0 * PLATE_PAD.x, max_lines)
+	var w: float = maxf(win.size.x, fit.x + 2.0 * PLATE_PAD.x)
+	var h: float = fit.y + 2.0 * PLATE_PAD.y
+	var x: float = clampf(win.get_center().x - w / 2.0, LINE_EDGE, vw - LINE_EDGE - w)
+	var foot: float = win.end.y if active else page_rect.position.y + LINE_STRADDLE
+	var rect := Rect2(x, foot - h, w, h)
+	if not active:
+		var tip := Vector2(win.get_center().x, rect.position.y - NOTCH.y)
+		var base_y: float = rect.position.y + 6.0
+		var notch := Polygon2D.new()
+		notch.polygon = PackedVector2Array([Vector2(tip.x - NOTCH.x / 2.0, base_y), Vector2(tip.x + NOTCH.x / 2.0, base_y), tip])
+		notch.color = Color(0.17, 0.12, 0.09)
+		add_child(notch)
+		move_child(notch, plate.get_index())
+		var edge := _line([Vector2(tip.x - NOTCH.x / 2.0, rect.position.y + 3.0), tip, Vector2(tip.x + NOTCH.x / 2.0, rect.position.y + 3.0)], col.lightened(0.15), 4.0)
+		edge.joint_mode = Line2D.LINE_JOINT_ROUND
+		move_child(edge, plate.get_index())
+	plate.position = rect.position
+	plate.size = rect.size
+	ml.custom_minimum_size = Vector2(fit.z, 0)
+	ml.size = Vector2(fit.z, fit.y)
+	ml.position = Vector2(rect.get_center().x - fit.z / 2.0, rect.position.y + PLATE_PAD.y)
+	boxes["line"] = rect
+
+
+## The words within max_lines: the most lines (up to max_lines) for which every line keeps two words or more,
+## each balanced (the narrowest width that keeps that many lines, never under the longest word) and within hi;
+## else fewer lines; else the next size down (SPEAK_SIZE, SPEAK_SMALL, MIN_TEXT).
+## Returns (the plate's text width, at least lo; text height; the words' width).
+func _fit_line(ml: Label, lo: float, hi: float, max_lines: int) -> Vector3:
+	var words: PackedStringArray = ml.text.split(" ", false)
+	for s in [SPEAK_SIZE, SPEAK_SMALL, MIN_TEXT]:
+		ml.add_theme_font_size_override("font_size", s)
+		var f: Font = ml.get_theme_font("font")
+		var longest := 0.0
+		for wd in words:
+			longest = maxf(longest, f.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 4.0)
+		for n in range(mini(max_lines, words.size()), 0, -1):
+			var w := _narrowest(ml, n, longest, hi)
+			if w < 0.0:
+				continue
+			_wrap(ml, w)
+			var ok := true
+			if n > 1:
+				for i in ml.get_line_count():
+					if _line_words(ml, i) < 2:
+						ok = false
+			if ok:
+				return Vector3(maxf(w, lo), ml.get_minimum_size().y, w)
+	_wrap(ml, hi)
+	return Vector3(hi, ml.get_minimum_size().y, hi)
+
+
+## The narrowest width in [lo, hi] at which the words take n lines or fewer; -1 if hi is not enough.
+func _narrowest(ml: Label, n: int, lo: float, hi: float) -> float:
+	if _wrap(ml, hi) > n:
+		return -1.0
+	var a := lo
+	var b := hi
+	if _wrap(ml, a) <= n:
+		return a
+	while b - a > 2.0:
+		var m := (a + b) / 2.0
+		if _wrap(ml, m) <= n:
+			b = m
+		else:
+			a = m
+	return b
+
+
+func _wrap(ml: Label, w: float) -> int:
+	ml.custom_minimum_size = Vector2(w, 0)
+	ml.size = Vector2(w, 0)
+	return ml.get_line_count()
+
+
+## How many words line i of the label holds, wrapped as the label wraps.
+func _line_words(ml: Label, i: int) -> int:
+	var s: int = ml.get_theme_font_size("font_size")
+	var para := TextParagraph.new()
+	para.add_string(ml.text, ml.get_theme_font("font"), s)
+	para.width = ml.size.x
+	para.break_flags = TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE
+	if i >= para.get_line_count():
+		return 0
+	var r: Vector2i = para.get_line_range(i)
+	return ml.text.substr(r.x, r.y - r.x).split(" ", false).size()
+
+
+## The plate's gold border recoloured (its darker wood is left as it is).
+static func _recolour(tint: Color) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = RECOLOUR
+	mat.set_shader_parameter("tint", tint)
+	return mat
 
 
 ## His figure's half-width at height y: the hood's dome, its sides flaring to the shoulders, then the robe.
