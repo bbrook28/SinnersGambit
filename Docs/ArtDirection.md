@@ -13,12 +13,12 @@ How the table is laid out and behaves as built: `Docs/TableSpec.md`.
 6. Decision: Bank and Throw seals on the near edge, under my thumbs.
 
 **Restraint.**
-1. At least two-thirds of the screen is darkness or plain parchment; no ornament on surfaces (no floral or vine borders, drop caps, gilded frames, texture behind text).
-2. Only the Sins' glass and the dice carry detail; everything else is flat shapes and simple ink line.
+1. At least two-thirds of the screen is darkness or plain parchment; no ornament on surfaces (no floral or vine borders, drop caps, gilded frames, texture behind text; the page's own parchment grain is allowed, REPLY 25).
+2. Only the Sins' glass and the dice carry rich detail; table pieces (page, table, candles, seals, the Master) are painted but simpler than the glass, so the windows stay the richest thing on screen.
 3. Palette of five: black, parchment, bone, crimson, gold leaf, plus exactly one Sin's glass colour, the active one; inactive windows near-black with only the eyes or one highlight lit.
 4. Information large, plain, colour-coded: points always gold, Strikes always crimson; big numerals, short labels, space around them.
 5. Few objects, each used in play: page, dice, three candles, two seals, windows, jester, skeleton.
-6. One hand-made woodcut ink style, single stroke weight, slightly irregular; no gloss, no glow beyond candlelight and light through glass.
+6. One style across the game (Ben, REPLY 25, 2026-11-16): every piece HD painted to match the Sin art, with soft shading, the window frames' gold and the same warm light. Woodcut ink is dropped. No gloss, no glow beyond candlelight and light through glass.
 7. Blockout in flat shapes in this palette first.
 
 ## Palette
