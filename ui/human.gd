@@ -161,3 +161,15 @@ func wants_power(game, p, _sname: String):
 				return false
 			return true
 	return await _choose("", [["@seal", true], ["@stand", false]])
+
+
+## REPLY 36-42: a bet on a rival's turn (core/game.gd _ask_bet): its fall at turn start, the raise before a
+## later throw, or the hex at 2 Strikes. The table shows it as a slip in the seals row: Pass where Bank sits,
+## Take (or Hex) where Throw sits. Pass is the first answer, so a test that takes the first choice never bets.
+func wants_bet(_game, _me, p, kind: String, info: Dictionary) -> bool:
+	var RulesText = load("res://ui/rules_text.gd")
+	var args: Dictionary = info.merged({"sin": p.sin.sin_name})
+	var bet := {"kind": kind, "seat": p.seat, "sin": p.sin.sin_name,
+		"title": RulesText.table("bet_%s_title" % kind, args), "sub": RulesText.table("bet_%s_sub" % kind, args),
+		"take": RulesText.table("bet_hex" if kind == "hex" else "bet_take"), "pass": RulesText.table("bet_pass")}
+	return await _choose(bet.title, [[bet.pass, false], [bet.take, true]], {"bet": bet})

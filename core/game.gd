@@ -354,6 +354,8 @@ func take_turn(p) -> void:
 	if p.sin:
 		await p.sin.before_turn(self, p, turn)
 	await _power(p, "start")
+	_bets = {}
+	await _bet_fall(p)
 
 	# Fate Phase 2-4: throw (and press), Strike check, score.
 	var count: int = p.dice
@@ -364,6 +366,8 @@ func take_turn(p) -> void:
 		count = _max_throw(p)
 	var face_pts := 0  # the turn's face points so far, before chain (soften: a bust keeps half)
 	while count > 0:
+		if turn.throws >= 2:
+			await _bet_raise(p)
 		turn.faces = Rules.roll(rng, count)
 		turn.throws += 1
 		var doubled: bool = turn.x2
@@ -384,6 +388,7 @@ func take_turn(p) -> void:
 		if p.sin:
 			await p.sin.after_throw(self, p, turn)
 		await _power(p, "throw")
+		await _bet_hex(p)
 		turn.strikes += Rules.count_strikes(turn.faces)
 		if turn.strikes >= Rules.STRIKES_TO_BUST:
 			if view:
@@ -394,6 +399,7 @@ func take_turn(p) -> void:
 				p.score += keep
 				if view:
 					say("  keeps %d (half the face points)." % keep)
+			_bet_settle(p, true)
 			await beat(p, "end")
 			return
 		turn.throw_points = throw_score(turn.faces)
@@ -441,6 +447,7 @@ func take_turn(p) -> void:
 	p.score += banked
 	if view:
 		say("%s banks %d (score %d)." % [pname(p), banked, p.score])
+	_bet_settle(p, false)
 	if v4:
 		if banked >= 200:
 			_view_event("bank", p)
@@ -825,3 +832,118 @@ func _margin() -> int:
 			second = maxi(second, o.score)
 	return winner.score - second
 
+
+# ---------- The bets on a rival's turn (REPLY 36-42; opt "bets"): fall, hex, raise, the Master's credit ----------
+# Offered only to the one human seat (Solo). Each prompt is shown only when you can cover it: on the Master's
+# credit your score may go down to -credit_cap, and open bets count against that, so a stake you don't hold
+# comes off your next bank. Bots never bet, so bot-only games (the sims) are unchanged.
+const BET_STAKE := 50
+const BET_RAISE_RATE := {0: 0.31, 1: 0.51, 2: 0.84}  # P(a rival's turn busts | its Strikes before a 3rd+ throw), sim/match_sim.gd
+var _bets := {}       # this turn: {"fall": stake, "fall_pay": n, "raise": stake, "raise_pay": n, "last": throw index of the last prompt}
+var _hex_round := -1  # the round you last hexed (once a round)
+
+
+## The seat that may bet: the only human at the table, when bets are on.
+func bettor():
+	if not opt("bets", false):
+		return null
+	var hs := players.filter(func(q): return q.bot != null and q.bot.get("human") == true)
+	return hs[0] if hs.size() == 1 else null
+
+
+func _bet_covered(n: int) -> bool:
+	var me = bettor()
+	var held: int = int(_bets.get("fall", 0)) + int(_bets.get("raise", 0))
+	return me.score - held - n >= -int(opt("credit_cap", 150))
+
+
+func _ask_bet(p, kind: String, info: Dictionary) -> bool:
+	var me = bettor()
+	_bets["last"] = turn.throws
+	if not me.bot.has_method("wants_bet"):
+		return false
+	return await me.bot.wants_bet(self, me, p, kind, info)
+
+
+## At a rival's turn start: 50 that it busts this turn, priced by the standings (65 on the leader, 35 on the
+## last seat, 50 otherwise).
+func _bet_fall(p) -> void:
+	var me = bettor()
+	if me == null or p == me or not _bet_covered(BET_STAKE):
+		return
+	var sc: Array = players.map(func(q): return q.score)
+	var pay: int = int(opt("fall_pay", 50))
+	if p.score >= sc.max():
+		pay = int(opt("fall_lead", 65))
+	elif p.score <= sc.min():
+		pay = int(opt("fall_last", 35))
+	if await _ask_bet(p, "fall", {"stake": BET_STAKE, "pay": pay}):
+		_bets["fall"] = BET_STAKE
+		_bets["fall_pay"] = pay
+		_bet_view("take", p, {"kind": "fall", "stake": BET_STAKE})
+
+
+## Before a rival's 3rd+ throw, at least 2 throws after your last prompt, once a turn: the fall again, at fair
+## odds for its Strikes now. Pay = 50 x (1 - r) / r, rounded down to 5; never under 10.
+func _bet_raise(p) -> void:
+	var me = bettor()
+	if me == null or p == me or _bets.has("raise") or turn.throws - int(_bets.get("last", -99)) < 2 or not _bet_covered(BET_STAKE):
+		return
+	var r: float = BET_RAISE_RATE.get(mini(turn.strikes, 2), 0.5)
+	var pay: int = int(BET_STAKE * (1.0 - r) / r) / 5 * 5
+	if pay < 10:
+		return
+	if await _ask_bet(p, "raise", {"stake": BET_STAKE, "pay": pay, "strikes": turn.strikes}):
+		_bets["raise"] = BET_STAKE
+		_bets["raise_pay"] = pay
+		_bet_view("take", p, {"kind": "raise", "stake": BET_STAKE})
+
+
+## Once a round, when a rival's throw leaves it on 2 Strikes: pay 60 to turn its best scorer (4-6) into a
+## Strike, so the throw busts it. Allowed with a bet riding on that rival.
+func _bet_hex(p) -> void:
+	var me = bettor()
+	var cost := int(opt("hex_cost", 60))
+	if me == null or p == me or _hex_round == round_count or not _bet_covered(cost):
+		return
+	if turn.strikes + Rules.count_strikes(turn.faces) != Rules.STRIKES_TO_BUST - 1:
+		return
+	var best := -1
+	for i in turn.faces.size():
+		if turn.faces[i] >= 4 and (best < 0 or turn.faces[i] > turn.faces[best]):
+			best = i
+	if best < 0:
+		return
+	var face := int(turn.faces[best])
+	if await _ask_bet(p, "hex", {"cost": cost, "face": face, "die": best}):
+		_hex_round = round_count
+		me.score -= cost
+		turn.faces[best] = 1
+		_bet_view("hex", p, {"cost": cost, "die": best})
+		if view:
+			say("  The hex turns %s's %d into a Strike." % [pname(p), face])
+
+
+## The rival's turn ended: the open bets settle. It busts: the Master pays each. It banks: each stake goes to it.
+func _bet_settle(p, bust: bool) -> void:
+	var me = bettor()
+	if me == null or p == me:
+		_bets = {}
+		return
+	for k in ["fall", "raise"]:
+		if not _bets.has(k):
+			continue
+		var stake: int = int(_bets[k])
+		if bust:
+			me.score += int(_bets[k + "_pay"])
+			_bet_view("won", p, {"kind": k, "pay": int(_bets[k + "_pay"])})
+		else:
+			me.score -= stake
+			p.score += stake
+			_bet_view("lost", p, {"kind": k, "stake": stake})
+	_bets = {}
+
+
+func _bet_view(kind: String, p, facts: Dictionary) -> void:
+	if view and view.has_method("bet_event"):
+		view.bet_event(kind, p, facts)
