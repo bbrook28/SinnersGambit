@@ -3,7 +3,7 @@ The table game is the real game: Play opens it. Your opponents are the Seven Sin
 
 ## 0. The table game as built (`Rules.V5`, REPLY 21; checked against `core/` and `sins/` on 2026-11-16)
 Seats: you and 3 Sins (first game) or the table size you pick, 2-7. Everyone starts with 3 dice; the supply is 27 in all. No win score: the Master calls the end.
-**A round:** (1) the Master marks the strict leader (score above 0): that seat scores no chain this round. (2) Each seat takes a turn in order. (3) At the round's end, if the leader has 550+ and at least 3 rounds are done, he calls it: one more round, then the final round; the highest total wins (a tie is drawn at random).
+**A round:** (1) the Master marks the strict leader (score above 0): that seat scores no chain this round. (2) Each seat takes a turn in order. (3) At the round's end, if the leader has 550+ and at least 3 rounds are done, he calls it: one more round, then the final round; the highest total wins (a tie is drawn at random). Agreed, not built (REPLY 41): the final round runs from the leader down, so the last seat throws last; the Master's final-round line names the order. Today seat 0 throws first every round, and the first seat wins 14.6% against the last seat's 35.8% (sim/seat_sim.gd).
 **A turn:**
 1. Start: Pride may name a Bank (Hubris).
 2. Throw all your dice (fewer if a debt or Drag says so; never below 1).
