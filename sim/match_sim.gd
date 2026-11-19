@@ -39,6 +39,7 @@ const B := {
 	"interlude": 12.0, # between dances: his new rule (4 s) and your power pick (8 s)
 	"oot_show": 0.5,   # an out-of-turn prompt comes up over the rival's turn (REPLY 38 item 3)
 	"oot_think": 2.0,  # you: answering it
+	"fast": 0.4,       # compress=true: a throw that could not bust, after the first of such a run (REPLY 39 2d)
 	"open": 3.0, "close": 5.0,
 }
 const BOT_FLOOR := 3.0
@@ -82,7 +83,7 @@ func _init() -> void:
 	pace = float(opts.get("pace", 1.0))
 	var seed0 := int(opts.get("seed", 1))
 	var R := {"n": 0, "sec": [], "rounds": 0, "leads": 0, "flip": 0, "live": 0, "sin": {}, "start_sin": {},
-		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}, "gaps": [], "cross": [], "oot": {}, "over": [0, 0]}
+		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}, "gaps": [], "cross": [], "oot": {}, "over": [0, 0], "seat_w": [0, 0, 0, 0, 0, 0, 0], "low": 0}
 	for g in games:
 		await _match(seed0 * 1000003 + g, R)
 	_report(R)
@@ -122,10 +123,34 @@ func _turn_sec(game, p) -> float:
 	s += B.bust if l.get("bust", false) else B.bank
 	if int(l.get("buys", 0)) > 0:
 		s += B.buy
+	s -= _saved(l)
 	s = s * pace + B.line + l.get("oot", []).size() * (B.oot_show * pace + B.oot_think)
 	if p.seat == 0:
 		return s + B.you_first + _decisions(l) * B.think + int(l.get("offers", 0)) * B.you_offer
 	return maxf(BOT_FLOOR * pace, s)
+
+
+## compress=true: within a run of throws that could not bust the rival, every throw after the first plays as
+## one quick beat (B.fast) instead of throw and result. Seconds saved at 1x.
+func _saved(l: Dictionary) -> float:
+	if not opts.get("compress", false):
+		return 0.0
+	var d: Array = l.get("dead", [])
+	var n := 0
+	for i in range(1, d.size()):
+		if d[i] and d[i - 1]:
+			n += 1
+	return n * (B.throw + B.result - B.fast)
+
+
+## Seconds from a rival turn's start beat to the start of throw k+1 (k throws done), at 1x.
+func _thr(l: Dictionary, k: int) -> float:
+	var d: Array = l.get("dead", [])
+	var t := 0.0
+	for i in k:
+		var fast: bool = opts.get("compress", false) and i > 0 and i < d.size() and d[i] and d[i - 1]
+		t += B.fast if fast else B.throw + B.result
+	return t
 
 
 ## Your throw-or-bank decisions after the first tap of the turn.
@@ -146,9 +171,9 @@ func _gaps(st: Dictionary, start: float, l: Dictionary, mine: bool) -> void:
 			var k: int = int(o[0])
 			var at: float = start + B.start * pace + j * (B.oot_show * pace + B.oot_think)
 			if o[1] != "hex":
-				at += k * (B.throw + B.result) * pace
+				at += _thr(l, k) * pace
 			else:
-				at += (k - 1) * (B.throw + B.result) * pace + B.throw * pace
+				at += _thr(l, k - 1) * pace + B.throw * pace
 			st.times.append([at + B.oot_show * pace + B.oot_think, false])
 			j += 1
 		return
@@ -356,6 +381,7 @@ func _match(gseed: int, R: Dictionary) -> void:
 	_flush_gaps(st)
 	for k in game.oot_stats:
 		R.oot[k] = int(R.oot.get(k, 0)) + int(game.oot_stats[k])
+	R.low = mini(R.low, int(game.oot_stats.low))
 	R.n += 1
 	R.sec.append(st.sec)
 	R.rounds += game.round_count
@@ -372,6 +398,7 @@ func _match(gseed: int, R: Dictionary) -> void:
 		R.margin += _gap(game) if mode != "reset" else 0
 		if winner.seat == 0:
 			R.you += 1
+		R.seat_w[winner.seat] += 1
 	for p in game.players:
 		var en: String = p.sin.sin_name
 		if not R.end_sin.has(en):
@@ -416,6 +443,17 @@ func _report(R: Dictionary) -> void:
 			str(opts.get("oot")), 100.0 * o.rival_turns_none / o.rival_turns, float(o.wager_shown) / o.rival_turns, 100.0 * o.wager_taken / maxf(1, o.wager_shown),
 			100.0 * o.wager_won / maxf(1, o.wager_taken), 100.0 * o.wager_close / maxf(1, o.wager_shown), float(o.hex_shown) / o.rival_turns,
 			100.0 * o.hex_taken / maxf(1, o.hex_shown), 100.0 * o.hex_close / maxf(1, o.hex_shown), float(o.net) / n])
+	print("  wins by seat (you are seat 0, first to throw): %s" % " ".join(range(seats).map(func(i): return "%.1f" % (100.0 * R.seat_w[i] / n))))
+	if int(o.get("rival_turns", 0)) > 0:
+		var bd := "  rival turn bust rate by dice at its start:"
+		for d in range(3, 9):
+			if int(o.get("bd%d_t" % d, 0)) > 0:
+				bd += " %d: %.2f (%d)" % [d, float(o["bd%d_b" % d]) / o["bd%d_t" % d], o["bd%d_t" % d]]
+		for k in 3:
+			if int(o.get("rs%d_t" % k, 0)) > 0:
+				bd += " | turn busts from %d Strikes before a later throw: %.2f" % [k, float(o["rs%d_b" % k]) / o["rs%d_t" % k]]
+		print("  raises shown %.2f a rival turn, taken %.0f%%, won %.0f%% of taken, close %.0f%%" % [float(o.raise_shown) / o.rival_turns, 100.0 * o.raise_taken / maxf(1, o.raise_shown), 100.0 * o.raise_won / maxf(1, o.raise_taken), 100.0 * o.raise_close / maxf(1, o.raise_shown)])
+		print(bd + " | your lowest score %d | prompts held back by the credit cap %.2f a match" % [R.low, float(o.cap_blocks) / n])
 	var who := "the leader at the call" if mode == "today" else "the leader entering the last dance"
 	print("  lead changes %.2f a match | %s loses: %.1f%% | close entering it (%s): %.1f%% | seat 0 (you) wins %.1f%% | power swaps %.1f a match" % [
 		R.leads / n, who, 100.0 * R.flip / n, "within 2 dance points" if mode == "reset" else "within 250", 100.0 * R.live / n, 100.0 * R.you / n, R.swaps / n])
