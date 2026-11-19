@@ -1,0 +1,76 @@
+# REPLY 41 raw output: sim/match_sim.gd today 3000 seats=4; guard 0.6 s counted in every prompt; you=random draws your seat once a match.
+
+### oot=none you=random
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 3.9, p10 3.3, p90 4.8, max 7.4 | rounds 5.6 (dances 5.6/0.0/0.0)
+  bot turn seconds: p10 5.1, median 8.2, p90 10.6, max 47.1, over 10 s 18% | seconds a round 43.2
+  seconds between your decisions, all gaps: median 3.6, p90 31.9, max 72.6; over 10 s: 24%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 30.9, p90 36.8, max 72.6; over 10 s: 100%
+  wins by seat (seat 0 throws first; you are seat random): 16.7 22.4 29.1 31.9
+  lead changes 5.63 a match | the leader at the call loses: 55.5% | close entering it (within 250): 75.6% | you win 24.6% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 21.2 Gree 27.6 Lust 26.2 Envy 28.0 Prid 19.2 Glut 34.9 Slot 17.8 | range 17.8-34.9
+
+### oot=fall+hex+raise credit=true credit_cap=150 fall_pay=50 fall_price=standing fall_lead=65 fall_last=35 raise_cut=1.0 raise_on_fall=true you=random
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 5.6, p10 4.7, p90 7.0, max 10.0 | rounds 5.8 (dances 5.8/0.0/0.0)
+  bot turn seconds: p10 8.2, median 12.9, p90 19.2, max 81.1, over 10 s 78% | seconds a round 59.2
+  seconds between your decisions, all gaps: median 6.3, p90 10.9, max 47.8; over 10 s: 15%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 7.5, p90 11.3, max 47.8; over 10 s: 21%
+  rival turns that bust 57% | gaps over 10 s that span a rival turn with no prompt: 296, that don't (a long turn): 21674
+  fall bets shown 0.99 a rival turn, taken 43%, won 66% of taken, close 77%
+  out of turn (fall+hex+raise): rival turns with no live prompt 1% | wagers shown 0.00 a rival turn, taken 0%, won 0% of taken, close 0% | hexes shown 0.44 a rival turn, taken 42%, close 57% | your net from them -46 a match
+  wins by seat (seat 0 throws first; you are seat random): 16.8 22.3 27.4 33.5
+  raises shown 0.27 a rival turn, taken 39%, won 64% of taken, close 75%
+  rival turn bust rate by dice at its start: 3: 0.58 (24188) 4: 0.54 (9291) 5: 0.57 (16787) 6: 0.64 (2080) 7: 0.68 (112) 8: 0.67 (3) | turn busts from 0 Strikes before a later throw: 0.47 | turn busts from 1 Strikes before a later throw: 0.70 | turn busts from 2 Strikes before a later throw: 0.91 | your lowest score -150 | prompts held back by the credit cap 1.12 a match
+  lead changes 5.78 a match | the leader at the call loses: 52.1% | close entering it (within 250): 71.5% | you win 32.3% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 22.7 Gree 27.0 Lust 28.0 Envy 24.4 Prid 17.2 Glut 34.3 Slot 21.0 | range 17.2-34.3
+
+### oot=none you=random order=final
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 3.9, p10 3.3, p90 4.8, max 7.3 | rounds 5.6 (dances 5.6/0.0/0.0)
+  bot turn seconds: p10 5.1, median 8.2, p90 10.6, max 47.1, over 10 s 18% | seconds a round 43.1
+  seconds between your decisions, all gaps: median 3.6, p90 32.0, max 89.6; over 10 s: 24%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 31.0, p90 38.9, max 89.6; over 10 s: 98%
+  wins by seat (seat 0 throws first; you are seat random): 22.4 25.1 26.8 25.7
+  lead changes 5.34 a match | the leader at the call loses: 59.6% | close entering it (within 250): 75.6% | you win 24.4% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 23.1 Gree 25.2 Lust 25.6 Envy 26.2 Prid 19.5 Glut 34.7 Slot 20.4 | range 19.5-34.7
+
+### oot=fall+hex+raise credit=true credit_cap=150 fall_pay=50 fall_price=standing fall_lead=65 fall_last=35 raise_cut=1.0 raise_on_fall=true you=random order=final
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 5.6, p10 4.7, p90 7.0, max 10.2 | rounds 5.8 (dances 5.8/0.0/0.0)
+  bot turn seconds: p10 8.2, median 12.8, p90 19.2, max 72.7, over 10 s 78% | seconds a round 59.2
+  seconds between your decisions, all gaps: median 6.2, p90 10.9, max 61.3; over 10 s: 15%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 7.5, p90 11.3, max 61.3; over 10 s: 21%
+  rival turns that bust 57% | gaps over 10 s that span a rival turn with no prompt: 309, that don't (a long turn): 21452
+  fall bets shown 0.99 a rival turn, taken 43%, won 66% of taken, close 77%
+  out of turn (fall+hex+raise): rival turns with no live prompt 1% | wagers shown 0.00 a rival turn, taken 0%, won 0% of taken, close 0% | hexes shown 0.44 a rival turn, taken 43%, close 57% | your net from them -44 a match
+  wins by seat (seat 0 throws first; you are seat random): 19.9 25.3 26.6 28.1
+  raises shown 0.27 a rival turn, taken 40%, won 65% of taken, close 76%
+  rival turn bust rate by dice at its start: 3: 0.58 (24188) 4: 0.54 (9291) 5: 0.58 (16787) 6: 0.63 (2080) 7: 0.69 (112) 8: 0.67 (3) | turn busts from 0 Strikes before a later throw: 0.47 | turn busts from 1 Strikes before a later throw: 0.70 | turn busts from 2 Strikes before a later throw: 0.91 | your lowest score -150 | prompts held back by the credit cap 1.20 a match
+  lead changes 5.54 a match | the leader at the call loses: 55.1% | close entering it (within 250): 71.5% | you win 32.3% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 25.0 Gree 26.5 Lust 26.7 Envy 24.8 Prid 16.4 Glut 34.7 Slot 20.7 | range 16.4-34.7
+
+### oot=none you=0 order=final
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 3.9, p10 3.3, p90 4.8, max 7.1 | rounds 5.6 (dances 5.6/0.0/0.0)
+  bot turn seconds: p10 4.7, median 8.2, p90 10.6, max 45.5, over 10 s 18% | seconds a round 43.1
+  seconds between your decisions, all gaps: median 3.6, p90 33.2, max 90.8; over 10 s: 25%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 32.0, p90 45.4, max 90.8; over 10 s: 100%
+  wins by seat (seat 0 throws first; you are seat 0): 21.5 26.1 25.5 26.9
+  lead changes 5.42 a match | the leader at the call loses: 61.8% | close entering it (within 250): 77.7% | you win 21.5% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 23.3 Gree 25.8 Lust 25.8 Envy 30.3 Prid 17.9 Glut 30.9 Slot 21.0 | range 17.9-30.9
+
+### oot=fall+hex+raise credit=true credit_cap=150 fall_pay=50 fall_price=standing fall_lead=65 fall_last=35 raise_cut=1.0 raise_on_fall=true you=0 order=final
+== today call 550 floor 3 | 4 seats, 3000 matches, mixed profiles, V5, beats at 1.00
+  minutes: median 5.6, p10 4.7, p90 7.0, max 9.9 | rounds 5.8 (dances 5.8/0.0/0.0)
+  bot turn seconds: p10 8.2, median 12.8, p90 19.6, max 64.4, over 10 s 78% | seconds a round 59.2
+  seconds between your decisions, all gaps: median 6.3, p90 10.9, max 73.9; over 10 s: 17%
+  seconds between your decisions, gaps ending outside your own turn's throws (on or across rivals' turns): median 7.5, p90 11.3, max 73.9; over 10 s: 24%
+  rival turns that bust 58% | gaps over 10 s that span a rival turn with no prompt: 246, that don't (a long turn): 24190
+  fall bets shown 0.99 a rival turn, taken 44%, won 67% of taken, close 77%
+  out of turn (fall+hex+raise): rival turns with no live prompt 1% | wagers shown 0.00 a rival turn, taken 0%, won 0% of taken, close 0% | hexes shown 0.43 a rival turn, taken 44%, close 57% | your net from them -35 a match
+  wins by seat (seat 0 throws first; you are seat 0): 32.1 20.0 24.1 23.9
+  raises shown 0.27 a rival turn, taken 40%, won 66% of taken, close 76%
+  rival turn bust rate by dice at its start: 3: 0.59 (24357) 4: 0.53 (8868) 5: 0.58 (17111) 6: 0.64 (1992) 7: 0.65 (99) 8: 0.71 (7) | turn busts from 0 Strikes before a later throw: 0.49 | turn busts from 1 Strikes before a later throw: 0.70 | turn busts from 2 Strikes before a later throw: 0.91 | your lowest score -150 | prompts held back by the credit cap 0.93 a match
+  lead changes 5.56 a match | the leader at the call loses: 54.7% | close entering it (within 250): 73.8% | you win 32.1% | power swaps 0.0 a match
+  win % by starting Sin (fair 25.0): Wrat 23.9 Gree 24.7 Lust 25.8 Envy 26.5 Prid 17.0 Glut 34.5 Slot 22.5 | range 17.0-34.5
