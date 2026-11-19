@@ -13,7 +13,7 @@
   - Old board (the same test without `--table`): it still skips, and your decision came 0.04 s later.
   - Against the old `main.gd`, (b) fails on the table: skip_all is set, and your decision came after 0.13 s.
 - (c) `resume_pace_check`: play 6 answers, Continue from the saved game, then time 4 bot turns once it has caught up. Median 2.7 s, nothing still skipping. **(c) passes today**, so there is nothing to report on Continue.
-**Suite:** all 13 pass (load check, the 9 before, plus the three new tests and the tap test without `--table`).
+**Suite:** load check passed (108 scripts and scenes); 13 of 13 tests pass: the 9 existing, the 3 new, and `table_tap_check` again without `--table`.
 **Seen in passing, not fixed:** a finished game deletes the Continue save even when `save_enabled` is off. So every test or tool that finishes a match on this PC (ui_autoplay, the new pace test, match_pace) wipes the save you would Continue.
 **Questions**
 1. Keep the pace floors at today's numbers until the pacing floor (item 2) is built, then raise them to its numbers? Rec: yes.
