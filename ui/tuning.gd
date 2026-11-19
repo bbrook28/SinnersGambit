@@ -114,6 +114,19 @@ const BOT_BANNER_HOLD := 0.3 # turn-change band hold for a bot (yours: BANNER_HO
 const BOT_ANTICIPATION := 0.0  # a bot's beats skip the wait before the action (the lift still plays under it)
 const BOT_HOLD := 0.3        # and hold this fraction of HOLD afterwards
 
+# ---- A rival's turn as held beats (REPLY 38): each beat holds at least this long, real s at 1x (Speed scales them) ----
+const RIVAL_BEAT := {"start": 0.6, "throw": 0.7, "score": 0.9, "power": 0.7, "bank": 0.9, "bust": 1.4}
+const RIVAL_LINE := 2.5      # a rival's turn does not end until its line has been up this long
+const TOKEN_PULSE := 0.45    # turn start: its track token swells and glows
+const TOKEN_FLY := 0.4       # the stake (a bank) or the kept half (a bust) flies to its token
+const TOKEN_SLIDE := 0.45    # then the token slides along the track while its label counts
+const BET_RESULT := 1.2      # a bet settles: "+65" / "-50" at your token while the labels count
+const HEX_FLY := 0.45        # the hex's "-60" flies from your token to the die it turns
+# ---- The bets on a rival's turn (REPLY 39-41): the slip in the seals row ----
+const SLIP_RISE := 0.1       # the slip rises into the seals row this fast (real s)
+const BET_GUARD := 0.6       # then its seals answer nothing until their gold ring has filled (real s, any speed)
+# ---- The Master's table of 4 (REPLY 39) ----
+const PICK_HOLD := 1.8       # before the open, each picked Sin's window lights with his line this long (Speed scales it)
 # ---- Table ----
 const TABLE_SIZES := [4, 7]  # you plus 3 or 6 bots; the first is the default
 static var table_size := 4

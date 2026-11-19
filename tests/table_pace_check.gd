@@ -10,9 +10,10 @@ const TIME_SCALE := 4.0
 const THINK := 1.5
 const BANK_AT := 250
 const SEED := 7
-## Floors at 1x (measured 2026-11-17: median bot turn 2.8 s, match 183 s). Raise them when the pacing floor lands.
-const BOT_TURN_MIN := 2.0
-const MATCH_MIN := 120.0
+## Floors at 1x. REPLY 43: the rival beats' minimums landed (measured: median bot turn 6.8 s, match 271 s with my
+## bets passed; before them 2.8 s and 183 s), so a bot turn is never under 3.0 s and the match under 180 s fails.
+const BOT_TURN_MIN := 3.0
+const MATCH_MIN := 180.0
 
 var main
 var t := 0.0

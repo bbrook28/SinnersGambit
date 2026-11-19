@@ -62,6 +62,30 @@ func _run() -> void:
 	drained.emit()
 
 
+## Seconds the queue has run, unpaused (game time: tests that scale Engine.time_scale scale this too).
+var clock := 0.0
+
+
+func _process(delta: float) -> void:
+	if not paused:
+		clock += delta
+
+
+## REPLY 38: a rival's beat holds at least `floor_s` real seconds at 1x from `since` (a clock reading), only
+## the Speed setting scaling it (not BOT_PACE). Cut short by a tap, like every wait.
+func hold_to(since: float, floor_s: float) -> void:
+	var left: float = floor_s / maxf(Tuning.speed, 0.01) - (clock - since)
+	while left > 0.0 and not skipping():
+		await get_tree().process_frame
+		if not paused:
+			left -= get_process_delta_time()
+
+
+## Holds `seconds` real seconds at 1x (only the Speed setting scales it). Cut short by a tap.
+func hold(seconds: float) -> void:
+	await hold_to(clock, seconds)
+
+
 ## Holds for `seconds` at speed 1.0. Cut short by a tap.
 func wait(seconds: float) -> void:
 	if seconds <= 0.0 or skipping():

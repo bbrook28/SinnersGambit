@@ -47,7 +47,11 @@ func setup(main, queue, layer: Control) -> void:
 ## One rules log line. prev: what the board showed before; snap: the state after this line.
 func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> void:
 	T.pace = 1.0 if _is_mine(snap.cur) else T.BOT_PACE * T.bot_pace_scale
+	var t0: float = q.clock
+	var rival: bool = T.table_view() and snap.cur >= 0 and not _is_mine(snap.cur) and m._table != null
 	var mt: RegExMatch = ev.match
+	if rival and ev.kind in ["bank", "keep"]:  # its token keeps its old score until the slide (bank_beat)
+		m._table.hold_score(snap.cur, _score_of(prev, snap.cur))
 	match ev.kind:
 		"blank":
 			return
@@ -85,6 +89,12 @@ func play(text: String, ev: Dictionary, prev: Dictionary, snap: Dictionary) -> v
 			await q.wait(_hold())
 		_:
 			await _generic(prev, snap, -1)
+	if rival and ev.kind == "keep":  # REPLY 38: on a bust, the kept half flies to its token
+		await m._table.bank_beat(snap.cur, _score_of(prev, snap.cur), _score_of(snap, snap.cur), int(mt.get_string(1)), true)
+	if rival and ev.kind == "bank":  # REPLY 38: the stake flies to its token, which slides as its label counts
+		await m._table.bank_beat(snap.cur, _score_of(prev, snap.cur), _score_of(snap, snap.cur), int(mt.get_string(2)))
+	if rival and T.RIVAL_BEAT.has(ev.kind):  # REPLY 38: a rival's beat holds its minimum
+		await q.hold_to(t0, T.RIVAL_BEAT[ev.kind])
 	if not (ev.kind in ["bank", "buy"]):  # those tag their scores at the moment they count
 		cause_tags(_cause(ev), prev, snap)
 	if snap.cur >= 0 and not _is_mine(snap.cur):
@@ -104,6 +114,9 @@ func turn_change(p, snap: Dictionary) -> void:
 		await get_tree().process_frame
 	focus(["seat%d" % seat])
 	var band := _banner_band(RulesText.word("your_turn") if mine else RulesText.word("their_turn", {"name": m.player_name(p)}), col)
+	var t0: float = q.clock
+	if not mine and m._table:  # REPLY 38: its track token pulses
+		m._table.token_pulse(seat)
 	sfx.play("banner_in", 0.6 if mine else 0.3)
 	var w: float = m.size.x
 	band.position.x = -w
@@ -120,6 +133,8 @@ func turn_change(p, snap: Dictionary) -> void:
 	tw.tween_property(band, "position:x", w, T.BANNER_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	await q.wait(T.BANNER_OUT)
 	band.queue_free()
+	if not mine and T.table_view() and m._table:
+		await q.hold_to(t0, T.RIVAL_BEAT.start)
 	_shown = snap
 
 
