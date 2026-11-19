@@ -106,7 +106,7 @@ func _setup(gseed: int) -> Array:
 		bots.append(SimBots.Profile.make(ProfileSim.KINDS[r.randi_range(0, ProfileSim.KINDS.size() - 1)], r))
 		sins.append(_sin(pool[i]))
 	var g = MatchGame.new(bots, gseed, opts.duplicate(), sins)
-	if str(opts.get("you", "0")) == "random":  # REPLY 40: you win, seat-neutral (your seat shuffled)
+	if str(opts.get("you", "random")) == "random":  # REPLY 42: your seat drawn once a match, as the game does (you=0 pins it)
 		g.you = r.randi_range(0, seats - 1)
 	return [g, r]
 
@@ -450,7 +450,7 @@ func _report(R: Dictionary) -> void:
 			str(opts.get("oot")), 100.0 * o.rival_turns_none / o.rival_turns, float(o.wager_shown) / o.rival_turns, 100.0 * o.wager_taken / maxf(1, o.wager_shown),
 			100.0 * o.wager_won / maxf(1, o.wager_taken), 100.0 * o.wager_close / maxf(1, o.wager_shown), float(o.hex_shown) / o.rival_turns,
 			100.0 * o.hex_taken / maxf(1, o.hex_shown), 100.0 * o.hex_close / maxf(1, o.hex_shown), float(o.net) / n])
-	print("  wins by seat (seat 0 throws first; you are seat %s): %s" % [str(opts.get("you", 0)), " ".join(range(seats).map(func(i): return "%.1f" % (100.0 * R.seat_w[i] / n)))])
+	print("  wins by seat (seat 0 throws first; you are seat %s): %s" % [str(opts.get("you", "random")), " ".join(range(seats).map(func(i): return "%.1f" % (100.0 * R.seat_w[i] / n)))])
 	if int(o.get("rival_turns", 0)) > 0:
 		var bd := "  rival turn bust rate by dice at its start:"
 		for d in range(3, 9):
