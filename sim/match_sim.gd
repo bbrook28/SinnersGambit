@@ -38,7 +38,8 @@ const B := {
 	"call": 1.6,       # the Master's call
 	"interlude": 12.0, # between dances: his new rule (4 s) and your power pick (8 s)
 	"oot_show": 0.5,   # an out-of-turn prompt comes up over the rival's turn (REPLY 38 item 3)
-	"oot_think": 2.0,  # you: answering it
+	"oot_think": 2.0,  # you: answering it (after the guard)
+	"guard": 0.6,      # REPLY 41: the prompt's seals answer nothing for 0.6 s after it has risen
 	"fast": 0.4,       # compress=true: a throw that could not bust, after the first of such a run (REPLY 39 2d)
 	"open": 3.0, "close": 5.0,
 }
@@ -127,7 +128,7 @@ func _turn_sec(game, p) -> float:
 	if int(l.get("buys", 0)) > 0:
 		s += B.buy
 	s -= _saved(l)
-	s = s * pace + B.line + l.get("oot", []).size() * (B.oot_show * pace + B.oot_think)
+	s = s * pace + B.line + l.get("oot", []).size() * (B.oot_show * pace + B.guard + B.oot_think)
 	if p.seat == game.you:
 		return s + B.you_first + _decisions(l) * B.think + int(l.get("offers", 0)) * B.you_offer
 	return maxf(BOT_FLOOR * pace, s)
@@ -172,12 +173,12 @@ func _gaps(st: Dictionary, start: float, l: Dictionary, mine: bool) -> void:
 		var j := 0
 		for o in l.get("oot", []):
 			var k: int = int(o[0])
-			var at: float = start + B.start * pace + j * (B.oot_show * pace + B.oot_think)
+			var at: float = start + B.start * pace + j * (B.oot_show * pace + B.guard + B.oot_think)
 			if o[1] != "hex":
 				at += _thr(l, k) * pace
 			else:
 				at += _thr(l, k - 1) * pace + B.throw * pace
-			st.times.append([at + B.oot_show * pace + B.oot_think, false])
+			st.times.append([at + B.oot_show * pace + B.guard + B.oot_think, false])
 			j += 1
 		return
 	var d: float = start + B.start * pace + B.you_first
@@ -228,7 +229,10 @@ func _dance(game, st: Dictionary, end: String, target: int) -> void:
 		if end == "call" and called >= 0 and game.round_count == called + 2:
 			game.finish_round = true
 			game.end_triggered = true
-		for p in game.players:
+		var seq: Array = game.players.duplicate()
+		if str(opts.get("order", "fixed")) == "final" and game.end_triggered:  # REPLY 41: the final round from the leader down
+			seq.sort_custom(func(a, b): return a.score > b.score)
+		for p in seq:
 			await game.take_turn(p)
 			var ts := _turn_sec(game, p)
 			_turn_sec_last = ts
