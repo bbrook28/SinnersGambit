@@ -104,7 +104,10 @@ func _setup(gseed: int) -> Array:
 	for i in seats:
 		bots.append(SimBots.Profile.make(ProfileSim.KINDS[r.randi_range(0, ProfileSim.KINDS.size() - 1)], r))
 		sins.append(_sin(pool[i]))
-	return [MatchGame.new(bots, gseed, opts.duplicate(), sins), r]
+	var g = MatchGame.new(bots, gseed, opts.duplicate(), sins)
+	if str(opts.get("you", "0")) == "random":  # REPLY 40: you win, seat-neutral (your seat shuffled)
+		g.you = r.randi_range(0, seats - 1)
+	return [g, r]
 
 
 func _sin(n: String):
@@ -125,7 +128,7 @@ func _turn_sec(game, p) -> float:
 		s += B.buy
 	s -= _saved(l)
 	s = s * pace + B.line + l.get("oot", []).size() * (B.oot_show * pace + B.oot_think)
-	if p.seat == 0:
+	if p.seat == game.you:
 		return s + B.you_first + _decisions(l) * B.think + int(l.get("offers", 0)) * B.you_offer
 	return maxf(BOT_FLOOR * pace, s)
 
@@ -230,9 +233,9 @@ func _dance(game, st: Dictionary, end: String, target: int) -> void:
 			var ts := _turn_sec(game, p)
 			_turn_sec_last = ts
 			st.turns.append([st.sec, ts, p.seat, game.last.throws, game.last.bust, game.last.oot])
-			_gaps(st, st.sec, game.last, p.seat == 0)
+			_gaps(st, st.sec, game.last, p.seat == game.you)
 			st.sec += ts
-			if p.seat != 0 and st.has("bot"):
+			if p.seat != game.you and st.has("bot"):
 				st.bot.append(ts)
 			var lead := _leader(game, st)
 			if lead >= 0 and lead != st.leader:
@@ -396,7 +399,7 @@ func _match(gseed: int, R: Dictionary) -> void:
 		R.live += 1
 	if winner != null:
 		R.margin += _gap(game) if mode != "reset" else 0
-		if winner.seat == 0:
+		if winner.seat == game.you:
 			R.you += 1
 		R.seat_w[winner.seat] += 1
 	for p in game.players:
@@ -443,7 +446,7 @@ func _report(R: Dictionary) -> void:
 			str(opts.get("oot")), 100.0 * o.rival_turns_none / o.rival_turns, float(o.wager_shown) / o.rival_turns, 100.0 * o.wager_taken / maxf(1, o.wager_shown),
 			100.0 * o.wager_won / maxf(1, o.wager_taken), 100.0 * o.wager_close / maxf(1, o.wager_shown), float(o.hex_shown) / o.rival_turns,
 			100.0 * o.hex_taken / maxf(1, o.hex_shown), 100.0 * o.hex_close / maxf(1, o.hex_shown), float(o.net) / n])
-	print("  wins by seat (you are seat 0, first to throw): %s" % " ".join(range(seats).map(func(i): return "%.1f" % (100.0 * R.seat_w[i] / n))))
+	print("  wins by seat (seat 0 throws first; you are seat %s): %s" % [str(opts.get("you", 0)), " ".join(range(seats).map(func(i): return "%.1f" % (100.0 * R.seat_w[i] / n)))])
 	if int(o.get("rival_turns", 0)) > 0:
 		var bd := "  rival turn bust rate by dice at its start:"
 		for d in range(3, 9):
@@ -455,7 +458,7 @@ func _report(R: Dictionary) -> void:
 		print("  raises shown %.2f a rival turn, taken %.0f%%, won %.0f%% of taken, close %.0f%%" % [float(o.raise_shown) / o.rival_turns, 100.0 * o.raise_taken / maxf(1, o.raise_shown), 100.0 * o.raise_won / maxf(1, o.raise_taken), 100.0 * o.raise_close / maxf(1, o.raise_shown)])
 		print(bd + " | your lowest score %d | prompts held back by the credit cap %.2f a match" % [R.low, float(o.cap_blocks) / n])
 	var who := "the leader at the call" if mode == "today" else "the leader entering the last dance"
-	print("  lead changes %.2f a match | %s loses: %.1f%% | close entering it (%s): %.1f%% | seat 0 (you) wins %.1f%% | power swaps %.1f a match" % [
+	print("  lead changes %.2f a match | %s loses: %.1f%% | close entering it (%s): %.1f%% | you win %.1f%% | power swaps %.1f a match" % [
 		R.leads / n, who, 100.0 * R.flip / n, "within 2 dance points" if mode == "reset" else "within 250", 100.0 * R.live / n, 100.0 * R.you / n, R.swaps / n])
 	var sl := "  win %% by starting Sin (fair %.1f):" % (100.0 / seats)
 	var lo := 100.0

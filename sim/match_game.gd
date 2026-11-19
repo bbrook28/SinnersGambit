@@ -2,6 +2,7 @@
 ## bank, dice bought, powers fired, offers shown. Read by sim/match_sim.gd. Nothing in the game uses this file.
 extends "res://sim/sim_game.gd"
 
+var you := 0  # the seat that plays you (REPLY 40: seat-neutral runs shuffle it; match_sim you=random)
 var last := {}  # the turn just taken: {throws, bust, buys, uses, offers}
 var _uses := 0
 
@@ -25,7 +26,7 @@ func take_turn(p) -> void:
 		bust = bool(audit_turns[audit_turns.size() - 1][4])
 	last = {"throws": audit_throws.size() - t0, "bust": bust, "buys": int(p.get_meta("buys", 0)) - b0,
 		"uses": _uses, "offers": p.offers_seen - o0, "oot": _oot.duplicate(), "dead": _dead.duplicate()}
-	if p.seat != 0 and str(opt("oot", "none")) != "none":
+	if p.seat != you and str(opt("oot", "none")) != "none":
 		_settle_wager(p, bust and int(_wager.get("throw", -1)) == int(last.throws))
 		oot_stats.rival_turns += 1
 		oot_stats.rival_busts += 1 if bust else 0
@@ -34,11 +35,11 @@ func take_turn(p) -> void:
 			oot_stats["rs%d_b" % k] = int(oot_stats.get("rs%d_b" % k, 0)) + (1 if bust else 0)
 		if _raise > 0:
 			if bust:
-				players[0].score += _raise
+				players[you].score += _raise
 				oot_stats.net += _raise
 				oot_stats.raise_won += 1
 			else:
-				players[0].score -= 50
+				players[you].score -= 50
 				p.score += 50
 				oot_stats.net -= 50
 		var dk := "bd%d" % clampi(d0, 3, 8)
@@ -49,16 +50,16 @@ func take_turn(p) -> void:
 		if _fall > 0:
 			if bust:
 				var w: int = _fall_pay * _fall / 50
-				players[0].score += w
+				players[you].score += w
 				oot_stats.net += w
 				oot_stats.fall_won += 1
 			else:
-				players[0].score -= _fall
+				players[you].score -= _fall
 				p.score += _fall
 				oot_stats.net -= _fall
 		if _oot.is_empty():
 			oot_stats.rival_turns_none += 1
-	oot_stats.low = mini(int(oot_stats.low), players[0].score)
+	oot_stats.low = mini(int(oot_stats.low), players[you].score)
 
 
 func _use(p, first: bool, saved := false) -> void:
@@ -97,7 +98,7 @@ var oot_stats := {"wager_shown": 0, "wager_taken": 0, "wager_won": 0, "wager_clo
 ## Can you put n at stake? On the Master's credit (credit=true) your score may go below 0, down to
 ## -credit_cap; a prompt you can't cover is never shown (REPLY 39 item 2c).
 func _can_stake(n: int) -> bool:
-	var me = players[0]
+	var me = players[you]
 	if opt("credit", false):
 		var held: int = _fall + (50 if _raise > 0 else 0)  # bets still open count against the cap
 		var ok: bool = me.score - held - n >= -int(opt("credit_cap", 99999))
@@ -148,15 +149,15 @@ static func _binom(n: int, k: int) -> float:
 
 func _power_declare(p) -> void:
 	super(p)
-	if p.seat != 0:
+	if p.seat != you:
 		_dead.append(bust_chance(_max_throw(p), turn.strikes) <= 0.0)
 		if turn.throws >= 1:
 			_sk.append(mini(turn.strikes, 2))
 		_offer_raise(p)
-	if p.seat != 0 and _oot_on("fall") and turn.throws == 0 and (_can_stake(50) if opt("credit", false) else players[0].score >= (10 if opt("loose", false) else 50)):
+	if p.seat != you and _oot_on("fall") and turn.throws == 0 and (_can_stake(50) if opt("credit", false) else players[you].score >= (10 if opt("loose", false) else 50)):
 		var sn: Array = _seen.get(p.seat, [0, 0])
 		var pb: float = (sn[1] + 2.0) / (sn[0] + 4.0)  # from 1 in 2, today's table rate
-		var fs: int = 50 if opt("credit", false) else mini(50, players[0].score) / 5 * 5
+		var fs: int = 50 if opt("credit", false) else mini(50, players[you].score) / 5 * 5
 		_fall_pay = _fall_price(p)
 		var ev: float = (pb * _fall_pay - (1.0 - pb) * 50.0) * fs / 50.0
 		oot_stats.fall_shown += 1
@@ -169,9 +170,9 @@ func _power_declare(p) -> void:
 	if not _wager.is_empty() and turn.throws >= int(_wager.throw):
 		_settle_wager(p, false)  # it threw again, so the wagered throw didn't bust it
 	var last_k: int = int(_oot[-1][0]) if not _oot.is_empty() else 0
-	if p.seat == 0 or not _oot_on("wager") or turn.throws < int(opt("wager_from", 2)) or turn.throws - last_k < int(opt("wager_every", 99)) and _oot.any(func(o): return o[1] == "wager") or turn.points < (0 if opt("loose", false) else 80):
+	if p.seat == you or not _oot_on("wager") or turn.throws < int(opt("wager_from", 2)) or turn.throws - last_k < int(opt("wager_every", 99)) and _oot.any(func(o): return o[1] == "wager") or turn.points < (0 if opt("loose", false) else 80):
 		return
-	var me = players[0]
+	var me = players[you]
 	var stake: int = int(opt("wager_stake", 50))
 	if opt("loose", false) and not opt("credit", false):
 		stake = mini(stake, me.score) / 5 * 5
@@ -229,9 +230,9 @@ func _offer_raise(p) -> void:
 
 func _do_rethrow(p) -> void:
 	super(p)
-	if p.seat == 0 or not _oot_on("hex") or hex_round == round_count:
+	if p.seat == you or not _oot_on("hex") or hex_round == round_count:
 		return
-	var me = players[0]
+	var me = players[you]
 	var cost := int(opt("hex_cost", 60))
 	var s: int = turn.strikes + Rules.count_strikes(Array(turn.faces, TYPE_INT, "", null))
 	if not _can_stake(cost) or s != Rules.STRIKES_TO_BUST - 1:
@@ -263,7 +264,7 @@ func _do_rethrow(p) -> void:
 func _settle_wager(p, bust: bool) -> void:
 	if _wager.is_empty():
 		return
-	var me = players[0]
+	var me = players[you]
 	if bust == (str(_wager.get("side", "bust")) == "bust"):
 		var g: int = int(_wager.pay)
 		me.score += g
