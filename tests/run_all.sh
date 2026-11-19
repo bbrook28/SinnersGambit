@@ -5,6 +5,13 @@
 cd "$(dirname "$0")/.."
 G="${GODOT:-$LOCALAPPDATA/Microsoft/WinGet/Packages/GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.7.2-stable_win64_console.exe}"
 mkdir -p build
+# REPLY 36: a finished match deletes the Continue save even in tests, so keep the real one aside and put it back
+# however the suite ends (the game itself is unchanged)
+U="${APPDATA:-$HOME/.local/share}/Godot/app_userdata/Sinners' Gambit"
+if [ -f "$U/save.json" ]; then
+	cp "$U/save.json" build/continue_save.json
+	trap 'cp build/continue_save.json "$U/save.json" && echo "Continue save restored"' EXIT
+fi
 if ! "$G" --headless --path . --script res://tests/load_check.gd > build/t_load_check.log 2>&1; then
 	grep "LOAD CHECK" build/t_load_check.log
 	echo "STOPPED: fix the load errors first"
