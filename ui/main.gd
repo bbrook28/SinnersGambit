@@ -936,8 +936,8 @@ func _start(my_sin: Script, saved := {}) -> void:
 		_replaying = true
 		_q.skip_all = true  # every beat jumps to its end; show_prompt lifts the ink
 	var w = await game.play()
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))  # a finished game can't be continued
-	if save_enabled:  # tests don't unlock anything
+	if save_enabled:  # tests leave the real Continue save alone (REPLY 37) and unlock nothing
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))  # a finished game can't be continued
 		games_finished += 1  # the first one unlocks Greater abilities and the Table of 7
 		_save_settings()
 	log_line("")
