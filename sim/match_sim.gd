@@ -52,6 +52,7 @@ var call_at := 550
 var floor_r := 3
 var rules_on := true
 var swap_on := true
+var pace := 1.0  # pace=0.5: every beat at half its time (Fast); your thinking and the line's hold stay
 
 
 func _init() -> void:
@@ -75,9 +76,10 @@ func _init() -> void:
 	floor_r = int(opts.get("floor", floor_r))
 	rules_on = str(opts.get("rules", "on")) == "on"
 	swap_on = str(opts.get("swap", "on")) == "on"
+	pace = float(opts.get("pace", 1.0))
 	var seed0 := int(opts.get("seed", 1))
 	var R := {"n": 0, "sec": [], "rounds": 0, "leads": 0, "flip": 0, "live": 0, "sin": {}, "start_sin": {},
-		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}}
+		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}, "gaps": [], "cross": []}
 	for g in games:
 		await _match(seed0 * 1000003 + g, R)
 	_report(R)
@@ -113,14 +115,35 @@ func _sin(n: String):
 func _turn_sec(game, p) -> float:
 	var l: Dictionary = game.last
 	var th: int = maxi(1, int(l.get("throws", 1)))
-	var s: float = B.start + th * (B.throw + B.result) + int(l.get("uses", 0)) * B.power + int(l.get("offers", 0)) * B.offer + B.line
+	var s: float = B.start + th * (B.throw + B.result) + int(l.get("uses", 0)) * B.power + int(l.get("offers", 0)) * B.offer
 	s += B.bust if l.get("bust", false) else B.bank
 	if int(l.get("buys", 0)) > 0:
 		s += B.buy
+	s = s * pace + B.line
 	if p.seat == 0:
-		var decisions: int = th if not l.get("bust", false) else th - 1
-		return s + B.you_first + decisions * B.think + int(l.get("offers", 0)) * B.you_offer
-	return maxf(BOT_FLOOR, s)
+		return s + B.you_first + _decisions(l) * B.think + int(l.get("offers", 0)) * B.you_offer
+	return maxf(BOT_FLOOR * pace, s)
+
+
+## Your throw-or-bank decisions after the first tap of the turn.
+func _decisions(l: Dictionary) -> int:
+	var th: int = maxi(1, int(l.get("throws", 1)))
+	return th if not l.get("bust", false) else th - 1
+
+
+## REPLY 35-36: the seconds between your decisions. Your first tap comes after the turn's start; each later
+## decision after a throw, its result and your thinking. The first gap of a turn runs from your last decision of
+## the turn before, through every rival's turn.
+func _gaps(st: Dictionary, start: float, l: Dictionary) -> void:
+	var d: float = start + B.start * pace + B.you_first
+	if st.last_dec >= 0.0:
+		st.cross.append(d - st.last_dec)
+		st.gaps.append(d - st.last_dec)
+	for i in _decisions(l):
+		var step: float = (B.throw + B.result) * pace + B.think
+		st.gaps.append(step)
+		d += step
+	st.last_dec = d
 
 
 ## One dance. end: "race" (ends at the round's end once the leader has target, after 2+ rounds) or "call"
@@ -142,6 +165,8 @@ func _dance(game, st: Dictionary, end: String, target: int) -> void:
 		for p in game.players:
 			await game.take_turn(p)
 			var ts := _turn_sec(game, p)
+			if p.seat == 0:
+				_gaps(st, st.sec, game.last)
 			st.sec += ts
 			if p.seat != 0 and st.has("bot"):
 				st.bot.append(ts)
@@ -238,7 +263,7 @@ func _match(gseed: int, R: Dictionary) -> void:
 	var su := _setup(gseed)
 	var game = su[0]
 	var r: RandomNumberGenerator = su[1]
-	var st := {"sec": B.open + B.close, "leads": 0, "leader": -1, "dr": [], "swaps": 0, "entering": -1, "entering_gap": 0, "bot": R.bot}
+	var st := {"sec": B.open + B.close, "leads": 0, "leader": -1, "dr": [], "swaps": 0, "entering": -1, "entering_gap": 0, "bot": R.bot, "gaps": R.gaps, "cross": R.cross, "last_dec": -1.0}
 	var start_sins: Array = game.players.map(func(q): return q.sin.sin_name)
 	var winner = null
 	match mode:
@@ -328,13 +353,19 @@ func _report(R: Dictionary) -> void:
 		"today": tag += " call %d floor %d" % [call_at, floor_r]
 		"carry": tag += " t1 %d t2 %d t3 %d rules %s swap %s" % [t1, t2, t3, rules_on, swap_on]
 		"reset": tag += " call %d floor %d rules %s swap %s" % [call_at, floor_r, rules_on, swap_on]
-	print("== %s | %d seats, %d matches, mixed profiles, V5" % [tag, seats, R.n])
+	print("== %s | %d seats, %d matches, mixed profiles, V5, beats at %.2f" % [tag, seats, R.n, pace])
 	print("  minutes: median %.1f, p10 %.1f, p90 %.1f, max %.1f | rounds %.1f (dances %s)" % [q.call(0.5), q.call(0.1), q.call(0.9), q.call(1.0),
 		R.rounds / n, "/".join(R.dance_rounds.map(func(x): return "%.1f" % (x / n)))])
 	var bt: Array = R.bot.duplicate()
 	bt.sort()
 	if not bt.is_empty():
-		print("  bot turn seconds: p10 %.1f, median %.1f, p90 %.1f, max %.1f | seconds a round %.1f" % [bt[int(0.1 * (bt.size() - 1))], bt[bt.size() / 2], bt[int(0.9 * (bt.size() - 1))], bt[-1], 60.0 * s.reduce(func(x, y): return x + y, 0.0) / 60.0 / maxf(1.0, R.rounds)])
+		print("  bot turn seconds: p10 %.1f, median %.1f, p90 %.1f, max %.1f, over 10 s %.0f%% | seconds a round %.1f" % [bt[int(0.1 * (bt.size() - 1))], bt[bt.size() / 2], bt[int(0.9 * (bt.size() - 1))], bt[-1], 100.0 * bt.filter(func(x): return x > 10.0).size() / bt.size(), 60.0 * s.reduce(func(x, y): return x + y, 0.0) / 60.0 / maxf(1.0, R.rounds)])
+	for pair in [["all gaps", R.gaps], ["from your last decision, past the rivals, to your next turn", R.cross]]:
+		var g: Array = pair[1].duplicate()
+		g.sort()
+		if not g.is_empty():
+			var over := g.filter(func(x): return x > 10.0).size()
+			print("  seconds between your decisions, %s: median %.1f, p90 %.1f, max %.1f; over 10 s: %.0f%%" % [pair[0], g[g.size() / 2], g[int(0.9 * (g.size() - 1))], g[-1], 100.0 * over / g.size()])
 	var who := "the leader at the call" if mode == "today" else "the leader entering the last dance"
 	print("  lead changes %.2f a match | %s loses: %.1f%% | close entering it (%s): %.1f%% | seat 0 (you) wins %.1f%% | power swaps %.1f a match" % [
 		R.leads / n, who, 100.0 * R.flip / n, "within 2 dance points" if mode == "reset" else "within 250", 100.0 * R.live / n, 100.0 * R.you / n, R.swaps / n])
