@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks Docs/review/latest/packet.md before it is committed (REPLY 36): 30 lines or fewer; no placeholder left in
 # (an ALL_CAPS_TOKEN outside backticks, TODO, TBD, XXX, "<...>"); a "**Suite:**" line, if any, gives counts;
-# every file it names in backticks without a folder (sheet.png, clip.mp4, proposal.md...) exists in latest/.
+# every file it names in backticks without a folder (sheet.png, clip.mp4, proposal.md...) exists in latest/ or the repo.
 # bash tools/packet_check.sh   (exit 1 on any fault)
 cd "$(dirname "$0")/.."
 P=Docs/review/latest/packet.md
@@ -17,7 +17,7 @@ if [ -n "$suite" ] && ! printf '%s' "$suite" | grep -qE '[0-9]+ of [0-9]+'; then
 fi
 for f in $(grep -oE '`[A-Za-z0-9_.-]+\.(png|mp4|md|txt|json)`' "$P" | tr -d '`' | sort -u); do
 	[ "$f" = packet.md ] && continue
-	[ -e "Docs/review/latest/$f" ] || { echo "FAULT: names $f, not in Docs/review/latest/"; fail=1; }
+	[ -e "Docs/review/latest/$f" ] || git ls-files | grep -q "/$f\$" || { echo "FAULT: names $f, not in Docs/review/latest/ nor the repo"; fail=1; }
 done
 [ $fail -eq 0 ] && echo "PACKET OK ($n lines)"
 exit $fail
