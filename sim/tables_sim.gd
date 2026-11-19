@@ -7,6 +7,8 @@ extends SceneTree
 const Rules = preload("res://core/rules.gd")
 const Game = preload("res://core/game.gd")
 const BotPolicy = preload("res://ai/bot_policy.gd")
+const MatchGame = preload("res://sim/match_game.gd")  # game=match: sim/match_game.gd, so seat 0 can bet (oot=...)
+const ProfileSim = preload("res://sim/profile_sim.gd")  # game=match models V5 with its rule keys (V5_SIM)
 const SIN_SCRIPTS := [
 	preload("res://sins/wrath.gd"), preload("res://sins/greed.gd"), preload("res://sins/lust.gd"),
 	preload("res://sins/envy.gd"), preload("res://sins/pride.gd"), preload("res://sins/gluttony.gd"),
@@ -31,7 +33,14 @@ func _init() -> void:
 			part = [int(pr[0]), int(pr[1])]
 		elif "=" in a:
 			var kv: PackedStringArray = a.split("=")
-			o[kv[0]] = str_to_var(kv[1])
+			var v = str_to_var(kv[1])
+			o[kv[0]] = v if v != null else kv[1]  # a word (oot=fall+hex) stays a string
+	if str(o.get("game", "core")) == "match":  # the sim game is not core: it needs V5_SIM's keys to model V5
+		for a in Array(ProfileSim.V5_SIM.split(" ")) + Array(args):
+			if "=" in a and not a.begins_with("part="):
+				var kv: PackedStringArray = a.split("=")
+				var v = str_to_var(kv[1])
+				o[kv[0]] = v if v != null else kv[1]
 	var bot = BotPolicy.chooser(5, [99, 2, 0], 300)
 	var tables := []
 	for a in 7:
@@ -40,6 +49,8 @@ func _init() -> void:
 				for d in range(c + 1, 7):
 					tables.append([a, b, c, d])
 	var out := 0
+	var seat_w := [0, 0, 0, 0]
+	var played := 0
 	var all := {}
 	for t in tables.size():
 		if t % part[1] != part[0]:
@@ -58,10 +69,12 @@ func _init() -> void:
 			var sins := []
 			for i in order:
 				sins.append(SIN_SCRIPTS[i].new())
-			var game := Game.new([bot, bot, bot, bot], t * 100003 + g, o.duplicate(), sins)
+			var game = (MatchGame if str(o.get("game", "core")) == "match" else Game).new([bot, bot, bot, bot], t * 100003 + g, o.duplicate(), sins)
 			var w = await game.play()
 			if w != null:
 				wins[w.sin.sin_name] = wins.get(w.sin.sin_name, 0) + 1
+				seat_w[w.seat] += 1
+		played += games
 		var line := "table %2d %s:" % [t + 1, "+".join(tb.map(func(i): return NAMES[i]))]
 		var flag := ""
 		for i in tb:
@@ -81,5 +94,6 @@ func _init() -> void:
 			var a: Array = all[n]
 			sl += " %s %.1f-%.1f" % [n, a.min(), a.max()]
 	print(sl)
+	print("wins by seat (seat 0 throws first%s): %s" % [", and bets: oot=%s" % o.get("oot") if str(o.get("oot", "none")) != "none" else "", " ".join(seat_w.map(func(x): return "%.1f" % (100.0 * x / maxf(1, played))))])
 	print("pairings outside %d-%d: %d" % [int(LO), int(HI), out])
 	quit()
