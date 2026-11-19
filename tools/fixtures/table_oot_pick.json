@@ -1,11 +1,32 @@
 {
-	"screen": "table", "seed": 7, "moment": "wait",
+	"screen": "table",
+	"seed": 7,
+	"moment": "wait",
 	"seats": [
-		{"sin": "Lust", "you": true, "score": 0},
-		{"sin": "Greed", "score": 0},
-		{"sin": "Wrath", "score": 0},
-		{"sin": "Gluttony", "score": 0}
+		{
+			"sin": "Lust",
+			"you": true,
+			"score": 0
+		},
+		{
+			"sin": "Greed",
+			"score": 0
+		},
+		{
+			"sin": "Wrath",
+			"score": 0
+		},
+		{
+			"sin": "Gluttony",
+			"score": 0
+		}
 	],
-	"cur": 3,
-	"turn": {"faces": [], "points": 0, "strikes": 0}
+	"cur": 0,
+	"turn": {
+		"faces": [],
+		"points": 0,
+		"strikes": 0
+	},
+	"pick": 3,
+	"master": "Gluttony. You've beaten it least."
 }

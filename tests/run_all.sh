@@ -45,6 +45,7 @@ run_table() {  # name, then the PASSED word
 run_table table_pace_check "TABLE PACE PASSED"
 run_table table_tap_check "TABLE TAP PASSED"
 run_table resume_pace_check "RESUME PACE PASSED"
+run_table oot_guard_check "OOT GUARD PASSED"  # REPLY 41: a bet's slip answers nothing for 0.6 s after it has risen
 run table_tap_check --headless  # off the table, a double tap still skips to my decision
 run glass_check
 exit $fail

@@ -27,7 +27,7 @@ const TablePlay = preload("res://ui/table_play.gd")
 const SETTINGS := "user://settings.cfg"
 const SAVE := "user://save.json"
 const SAVE_VERSION := 3  # 3: Rules.V4 with temptations (Docs/TableDesign.md); a V3 save can't replay
-const SAVE_VERSION_V5 := 5  # 4: Rules.V5 on the table view; 5: REPLY 15 rules (chain cap, bust keeps half, Cash Out x1.25, the mark). An older save cannot replay into these
+const SAVE_VERSION_V5 := 6  # 4: Rules.V5 on the table view; 5: REPLY 15 rules (chain cap, bust keeps half, Cash Out x1.25, the mark); 6: the bets on a rival's turn add answers (REPLY 43). An older save cannot replay into these
 const MENU_TITLE := 150          # the title page: name, Play seal, Continue / Settings seals
 const MENU_PLAY := 400
 const MENU_SEAL := 280
@@ -38,6 +38,7 @@ const PANEL_FROM := 0.94          # panels (Settings, Chronicle) open from this 
 const CANDLE_RAW := Vector2(1065, 150) / Vector2(1152, 2048)  # the flame on bg_hd_raw.png, as a fraction
 const SPEEDS := [1.0, 2.0, 4.0]
 const DOUBLE_TAP := 0.35
+const SIN_NAMES := ["Wrath", "Greed", "Lust", "Envy", "Pride", "Gluttony", "Sloth"]  # SIN_SCRIPTS in order
 const SIN_SCRIPTS := [
 	preload("res://sins/wrath.gd"),
 	preload("res://sins/greed.gd"),
@@ -127,6 +128,8 @@ var tutorial_enabled := true       # tests turn this off too
 ## First Game mode until a game is finished: table of 4, Basic abilities only, bots at half speed.
 ## Finishing a game unlocks Greater abilities and the Table of 7. Saved in settings.cfg.
 var games_finished := 0
+var tables_played: Array = []      # REPLY 39: your last Solo tables, for the Master's table of 4 (master_table)
+var _picks: Array = []             # the table he picked for the game starting
 var first_game_enabled := true     # tests choose per game
 var _first_game := false           # the game in progress is a First Game
 
@@ -143,6 +146,12 @@ static func table_rules() -> Dictionary:
 	r["master_call"] = Rules.MASTER_CALL  # REPLY 10 prototype: the Master calls the end, no win score
 	r["call_floor"] = Rules.MASTER_CALL_FLOOR  # REPLY 18: never before round 3's end
 	r["final_from_leader"] = true  # REPLY 41: the final round runs from the leader down (core/game.gd final_order)
+	r["bets"] = true  # REPLY 36-42: fall, hex and the raise on a rival's turn, on the Master's credit (core/game.gd bettor)
+	r["credit_cap"] = 150
+	r["fall_pay"] = 50
+	r["fall_lead"] = 65
+	r["fall_last"] = 35
+	r["hex_cost"] = 60
 	return r
 
 
@@ -196,6 +205,7 @@ func _ready() -> void:
 		run_rules_seen = bool(cfg.get_value("ui", "run_rules_seen", false))
 		tempt_tip_seen = bool(cfg.get_value("ui", "tempt_tip_seen", false))
 		games_finished = int(cfg.get_value("ui", "games_finished", 0))
+		tables_played = cfg.get_value("ui", "tables", [])
 		Tuning.reduce_motion = bool(cfg.get_value("ui", "reduce_motion", false))
 		var ts := int(cfg.get_value("ui", "table", Tuning.TABLE_SIZES[0]))
 		Tuning.table_size = ts if ts in Tuning.TABLE_SIZES else Tuning.TABLE_SIZES[0]
@@ -896,6 +906,11 @@ func _start(my_sin: Script, saved := {}) -> void:
 		others.shuffle()
 		order.append([SIN_SCRIPTS.find(my_sin), true])
 		var size: int = 4 if _first_game else Tuning.table_size
+		_picks = []
+		if size == 4 and Tuning.table_view():  # REPLY 39: the Master's table of 4 replaces the random draw
+			_picks = master_table(my_sin.new().sin_name, tables_played)
+			var picked: Array = _picks.map(func(pk): return _sin_script(pk.sin))
+			others = picked + others.filter(func(sc): return not picked.has(sc))
 		for s in others.slice(0, clampi(size, 2, SIN_SCRIPTS.size()) - 1):
 			order.append([SIN_SCRIPTS.find(s), false])
 		order.shuffle()
@@ -932,12 +947,23 @@ func _start(my_sin: Script, saved := {}) -> void:
 		_ink_wash(false)
 		if tutorial_enabled:  # tests turn this off, so they never wait on the card
 			_opening_card()
+		if _table and not _picks.is_empty():  # REPLY 39: he names each Sin he picked, its window lit
+			var picks := _picks.duplicate()
+			_q.push(func():
+				_refresh(_snapshot())
+				for pk in picks:
+					var seat := -1
+					for i in game.players.size():
+						if game.players[i].sin.sin_name == pk.sin:
+							seat = i
+					await _table.master_pick(seat, RulesText.table("pick_" + str(pk.why), {"sin": pk.sin})))
 	else:
 		human.replay = saved.choices.duplicate()
 		_replaying = true
 		_q.skip_all = true  # every beat jumps to its end; show_prompt lifts the ink
 	var w = await game.play()
 	if save_enabled:  # tests leave the real Continue save alone (REPLY 37) and unlock nothing
+		_remember_table()
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))  # a finished game can't be continued
 		games_finished += 1  # the first one unlocks Greater abilities and the Table of 7
 		_save_settings()
@@ -1712,6 +1738,7 @@ func _save_settings() -> void:
 	cfg.set_value("ui", "games_finished", games_finished)
 	cfg.set_value("ui", "run_rules_seen", run_rules_seen)
 	cfg.set_value("ui", "tempt_tip_seen", tempt_tip_seen)
+	cfg.set_value("ui", "tables", tables_played)
 	cfg.save(SETTINGS)
 
 
@@ -2469,6 +2496,8 @@ func beat(p, kind: String) -> void:
 	var snap := _snapshot()
 	_last_snap = snap
 	_q.push(func(): _refresh(snap, ["plates", "glow", "banner", "turn", "strikes"]))
+	if kind == "end" and _table and p.bot != human:  # REPLY 38: a rival's turn ends once its line has had its time
+		_q.push(func(): await _table.line_floor())
 	await _q.drain()
 	if _tutor:
 		await _tutor.on_beat(p, kind)
@@ -2488,7 +2517,7 @@ func show_prompt(text: String, options: Array, offer := {}) -> void:
 			_refresh(_snapshot(), ["plates", "glow", "banner", "turn", "strikes"])
 		if _tutor:
 			_tutor.overlay.block()  # dead until the script lights one
-		if offer.is_empty():
+		if offer.is_empty() or offer.has("bet"):  # a bet is a slip on the table (ui/table_play.gd), not a card
 			_show_prompt_now(text, options)
 		else:
 			await _offer_beat(str(offer.get("sin", "")))
@@ -2496,7 +2525,7 @@ func show_prompt(text: String, options: Array, offer := {}) -> void:
 		await get_tree().process_frame  # buttons placed
 		_layout_buttons()
 		if _table:
-			_table.prompt(text, _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
+			_table.prompt(text, _buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()), offer.get("bet", {}))
 		if is_instance_valid(_offer_card) and _offer_card.has_meta("place"):
 			_offer_card.get_meta("place").call()
 		_dir.my_turn(_buttons.get_children().filter(func(b): return not b.is_queued_for_deletion()))
@@ -3616,9 +3645,88 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
 
 
+## REPLY 39: the Master's table of 4. From your last tables (newest last: {sins, beat_by, beaten}), the Sin that
+## beat you last time, the one you've beaten least, and one you haven't faced in your last two tables; any slot
+## the history can't fill (the first game) is drawn at random. Returns [{sin, why}] ("beat_you", "least",
+## "unseen", "random"), three Sins other than yours.
+static func master_table(mine: String, history: Array) -> Array:
+	var pool: Array = SIN_NAMES.filter(func(n): return n != mine)
+	var out := []
+	var take := func(n: String, why: String):
+		out.append({"sin": n, "why": why})
+		pool.erase(n)
+	if not history.is_empty():
+		var last: Dictionary = history[history.size() - 1]
+		var by := str(last.get("beat_by", ""))
+		if by != "" and pool.has(by):
+			take.call(by, "beat_you")
+		var faced := {}
+		var beaten := {}
+		for t in history:
+			for n in t.get("sins", []):
+				faced[n] = int(faced.get(n, 0)) + 1
+			for n in t.get("beaten", []):
+				beaten[n] = int(beaten.get(n, 0)) + 1
+		var seen: Array = pool.filter(func(n): return faced.has(n))
+		seen.shuffle()
+		seen.sort_custom(func(a, b): return float(beaten.get(a, 0)) / faced[a] < float(beaten.get(b, 0)) / faced[b])
+		if not seen.is_empty():
+			take.call(seen[0], "least")
+		var recent := {}
+		for t in history.slice(maxi(0, history.size() - 2)):
+			for n in t.get("sins", []):
+				recent[n] = true
+		var fresh: Array = pool.filter(func(n): return not recent.has(n))
+		fresh.shuffle()
+		if not fresh.is_empty():
+			take.call(fresh[0], "unseen")
+	pool.shuffle()
+	while out.size() < 3 and not pool.is_empty():
+		take.call(pool[0], "random")
+	return out
+
+
+## A finished Solo table goes into the history the Master picks from (the last 10).
+func _remember_table() -> void:
+	var me = human_player()
+	if me == null or game.players.filter(func(q): return q.bot == human).size() != 1:
+		return
+	var rivals: Array = game.players.filter(func(q): return q != me)
+	var w = game.winner
+	tables_played.append({"sins": rivals.map(func(q): return q.sin.sin_name),
+		"beat_by": w.sin.sin_name if w != null and w != me else "",
+		"beaten": rivals.filter(func(q): return me.score > q.score).map(func(q): return q.sin.sin_name)})
+	tables_played = tables_played.slice(maxi(0, tables_played.size() - 10))
+
+
 ## A seat as the Master names it: "you", or its Sin.
 func _who(p) -> String:
 	return RulesText.table("you_lower") if p.bot == human else p.sin.sin_name
+
+
+## core/game.gd _bet_view: a bet on a rival's turn was taken, settled, or hexed its die. Each is a queued beat
+## on the table: the open bet's chip at its window; "+65" in deep gold or "-50" in red at your token while the
+## labels count; the hex's "-60" flying from your token to the die it turns.
+func bet_event(kind: String, p, facts: Dictionary) -> void:
+	if game == null:
+		return
+	var snap := _snapshot()
+	var prev := _last_snap
+	_last_snap = snap
+	var seat: int = game.players.find(p)
+	var me: int = game.players.find(_me())
+	_q.push(func():
+		if _table == null:
+			_refresh(snap)
+			return
+		match kind:
+			"take":
+				_table.open_bet(seat, int(facts.stake))
+			"won", "lost":
+				await _table.bet_result(kind == "won", me, seat, prev, snap, int(facts.get("pay", facts.get("stake", 0))))
+			"hex":
+				await _table.hex_beat(me, seat, int(facts.die), int(facts.cost), snap)
+		_refresh(snap, ["plates", "glow", "banner", "turn", "strikes"]))
 
 
 ## REPLY 16: before an offer's card screen, the Master holds the card up on the table toward the offering

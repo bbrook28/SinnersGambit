@@ -1,0 +1,30 @@
+{
+	"screen": "table",
+	"seed": 7,
+	"moment": "decision",
+	"seats": [
+		{
+			"sin": "Lust",
+			"you": true,
+			"score": 0
+		},
+		{
+			"sin": "Greed",
+			"score": 0
+		},
+		{
+			"sin": "Wrath",
+			"score": 0
+		},
+		{
+			"sin": "Gluttony",
+			"score": 0
+		}
+	],
+	"cur": 0,
+	"turn": {
+		"faces": [],
+		"points": 0,
+		"strikes": 0
+	}
+}

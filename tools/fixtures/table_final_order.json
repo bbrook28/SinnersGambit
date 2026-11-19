@@ -1,0 +1,34 @@
+{
+	"screen": "table",
+	"seed": 7,
+	"moment": "rival",
+	"seats": [
+		{
+			"sin": "Lust",
+			"you": true,
+			"score": 690
+		},
+		{
+			"sin": "Greed",
+			"score": 410
+		},
+		{
+			"sin": "Wrath",
+			"score": 280
+		},
+		{
+			"sin": "Gluttony",
+			"score": 760
+		}
+	],
+	"cur": 3,
+	"turn": {
+		"faces": [],
+		"points": 0,
+		"strikes": 0
+	},
+	"call_at": 550,
+	"rounds_left": 1,
+	"master": "Final round: Gluttony first, Wrath last.",
+	"master_pose": "call"
+}

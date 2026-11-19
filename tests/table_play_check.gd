@@ -121,6 +121,12 @@ func _process(_delta: float) -> bool:
 			else:
 				t.view.throw_pressed.emit()
 			return false
+		if not t._bet.is_empty() and not t.view.slip_buttons.is_empty():  # a bet's slip: Take or Pass
+			_shot("bet")
+			via_table += 1
+			_stuck = 0
+			t.view.slip_pressed.emit(randf() < 0.5)
+			return false
 		if is_instance_valid(t._extra):
 			var picks: Array = t._extra.get_children().filter(func(c): return c is Button)
 			if not picks.is_empty():

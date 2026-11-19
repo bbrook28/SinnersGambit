@@ -107,6 +107,12 @@ func _process(delta: float) -> bool:
 	if bs.is_empty() or main._q.busy():
 		waited = 0.0
 		return false
+	if table and main._table and not main._table._bet.is_empty():  # a bet's slip on a rival's turn: pass, not my turn
+		waited += delta
+		if waited >= THINK:
+			waited = 0.0
+			bs[0].pressed.emit()
+		return false
 	if since_tap >= 0.0:  # my decision is up: how long after the double tap
 		var ok: bool = since_tap >= AFTER_MIN if table else true
 		results.append("double tap, then my decision %.2f s later%s" % [since_tap, "" if ok else " (FAIL: under %.1f s)" % AFTER_MIN])

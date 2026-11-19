@@ -19,6 +19,7 @@ signal bank_pressed
 signal standings_pressed
 signal seal_pressed
 signal stand_pressed
+signal slip_pressed(take: bool)  # REPLY 39-41: the bet slip's Take (or Hex) or Pass, once its guard has filled
 
 const Art = preload("res://ui/art.gd")
 const Style = preload("res://ui/style.gd")
@@ -79,6 +80,11 @@ const CHOICE_H := 128.0     # a choice button: 44 pt tall at the smallest phone
 const CHOICE_GAP := 36.0    # between choice buttons: 12 pt
 const CHOICE_PER_ROW := 4  # REPLY 23: a target's name over its total fits four a line at SE
 const RIVAL_SEAL := 110.0  # a rival's seal beside its stake on its turn, px (display only)
+const OPEN_INSET := 8.0   # REPLY 41: the open's row of tokens starts this far right of the track's start (its ring 31 SE px off the page edge)
+const RING_R := 3.0       # REPLY 43: each token's ring in its Sin's colour, centred this far outside the token
+const RING_W := 7.0
+const SLIP_SEAL := 224.0  # REPLY 40: the slip's seals, layout px across
+const CHIP_R := 46.0      # REPLY 40: the open bet's chip
 const BAND_PAD := 14.0    # the track band's top and bottom padding (REPLY 16: from 30, so the windows get build 116's size)
 const ROBE := Color("5b3a52")  # the Master's sleeve (mark and offer arms, still blockout)
 # REPLY 27: the Master is the painted fiddle piece (cb2feec5) as a bust: masked to crown, hood, skull and
@@ -147,6 +153,17 @@ var rounds_left := 0   # after his call: 2 (penultimate round), 1 (final round)
 var master_pose := "rest"
 var master_target := -1
 var marked_seat := -1  # the seat the Master marked this round (Rules.V5 "mark"): a gold ring on its window
+var pick := -1         # REPLY 39: before the open, the Master names this seat: its window forward and lit (-1 none)
+## REPLY 39-41: a bet on a rival's turn, as a slip over the seals row {title, sub, take, pass}; slip_start: the
+## _clock reading when it began to rise (it rises over Tuning.SLIP_RISE, then its seals answer nothing until
+## their gold ring has filled, Tuning.BET_GUARD later).
+var slip := {}
+var slip_start := -1.0
+var slip_still := false  # fixtures: draw the slip as it stands at still_age, without running on
+var still_age := 0.0
+var chip := {}         # REPLY 40: an open bet {seat, amount}: a chip in my colour at the foot of that seat's window
+var token_nodes := {}  # seat -> {node, label, c}: each track token, movable (ui/table_play.gd slides them)
+var track := {}        # {ax0, span, ay}: where the track runs (token_x)
 ## Pixel boxes from the last build (REPLY 16 item 8, for art made to size): head, mask, shoulders, robe,
 ## arm, card, windows.
 var boxes := {}
@@ -203,7 +220,8 @@ func build() -> void:
 			lead = i
 	if seats[lead].score <= 0 or seats.filter(func(s): return s.score == seats[lead].score).size() > 1:
 		lead = -1  # a tie (everyone on 0 at the start): no one is crowned
-	var col: Color = Style.SIN_COLORS[seats[cur].sin]
+	var act: int = pick if pick >= 0 else cur  # the window forward and lit: the turn's, or the Master's pick
+	var col: Color = Style.SIN_COLORS[seats[act].sin]
 	var bust := moment == "bust"
 	var mine: bool = cur == me
 	var live: bool = mine and moment == "decision"
@@ -220,12 +238,20 @@ func build() -> void:
 	var widest := 0.0  # heads on one level stand far enough apart for their totals (REPLY 12)
 	for s in seats:
 		widest = maxf(widest, NUM_FONT.get_string_size(str(int(s.score)), HORIZONTAL_ALIGNMENT_LEFT, -1, TOTAL_SIZE).x)
-	var gap: float = maxf(MARK, widest) + 16.0
+	var gap: float = maxf(MARK + 2.0 * RING_R + RING_W, widest) + 16.0  # REPLY 43: rings never touch
 	var lvl := {}
 	var head := {}  # seat -> head x, track coordinates (0 = score 0)
 	var prev := -1
+	# REPLY 41: at the open (every rival on 0) the rivals' tokens sit side by side on one stem from the track's
+	# start, running right, with one "0" label; mine hangs below.
+	var open_row: Array = order.filter(func(i): return i != me)
+	if open_row.size() < 2 or open_row.any(func(i): return seats[i].score != 0):
+		open_row = []
+	for k2 in open_row.size():
+		lvl[open_row[k2]] = 0
+		head[open_row[k2]] = OPEN_INSET + k2 * gap
 	for i in order:
-		if i == me:
+		if i == me or open_row.has(i):
 			continue
 		var x: float = span * clampf(seats[i].score / GOAL, 0.0, 1.0)
 		var l := 0
@@ -240,7 +266,7 @@ func build() -> void:
 	var lo: float = edge - (24.0 + 80.0)
 	var hi: float = vp.x - edge - (24.0 + 80.0)
 	for l in 2:
-		var row: Array = order.filter(func(i): return lvl.has(i) and lvl[i] == l)
+		var row: Array = order.filter(func(i): return lvl.has(i) and lvl[i] == l and not open_row.has(i))
 		# Groups of heads, each centred on its scores' mean; touching groups merge.
 		var groups: Array = []
 		for i in row:
@@ -318,11 +344,11 @@ func build() -> void:
 	var wr := Rect2()
 	var win_rects := []
 	for i in n:
-		var w: float = aw if i == cur else bw * k
+		var w: float = aw if i == act else bw * k
 		win_rects.append(Rect2(x, wb - w * WIN_RATIO, w, w * WIN_RATIO))
 		x += w + WIN_GAP
 	boxes = {"windows": win_rects.duplicate()}
-	var mf := _master_body(win_rects, cur, wy_min, pt, vp.x, bw * k)  # behind the windows
+	var mf := _master_body(win_rects, act, wy_min, pt, vp.x, bw * k)  # behind the windows
 	for i in n:
 		var r: Rect2 = win_rects[i]
 		var w: float = r.size.x
@@ -333,8 +359,8 @@ func build() -> void:
 		t.position = r.position
 		t.size = r.size
 		var speaking: bool = master_line == "" and not speak.is_empty() and int(speak.seat) == i  # REPLY 32: a speaking rival's window brightens
-		t.modulate = Color.WHITE if i == cur or speaking else Color(0.3, 0.28, 0.3)  # REPLY 16: rivals readable against the plum
-		if i != cur:  # REPLY 25: a rival's glass is dimmed by darkening only; nothing behind shows through it
+		t.modulate = Color.WHITE if i == act or speaking else Color(0.3, 0.28, 0.3)  # REPLY 16: rivals readable against the plum
+		if i != act:  # REPLY 25: a rival's glass is dimmed by darkening only; nothing behind shows through it
 			var back := _solid(t.texture)
 			if back:
 				var bk := TextureRect.new()
@@ -347,7 +373,7 @@ func build() -> void:
 				add_child(bk)
 		add_child(t)
 		_line([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), r.position], INK, 5.0)
-		if i == cur:
+		if i == act:
 			wr = r
 		if i == me:  # yours: a crimson bar under it
 			_rect(Rect2(r.get_center().x - minf(w, 120.0) * 0.4, r.end.y + 8, minf(w, 120.0) * 0.8, 10), CRIMSON)
@@ -438,8 +464,17 @@ func build() -> void:
 		draw.append(lead)
 	draw.append(me)
 	var centres := {}
+	track = {"ax0": ax0, "span": span, "ay": ay}
+	if not open_row.is_empty():  # the open: one stem up from 0, then a bar the row of tokens sits on
+		var bar: float = ay - STEM
+		_line([Vector2(ax0, ay), Vector2(ax0, bar), Vector2(ax0 + head[open_row[open_row.size() - 1]], bar)], INK, 3.0)
 	for i in draw:  # stems first, so no stem crosses a marker
 		var mx: float = ax0 + span * clampf(seats[i].score / GOAL, 0.0, 1.0)
+		if open_row.has(i):
+			centres[i] = Vector2(ax0 + head[i], ay - STEM - MARK / 2.0)
+			continue
+		if i == me and not open_row.is_empty() and seats[me].score == 0:
+			mx += OPEN_INSET  # the open: mine as far in from the page's edge as the row above
 		if i == me:  # mine: below the line
 			_line([Vector2(mx, ay), Vector2(mx, ay + STEM)], CRIMSON, 4.0)
 			centres[i] = Vector2(mx, ay + STEM + MARK / 2.0)
@@ -464,8 +499,10 @@ func build() -> void:
 		_line(ring, INK, 5.0, Color(0, 0, 0, 0), gh)
 		_sigil(seats[me].sin, Rect2(-Vector2(MARK, MARK) * 0.36, Vector2(MARK, MARK) * 0.72), INK, gh)
 		ghost_nodes.append(gh)
-	for i in draw:
-		_marker(centres[i], i, me, lead)
+	token_nodes.clear()
+	for i in draw:  # the open: one "0" label, over the middle token of the row (mine shows none)
+		var labelled: bool = open_row.is_empty() or (i != me and i == open_row[open_row.size() / 2]) or (i == me and seats[me].score != 0)
+		_marker(centres[i], i, me, lead, labelled)
 	var track := Button.new()  # the whole band is one tap target: the standings
 	track.flat = true
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
@@ -642,8 +679,18 @@ func build() -> void:
 			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cpar.add_child(band)
 	# (REPLY 14: no skeleton by the candles; the Master stands over the windows and speaks from there.)
+	if not chip.is_empty() and int(chip.seat) < win_rects.size():  # REPLY 40: the open bet, at the foot of its window
+		var wrc: Rect2 = win_rects[int(chip.seat)]
+		var cc := Vector2(wrc.end.x - 40.0, wrc.end.y - 30.0)
+		_disc(cc, CHIP_R, Style.SIN_COLORS[seats[me].sin], GOLD)
+		var ct2 := _label(str(int(chip.amount)), 44, BONE, Color(0, 0, 0, 0))
+		ct2.size = Vector2(CHIP_R * 2.0, CHIP_R * 2.0)
+		ct2.position = cc - ct2.size / 2.0
+	slip_buttons.clear()
+	if not slip.is_empty():
+		_slip(px0, px1, sy)
 	if master_line == "" and not speak.is_empty():
-		_sin_line(win_rects[int(speak.seat)], win_rects[cur], int(speak.seat) == cur, str(seats[int(speak.seat)].sin), str(speak.line))
+		_sin_line(win_rects[int(speak.seat)], win_rects[act], int(speak.seat) == act, str(seats[int(speak.seat)].sin), str(speak.line))
 
 
 ## The Master of the Dance (REPLY 16), a flat blockout and the largest figure on screen. He stands behind
@@ -992,28 +1039,218 @@ func _dashed_box(r: Rect2, c: Color) -> void:
 
 ## A track marker: the Sin's colour (muted) with its sigil in ink. Mine wears a crimson ring;
 ## the leader wears a gold ring and a gold crown.
-func _marker(c: Vector2, i: int, me: int, lead: int) -> void:
+func _marker(c: Vector2, i: int, me: int, lead: int, labelled := true) -> void:
+	# REPLY 43: each token is one node at its centre (ui/table_play.gd pulses and slides it), drawn round 0.
+	var tok := Control.new()
+	tok.position = c
+	tok.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(tok)
 	var r: float = MARK / 2.0
-	# The total (REPLY 12), always shown: above a rival's head, under mine (mine hangs below the line).
-	var tl := _label(str(int(seats[i].score)), TOTAL_SIZE, INK, Color(0, 0, 0, 0))  # REPLY 27: ink on the page
+	# The total (REPLY 12): above a rival's head, under mine (mine hangs below the line).
+	var tl := _label(str(int(seats[i].score)), TOTAL_SIZE, INK, Color(0, 0, 0, 0), false, tok)  # REPLY 27: ink on the page
 	tl.size = Vector2(maxf(MARK, tl.get_minimum_size().x) + 16.0, TOTAL_H)
-	tl.position = Vector2(c.x - tl.size.x / 2.0, (c.y + r + 6.0) if i == me else (c.y - r - 4.0 - TOTAL_H))
+	tl.position = Vector2(-tl.size.x / 2.0, (r + 6.0) if i == me else (-r - 4.0 - TOTAL_H))
+	tl.visible = labelled
 	if i == lead:
-		_disc(c, r + 6.0, GOLD, INK)
+		_disc(Vector2.ZERO, r + 6.0, GOLD, INK, tok)
 		var p := Polygon2D.new()
-		var top := c - Vector2(0, r + 4.0 + (0.0 if i == me else TOTAL_H))  # a rival's crown sits over its total
+		var top := -Vector2(0, r + 4.0 + (0.0 if i == me else TOTAL_H))  # a rival's crown sits over its total
 		p.polygon = PackedVector2Array([top + Vector2(-20, 0), top + Vector2(-23, -24), top + Vector2(-10, -12),
 			top + Vector2(0, -30), top + Vector2(10, -12), top + Vector2(23, -24), top + Vector2(20, 0)])
 		p.color = GOLD
-		add_child(p)
+		tok.add_child(p)
 	# Filled with the Sin's colour, muted (Ben: the one exception to the single-glass-colour rule),
 	# the sigil in dark ink on top. Mine wears a crimson ring.
 	if i == me:
-		_disc(c, r + 8.0, CRIMSON, CRIMSON)
+		_disc(Vector2.ZERO, r + 8.0, CRIMSON, CRIMSON, tok)
 	var fill: Color = Style.SIN_COLORS[seats[i].sin].lerp(BONE, 0.42)
 	fill.s *= 0.8
-	_disc(c, r, fill, INK)
-	_sigil(seats[i].sin, Rect2(c - Vector2(r, r) * 0.92, Vector2(r, r) * 1.84), INK)
+	_disc(Vector2.ZERO, r, fill, INK, tok)
+	_sigil(seats[i].sin, Rect2(-Vector2(r, r) * 0.92, Vector2(r, r) * 1.84), INK, tok)
+	# REPLY 43: a ring in its Sin's colour, centred on the token, so the eye finds the lit window's token.
+	var ring := []
+	for j in 41:
+		ring.append(Vector2.from_angle(TAU * j / 40.0) * (r + RING_R))
+	_line(ring, Style.SIN_COLORS[seats[i].sin], RING_W, Color(0, 0, 0, 0), tok)
+	token_nodes[i] = {"node": tok, "label": tl, "c": c}
+
+
+## REPLY 39-41: the bet slip over the seals row on a rival's turn: Pass where Bank sits, Take (or Hex) where
+## Throw sits, the offer's title and subtitle between. It rises over Tuning.SLIP_RISE from slip_start; then its
+## seals stay pale and answer nothing until a gold ring round each has filled (Tuning.BET_GUARD). A press that
+## began before the ring filled never answers it (ui/table_play.gd counts the press from its start).
+var slip_buttons: Array = []
+static var guard_on := true  # tests/oot_guard_check.gd -- --noguard turns it off, to show the test fails without it
+
+
+func _slip(px0: float, px1: float, sy: float) -> void:
+	var node := Control.new()
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(node)
+	var age: float = still_age if slip_still else _clock - slip_start
+	var plate := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(PARCH.lightened(0.25), 0.97)
+	sb.border_color = INK
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(18)
+	plate.add_theme_stylebox_override("panel", sb)
+	plate.position = Vector2(px0 + 16.0, sy - 26.0)
+	plate.size = Vector2(px1 - px0 - 32.0, SEAL + 52.0)
+	plate.mouse_filter = Control.MOUSE_FILTER_STOP  # a tap on the slip but off its seals answers nothing
+	node.add_child(plate)
+	var title := _label(str(slip.get("title", "")), 50, INK, Color(0, 0, 0, 0), true, node)
+	title.size = Vector2(px1 - px0 - 2.0 * (SEAL + 70.0), 70.0)
+	title.position = Vector2(px0 + SEAL + 70.0, sy + 34.0)
+	var sub := _label(str(slip.get("sub", "")), 42, INK, Color(0, 0, 0, 0), false, node)
+	sub.size = title.size
+	sub.position = Vector2(title.position.x, sy + 116.0)
+	var rise_left: float = maxf(0.0, Tuning.SLIP_RISE - age)
+	for take in [false, true]:
+		var pos := Vector2(px1 - 36.0 - SEAL, sy) if take else Vector2(px0 + 36.0, sy)
+		var word: String = str(slip.get("take" if take else "pass", "Take" if take else "Pass"))
+		var b := Button.new()
+		var none := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+			b.add_theme_stylebox_override(st, none)
+		b.position = pos
+		b.size = Vector2(SEAL, SEAL)
+		b.focus_mode = Control.FOCUS_NONE
+		b.set_meta("take", take)
+		node.add_child(b)
+		var c := Vector2(SEAL, SEAL) / 2.0
+		_disc(c, SLIP_SEAL / 2.0, CRIMSON if take else BONE.darkened(0.12), INK, b)
+		var wl := _label(word, 54, BONE if take else INK, Color(0, 0, 0, 0), true, b)
+		wl.size = Vector2(SEAL, SEAL)
+		wl.position = Vector2.ZERO
+		# The guard: a pale veil and a gold ring that fills; the seal answers once it has.
+		var veil := Polygon2D.new()
+		var vp2 := PackedVector2Array()
+		for k in 40:
+			vp2.append(c + Vector2.from_angle(TAU * k / 40.0) * (SLIP_SEAL / 2.0 + 5.0))
+		veil.polygon = vp2
+		veil.color = Color(PARCH.lightened(0.25), 0.6)
+		b.add_child(veil)
+		var arc := Line2D.new()
+		arc.width = 9.0
+		arc.default_color = GOLD
+		b.add_child(arc)
+		var fill := func(f: float):
+			var pts := PackedVector2Array()
+			for k in int(ceil(40.0 * f)) + 1:
+				pts.append(c + Vector2.from_angle(-PI / 2.0 + TAU * minf(f, float(k) / 40.0)) * (SLIP_SEAL / 2.0 + 14.0))
+			arc.points = pts
+			veil.color.a = 0.6 * (1.0 - floorf(f))
+		var done: float = clampf((age - Tuning.SLIP_RISE) / Tuning.BET_GUARD, 0.0, 1.0)
+		fill.call(done)
+		if done < 1.0 and not slip_still:
+			var tw := arc.create_tween()
+			tw.tween_interval(rise_left)
+			tw.tween_method(fill, done, 1.0, Tuning.BET_GUARD * (1.0 - done))
+		b.button_down.connect(func(): b.set_meta("down_at", _clock))
+		b.pressed.connect(func():
+			if not guard_on or float(b.get_meta("down_at", -1.0)) - slip_start >= Tuning.SLIP_RISE + Tuning.BET_GUARD:
+				slip_pressed.emit(take))
+		slip_buttons.append(b)
+	if rise_left > 0.0 and not slip_still:
+		node.position.y = 80.0 * rise_left / Tuning.SLIP_RISE
+		node.modulate.a = 1.0 - rise_left / Tuning.SLIP_RISE
+		var tw := node.create_tween().set_parallel()
+		tw.tween_property(node, "position:y", 0.0, rise_left).set_ease(Tween.EASE_OUT)
+		tw.tween_property(node, "modulate:a", 1.0, rise_left)
+
+
+# ---------- REPLY 38-43: token motion (ui/table_play.gd times it; fixtures play it for clips) ----------
+# Flying labels and tweens live on the view's parent, so a rebuild mid-beat doesn't cut them.
+
+func token(seat: int) -> Dictionary:
+	var t: Dictionary = token_nodes.get(seat, {})
+	return t if not t.is_empty() and is_instance_valid(t.node) else {}
+
+
+func _ptween() -> Tween:
+	var tw := get_parent().create_tween()
+	tw.set_speed_scale(Tuning.speed)
+	return tw
+
+
+## A label over the table, in the face, size and stroke of a bet's result (REPLY 41).
+func float_label(text: String, col: Color, size := 64) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", NUM_FONT)
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_color_override("font_outline_color", BONE)
+	l.add_theme_constant_override("outline_size", 10)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_parent().add_child(l)
+	l.size = l.get_minimum_size()
+	return l
+
+
+## Turn start: its token swells and a ring of its colour spreads from it.
+func pulse_token(seat: int) -> void:
+	var t := token(seat)
+	if t.is_empty():
+		return
+	var node: Control = t.node
+	var ring := Line2D.new()
+	var pts := PackedVector2Array()
+	for i in 41:
+		pts.append(Vector2.from_angle(TAU * i / 40.0) * (MARK / 2.0 + 10.0))
+	ring.points = pts
+	ring.width = 12.0
+	ring.default_color = Style.SIN_COLORS[seats[seat].sin].lightened(0.15)
+	ring.position = node.global_position
+	get_parent().add_child(ring)
+	var tw := _ptween().set_parallel()
+	tw.tween_property(ring, "scale", Vector2.ONE * 1.8, Tuning.TOKEN_PULSE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "modulate:a", 0.0, Tuning.TOKEN_PULSE)
+	tw.tween_property(node, "scale", Vector2.ONE * 1.25, Tuning.TOKEN_PULSE * 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(node, "scale", Vector2.ONE, Tuning.TOKEN_PULSE * 0.6)
+	tw.chain().tween_callback(ring.queue_free)
+
+
+## A label flies from a to b (an arc) over dur and is gone.
+func fly_label(text: String, col: Color, a: Vector2, b: Vector2, dur: float) -> Tween:
+	var l := float_label(text, col, 56)
+	var mid := (a + b) / 2.0 + Vector2(0, -140)
+	var tw := _ptween()
+	tw.tween_method(func(f: float):
+		if is_instance_valid(l):
+			var p := a.lerp(mid, f).lerp(mid.lerp(b, f), f)
+			l.position = p - l.size / 2.0, 0.0, 1.0, dur).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(l.queue_free)
+	return tw
+
+
+## The stake ("+n", in its colour) flies from the stake numeral to its own token's centre (REPLY 43 fix b).
+func fly_stake(seat: int, n: int) -> Tween:
+	var t := token(seat)
+	var a: Vector2 = stake_label.get_global_rect().get_center() if is_instance_valid(stake_label) else dice_area.get_center()
+	return fly_label("+%d" % n, on_page(Style.SIN_COLORS[seats[seat].sin]), a, t.node.global_position if not t.is_empty() else a, Tuning.TOKEN_FLY)
+
+
+## Slides seat's token along the track from its shown score to `to` while its label counts, in the layout it has
+## now: the track restacks only once the slide is over, so one token moves in the beat (REPLY 43).
+func slide_token(seat: int, from: int, to: int, dur: float) -> Tween:
+	var t := token(seat)
+	var x0: float = t.node.position.x if not t.is_empty() else 0.0
+	var dx: float = token_x(to) - token_x(from)
+	var tw := _ptween()
+	tw.tween_method(func(f: float):
+		var tt := token(seat)
+		if tt.is_empty():
+			return
+		tt.node.position.x = x0 + dx * f
+		tt.label.text = str(int(roundf(lerpf(from, to, f)))), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return tw
+
+
+## The track's x for a score (a token's true place on the line).
+func token_x(score: float) -> float:
+	return float(track.get("ax0", 0.0)) + float(track.get("span", 0.0)) * clampf(score / GOAL, 0.0, 1.0)
 
 
 ## The Sin's Accept-seal emblem as ink line (ui/shaders/ink_emblem.gdshader).

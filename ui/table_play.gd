@@ -11,6 +11,9 @@ const Rules = preload("res://core/rules.gd")
 const Style = preload("res://ui/style.gd")
 const Tuning = preload("res://ui/tuning.gd")
 const RulesText = preload("res://ui/rules_text.gd")
+const WIN_INK := Color8(118, 78, 0)   # REPLY 41: a bet won, in deep gold
+const LOSS_INK := Color8(170, 30, 30)  # a bet lost, in red; both in the same face, size and stroke
+const MINUS := "−"
 
 var main               # ui/main.gd
 var view               # ui/table_blockout.gd
@@ -37,6 +40,12 @@ var _pending_must := false
 var line_stats := {"shown": 0, "dropped": 0, "waited": 0, "cut": 0}  # REPLY 22: counted for tools (line pace)
 var rounds_left := 0      # REPLY 10: after the Master's call, rounds left (2 penultimate, 1 final); ui/main.gd sets it
 var _idle := 0.0           # s at my decision with no answer (his idle line)
+var _bet := {}             # REPLY 39-41: the bet on offer now (ui/human.gd wants_bet): drawn as the slip
+var _slip_start := -1.0    # when the slip began to rise (TableBlockout._clock)
+var _chip := {}            # REPLY 40: an open bet {seat, amount}, at its window's foot for the rest of its turn
+var _chip_turn := -1
+var _held := {}            # seat -> the score its token shows while a beat moves it (the slide, then the restack)
+var _pick := -1            # REPLY 39: the seat the Master is naming before the open
 
 
 func setup(m) -> void:
@@ -48,6 +57,7 @@ func setup(m) -> void:
 	view.bank_pressed.connect(func(): _answer("bank"))
 	view.standings_pressed.connect(_open_standings)
 	view.seal_pressed.connect(func(): _answer("seal"))
+	view.slip_pressed.connect(_answer_bet)
 	view.stand_pressed.connect(func(): _answer("stand"))
 
 
@@ -61,16 +71,28 @@ func show_state(s: Dictionary) -> void:
 	_draw()
 
 
-func prompt(text: String, buttons: Array) -> void:
+func prompt(text: String, buttons: Array, bet := {}) -> void:
 	_text = text
 	_buttons = buttons
+	_bet = bet
+	_slip_start = TableBlockout._clock if not bet.is_empty() else -1.0
 	_draw()
 
 
 func prompt_cleared() -> void:
 	_buttons = []
 	_text = ""
+	_bet = {}
+	_slip_start = -1.0
 	_draw()
+
+
+## The slip's Take (or Hex) or Pass, once its guard has filled (ui/table_blockout.gd _slip).
+func _answer_bet(take: bool) -> void:
+	for b in _buttons:
+		if is_instance_valid(b) and not b.is_queued_for_deletion() and b.get_meta("value", null) is bool and b.get_meta("value") == take:
+			main.human.answered.emit(take)
+			return
 
 
 func say(seat: int, line: String) -> void:
@@ -226,7 +248,7 @@ func _draw() -> void:
 			pend.append("fewer")
 		for k in int(debts[3]):
 			pend.append("die")
-		seats.append({"sin": p.sin.sin_name, "score": int(ps.score), "you": p.bot == main.human,
+		seats.append({"sin": p.sin.sin_name, "score": int(_held.get(i, ps.score)), "you": p.bot == main.human,
 			"marks": ps.get("marks", {}), "pend": pend, "bank": int(debts[0])})
 	var cur: int = s.cur
 	var faces: Array = t.faces
@@ -246,6 +268,10 @@ func _draw() -> void:
 	elif roll or bank or _live("seal") or _live("stand"):
 		moment = "decision"
 	var others := _buttons.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion() and b.get_meta("kind", "") in ["pill", "num", "new"])
+	if not _bet.is_empty():  # a bet: the slip takes the seals row, not a choice row
+		others = []
+	if s.cur != _chip_turn:  # the chip rides for the rest of that turn only
+		_chip = {}
 	# Rules.V5: my seal. Ready while main offers it; spent once used this turn; else unspent.
 	var seals := _buttons.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion() and b.get_meta("kind", "") == "seal")
 	if seals.size() > 1:  # Pride names a Bank: each one a bone button too
@@ -285,7 +311,7 @@ func _draw() -> void:
 		_gain = 0
 	var sig := "%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%s|%s|%s" % [str(seats), str(faces), int(t.points), strikes, cur, moment,
 		str(_speak), str(others.map(func(b): return _word(b))), str([roll != null, bank != null, stand]), int(t.throws) * 100000 + _gain,
-		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1)) + str(s.get("call_live", true)) + "o%d" % _offer_seat]
+		seal + str(seal_face) + rival_seal + str(ghosts) + str(rounds_left), str(_firing), _master + _master_pose + str(_master_target) + str(s.get("marked", -1)) + str(s.get("call_live", true)) + "o%d" % _offer_seat + str(_bet) + str(_chip) + "p%d" % _pick]
 	if sig == _drawn:
 		return
 	_drawn = sig
@@ -315,6 +341,10 @@ func _draw() -> void:
 		view.master_pose = "offer"
 		view.master_target = _offer_seat
 	view.marked_seat = int(s.get("marked", -1))
+	view.slip = _bet
+	view.slip_start = _slip_start
+	view.chip = _chip
+	view.pick = _pick
 	if g.called_round < 0:
 		rounds_left = 0  # a new game
 	view.call_at = int(g.master_call)
@@ -503,3 +533,155 @@ func _flat_button(word: String, pos: Vector2, size: Vector2, on_press: Callable)
 	b.size = size
 	b.pressed.connect(on_press)
 	_standings.add_child(b)
+
+
+# ---------- REPLY 38-43: a rival's turn as held beats, the bets, the Master's table ----------
+
+## A tween on this layer (it outlives the view's rebuilds), at the Speed setting only; real seconds at 1x.
+func _tween() -> Tween:
+	var tw := create_tween()
+	tw.set_speed_scale(Tuning.speed)
+	return tw
+
+
+## Holds for dur (real s at 1x) while tw plays; a tap ends both.
+func _play(tw: Tween, dur: float) -> void:
+	await main._q.hold(dur)
+	if tw.is_valid() and tw.is_running():
+		tw.custom_step(1000.0)
+
+
+func _token(seat: int) -> Dictionary:
+	return view.token(seat)
+
+
+## Its token shows this score until released (a beat moves it, then the track restacks).
+func hold_score(seat: int, score: int) -> void:
+	_held[seat] = score
+
+
+func _release(which: Array) -> void:
+	for i in which:
+		_held.erase(i)
+	_drawn = ""
+	_draw()
+
+
+func _float_label(text: String, col: Color, size := 64) -> Label:
+	return view.float_label(text, col, size)
+
+
+func token_pulse(seat: int) -> void:
+	_draw()
+	if visible:
+		view.pulse_token(seat)
+
+
+func _fly(text: String, col: Color, a: Vector2, b: Vector2, dur: float) -> Tween:
+	return view.fly_label(text, col, a, b, dur)
+
+
+func _slide(seat: int, from: int, to: int, dur: float) -> Tween:
+	return view.slide_token(seat, from, to, dur)
+
+
+## A rival banks (or keeps half on a bust): its stake flies to its own token, then the token slides as its label
+## counts to the new total; then the track restacks. director.play holds the beat's minimum round this.
+func bank_beat(seat: int, from: int, to: int, n: int, _keep := false) -> void:
+	_held[seat] = from
+	_drawn = ""
+	_draw()
+	var t := _token(seat)
+	if t.is_empty() or not visible or to == from:
+		_release([seat])
+		return
+	await _play(view.fly_stake(seat, n), Tuning.TOKEN_FLY)
+	await _play(_slide(seat, from, to, Tuning.TOKEN_SLIDE), Tuning.TOKEN_SLIDE)
+	_release([seat])
+
+
+## The turn doesn't end until a rival's line has been up Tuning.RIVAL_LINE (a tap ends the wait).
+func line_floor() -> void:
+	while not _speak.is_empty() and _speak_left > 0.0 and Tuning.LINE_MIN - _speak_left < Tuning.RIVAL_LINE and not main._q.skipping():
+		await main.get_tree().process_frame
+
+
+## REPLY 40: the bet is taken: its chip at the rival's window for the rest of its turn.
+func open_bet(seat: int, amount: int) -> void:
+	var before: int = int(_chip.get("amount", 0)) if int(_chip.get("seat", -1)) == seat else 0
+	_chip = {"seat": seat, "amount": before + amount}
+	_chip_turn = seat
+	_draw()
+
+
+## REPLY 41: a bet settles. Won: "+65" in deep gold at your token as your label counts up. Lost: "-50" in red
+## at your token as yours counts down, and "+50" at its token in its colour as its label counts up.
+func bet_result(won: bool, me: int, seat: int, prev: Dictionary, snap: Dictionary, amount: int) -> void:
+	var p0: Array = prev.get("players", [])
+	var p1: Array = snap.players
+	var mine0: int = int(p0[me].score) if me < p0.size() else int(p1[me].score)
+	var its0: int = int(p0[seat].score) if seat < p0.size() else int(p1[seat].score)
+	_held[me] = mine0
+	_held[seat] = its0
+	_chip = {}
+	_drawn = ""
+	_draw()
+	var t := _token(me)
+	if t.is_empty() or not visible:
+		_release([me, seat])
+		return
+	var labels := []
+	var lm := _float_label(("+%d" if won else MINUS + "%d") % amount, WIN_INK if won else LOSS_INK)
+	lm.position = t.node.global_position + Vector2(TableBlockout.MARK / 2.0 + 20.0, -lm.size.y / 2.0)
+	labels.append(lm)
+	var tws := [_slide(me, mine0, int(p1[me].score), Tuning.TOKEN_SLIDE)]
+	if not won:
+		var ti := _token(seat)
+		if not ti.is_empty():
+			var li := _float_label("+%d" % amount, TableBlockout.on_page(Style.SIN_COLORS[main.game.players[seat].sin.sin_name]))
+			li.position = ti.node.global_position + Vector2(TableBlockout.MARK / 2.0 + 16.0, -li.size.y / 2.0)
+			labels.append(li)
+			tws.append(_slide(seat, its0, int(p1[seat].score), Tuning.TOKEN_SLIDE))
+	await main._q.hold(Tuning.BET_RESULT)
+	for x in tws:
+		if x.is_valid() and x.is_running():
+			x.custom_step(1000.0)
+	for l in labels:
+		l.queue_free()
+	_release([me, seat])
+
+
+## REPLY 39: the hex. A red ring round the die it turns; "-60" flies from your token to it, and your label shows
+## the cost paid; then the board shows the die as a Strike (main.bet_event refreshes).
+func hex_beat(me: int, _seat: int, die: int, cost: int, snap: Dictionary) -> void:
+	var t := _token(me)
+	if t.is_empty() or not visible or die >= view.dice_nodes.size():
+		return
+	var d: Control = view.dice_nodes[die]
+	var r: Rect2 = d.get_global_rect().grow(10.0)
+	var ring := Line2D.new()
+	ring.points = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), r.position])
+	ring.width = 9.0
+	ring.default_color = LOSS_INK
+	add_child(ring)
+	await _play(_fly(MINUS + "%d" % cost, LOSS_INK, t.node.global_position, r.get_center(), Tuning.HEX_FLY), Tuning.HEX_FLY)
+	var t2 := _token(me)
+	if not t2.is_empty():
+		t2.label.text = str(int(snap.players[me].score))
+	await main._q.hold(Tuning.HEX_FLY)
+	ring.queue_free()
+
+
+## REPLY 39: before the open, the Master names each Sin he picked: its window forward and lit, his line under him.
+func master_pick(seat: int, line: String) -> void:
+	_pick = seat
+	_master_pose = "speak"
+	_master_target = -1
+	_master = line
+	_master_left = Tuning.PICK_HOLD
+	_draw()
+	await main._q.hold(Tuning.PICK_HOLD)
+	_pick = -1
+	_master = ""
+	_master_left = 0.0
+	_draw()

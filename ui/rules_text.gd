@@ -582,6 +582,19 @@ const TABLE := {
 	"chip_die": "-1 die\nat turn end",
 	"hubris_name": "Name {n}",
 	"you_lower": "you",
+	"bet_fall_title": "{sin}'s fall?",
+	"bet_fall_sub": "Stake {stake}, wins {pay}",
+	"bet_raise_title": "{sin}'s fall, now?",
+	"bet_raise_sub": "Stake {stake}, wins {pay}",
+	"bet_hex_title": "Hex its {face}?",
+	"bet_hex_sub": "Pay {cost}: a Strike",
+	"bet_take": "Take",
+	"bet_hex": "Hex",
+	"bet_pass": "Pass",
+	"pick_beat_you": "{sin}. It beat you last time.",
+	"pick_least": "{sin}. You've beaten it least.",
+	"pick_unseen": "{sin}. Not faced in two tables.",
+	"pick_random": "{sin}. The dice chose it.",
 }
 
 
@@ -728,7 +741,7 @@ const MASTER := {
 	"my_loss": ["Not tonight. There's always another.", "The dice were unkind. Again?", "A good dance, all the same.", "Rest. The table will wait.", ["Close. Closer than they'd admit.", "close"]],
 	"call": ["{call} reached. Two rounds left.", "Two rounds left. Then I judge.", "The music slows. Two rounds.", "Nearly done. Two rounds remain.", "Savour it. Two rounds to go."],
 	"final": ["Last round. Highest score wins.", "Final round. Make it count.", "Last dance. No second chances.", "One last throw each. Choose well.", "The end. Dance it well."],
-	"final_order": ["Final round: {first} first, {last} last.", "Last round, leader first: {last} last.", "Final round: {first} opens, {last} closes."],
+	"final_order": ["Final round: {first} first, {last} last.", "Last dance: {first} first, {last} last.", "Leader first: {first}. Last: {last}.", "Top down: {first} first, {last} last.", "Final round: {first} to {last}."],
 	"marked_me": ["You lead. No chain this round.", "Ahead? Then no chain this round.", "First place. No chain this round.", "Marked. No chain this round.", "Leader's toll: no chain this round."],
 	"marked_rival": ["{name} leads. No chain.", "{name} leads. Chain off this round.", "I mark {name}. No chain.", "Marked: {name}. No chain this round.", "{name} pays: no chain this round."],
 	"idle": ["Throw, or keep? Your call.", "Candles are patient. I am less.", "Courage or caution, dear guest?", "Another throw? Purely a suggestion.", "Take your time. Eternity's long."],

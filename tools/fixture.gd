@@ -20,6 +20,8 @@
 ##            refuse / claim
 ##   hold     seconds to let the moment play before the capture (each moment has a default)
 ##   v5       game screens: Rules.V5 (offers scaled for a seat far behind)
+##   slip {title, sub, take, pass}, slip_age, chip {seat, amount}, pick (seat): table screen, the bets (REPLY 39-43)
+##   bank_beat {seat, from, to, n}: table screen, a rival's bank played as its beats (tools/clip.gd)
 ##   seal, seal_face, firing {seat, dice}, stand, master, master_pose (rest|speak|call|mark|offer), master_target (seat), marked (seat): table screen, Rules.V5 (ui/table_blockout.gd)
 extends RefCounted
 
@@ -162,6 +164,13 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	t.strikes = 3 if t.moment == "bust" else int(turn.get("strikes", 0))
 	t.safe = safe(size)
 	var items: Array = fx.get("choices", []).map(func(c): return {"text": c.text, "value": int(c.value) if c.value is float else c.value})  # JSON numbers load as floats
+	t.slip = fx.get("slip", {})  # REPLY 39-41: a bet's slip {title, sub, take, pass}; slip_age s since it began to rise
+	t.slip_start = t._clock - float(fx.get("slip_age", 2.0)) if not t.slip.is_empty() else -1.0
+	t.slip_still = true
+	t.still_age = float(fx.get("slip_age", 2.0))
+	var ch: Dictionary = fx.get("chip", {})  # an open bet {seat, amount}
+	t.chip = {"seat": int(ch.seat), "amount": int(ch.amount)} if not ch.is_empty() else {}
+	t.pick = int(fx.get("pick", -1))  # the Master's pick before the open: that window forward and lit
 	t.choice_question = str(fx.get("question", ""))
 	t.choice_items = items
 	layer.add_child(t)
@@ -177,6 +186,26 @@ static func _table(tree: SceneTree, main, fx: Dictionary, size: String) -> void:
 	main._overlay = t  # so tools/ui_audit.gd audits the blockout, not the title under it
 	moment_frame = Engine.get_process_frames()
 	await frames(tree, 6)
+	var bank: Dictionary = fx.get("bank_beat", {})  # REPLY 43: a rival's bank as its beats play: {seat, from, to, n}
+	if not bank.is_empty():
+		_bank_beat(tree, t, int(bank.seat), int(bank.from), int(bank.to), int(bank.n))
+
+
+## A rival's bank beat on the blockout alone, timed as ui/table_play.gd times it (for tools/clip.gd): turn start
+## (its token pulses), the stake flies to its token, the token slides as its label counts, then the track restacks.
+static func _bank_beat(tree: SceneTree, t, seat: int, from: int, to: int, n: int) -> void:
+	var sc: Array = t.seats.duplicate(true)
+	t.seats[seat].score = from
+	t.build()
+	await tree.create_timer(0.3).timeout
+	t.pulse_token(seat)
+	await tree.create_timer(Tuning.RIVAL_BEAT.start).timeout
+	t.fly_stake(seat, n)
+	await tree.create_timer(Tuning.TOKEN_FLY).timeout
+	t.slide_token(seat, from, to, Tuning.TOKEN_SLIDE)
+	await tree.create_timer(Tuning.TOKEN_SLIDE + 0.05).timeout
+	t.seats = sc
+	t.build()
 
 
 static func _game(tree: SceneTree, main, fx: Dictionary) -> void:
