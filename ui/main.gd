@@ -142,6 +142,7 @@ static func table_rules() -> Dictionary:
 	var r: Dictionary = Rules.V5.duplicate()
 	r["master_call"] = Rules.MASTER_CALL  # REPLY 10 prototype: the Master calls the end, no win score
 	r["call_floor"] = Rules.MASTER_CALL_FLOOR  # REPLY 18: never before round 3's end
+	r["final_from_leader"] = true  # REPLY 41: the final round runs from the leader down (core/game.gd final_order)
 	return r
 
 
@@ -3573,6 +3574,10 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 				holds.append("close")
 		"call", "final":  # REPLY 10: the Master calls the end; each is a beat the table holds on
 			ev = kind
+			var order: Array = facts.get("order", [])
+			if kind == "final" and game.opt("final_from_leader", false) and order.size() > 1:  # REPLY 41: he names the order
+				ev = "final_order"
+				args = {"first": _who(order[0]), "last": _who(order[order.size() - 1])}
 		"leader_mark":  # REPLY 15: each round he marks the leader; no chain for them this round
 			ev = "marked_me" if mine else "marked_rival"
 			args = {"name": p.sin.sin_name}
@@ -3609,6 +3614,11 @@ func master_event(kind: String, p, facts: Dictionary) -> void:
 			await _table.master_say(line, pose, target, must)
 			if left > 0:
 				await get_tree().create_timer(Tuning.MASTER_CALL_HOLD / Tuning.speed).timeout)
+
+
+## A seat as the Master names it: "you", or its Sin.
+func _who(p) -> String:
+	return RulesText.table("you_lower") if p.bot == human else p.sin.sin_name
 
 
 ## REPLY 16: before an offer's card screen, the Master holds the card up on the table toward the offering

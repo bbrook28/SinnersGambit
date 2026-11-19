@@ -141,9 +141,9 @@ func play():
 		if called_round >= 0 and round_count == called_round + 2:  # the Master's final round
 			finish_round = true
 			end_triggered = true
-			_master("final", _leader(), {})
+			_master("final", _leader(), {"order": final_order()})
 		mark_leader()
-		for p in players:
+		for p in (final_order() if end_triggered else players):
 			await take_turn(p)
 			if winner != null:
 				_master("end", winner, {"margin": _margin()})
@@ -155,6 +155,15 @@ func play():
 			called_round = round_count  # the Master calls it: one more round, then the final round
 			_master("call", _leader(), {"at": master_call})
 	return winner
+
+
+## The turn order of the round being played: seat order, except the final round (opt "final_from_leader",
+## REPLY 41) runs from the leader down, so the last seat throws last; equal scores keep seat order.
+func final_order() -> Array:
+	var seq: Array = players.duplicate()
+	if end_triggered and opt("final_from_leader", false):
+		seq.sort_custom(func(a, b): return a.score > b.score or (a.score == b.score and a.seat < b.seat))
+	return seq
 
 
 ## The top scorer (the first in seat order on a tie).
@@ -815,3 +824,4 @@ func _margin() -> int:
 		if o != winner:
 			second = maxi(second, o.score)
 	return winner.score - second
+
