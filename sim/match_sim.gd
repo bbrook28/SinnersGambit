@@ -37,6 +37,8 @@ const B := {
 	"round": 1.2,      # the Master marks the leader
 	"call": 1.6,       # the Master's call
 	"interlude": 12.0, # between dances: his new rule (4 s) and your power pick (8 s)
+	"oot_show": 0.5,   # an out-of-turn prompt comes up over the rival's turn (REPLY 38 item 3)
+	"oot_think": 2.0,  # you: answering it
 	"open": 3.0, "close": 5.0,
 }
 const BOT_FLOOR := 3.0
@@ -52,6 +54,7 @@ var call_at := 550
 var floor_r := 3
 var rules_on := true
 var swap_on := true
+var _turn_sec_last := 0.0
 var pace := 1.0  # pace=0.5: every beat at half its time (Fast); your thinking and the line's hold stay
 
 
@@ -79,7 +82,7 @@ func _init() -> void:
 	pace = float(opts.get("pace", 1.0))
 	var seed0 := int(opts.get("seed", 1))
 	var R := {"n": 0, "sec": [], "rounds": 0, "leads": 0, "flip": 0, "live": 0, "sin": {}, "start_sin": {},
-		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}, "gaps": [], "cross": []}
+		"dance_rounds": [0, 0, 0], "swaps": 0, "dpl": 0, "margin": 0, "you": 0, "bot": [], "end_sin": {}, "gaps": [], "cross": [], "oot": {}, "over": [0, 0]}
 	for g in games:
 		await _match(seed0 * 1000003 + g, R)
 	_report(R)
@@ -119,7 +122,7 @@ func _turn_sec(game, p) -> float:
 	s += B.bust if l.get("bust", false) else B.bank
 	if int(l.get("buys", 0)) > 0:
 		s += B.buy
-	s = s * pace + B.line
+	s = s * pace + B.line + l.get("oot", []).size() * (B.oot_show * pace + B.oot_think)
 	if p.seat == 0:
 		return s + B.you_first + _decisions(l) * B.think + int(l.get("offers", 0)) * B.you_offer
 	return maxf(BOT_FLOOR * pace, s)
@@ -131,19 +134,54 @@ func _decisions(l: Dictionary) -> int:
 	return th if not l.get("bust", false) else th - 1
 
 
-## REPLY 35-36: the seconds between your decisions. Your first tap comes after the turn's start; each later
-## decision after a throw, its result and your thinking. The first gap of a turn runs from your last decision of
-## the turn before, through every rival's turn.
-func _gaps(st: Dictionary, start: float, l: Dictionary) -> void:
+## REPLY 35-36: the moments you decide. Your first tap comes after the turn's start; each later decision after
+## a throw, its result and your thinking. REPLY 38 item 3: on a rival's turn, each out-of-turn prompt is a
+## decision too (a wager before its throw, a hex after its dice land). st.times: [seconds, within your turn].
+func _gaps(st: Dictionary, start: float, l: Dictionary, mine: bool) -> void:
+	if not mine:
+		if l.get("oot", []).is_empty():
+			st.dead.append([start, start + _turn_sec_last])
+		var j := 0
+		for o in l.get("oot", []):
+			var k: int = int(o[0])
+			var at: float = start + B.start * pace + j * (B.oot_show * pace + B.oot_think)
+			if o[1] != "hex":
+				at += k * (B.throw + B.result) * pace
+			else:
+				at += (k - 1) * (B.throw + B.result) * pace + B.throw * pace
+			st.times.append([at + B.oot_show * pace + B.oot_think, false])
+			j += 1
+		return
 	var d: float = start + B.start * pace + B.you_first
-	if st.last_dec >= 0.0:
-		st.cross.append(d - st.last_dec)
-		st.gaps.append(d - st.last_dec)
-	for i in _decisions(l):
-		var step: float = (B.throw + B.result) * pace + B.think
-		st.gaps.append(step)
-		d += step
-	st.last_dec = d
+	st.times.append([d, false])
+	var n: int = _decisions(l)
+	for i in maxi(n, 1):
+		if i < n:
+			d += (B.throw + B.result) * pace + B.think
+			st.times.append([d, true])
+		if i == 0:  # an offer comes after a throw: reading it and answering is a decision
+			for k in int(l.get("offers", 0)):
+				d += B.offer * pace + B.you_offer
+				st.times.append([d, true])
+
+
+func _flush_gaps(st: Dictionary) -> void:
+	var t: Array = st.times
+	for i in range(1, t.size()):
+		var g: float = t[i][0] - t[i - 1][0]
+		st.gaps.append(g)
+		if not t[i][1]:
+			st.cross.append(g)
+		if g > 10.0 and st.has("over"):
+			var a: float = t[i - 1][0]
+			var b: float = t[i][0]
+			var dead := false
+			for d in st.dead:
+				if d[0] < b and d[1] > a:
+					dead = true
+			st.over[0 if dead else 1] += 1
+			if opts.get("debug", false) and g > 15.0:
+				print("gap %.1f from %.1f to %.1f; turns: %s" % [g, a, b, str(st.turns.filter(func(x): return x[0] < b and x[0] + x[1] > a))])
 
 
 ## One dance. end: "race" (ends at the round's end once the leader has target, after 2+ rounds) or "call"
@@ -165,8 +203,9 @@ func _dance(game, st: Dictionary, end: String, target: int) -> void:
 		for p in game.players:
 			await game.take_turn(p)
 			var ts := _turn_sec(game, p)
-			if p.seat == 0:
-				_gaps(st, st.sec, game.last)
+			_turn_sec_last = ts
+			st.turns.append([st.sec, ts, p.seat, game.last.throws, game.last.bust, game.last.oot])
+			_gaps(st, st.sec, game.last, p.seat == 0)
 			st.sec += ts
 			if p.seat != 0 and st.has("bot"):
 				st.bot.append(ts)
@@ -263,7 +302,7 @@ func _match(gseed: int, R: Dictionary) -> void:
 	var su := _setup(gseed)
 	var game = su[0]
 	var r: RandomNumberGenerator = su[1]
-	var st := {"sec": B.open + B.close, "leads": 0, "leader": -1, "dr": [], "swaps": 0, "entering": -1, "entering_gap": 0, "bot": R.bot, "gaps": R.gaps, "cross": R.cross, "last_dec": -1.0}
+	var st := {"sec": B.open + B.close, "leads": 0, "leader": -1, "dr": [], "swaps": 0, "entering": -1, "entering_gap": 0, "bot": R.bot, "gaps": R.gaps, "cross": R.cross, "times": [], "dead": [], "turns": [], "over": R.over}
 	var start_sins: Array = game.players.map(func(q): return q.sin.sin_name)
 	var winner = null
 	match mode:
@@ -314,6 +353,9 @@ func _match(gseed: int, R: Dictionary) -> void:
 				if v > best:
 					best = v
 					winner = p
+	_flush_gaps(st)
+	for k in game.oot_stats:
+		R.oot[k] = int(R.oot.get(k, 0)) + int(game.oot_stats[k])
 	R.n += 1
 	R.sec.append(st.sec)
 	R.rounds += game.round_count
@@ -360,12 +402,20 @@ func _report(R: Dictionary) -> void:
 	bt.sort()
 	if not bt.is_empty():
 		print("  bot turn seconds: p10 %.1f, median %.1f, p90 %.1f, max %.1f, over 10 s %.0f%% | seconds a round %.1f" % [bt[int(0.1 * (bt.size() - 1))], bt[bt.size() / 2], bt[int(0.9 * (bt.size() - 1))], bt[-1], 100.0 * bt.filter(func(x): return x > 10.0).size() / bt.size(), 60.0 * s.reduce(func(x, y): return x + y, 0.0) / 60.0 / maxf(1.0, R.rounds)])
-	for pair in [["all gaps", R.gaps], ["from your last decision, past the rivals, to your next turn", R.cross]]:
+	for pair in [["all gaps", R.gaps], ["gaps ending outside your own turn's throws (on or across rivals' turns)", R.cross]]:
 		var g: Array = pair[1].duplicate()
 		g.sort()
 		if not g.is_empty():
 			var over := g.filter(func(x): return x > 10.0).size()
 			print("  seconds between your decisions, %s: median %.1f, p90 %.1f, max %.1f; over 10 s: %.0f%%" % [pair[0], g[g.size() / 2], g[int(0.9 * (g.size() - 1))], g[-1], 100.0 * over / g.size()])
+	var o: Dictionary = R.oot
+	if int(o.get("rival_turns", 0)) > 0:
+		print("  rival turns that bust %.0f%% | gaps over 10 s that span a rival turn with no prompt: %d, that don't (a long turn): %d" % [100.0 * o.rival_busts / o.rival_turns, R.over[0], R.over[1]])
+		print("  fall bets shown %.2f a rival turn, taken %.0f%%, won %.0f%% of taken, close %.0f%%" % [float(o.fall_shown) / o.rival_turns, 100.0 * o.fall_taken / maxf(1, o.fall_shown), 100.0 * o.fall_won / maxf(1, o.fall_taken), 100.0 * o.fall_close / maxf(1, o.fall_shown)])
+		print("  out of turn (%s): rival turns with no live prompt %.0f%% | wagers shown %.2f a rival turn, taken %.0f%%, won %.0f%% of taken, close %.0f%% | hexes shown %.2f a rival turn, taken %.0f%%, close %.0f%% | your net from them %.0f a match" % [
+			str(opts.get("oot")), 100.0 * o.rival_turns_none / o.rival_turns, float(o.wager_shown) / o.rival_turns, 100.0 * o.wager_taken / maxf(1, o.wager_shown),
+			100.0 * o.wager_won / maxf(1, o.wager_taken), 100.0 * o.wager_close / maxf(1, o.wager_shown), float(o.hex_shown) / o.rival_turns,
+			100.0 * o.hex_taken / maxf(1, o.hex_shown), 100.0 * o.hex_close / maxf(1, o.hex_shown), float(o.net) / n])
 	var who := "the leader at the call" if mode == "today" else "the leader entering the last dance"
 	print("  lead changes %.2f a match | %s loses: %.1f%% | close entering it (%s): %.1f%% | seat 0 (you) wins %.1f%% | power swaps %.1f a match" % [
 		R.leads / n, who, 100.0 * R.flip / n, "within 2 dance points" if mode == "reset" else "within 250", 100.0 * R.live / n, 100.0 * R.you / n, R.swaps / n])
