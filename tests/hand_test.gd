@@ -31,6 +31,7 @@ func _init() -> void:
 	test_auto_cash_out()
 	test_play_terminates()
 	test_greedy_beats_random()
+	test_strong_beats_greedy()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -206,3 +207,20 @@ func test_greedy_beats_random() -> void:
 	var r := _win_rate(Policies.random_policy(), 2000, 2)
 	print("  greedy %.3f random %.3f" % [g, r])
 	check("play: greedy wins more than random", g > r)
+
+
+func _mean_marks(policy: Dictionary, hands: int, seed_value: int) -> float:
+	var cfg := Config.merged({})
+	var rng := _rng(seed_value)
+	var total := 0
+	for i in hands:
+		total += Rules.marks(Play.play_hand(cfg, policy, rng))
+	return float(total) / hands
+
+
+func test_strong_beats_greedy() -> void:
+	var t0 := Time.get_ticks_msec()
+	var st := _mean_marks(Policies.strong_policy(32), 300, 3)
+	var g := _mean_marks(Policies.greedy_policy(), 300, 3)
+	print("  strong %.2f greedy %.2f marks a hand (%.1f s)" % [st, g, (Time.get_ticks_msec() - t0) / 1000.0])
+	check("strong: more marks than greedy", st > g)
