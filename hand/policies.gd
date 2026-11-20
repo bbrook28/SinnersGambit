@@ -63,11 +63,16 @@ static func strong_policy(rollouts: int) -> Dictionary:
 	}
 
 
-## Greedy placement; once the Target is met, throws on while a prize is still open and one more skull won't bust.
+## The strong policy's playouts: finishes a half-filled prize whenever a die completes it, else places greedily;
+## once the Target is met, throws on while a prize is still open and one more skull won't bust.
 static func push_policy() -> Dictionary:
 	return {
 		"name": "push",
 		"choose": func(s, faces: Array, moves: Array, _rng) -> Dictionary:
+			for m in moves:
+				var slot: Dictionary = s.slots[m.slot]
+				if slot.kind in ["pair", "sum"] and slot.dice.size() == slot.cap - 1:
+					return m
 			return greedy_move(s, faces, moves),
 		"stop": func(s, _rng) -> bool:
 			return Rules.target_met(s) and (not _prize_open(s) or s.skulls >= int(s.cfg.bust_at) - 1),

@@ -35,6 +35,7 @@ func _init() -> void:
 	test_strong_dedupes_options()
 	test_strong_pushes_for_a_prize()
 	test_same_hand_per_policy()
+	test_playouts_finish_prizes()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -250,3 +251,12 @@ func test_same_hand_per_policy() -> void:
 	var a = Rules.new_hand(cfg, Play.hand_rng(1, 17))
 	var b = Rules.new_hand(cfg, Play.hand_rng(1, 17))
 	check("sim: hand 17 is the same table for every policy", a.slots.map(func(x): return x.kind) == b.slots.map(func(x): return x.kind))
+
+
+func test_playouts_finish_prizes() -> void:
+	var s = _table([Rules._slot("pair", 0, 2, 3, 2)])
+	s.in_hand = 4
+	s.slots[2].dice = [4]
+	var f: Array[int] = [4, 6]
+	var m: Dictionary = Policies.push_policy().choose.call(s, f, Rules.legal_moves(s, f), _rng(1))
+	check("push: a die that finishes a prize goes there", m.slot == 2 and f[m.die] == 4)
