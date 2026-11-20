@@ -4,6 +4,8 @@ extends SceneTree
 
 const Config = preload("res://hand/config.gd")
 const Rules = preload("res://hand/rules.gd")
+const Play = preload("res://hand/play.gd")
+const Policies = preload("res://hand/policies.gd")
 
 var _fails := 0
 
@@ -31,6 +33,10 @@ func _init() -> void:
 	test_second_wire_and_tax()
 	test_tax_lands_on_two_die_slot()
 	test_tax_unmeets()
+	test_all_skulls_ends()
+	test_last_placement()
+	test_play_terminates()
+	test_same_hand_per_policy()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -252,3 +258,35 @@ func test_tax_unmeets() -> void:
 	Rules.master_answer(s)
 	Rules.cash_out(s)
 	check("tax: a late Tax un-meets the Target; the prize stays revealed", s.outcome == "short" and s.revealed and s.hunger_on)
+
+
+func test_all_skulls_ends() -> void:
+	var s = Play.play_hand(Config.merged({"skull_faces": 6}), Policies.random_policy(), _rng(1))
+	check("play: an all-skull hand busts", s.outcome == "bust" and s.throws == 1)
+	var w = Play.play_hand(Config.merged({"skull_faces": 6, "bust_at": 99}), Policies.random_policy(), _rng(1))
+	check("play: skulls that never bust still end the hand", w.outcome == "short" and w.bag == 0)
+
+
+func test_last_placement() -> void:
+	var s = _table(["hold", "ward"], [])
+	s.bag = 0
+	s.slots[2].dice = [5]
+	s.progress = 12
+	Play.play_from(s, Policies.greedy_policy(), _rng(1), true)
+	check("play: an empty bag gives the held die one last placement", s.progress == 17 and s.outcome == "won" and s.slots[2].dice.is_empty())
+
+
+func test_play_terminates() -> void:
+	for p in [Policies.random_policy(), Policies.greedy_policy()]:
+		var ok := true
+		for i in 500:
+			var s = Play.play_hand(Config.merged({}), p, Play.hand_rng(1, i))
+			if not s.outcome in ["won", "short", "bust"] or s.throws > 12:
+				ok = false
+		check("play: %s hands end" % p.name, ok)
+
+
+func test_same_hand_per_policy() -> void:
+	var a = Rules.new_hand(Config.merged({}), Play.hand_rng(1, 17))
+	var b = Rules.new_hand(Config.merged({}), Play.hand_rng(1, 17))
+	check("sim: hand 17 is the same table for every policy", a.slots.map(func(x): return x.kind) == b.slots.map(func(x): return x.kind) and a.wires == b.wires)

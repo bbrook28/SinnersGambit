@@ -1,6 +1,5 @@
-## Plays a hand with a policy: throw, place one die, the Master answers, throw on or cash out.
-## A policy: {"name": String, "choose": Callable(s, faces, moves, rng) -> move or {"reroll": index},
-##            "stop": Callable(s, rng) -> bool}.
+## Plays a bag hand with a policy: throw, place one die, the Master answers, throw on or cash out.
+## A policy: {"name": String, "choose": Callable(s, faces, moves, rng) -> move, "stop": Callable(s, rng) -> bool}.
 extends RefCounted
 
 const Rules = preload("res://hand/rules.gd")
@@ -18,6 +17,8 @@ static func play_hand(cfg: Dictionary, policy: Dictionary, rng):
 
 
 ## Plays s to its end. answer_first: a die was just placed, so the Master answers before the next throw.
+## A throw of only skulls places nothing (the held die waits). When the bag is empty, a held die gets
+## one last placement, then the hand cashes out.
 static func play_from(s, policy: Dictionary, rng, answer_first: bool):
 	var skip_throw := answer_first
 	while not Rules.ended(s):
@@ -26,23 +27,15 @@ static func play_from(s, policy: Dictionary, rng, answer_first: bool):
 			if Rules.ended(s):
 				break
 			if not faces.is_empty():
-				var mv: Dictionary = policy.choose.call(s, faces, Rules.legal_moves(s, faces), rng)
-				while mv.has("reroll"):
-					faces = Rules.reroll(s, faces, mv.reroll, rng)
-					if Rules.ended(s) or faces.is_empty():
-						mv = {}
-						break
-					mv = policy.choose.call(s, faces, Rules.legal_moves(s, faces), rng)
-				if Rules.ended(s):
-					break
-				if not mv.is_empty():
-					Rules.place(s, faces, mv)
-					if Rules.ended(s):
-						break
+				Rules.place(s, faces, policy.choose.call(s, faces, Rules.legal_moves(s, faces), rng))
 		skip_throw = false
 		Rules.master_answer(s)
-		if Rules.ended(s):
-			break
-		if s.in_hand <= 0 or policy.stop.call(s, rng):
+		if s.bag <= 0:
+			var none: Array[int] = []
+			var last: Array = Rules.legal_moves(s, none)
+			if not last.is_empty():
+				Rules.place(s, none, policy.choose.call(s, none, last, rng))
+			Rules.cash_out(s)
+		elif policy.stop.call(s, rng):
 			Rules.cash_out(s)
 	return s
