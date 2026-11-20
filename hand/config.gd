@@ -8,9 +8,9 @@ const DEFAULTS := {
 	"skull_faces": 1,       # faces 1..skull_faces are skulls
 	"curse_skull_faces": 2, # a cursed die rethrown at or below this is a skull
 	"bust_at": 3,           # skulls on the table that bust you
-	"target": 16,           # what the Target needs before Tax and Offerings
+	"tiers": "10,18,26",    # what each Target tier needs before Tax and Offerings (change 1)
+	"tier_marks": "2,4,7",  # a won hand pays the highest tier cleared, not the sum
 	"tax": 3,               # what a fired Tax adds to the Target
-	"win_marks": 3,
 	"pair_marks": 2,
 	"sum_need": 8,
 	"sum_marks": 1,

@@ -64,14 +64,17 @@ static func strong_policy(rollouts: int) -> Dictionary:
 ## The strong policy's playouts: finishes a half-filled engine slot or prize when a die completes it; past the Target,
 ## starts the revealed prize; else greedy.
 ## (Seeding rules made the playouts, and so strong, worse than greedy: probe 2026-11-20, ledger Task 5.)
-## Once the Target is met, throws on while the prize is unclaimed, one more skull won't bust, and the bag has 2+ dice.
-static func push_policy() -> Dictionary:
+## Once Tier 1 is met, throws on while there is more to win (the prize unclaimed, or a higher tier), the skulls
+## are under `nerve` (default: one short of bust) and the bag has 2+ dice.
+static func push_policy(nerve: int = -1) -> Dictionary:
 	return {
 		"name": "push",
 		"choose": func(s, faces: Array, moves: Array, _rng) -> Dictionary:
 			return push_move(s, faces, moves),
 		"stop": func(s, _rng) -> bool:
-			return Rules.target_met(s) and (not _prize_open(s) or s.skulls >= int(s.cfg.bust_at) - 1 or s.bag <= 1),
+			var n: int = nerve if nerve >= 0 else int(s.cfg.bust_at) - 1
+			var more: bool = _prize_open(s) or Rules.tier(s) < Rules.tiers(s)
+			return Rules.target_met(s) and (not more or s.skulls >= n or s.bag <= 1),
 	}
 
 
@@ -133,14 +136,17 @@ static func strong_stop(s, rng, rollouts: int) -> bool:
 		return false  # cashing out short pays nothing; throwing on never pays less
 	var now = s.clone()
 	Rules.cash_out(now)
-	var push := push_policy()
+	# Throwing on is worth the better of a bold and a careful playout (nerve 2 and 1), on the same dice.
 	var base: int = rng.randi_range(0, 1 << 30)
-	var total := 0
-	for k in rollouts:
-		var c = s.clone()
-		Play.play_from(c, push, _playout_rng(base, k), false)
-		total += Rules.marks(c)
-	return float(Rules.marks(now)) >= float(total) / rollouts
+	var best := 0.0
+	for push in [push_policy(), push_policy(1)]:
+		var total := 0
+		for k in rollouts:
+			var c = s.clone()
+			Play.play_from(c, push, _playout_rng(base, k), false)
+			total += Rules.marks(c)
+		best = maxf(best, float(total) / rollouts)
+	return float(Rules.marks(now)) >= best
 
 
 static func _playout_rng(base: int, k: int) -> RandomNumberGenerator:

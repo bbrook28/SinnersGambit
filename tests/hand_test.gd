@@ -45,6 +45,9 @@ func _init() -> void:
 	test_held_on_all_skulls()
 	test_ward_dance_no_second_dance()
 	test_second_dance_counted()
+	test_tax_drops_a_tier()
+	test_push_toward_next_tier()
+	test_greedy_stops_at_tier1()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -68,7 +71,7 @@ func _rng(seed_value: int) -> RandomNumberGenerator:
 ## with the given wires dealt and none left to deal.
 func _table(engines: Array, wire_kinds: Array):
 	var s = Rules.new_hand(Config.merged({}), _rng(1))
-	s.slots = [Rules._slot("target", int(s.cfg.target), 0, 0), Rules._slot("offering", 0, 0, 0)]
+	s.slots = [Rules._slot("target", 0, 0, 0), Rules._slot("offering", 0, 0, 0)]
 	for k in engines:
 		s.slots.append(Rules._slot(k, 0, 1 if k == "hold" else 2, 0))
 	s.slots.append(Rules._slot("pair", 0, 2, int(s.cfg.pair_marks)))
@@ -90,7 +93,7 @@ func test_layout() -> void:
 		and kinds[2] in ["hold", "ward", "ladder"] and kinds[3] in ["hold", "ward", "ladder"] and kinds[2] != kinds[3] and kinds[4] in ["pair", "sum"])
 	check("layout: the prize is face down", s.slots[4].hidden)
 	check("layout: a full bag, one wire", s.bag == 8 and s.skulls == 0 and s.wires.size() == 1 and s.wire_pool.size() == 2)
-	check("layout: Target needs 16", Rules.need(s) == 16)
+	check("layout: the tiers need 10 / 18 / 26", Rules.tier_need(s, 1) == 10 and Rules.tier_need(s, 2) == 18 and Rules.tier_need(s, 3) == 26 and Rules.need(s) == 10)
 	var t = Rules.new_hand(Config.merged({"wire_pool": "tax", "engine_pool": "hold,ladder"}), _rng(3))
 	check("layout: a starting Tax sits on the Ladder", t.wires[0].kind == "tax" and t.slots[t.wires[0].slot].kind == "ladder")
 	var c = s.clone()
@@ -142,12 +145,16 @@ func test_dance() -> void:
 
 
 func test_hunger() -> void:
+	var n = _table(["ward", "ladder"], ["hunger"])
+	n.progress = 17
+	Rules.throw(n, FixedRng.new([4, 4, 4]))
+	check("hunger: not before Tier 2", not n.hunger_on and n.bag == 5)
 	var s = _table(["ward", "ladder"], ["hunger"])
-	s.progress = 16
+	s.progress = 18
 	var f: Array = Rules.throw(s, FixedRng.new([4, 4, 4, 4]))
 	check("hunger: past the Target, draws 4", f.size() == 4 and s.hunger_on and s.bag == 4)
 	var h = _table(["ward", "ladder"], ["hunger"])
-	h.progress = 16
+	h.progress = 18
 	h.bag = 1
 	Rules.throw(h, FixedRng.new([4]))
 	check("hunger: one die left is still the Dance", h.dance)
@@ -219,9 +226,9 @@ func test_hold() -> void:
 
 func test_offering_and_reveal() -> void:
 	var s = _table(["ward", "ladder"], [])
-	s.progress = 15
+	s.progress = 9
 	Rules.place(s, [4], {"die": 0, "slot": 1})
-	check("offering: the Target needs 1 less, and meeting it reveals the prize", Rules.need(s) == 15 and Rules.target_met(s) and s.revealed and not s.slots[4].hidden)
+	check("offering: every tier needs 1 less, and meeting Tier 1 reveals the prize", Rules.need(s) == 9 and Rules.tier_need(s, 3) == 25 and Rules.target_met(s) and s.revealed and not s.slots[4].hidden)
 
 
 func test_prize_and_marks() -> void:
@@ -230,7 +237,11 @@ func test_prize_and_marks() -> void:
 	Rules.place(s, [5], {"die": 0, "slot": 4})
 	Rules.place(s, [5], {"die": 0, "slot": 4})
 	Rules.cash_out(s)
-	check("marks: a won hand with the Pair claimed", s.outcome == "won" and s.slots[4].done and Rules.marks(s) == 3 + 2)
+	check("marks: Tier 1 with the Pair claimed", s.outcome == "won" and s.slots[4].done and Rules.marks(s) == 2 + 2)
+	s.progress = 26
+	check("marks: Tier 3 pays 7, not the sum of the tiers", Rules.tier(s) == 3 and Rules.marks(s) == 7 + 2 and Rules.tier_marks(s) == 7 and Rules.prize_marks(s) == 2)
+	s.progress = 18
+	check("marks: Tier 2 pays 4", Rules.tier(s) == 2 and Rules.marks(s) == 4 + 2)
 	var b = _table(["ward", "ladder"], [])
 	b.outcome = "bust"
 	check("marks: a bust pays nothing", Rules.marks(b) == 0)
@@ -244,7 +255,7 @@ func test_second_wire_and_tax() -> void:
 	check("wire: the first engine die deals Tax onto that slot", s.wires.size() == 1 and s.wires[0].kind == "tax" and s.wires[0].slot == 2 and not s.tax_on)
 	Rules.place(s, [5], {"die": 0, "slot": 2})
 	Rules.master_answer(s)
-	check("tax: filling the slot raises the Target 3", s.tax_on and Rules.need(s) == 19)
+	check("tax: filling the slot raises every tier 3", s.tax_on and Rules.need(s) == 13 and Rules.tier_need(s, 3) == 29)
 	check("wire: no third wire", s.wires.size() == 1)
 
 
@@ -259,7 +270,7 @@ func test_tax_lands_on_two_die_slot() -> void:
 func test_tax_unmeets() -> void:
 	var s = _table(["ward", "ladder"], [])
 	s.wires = [{"kind": "tax", "slot": 2}]
-	s.progress = 16
+	s.progress = 10
 	Rules.place(s, [3], {"die": 0, "slot": 2})
 	s.hunger_on = true
 	Rules.place(s, [3], {"die": 0, "slot": 2})
@@ -362,7 +373,8 @@ func test_push_seeds_prize() -> void:
 	check("push: past the Target, a die goes into the revealed prize", m.slot == 4)
 	check("push: throws on while the prize is open", not push.stop.call(s, _rng(1)))
 	s.slots[4].done = true
-	check("push: stops once the prize is claimed", push.stop.call(s, _rng(1)))
+	s.progress = 26
+	check("push: stops once the prize is claimed at the top tier", push.stop.call(s, _rng(1)))
 
 
 func test_held_on_all_skulls() -> void:
@@ -390,3 +402,33 @@ func test_second_dance_counted() -> void:
 	check("dance: a cursed Ladder 6 on the Dance goes back to the bag", s.dance and s.bag == 1 and s.dances == 1)
 	Rules.throw(s, FixedRng.new([5]))
 	check("dance: the second Dance is counted", s.dance and s.dances == 2)
+
+
+func test_tax_drops_a_tier() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 19
+	check("tiers: 19 clears Tier 2", Rules.tier(s) == 2)
+	s.tax_on = true
+	check("tiers: a Tax drops 19 back to Tier 1", Rules.tier(s) == 1)
+
+
+func test_push_toward_next_tier() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 12
+	s.revealed = true
+	s.slots[4].done = true
+	var calm := Policies.push_policy(2)
+	check("push: throws on toward the next tier with skulls to spare", not calm.stop.call(s, _rng(1)))
+	s.skulls = 2
+	check("push: stops one skull from bust", calm.stop.call(s, _rng(1)))
+	s.skulls = 1
+	check("push: a nerve of 1 stops at one skull", Policies.push_policy(1).stop.call(s, _rng(1)))
+	s.progress = 26
+	s.skulls = 0
+	check("push: stops at the top tier with the prize claimed", calm.stop.call(s, _rng(1)))
+
+
+func test_greedy_stops_at_tier1() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 10
+	check("greedy: stops at Tier 1", Policies.greedy_policy().stop.call(s, _rng(1)))

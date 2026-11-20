@@ -23,7 +23,7 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 	var s := HandState.new()
 	s.cfg = cfg
 	s.bag = int(cfg.bag)
-	s.slots.append(_slot("target", int(cfg.target), 0, 0))
+	s.slots.append(_slot("target", 0, 0, 0))
 	s.slots.append(_slot("offering", 0, 0, 0))
 	var engines := _pool(cfg.engine_pool)
 	for i in mini(int(cfg.engines), engines.size()):
@@ -57,9 +57,31 @@ static func _deal_wire(s: HandState, kind: String, seeded: int) -> void:
 	s.wires.append({"kind": kind, "slot": at})
 
 
-## What the Target needs now: its number, plus a fired Tax, minus Offerings.
+static func _ints(text) -> Array:
+	return _pool(text).map(func(x): return int(x))
+
+
+static func tiers(s: HandState) -> int:
+	return _ints(s.cfg.tiers).size()
+
+
+## What tier i (1-based) needs now: its number, plus a fired Tax, minus Offerings.
+static func tier_need(s: HandState, i: int) -> int:
+	return int(_ints(s.cfg.tiers)[i - 1]) + (int(s.cfg.tax) if s.tax_on else 0) - s.offerings
+
+
+## What Tier 1, the win, needs now.
 static func need(s: HandState) -> int:
-	return int(s.cfg.target) + (int(s.cfg.tax) if s.tax_on else 0) - s.offerings
+	return tier_need(s, 1)
+
+
+## The highest tier cleared now (0: none). A live check: a late Tax can drop it.
+static func tier(s: HandState) -> int:
+	var t := 0
+	for i in range(1, tiers(s) + 1):
+		if s.progress >= tier_need(s, i):
+			t = i
+	return t
 
 
 static func _has_wire(s: HandState, kind: String) -> bool:
@@ -93,8 +115,9 @@ static func _land_skull(s: HandState, dance_die: bool) -> void:
 ## Draws a handful from the bag and throws it; returns the non-skull faces. Under Curse, every die
 ## waiting alone in an engine slot is rethrown too. Skulls land handful first, then cursed dice.
 static func throw(s: HandState, rng) -> Array[int]:
-	if _has_wire(s, "hunger") and target_met(s):
+	if _has_wire(s, "hunger") and tier(s) >= 2:
 		s.hunger_on = true
+	s.pushed = maxi(s.pushed, tier(s))
 	var n := mini(int(s.cfg.hunger_handful if s.hunger_on else s.cfg.handful), s.bag)
 	s.dance = n == 1 and s.bag == 1
 	if s.dance:
@@ -137,7 +160,7 @@ static func value(s: HandState, face: int, from_hold: bool) -> int:
 
 
 static func target_met(s: HandState) -> bool:
-	return s.progress >= need(s)
+	return tier(s) >= 1
 
 
 ## The face waiting in Hold, or 0.
@@ -250,11 +273,22 @@ static func ended(s: HandState) -> bool:
 	return s.outcome != ""
 
 
-## 0 unless won; then the win marks plus the prize's marks if it was claimed.
+## 0 unless won; then the highest tier's marks (not summed) plus the prize's if it was claimed.
 static func marks(s: HandState) -> int:
 	if s.outcome != "won":
 		return 0
-	var m := int(s.cfg.win_marks)
+	return tier_marks(s) + prize_marks(s)
+
+
+## The marks of the highest tier cleared now (0 below Tier 1).
+static func tier_marks(s: HandState) -> int:
+	var t := tier(s)
+	return 0 if t == 0 else int(_ints(s.cfg.tier_marks)[t - 1])
+
+
+## The claimed prize's marks.
+static func prize_marks(s: HandState) -> int:
+	var m := 0
 	for slot in s.slots:
 		if slot.done and slot.kind in ["pair", "sum"]:
 			m += int(slot.marks)
