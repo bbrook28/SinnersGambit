@@ -98,7 +98,10 @@ static func _fits(s: HandState, slot: Dictionary, face: int) -> bool:
 		return false
 	var v := value(s, face)
 	match slot.kind:
-		"target", "offering":
+		"target":
+			var top := int(s.cfg.get("target_max", 0))
+			return top <= 0 or s.progress + v <= top
+		"offering":
 			return true
 		"threat", "reroll":
 			return v >= slot.need

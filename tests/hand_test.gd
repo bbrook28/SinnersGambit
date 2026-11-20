@@ -37,6 +37,7 @@ func _init() -> void:
 	test_same_hand_per_policy()
 	test_playouts_finish_prizes()
 	test_prizes_after_target()
+	test_target_band()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -279,3 +280,24 @@ func test_prizes_after_target() -> void:
 	Rules.place(s, big, {"die": 0, "slot": 0, "bump": -1})
 	Rules.place(s, big, {"die": 1, "slot": 0, "bump": -1})
 	check("hidden prizes: revealed when the Target is met", prizes.all(func(x): return not x.hidden))
+
+
+func test_target_band() -> void:
+	check("config: no band by default", Config.DEFAULTS.target_max == 0)
+	var s = _table([])
+	s.cfg = Config.merged({"target_max": 10})
+	s.progress = 6
+	check("band: a 4 fits up to the ceiling", _moves_to(Rules.legal_moves(s, [4]), 0).size() == 1)
+	check("band: a 5 would go over, the Target refuses it", _moves_to(Rules.legal_moves(s, [5]), 0).is_empty())
+	check("band: the Offering still takes it", _moves_to(Rules.legal_moves(s, [5]), 1).size() == 1)
+	s.dance = true
+	check("band: a doubled 3 is a 6 and goes over", _moves_to(Rules.legal_moves(s, [3]), 0).is_empty())
+	var o = _table([])
+	o.progress = 6
+	check("no band: any die fits the Target", _moves_to(Rules.legal_moves(o, [6]), 0).size() == 1)
+	var g = _table([])
+	g.cfg = Config.merged({"target_max": 10})
+	g.progress = 6
+	var gf: Array[int] = [6, 3]
+	var gm: Dictionary = Policies.greedy_move(g, gf, Rules.legal_moves(g, gf))
+	check("band: greedy feeds the Target the highest die it takes", gm.slot == 0 and gf[gm.die] == 3)

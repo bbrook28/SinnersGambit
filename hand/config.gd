@@ -6,6 +6,7 @@ const DEFAULTS := {
 	"skull_faces": 1,       # faces 1..skull_faces are skulls
 	"bust_at": 3,           # skulls on the table that bust you
 	"target": 8,            # sweep 2026-11-20: with 5 dice, 8 met three of the four tuning marks
+	"target_max": 0,        # the Target refuses a die that would carry it past this (0: no ceiling)
 	"extras": 3,            # slots laid out beside the Target and the Offering
 	"win_marks": 3,
 	"threat_need": 5,

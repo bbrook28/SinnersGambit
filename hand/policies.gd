@@ -16,7 +16,7 @@ static func random_policy() -> Dictionary:
 	}
 
 
-## The highest die: into a threat about to strike that it stops, else the Target until met,
+## The highest die (short of the Target, the highest it takes): into a threat about to strike that it stops, else the Target until met,
 ## else any prize it fits, else the Target. Stops as soon as the Target is met.
 static func greedy_policy() -> Dictionary:
 	return {
@@ -29,9 +29,15 @@ static func greedy_policy() -> Dictionary:
 
 
 static func greedy_move(s, faces: Array, moves: Array) -> Dictionary:
-	var best := 0
+	# The highest die; short of the Target, the highest die the Target still takes (a band can refuse the biggest).
+	var fits := {}
+	if not Rules.target_met(s):
+		for m in moves:
+			if s.slots[m.slot].kind == "target":
+				fits[m.die] = true
+	var best := -1
 	for d in faces.size():
-		if faces[d] > faces[best]:
+		if (fits.is_empty() or fits.has(d)) and (best < 0 or faces[d] > faces[best]):
 			best = d
 	var mine := moves.filter(func(m): return m.die == best)
 	for m in mine:
