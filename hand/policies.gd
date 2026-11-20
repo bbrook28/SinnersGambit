@@ -128,7 +128,7 @@ static func strong_move(s, faces: Array, moves: Array, rng, rollouts: int) -> Di
 	if second == -INF:
 		second = values[best]
 	s.decisions.append({"best": values[best], "second": second, "moves": options.size(), "met": Rules.target_met(s),
-		"options": options, "values": values})
+		"options": options, "values": values, "throw": s.throws})
 	return options[best]
 
 
