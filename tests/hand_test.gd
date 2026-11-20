@@ -41,6 +41,9 @@ func _init() -> void:
 	test_push_finishes()
 	test_strong_dedupes()
 	test_strong_plays()
+	test_push_seeds_prize()
+	test_held_on_all_skulls()
+	test_ward_dance_no_second_dance()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -345,3 +348,34 @@ func test_strong_plays() -> void:
 			ok = false
 	print("  strong %.2f greedy %.2f marks a hand (%.1f s)" % [_mean_marks(Policies.strong_policy(16), 60, 3), _mean_marks(Policies.greedy_policy(), 60, 3), (Time.get_ticks_msec() - t0) / 1000.0])
 	check("strong: plays hands to an end and records its decisions", ok)
+
+
+func test_push_seeds_prize() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 16
+	s.revealed = true
+	s.slots[4].hidden = false
+	var f: Array[int] = [5, 3]
+	var push := Policies.push_policy()
+	var m: Dictionary = push.choose.call(s, f, Rules.legal_moves(s, f), _rng(1))
+	check("push: past the Target, a die goes into the revealed prize", m.slot == 4)
+	check("push: throws on while the prize is open", not push.stop.call(s, _rng(1)))
+	s.slots[4].done = true
+	check("push: stops once the prize is claimed", push.stop.call(s, _rng(1)))
+
+
+func test_held_on_all_skulls() -> void:
+	var s = _table(["hold", "ward"], [])
+	s.cfg = Config.merged({"bust_at": 5})
+	s.slots[2].dice = [5]
+	s.progress = 12
+	Play.play_from(s, Policies.greedy_policy(), FixedRng.new([1, 1, 1]), false)
+	check("play: an all-skull throw can still play the held die", s.progress == 17 and s.outcome == "won" and s.skulls == 3)
+
+
+func test_ward_dance_no_second_dance() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.bag = 1
+	s.slots[2].dice = [4, 4]
+	Rules.throw(s, FixedRng.new([1]))
+	check("dance: a Ward-cancelled Dance skull leaves the hand (no second Dance)", s.outcome == "" and s.bag == 0)

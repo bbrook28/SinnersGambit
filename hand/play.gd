@@ -17,7 +17,7 @@ static func play_hand(cfg: Dictionary, policy: Dictionary, rng):
 
 
 ## Plays s to its end. answer_first: a die was just placed, so the Master answers before the next throw.
-## A throw of only skulls places nothing (the held die waits). When the bag is empty, a held die gets
+## A throw of only skulls places nothing, unless a die is held. When the bag is empty, a held die gets
 ## one last placement, then the hand cashes out.
 static func play_from(s, policy: Dictionary, rng, answer_first: bool):
 	var skip_throw := answer_first
@@ -26,8 +26,9 @@ static func play_from(s, policy: Dictionary, rng, answer_first: bool):
 			var faces: Array[int] = Rules.throw(s, rng)
 			if Rules.ended(s):
 				break
-			if not faces.is_empty():
-				Rules.place(s, faces, policy.choose.call(s, faces, Rules.legal_moves(s, faces), rng))
+			var moves: Array = Rules.legal_moves(s, faces)  # only skulls: the held die may still be played
+			if not moves.is_empty():
+				Rules.place(s, faces, policy.choose.call(s, faces, moves, rng))
 		skip_throw = false
 		Rules.master_answer(s)
 		if s.bag <= 0:

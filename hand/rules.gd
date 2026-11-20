@@ -81,7 +81,8 @@ static func _land_skull(s: HandState, dance_die: bool) -> void:
 	var w := _ward_full(s)
 	if w >= 0:
 		s.slots[w].dice = []
-		s.bag += 1
+		if not dance_die:
+			s.bag += 1  # a cancelled Dance die leaves the hand: there is no second Dance
 		s.cancelled += 1
 		return
 	s.skulls += 1

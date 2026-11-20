@@ -61,16 +61,17 @@ static func strong_policy(rollouts: int) -> Dictionary:
 	}
 
 
-## The strong policy's playouts: finishes a half-filled engine slot or prize when a die completes it, else greedy.
+## The strong policy's playouts: finishes a half-filled engine slot or prize when a die completes it; past the Target,
+## starts the revealed prize; else greedy.
 ## (Seeding rules made the playouts, and so strong, worse than greedy: probe 2026-11-20, ledger Task 5.)
-## Once the Target is met, throws on only while the prize is one die from claimed and one more skull won't bust.
+## Once the Target is met, throws on while the prize is unclaimed, one more skull won't bust, and the bag has 2+ dice.
 static func push_policy() -> Dictionary:
 	return {
 		"name": "push",
 		"choose": func(s, faces: Array, moves: Array, _rng) -> Dictionary:
 			return push_move(s, faces, moves),
 		"stop": func(s, _rng) -> bool:
-			return Rules.target_met(s) and (not _prize_half(s) or s.skulls >= int(s.cfg.bust_at) - 1),
+			return Rules.target_met(s) and (not _prize_open(s) or s.skulls >= int(s.cfg.bust_at) - 1 or s.bag <= 1),
 	}
 
 
@@ -79,12 +80,16 @@ static func push_move(s, faces: Array, moves: Array) -> Dictionary:
 		var slot: Dictionary = s.slots[m.slot]
 		if slot.kind in ["ward", "ladder", "pair", "sum"] and slot.dice.size() == int(slot.cap) - 1:
 			return m
+	if Rules.target_met(s):
+		for m in moves:
+			if s.slots[m.slot].kind in ["pair", "sum"]:
+				return m
 	return greedy_move(s, faces, moves)
 
 
-## The prize is face up and one die from claimed.
-static func _prize_half(s) -> bool:
-	return s.slots.any(func(x): return x.kind in ["pair", "sum"] and not x.hidden and not x.done and x.dice.size() == int(x.cap) - 1)
+## The prize is face up and not yet claimed.
+static func _prize_open(s) -> bool:
+	return s.slots.any(func(x): return x.kind in ["pair", "sum"] and not x.hidden and not x.done)
 
 
 static func strong_move(s, faces: Array, moves: Array, rng, rollouts: int) -> Dictionary:
