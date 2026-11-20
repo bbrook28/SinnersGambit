@@ -1,26 +1,23 @@
-## Every number in the core hand's rules. The sim overrides any key with key=value.
+## Every number in the bag hand's rules. The sim overrides any key with key=value.
 extends RefCounted
 
 const DEFAULTS := {
-	"dice": 5,
+	"bag": 8,               # dice in the bag at the start of a hand
+	"handful": 3,           # dice drawn each throw
+	"hunger_handful": 4,    # dice drawn each throw once Hunger is on
 	"skull_faces": 1,       # faces 1..skull_faces are skulls
+	"curse_skull_faces": 2, # a cursed die rethrown at or below this is a skull
 	"bust_at": 3,           # skulls on the table that bust you
-	"target": 8,            # sweep 2026-11-20: with 5 dice, 8 met three of the four tuning marks
-	"target_max": 0,        # the Target refuses a die that would carry it past this (0: no ceiling)
-	"extras": 3,            # slots laid out beside the Target and the Offering
+	"target": 16,           # what the Target needs before Tax and Offerings
+	"tax": 3,               # what a fired Tax adds to the Target
 	"win_marks": 3,
-	"threat_need": 5,
-	"threat_countdown": 2,
-	"pair_countdown": 3,
 	"pair_marks": 2,
 	"sum_need": 8,
-	"sum_countdown": 3,
 	"sum_marks": 1,
-	"reroll_need": 4,
-	"reroll_countdown": 2,
-	"extra_pool": "threat,threat,pair,sum,reroll",
-	"prizes_after_target": true,  # pair and sum prizes stay hidden until the Target is met (Ben, 2026-11-20)
-	"open_prizes": 0,       # of those, how many the Master lays face up from the start
+	"engines": 2,           # engine slots dealt per hand
+	"engine_pool": "hold,ward,ladder",
+	"prize_pool": "pair,sum",
+	"wire_pool": "tax,hunger,curse",
 	"rollouts": 64,         # the strong policy's playouts per option
 }
 

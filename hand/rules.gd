@@ -1,208 +1,62 @@
-## The core hand's rules as static functions over hand/hand_state.gd. No UI.
-## rng is duck-typed: only randi_range(a, b) is called, so tests can queue faces.
+## The bag hand's rules (docs/superpowers/specs/2026-11-20-bag-hand-design.md). No UI; static functions over hand_state.gd.
 extends RefCounted
 
 const HandState = preload("res://hand/hand_state.gd")
 
-
-static func _slot(kind: String, need: int, cap: int, countdown: int, marks: int) -> Dictionary:
-	return {"kind": kind, "need": need, "dice": [], "cap": cap, "countdown": countdown, "marks": marks, "done": false, "gone": false, "hidden": false}
+const ENGINES := ["hold", "ward", "ladder"]
 
 
-## The Master lays out a hand: the Target, the Offering, then cfg.extras kinds from cfg.extra_pool.
+static func _slot(kind: String, need: int, cap: int, marks: int) -> Dictionary:
+	return {"kind": kind, "need": need, "cap": cap, "dice": [], "marks": marks, "done": false, "hidden": false, "fills": 0}
+
+
+static func _pool(text) -> Array:
+	return Array(str(text).split(",", false))
+
+
+static func _draw(pool: Array, rng) -> String:
+	return pool.pop_at(rng.randi_range(0, pool.size() - 1))
+
+
+## The Master lays out a hand: the Target, the Offering, cfg.engines engine slots, one face-down prize, one wire.
 static func new_hand(cfg: Dictionary, rng) -> HandState:
 	var s := HandState.new()
 	s.cfg = cfg
-	s.in_hand = cfg.dice
-	s.slots.append(_slot("target", cfg.target, 0, -1, 0))
-	s.slots.append(_slot("offering", 0, 0, -1, 0))
-	var pool: Array = Array(str(cfg.extra_pool).split(","))
-	for i in mini(cfg.extras, pool.size()):
-		var kind: String = pool.pop_at(rng.randi_range(0, pool.size() - 1))
-		match kind:
-			"threat":
-				s.slots.append(_slot("threat", cfg.threat_need, 1, cfg.threat_countdown, 0))
-			"pair":
-				s.slots.append(_slot("pair", 0, 2, cfg.pair_countdown, cfg.pair_marks))
-				s.slots[-1].hidden = cfg.get("prizes_after_target", false)
-			"sum":
-				s.slots.append(_slot("sum", cfg.sum_need, 2, cfg.sum_countdown, cfg.sum_marks))
-				s.slots[-1].hidden = cfg.get("prizes_after_target", false)
-			"reroll":
-				s.slots.append(_slot("reroll", cfg.reroll_need, 1, cfg.reroll_countdown, 0))
-	var face_up := int(cfg.get("open_prizes", 0))
-	for sl in s.slots:
-		if face_up > 0 and sl.hidden:
-			sl.hidden = false
-			face_up -= 1
+	s.bag = int(cfg.bag)
+	s.slots.append(_slot("target", int(cfg.target), 0, 0))
+	s.slots.append(_slot("offering", 0, 0, 0))
+	var engines := _pool(cfg.engine_pool)
+	for i in mini(int(cfg.engines), engines.size()):
+		var k := _draw(engines, rng)
+		s.slots.append(_slot(k, 0, 1 if k == "hold" else 2, 0))
+	var prizes := _pool(cfg.prize_pool)
+	if not prizes.is_empty():
+		var p := _draw(prizes, rng)
+		if p == "pair":
+			s.slots.append(_slot("pair", 0, 2, int(cfg.pair_marks)))
+		else:
+			s.slots.append(_slot("sum", int(cfg.sum_need), 2, int(cfg.sum_marks)))
+		s.slots[-1].hidden = true
+	s.wire_pool = _pool(cfg.wire_pool)
+	if not s.wire_pool.is_empty():
+		_deal_wire(s, _draw(s.wire_pool, rng), -1)
 	return s
 
 
-static func _is_skull(s: HandState, face: int) -> bool:
-	return face <= int(s.cfg.skull_faces)
-
-
-## A skull lands: it stays on the table and leaves your hand. Busts at bust_at, or on the Last Dance.
-static func _land_skull(s: HandState) -> void:
-	s.skulls += 1
-	s.in_hand -= 1
-	if s.skulls >= int(s.cfg.bust_at) or s.dance:
-		s.outcome = "bust"
-
-
-## Throws every die in hand; returns the non-skull faces. A one-die throw is the Last Dance.
-static func throw(s: HandState, rng) -> Array[int]:
-	s.throws += 1
-	s.dance = s.in_hand == 1
-	if s.dance:
-		s.dance_reached = true
-	var faces: Array[int] = []
-	for i in s.in_hand:
-		faces.append(rng.randi_range(1, 6))
-	var kept: Array[int] = []
-	for f in faces:
-		if _is_skull(s, f):
-			_land_skull(s)
+## Deals a wire. A Tax watches a Ward or Ladder: `seeded` if it is one, else the first on the table.
+static func _deal_wire(s: HandState, kind: String, seeded: int) -> void:
+	var at := -1
+	if kind == "tax":
+		if seeded >= 0 and s.slots[seeded].kind in ["ward", "ladder"]:
+			at = seeded
 		else:
-			kept.append(f)
-	return kept
+			for j in s.slots.size():
+				if s.slots[j].kind in ["ward", "ladder"]:
+					at = j
+					break
+	s.wires.append({"kind": kind, "slot": at})
 
 
-static func is_dance(s: HandState) -> bool:
-	return s.dance
-
-
-## A face's worth: doubled on the Last Dance.
-static func value(s: HandState, face: int) -> int:
-	return face * 2 if s.dance else face
-
-
-## Spends a reroll token to rethrow faces[index]; a skull follows the throw rules. Returns the new faces.
-static func reroll(s: HandState, faces: Array[int], index: int, rng) -> Array[int]:
-	var out: Array[int] = faces.duplicate()
-	if s.rerolls <= 0 or index < 0 or index >= out.size():
-		return out
-	s.rerolls -= 1
-	var f: int = rng.randi_range(1, 6)
-	if _is_skull(s, f):
-		out.remove_at(index)
-		_land_skull(s)
-	else:
-		out[index] = f
-	return out
-
-
-## In play: not stopped or claimed, not gone, and not still hidden (prizes_after_target).
-static func _live(slot: Dictionary) -> bool:
-	return not slot.done and not slot.gone and not slot.get("hidden", false)
-
-
-## Whether a die of this face may go in this slot now.
-static func _fits(s: HandState, slot: Dictionary, face: int) -> bool:
-	if not _live(slot):
-		return false
-	var v := value(s, face)
-	match slot.kind:
-		"target":
-			var top := int(s.cfg.get("target_max", 0))
-			return top <= 0 or s.progress + v <= top
-		"offering":
-			return true
-		"threat", "reroll":
-			return v >= slot.need
-		"pair":
-			return slot.dice.is_empty() or int(slot.dice[0]) == face
-		"sum":
-			if slot.dice.is_empty():
-				return slot.need - v >= 2
-			return int(slot.dice[0]) + v == slot.need
-	return false
-
-
-## Every legal move for these faces: {die, slot, bump}. Offering moves name the countdown they raise (-1: none).
-static func legal_moves(s: HandState, faces: Array[int]) -> Array:
-	var moves: Array = []
-	var bumps: Array = []
-	for j in s.slots.size():
-		if _live(s.slots[j]) and s.slots[j].countdown >= 0:
-			bumps.append(j)
-	if bumps.is_empty():
-		bumps = [-1]
-	for d in faces.size():
-		for j in s.slots.size():
-			if not _fits(s, s.slots[j], faces[d]):
-				continue
-			if s.slots[j].kind == "offering":
-				for b in bumps:
-					moves.append({"die": d, "slot": j, "bump": b})
-			else:
-				moves.append({"die": d, "slot": j, "bump": -1})
-	return moves
-
-
-## Puts one die in a slot. Placing the last die in hand cashes out.
-static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
-	var face: int = faces[move.die]
-	var v := value(s, face)
-	var slot: Dictionary = s.slots[move.slot]
-	s.in_hand -= 1
-	match slot.kind:
-		"target":
-			s.progress += v
-			if target_met(s):
-				for sl in s.slots:
-					sl.hidden = false  # the Master reveals his prizes once the Target is met
-		"offering":
-			if move.bump >= 0:
-				s.slots[move.bump].countdown += 1
-		"threat":
-			slot.done = true
-		"reroll":
-			slot.done = true
-			s.rerolls += 1
-		"pair", "sum":
-			# a sum keeps values (a doubled die counts double); a pair keeps faces
-			slot.dice.append(v if slot.kind == "sum" else face)
-			if slot.dice.size() >= slot.cap:
-				slot.done = true
-	if s.in_hand <= 0 and s.outcome == "":
-		cash_out(s)
-
-
-## The Master answers a throw: countdowns drop; a threat at 0 strikes (a skull), a prize at 0 is taken.
-static func master_answer(s: HandState) -> void:
-	for slot in s.slots:
-		if not _live(slot) or slot.countdown <= 0:
-			continue
-		slot.countdown -= 1
-		if slot.countdown == 0:
-			slot.gone = true
-			slot.dice = []
-			if slot.kind == "threat":
-				s.skulls += 1
-				if s.skulls >= int(s.cfg.bust_at):
-					s.outcome = "bust"
-					return
-
-
-static func target_met(s: HandState) -> bool:
-	return s.progress >= int(s.slots[s.target_slot].need)
-
-
-static func cash_out(s: HandState) -> void:
-	s.outcome = "won" if target_met(s) else "short"
-
-
-static func ended(s: HandState) -> bool:
-	return s.outcome != ""
-
-
-## 0 unless won; then the win marks plus every claimed prize's marks.
-static func marks(s: HandState) -> int:
-	if s.outcome != "won":
-		return 0
-	var m := int(s.cfg.win_marks)
-	for slot in s.slots:
-		if slot.done and not slot.gone and (slot.kind == "pair" or slot.kind == "sum"):
-			m += int(slot.marks)
-	return m
+## What the Target needs now: its number, plus a fired Tax, minus Offerings.
+static func need(s: HandState) -> int:
+	return int(s.cfg.target) + (int(s.cfg.tax) if s.tax_on else 0) - s.offerings
