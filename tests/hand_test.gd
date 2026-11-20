@@ -20,6 +20,13 @@ func _init() -> void:
 	test_third_skull_busts()
 	test_dance_doubles_and_busts()
 	test_reroll_skull_stays()
+	test_threshold_and_dance()
+	test_sum_exact()
+	test_offering_without_countdowns()
+	test_all_skulls_answer()
+	test_strike_busts()
+	test_marks()
+	test_auto_cash_out()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -92,3 +99,77 @@ func test_reroll_skull_stays() -> void:
 	s.rerolls = 1
 	var f: Array = Rules.reroll(s, [5, 2], 1, FixedRng.new([1]))
 	check("reroll: a skull stays and busts", s.outcome == "bust" and s.rerolls == 0 and f == [5] and s.skulls == 3)
+
+
+## A hand whose table is the Target, the Offering and the given slots.
+func _table(extra: Array):
+	var s = _hand()
+	s.slots = [Rules._slot("target", 12, 0, -1, 0), Rules._slot("offering", 0, 0, -1, 0)] + extra
+	return s
+
+
+func _moves_to(moves: Array, slot: int) -> Array:
+	return moves.filter(func(m): return m.slot == slot)
+
+
+func test_threshold_and_dance() -> void:
+	var s = _table([Rules._slot("threat", 5, 1, 2, 0)])
+	check("threat: 3 misses 5+", _moves_to(Rules.legal_moves(s, [3]), 2).is_empty())
+	s.dance = true
+	check("threat: a doubled 3 meets 5+", _moves_to(Rules.legal_moves(s, [3]), 2).size() == 1)
+	var p = _table([Rules._slot("pair", 0, 2, 3, 2)])
+	p.slots[2].dice = [4]
+	check("pair: matches by face", _moves_to(Rules.legal_moves(p, [4]), 2).size() == 1)
+	p.dance = true
+	check("pair: a doubled 2 is not a 4", _moves_to(Rules.legal_moves(p, [2]), 2).is_empty())
+
+
+func test_sum_exact() -> void:
+	var s = _table([Rules._slot("sum", 8, 2, 3, 1)])
+	check("sum: first 3 fits", _moves_to(Rules.legal_moves(s, [3]), 2).size() == 1)
+	check("sum: first 7 leaves no second", _moves_to(Rules.legal_moves(s, [7]), 2).is_empty())
+	s.slots[2].dice = [3]
+	check("sum: 3 + 5 fits", _moves_to(Rules.legal_moves(s, [5]), 2).size() == 1)
+	check("sum: 3 + 4 misses", _moves_to(Rules.legal_moves(s, [4]), 2).is_empty())
+
+
+func test_offering_without_countdowns() -> void:
+	var s = _table([])
+	var off: Array = _moves_to(Rules.legal_moves(s, [4]), 1)
+	check("offering: legal with no countdown", off.size() == 1 and off[0].bump == -1)
+
+
+func test_all_skulls_answer() -> void:
+	var s = _table([Rules._slot("threat", 5, 1, 2, 0)])
+	check("all skulls: no move", Rules.legal_moves(s, []).is_empty())
+	Rules.master_answer(s)
+	check("all skulls: the Master still answers", s.slots[2].countdown == 1)
+
+
+func test_strike_busts() -> void:
+	var s = _table([Rules._slot("threat", 5, 1, 1, 0)])
+	s.skulls = 2
+	Rules.master_answer(s)
+	check("strike: third skull busts", s.outcome == "bust" and s.skulls == 3 and s.slots[2].gone)
+
+
+func test_marks() -> void:
+	var s = _table([Rules._slot("pair", 0, 2, 3, 2), Rules._slot("sum", 8, 2, 3, 1)])
+	s.progress = 12
+	s.slots[2].done = true
+	s.slots[3].gone = true
+	Rules.cash_out(s)
+	check("marks: win plus a claimed pair", s.outcome == "won" and Rules.marks(s) == 3 + 2)
+	var b = _table([])
+	b.outcome = "bust"
+	check("marks: a bust pays nothing", Rules.marks(b) == 0)
+
+
+func test_auto_cash_out() -> void:
+	var s = _table([])
+	s.in_hand = 2
+	Rules.place(s, [6, 6], {"die": 0, "slot": 0, "bump": -1})
+	check("place: hand continues", s.outcome == "" and s.progress == 6 and s.in_hand == 1)
+	s.in_hand = 1
+	Rules.place(s, [6], {"die": 0, "slot": 0, "bump": -1})
+	check("place: last die cashes out", s.outcome == "won" and s.progress == 12)
