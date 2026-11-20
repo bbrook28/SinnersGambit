@@ -107,3 +107,6 @@ With tiers, a policy that takes a safe Tier 1 win and stops posts a higher win r
 ## Change 3 (2026-11-20, Ben): a handful of 2; the Ward takes two dice within 1 pip
 - **Handful 2** is the default (sweep, seed 4, 300 strong hands, tiers 10/18/26: 4 of 6 pass marks against fewer for 3; a 9-die bag barely lengthened hands and dropped busts and the Dance below their bands, so the bag stays 8).
 - **Ward:** two dice, the second within 1 pip of the first (`ward_spread`; a 4 takes a 3, 4 or 5). With two dice drawn a throw, matching faces filled it in 0 of 192 hands. A lone Ward die rethrown by Curse still fits whatever its new face; only a Curse skull (a 1 or 2) breaks it.
+
+## Change 4 (2026-11-20, Ben): a one-die Ward
+The Ward takes one die of any face; full, it cancels the next skull, then empties (`ward_dice`; 2 keeps the two-die Ward of change 3). A Tax only ever watches a 2-die slot (the Ladder, or a two-die Ward), and Curse leaves a full Ward alone. From the sim (seed 4, 300 strong hands): the two-die Ward was filled in 3% of hands, the one-die Ward in 66%; agony on throws 1-2 rose from 20.8% to 25.9%. It costs safety: busts fell to 13% and the Last Dance rose to 31%, both outside their bands, the next thing to fix.

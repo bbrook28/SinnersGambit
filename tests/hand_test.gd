@@ -447,7 +447,7 @@ func test_ward_within_one() -> void:
 
 
 func test_one_die_ward() -> void:
-	check("config: a two-die Ward by default", Config.DEFAULTS.ward_dice == 2)
+	check("config: a one-die Ward by default", Config.DEFAULTS.ward_dice == 1)
 	var cfg := Config.merged({"ward_dice": 1, "handful": 3, "engine_pool": "ward,ladder", "wire_pool": "tax"})
 	var s = Rules.new_hand(cfg, _rng(1))
 	var w: int = s.slots.map(func(x): return x.kind).find("ward")

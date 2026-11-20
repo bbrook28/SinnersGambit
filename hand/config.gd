@@ -12,7 +12,8 @@ const DEFAULTS := {
 	"tier_marks": "2,4,7",  # a won hand pays the highest tier cleared, not the sum
 	"tax": 3,               # what a fired Tax adds to the Target
 	"pair_marks": 2,
-	"ward_dice": 2,         # dice that fill the Ward (1: one die of any face buys a cancelled skull)
+	"ward_dice": 1,         # dice that fill the Ward: one die of any face buys a cancelled skull (Ben, 2026-11-20; 2 was filled in 3% of hands)
+	                        # ward_spread applies only when this is 2
 	"ward_spread": 1,       # the Ward's second die may be this many pips from the first (0: matching faces)
 	"sum_need": 8,
 	"sum_marks": 1,
