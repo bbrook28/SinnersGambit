@@ -570,6 +570,9 @@ func build() -> void:
 	var throw := _seal(near, "Throw", Vector2(px1 - 36.0 - SEAL, sy), CRIMSON, BONE, live and can_throw)
 	bank.pressed.connect(func(): bank_pressed.emit())
 	throw.pressed.connect(func(): throw_pressed.emit())
+	if not slip.is_empty():  # REPLY 40: a bet's slip takes the seals row; Bank and Throw step aside under it
+		bank.visible = false
+		throw.visible = false
 	if mine and not (live and can_bank):
 		bank.modulate = Color(1, 1, 1, 0.35)
 	if mine and not (live and can_throw):
@@ -682,7 +685,7 @@ func build() -> void:
 	if not chip.is_empty() and int(chip.seat) < win_rects.size():  # REPLY 40: the open bet, at the foot of its window
 		var wrc: Rect2 = win_rects[int(chip.seat)]
 		var cc := Vector2(wrc.end.x - 40.0, wrc.end.y - 30.0)
-		_disc(cc, CHIP_R, Style.SIN_COLORS[seats[me].sin], GOLD)
+		_disc(cc, CHIP_R, on_page(Style.SIN_COLORS[seats[me].sin]), GOLD)  # darkened, so its bone numeral reads
 		var ct2 := _label(str(int(chip.amount)), 44, BONE, Color(0, 0, 0, 0))
 		ct2.size = Vector2(CHIP_R * 2.0, CHIP_R * 2.0)
 		ct2.position = cc - ct2.size / 2.0
@@ -1102,7 +1105,7 @@ func _slip(px0: float, px1: float, sy: float) -> void:
 	var title := _label(str(slip.get("title", "")), 50, INK, Color(0, 0, 0, 0), true, node)
 	title.size = Vector2(px1 - px0 - 2.0 * (SEAL + 70.0), 70.0)
 	title.position = Vector2(px0 + SEAL + 70.0, sy + 34.0)
-	var sub := _label(str(slip.get("sub", "")), 42, INK, Color(0, 0, 0, 0), false, node)
+	var sub := _label(str(slip.get("sub", "")), MIN_TEXT, INK, Color(0, 0, 0, 0), false, node)
 	sub.size = title.size
 	sub.position = Vector2(title.position.x, sy + 116.0)
 	var rise_left: float = maxf(0.0, Tuning.SLIP_RISE - age)
