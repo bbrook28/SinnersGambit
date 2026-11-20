@@ -147,6 +147,7 @@ static func strong_stop(s, rng, rollouts: int) -> bool:
 			Play.play_from(c, push, _playout_rng(base, k), false)
 			total += Rules.marks(c)
 		best = maxf(best, float(total) / rollouts)
+	s.stops.append({"now": float(Rules.marks(now)), "on": best, "throw": s.throws})
 	return float(Rules.marks(now)) >= best
 
 

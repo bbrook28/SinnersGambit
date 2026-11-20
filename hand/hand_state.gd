@@ -24,6 +24,7 @@ var dances := 0            # Last Dances thrown this hand (a cursed Ladder 6 can
 var cancelled := 0        # skulls a Ward cancelled
 var curse_skulls := 0     # skulls from Curse rethrows
 var decisions: Array = [] # the strong policy's per-placement values
+var stops: Array = []     # the strong policy's stop calls: {now, on, throw}
 
 
 func clone():
@@ -35,4 +36,5 @@ func clone():
 	c.wires = wires.duplicate(true)
 	c.wire_pool = wire_pool.duplicate()
 	c.decisions = []
+	c.stops = []
 	return c

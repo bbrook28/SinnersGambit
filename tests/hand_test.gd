@@ -51,6 +51,7 @@ func _init() -> void:
 	test_ward_within_one()
 	test_one_die_ward()
 	test_ward_cancels_once()
+	test_strong_records_stops()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -478,3 +479,11 @@ func test_ward_cancels_once() -> void:
 	check("ward: spent after one cancel, it takes no more dice", s.cancelled == 1 and _moves_to(Rules.legal_moves(s, f), 2).is_empty())
 	s.cfg = Config.merged({"handful": 3, "ward_cancels": 0})
 	check("ward: ward_cancels 0 has no limit", _moves_to(Rules.legal_moves(s, f), 2).size() == 2)
+
+
+func test_strong_records_stops() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 12
+	s.throws = 3
+	Policies.strong_stop(s, _rng(2), 8)
+	check("strong: a stop call records cash-out now, throw on, and the throw", s.stops.size() == 1 and s.stops[0].now == 2.0 and s.stops[0].throw == 3)
