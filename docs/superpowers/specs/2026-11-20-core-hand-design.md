@@ -36,12 +36,12 @@ Order of play:
 3. **Skulls stay.** Each skull thrown stays on the table, out of your hand for the rest of the hand. Three skulls on the table is a **bust**.
 4. **Place exactly one die** (not a skull) into a slot that accepts it. The rest return to your hand.
 5. **The Master answers**, at once: every countdown drops by one; a threat at 0 strikes, a prize at 0 is taken off the table.
-6. **Throw again or cash out.**
+6. **Throw again or cash out.** Meeting the Target does not end the hand: you may keep throwing to claim the prizes still on the table, risking a bust that forfeits them.
 7. **Last Dance:** when one die is left in your hand, its throw is the Dance: its pips count double wherever it goes, and a skull busts you outright whatever the skull count.
 8. The hand also ends when your hand is empty (every die placed or a skull): that is an automatic cash-out.
 
 Outcomes:
-- **Cash out with the Target met:** the hand is won. Claimed prizes pay.
+- **Cash out with the Target met:** the hand is won: it pays its win marks plus the marks of every prize claimed. (Marks are the run's currency later; in the sim they are the score.)
 - **Cash out short of the Target:** the hand is lost (in the run: a life).
 - **Bust:** the hand is lost and claimed prizes are forfeit.
 
@@ -49,18 +49,19 @@ Outcomes:
 | Slot | Accepts | Effect |
 |---|---|---|
 | **Target** (always) | any die, many over the hand | adds its pips toward the hand's target number |
-| **Offering** (always) | any die, many | the lowest countdown on the table rises by 1 (a least-bad outlet: never wasted, never a goal) |
+| **Offering** (always) | any die, many | a countdown of your choice rises by 1 (a least-bad outlet: never wasted, never a goal) |
 | **Threat** | one die at or above its number (e.g. 5+) | placing stops it. At 0 it strikes: adds a skull to your table |
-| **Pair prize** | two dice of the same value, filled across throws | claimed when full: bonus pips to the Target |
-| **Sum prize** | two dice summing to its number, filled across throws | claimed when full: bonus pips to the Target |
+| **Pair prize** | two dice of the same value, filled across throws | claimed when full: pays its marks if the hand is won |
+| **Sum prize** | two dice summing to its number, filled across throws | claimed when full: pays its marks if the hand is won |
 | **Reroll token** (prize) | one die at or above its number | claimed: once this hand, rethrow one die before placing |
 
 Multi-die slots fill one die per throw; a half-filled slot keeps its die. A slot that is taken off the table (countdown 0) loses any dice in it.
 
 ## The simulation
 A headless Godot script (UI-free rules in their own file, so a later screen reuses them). It plays the hand many thousands of times with several policies and reports:
+- **Objective:** a policy maximises expected marks: 0 for a lost hand; for a won hand, the win marks plus claimed prizes' marks (all parameters; to start, win 3, each prize 1-2).
 - **Outcome rates:** hand won, short, bust; Last Dance reached; Last Dance survived.
-- **Skill gap:** win rate of a strong policy (search over placements and stop decisions) against greedy (always feed the Target, stop at the target) and random-legal. Target: strong beats greedy by a clear margin and greedy beats random.
+- **Skill gap:** expected marks and win rate of a strong policy (search over placements and stop decisions) against greedy (always feed the Target, stop at the target) and random-legal. Target: strong beats greedy by a clear margin and greedy beats random.
 - **Agony:** how often the strong policy's best and second-best placements are close in expected value (a proxy for "no obvious move").
 - **Pace:** throws per hand.
 - Every number in the rules (target size, threat thresholds, countdowns, bonus sizes, skull face count) is a parameter, so tuning is a command line, not a code change.
@@ -71,7 +72,7 @@ A headless Godot script (UI-free rules in their own file, so a later screen reus
 - **C. A polished slice:** closest to the target feel, but locks presentation before the core is proven, the old project's mistake.
 
 ## Decided by Ben
-Push your luck; gothic art stays; the Master is the opponent on the table and answers instantly; Sin pacts are what grows over a run (later); skulls bust at three; dice are placed into slots; a least-bad outlet always exists; a shrinking pool ends in a climax; exactly one die placed per throw; numbers first.
+Push your luck; gothic art stays; the Master is the opponent on the table and answers instantly; Sin pacts are what grows over a run (later); skulls bust at three; dice are placed into slots; a least-bad outlet always exists; a shrinking pool ends in a climax; exactly one die placed per throw; numbers first; after the Target is met you may keep throwing for prizes.
 
 ## Rules settled after the builder check (my calls, open to Ben)
 - **A threat strikes once and leaves the table.** Its skull counts toward the bust but takes no die from your hand.
