@@ -1,4 +1,0 @@
-## settings (std): ok
-## title (std): ok
-
-2 of 2 fixtures clean at std (393 x 852 pt, safe 59 / 34 pt)
