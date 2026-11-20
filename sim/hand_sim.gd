@@ -82,6 +82,7 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var early := 0
 	var early_marks := 0
 	var no_dance := 0
+	var second_dance := 0
 	var cancelled := 0
 	var curse := 0
 	var dealt := {}   # engine kind or wire kind -> hands dealt
@@ -98,6 +99,8 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		if s.outcome != "bust" and s.bag > 0 and s.throws <= 3:
 			early += 1
 			early_marks += Rules.marks(s)
+		if s.dances >= 2:
+			second_dance += 1
 		if s.bag <= 0 and not s.dance_reached:
 			no_dance += 1
 		cancelled += s.cancelled
@@ -131,7 +134,7 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		"marks": float(marks) / hands, "throws": float(throws) / hands,
 		"agony": 100.0 * close / maxi(1, decisions), "ties": 100.0 * ties / maxi(1, decisions),
 		"decisions": decisions, "past": pct.call(past), "won_each": won_each, "marks_each": marks_each,
-		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance),
+		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance), "second_dance": pct.call(second_dance),
 		"cancelled": float(cancelled) / maxi(1, hands), "curse": float(curse) / maxi(1, hands),
 		"pieces": " ".join(["hold", "ward", "ladder", "tax", "hunger", "curse"].map(func(k):
 			return "%s %d%%/%d" % [k, 100 * used.get(k, 0) / maxi(1, dealt.get(k, 0)), dealt.get(k, 0)]))}
@@ -159,9 +162,9 @@ func _report(r: Dictionary) -> void:
 		r.name, r.hands, r.won, r.short, r.bust, r.dance, r.survived, r.marks, r.throws]
 	if r.name == "strong":
 		line += "
-        early cash-outs (throws 1-3) %.1f%% paying %.2f | ended without a Dance %.1f%% | Ward cancels %.2f, Curse skulls %.2f a hand
+        early cash-outs (throws 1-3) %.1f%% paying %.2f | ended without a Dance %.1f%%, with a second Dance %.1f%% | Ward cancels %.2f, Curse skulls %.2f a hand
         used/dealt: %s (engines: filled; wires: fired)" % [
-			r.early, r.early_marks, r.no_dance, r.cancelled, r.curse, r.pieces]
+			r.early, r.early_marks, r.no_dance, r.second_dance, r.cancelled, r.curse, r.pieces]
 		line += "
         agony %.1f%% near-ties, %.1f%% exact ties, of %d decisions | threw on past the Target in %.1f%% of hands" % [r.agony, r.ties, r.decisions, r.past]
 	say(line)

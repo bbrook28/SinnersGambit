@@ -99,6 +99,7 @@ static func throw(s: HandState, rng) -> Array[int]:
 	s.dance = n == 1 and s.bag == 1
 	if s.dance:
 		s.dance_reached = true
+		s.dances += 1
 	s.bag -= n
 	s.throws += 1
 	var kept: Array[int] = []

@@ -44,6 +44,7 @@ func _init() -> void:
 	test_push_seeds_prize()
 	test_held_on_all_skulls()
 	test_ward_dance_no_second_dance()
+	test_second_dance_counted()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -379,3 +380,13 @@ func test_ward_dance_no_second_dance() -> void:
 	s.slots[2].dice = [4, 4]
 	Rules.throw(s, FixedRng.new([1]))
 	check("dance: a Ward-cancelled Dance skull leaves the hand (no second Dance)", s.outcome == "" and s.bag == 0)
+
+
+func test_second_dance_counted() -> void:
+	var s = _table(["ladder", "ward"], ["curse"])
+	s.bag = 1
+	s.slots[2].dice = [3]
+	Rules.throw(s, FixedRng.new([4, 6]))
+	check("dance: a cursed Ladder 6 on the Dance goes back to the bag", s.dance and s.bag == 1 and s.dances == 1)
+	Rules.throw(s, FixedRng.new([5]))
+	check("dance: the second Dance is counted", s.dance and s.dances == 2)

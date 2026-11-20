@@ -19,6 +19,7 @@ var throws := 0
 var outcome := ""         # "", "won", "short", "bust"
 var dance := false        # the current throw drew the bag's last die alone (the Last Dance)
 var dance_reached := false
+var dances := 0            # Last Dances thrown this hand (a cursed Ladder 6 can bring a second)
 var cancelled := 0        # skulls a Ward cancelled
 var curse_skulls := 0     # skulls from Curse rethrows
 var decisions: Array = [] # the strong policy's per-placement values
@@ -27,7 +28,7 @@ var decisions: Array = [] # the strong policy's per-placement values
 func clone():
 	var c = get_script().new()
 	for p in ["cfg", "bag", "skulls", "progress", "offerings", "tax_on", "seeded", "seed_slot", "second_wire", "hunger_on", "revealed",
-			"throws", "outcome", "dance", "dance_reached", "cancelled", "curse_skulls"]:
+			"throws", "outcome", "dance", "dance_reached", "dances", "cancelled", "curse_skulls"]:
 		c.set(p, get(p))
 	c.slots = slots.duplicate(true)
 	c.wires = wires.duplicate(true)
