@@ -19,7 +19,7 @@ Mobile version of Ben's tabletop dice game. Rulebook (source of truth): https://
 - One fixture: `godot --path . --fixed-fps 60 --script res://tools/show.gd -- <fixture> [se|std|max] [out.png]`. Fixtures: `tools/fixtures/<name>.json`.
 - Gallery: `godot --path . --script res://tools/gallery.gd [-- --only a,b] [--sizes se] [--check] [--packet <topic>] [--approve <fixture>]` (`--check` diffs against `tests/golden/`; `--approve` only when Ben says).
 - Text audit: `godot --path . --fixed-fps 60 --script res://tools/ui_audit.gd -- fixtures [size] [names]` into `build/audit/<size>.txt`. Clip: `tools/clip.gd -- <fixture> [beat] [seconds] [size]` (ffmpeg). Audit first, then `--check`, then open only changed images.
-- Table view: `-- --table`, or presets "iOS (table)" / "Web (table)" (`tools/serve.ps1 -Dir web_table`). TestFlight: `gh workflow run ios.yml --ref main -f table=true` (build = 100 + run number; internal testers only, never submit for review).
+- Table view: `-- --table`, or presets "iOS (table)" / "Web (table)" (`tools/serve.ps1 -Dir web_table`). TestFlight: `gh workflow run ios.yml --ref main -f table=true` (build = 100 + run number; internal testers only, never submit for review). Version: `VERSION` in `ui/version.gd`, `0.minor.patch`, bumped by hand: minor for each build Ben plays and judges, patch for fixes to it; 1.0.0 is the App Store release. `ios.yml` reads it into the presets and writes the build and commit.
 
 ## Working
 - Plan first and get Ben's OK; small steps, then stop for Ben to play. Never touch `core/`, `sins/` or `ai/` without his explicit OK.

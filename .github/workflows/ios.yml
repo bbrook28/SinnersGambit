@@ -90,15 +90,24 @@ jobs:
         run: |
           ~/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/load_check.gd
 
-      - name: Set Team ID and build number
+      - name: Set Team ID, version and build number
         env:
           TEAM: ${{ env.APPLE_TEAM }}
         run: |
-          # Every TestFlight upload needs a higher build number.
+          # The version is ui/version.gd's VERSION (bumped by hand; CLAUDE.md says when).
+          # Every TestFlight upload needs a higher build number: 100 + the run number.
+          VERSION=$(sed -n 's/^const VERSION := "\(.*\)"/\1/p' ui/version.gd)
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::ui/version.gd has no VERSION (read: '$VERSION')"; exit 1; }
           BUILD=$((100 + GITHUB_RUN_NUMBER))
+          COMMIT=$(git rev-parse --short=7 HEAD)
           sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$TEAM\"/" export_presets.cfg
+          sed -i '' "s/^application\/short_version=.*/application\/short_version=\"$VERSION\"/" export_presets.cfg
           sed -i '' "s/^application\/version=.*/application\/version=\"$BUILD\"/" export_presets.cfg
-          echo "Build number $BUILD"
+          sed -i '' "s/^const BUILD := .*/const BUILD := \"$BUILD\"/; s/^const COMMIT := .*/const COMMIT := \"$COMMIT\"/" ui/version.gd
+          grep -E '^const (VERSION|BUILD|COMMIT)' ui/version.gd
+          grep -q '^const BUILD := "[0-9][0-9]*"' ui/version.gd || { echo "::error::ui/version.gd: BUILD is empty after the stamp"; exit 1; }
+          grep -q '^const COMMIT := "[0-9a-f]\{7,\}"' ui/version.gd || { echo "::error::ui/version.gd: COMMIT is empty after the stamp"; exit 1; }
+          echo "Version $VERSION, build $BUILD, commit $COMMIT"
           echo "BUILD=$BUILD" >> $GITHUB_ENV
 
       - name: Export Xcode project
