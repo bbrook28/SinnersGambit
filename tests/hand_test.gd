@@ -4,6 +4,8 @@ extends SceneTree
 
 const Config = preload("res://hand/config.gd")
 const Rules = preload("res://hand/rules.gd")
+const Play = preload("res://hand/play.gd")
+const Policies = preload("res://hand/policies.gd")
 
 var _fails := 0
 
@@ -27,6 +29,8 @@ func _init() -> void:
 	test_strike_busts()
 	test_marks()
 	test_auto_cash_out()
+	test_play_terminates()
+	test_greedy_beats_random()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -173,3 +177,32 @@ func test_auto_cash_out() -> void:
 	s.in_hand = 1
 	Rules.place(s, [6], {"die": 0, "slot": 0, "bump": -1})
 	check("place: last die cashes out", s.outcome == "won" and s.progress == 12)
+
+
+func _win_rate(policy: Dictionary, hands: int, seed_value: int) -> float:
+	var cfg := Config.merged({})
+	var rng := _rng(seed_value)
+	var won := 0
+	for i in hands:
+		if Play.play_hand(cfg, policy, rng).outcome == "won":
+			won += 1
+	return float(won) / hands
+
+
+func test_play_terminates() -> void:
+	var cfg := Config.merged({})
+	for policy in [Policies.random_policy(), Policies.greedy_policy()]:
+		var rng := _rng(1)
+		var ok := true
+		for i in 500:
+			var s = Play.play_hand(cfg, policy, rng)
+			if not s.outcome in ["won", "short", "bust"] or s.throws > cfg.dice:
+				ok = false
+		check("play: %s hands end within %d throws" % [policy.name, cfg.dice], ok)
+
+
+func test_greedy_beats_random() -> void:
+	var g := _win_rate(Policies.greedy_policy(), 2000, 2)
+	var r := _win_rate(Policies.random_policy(), 2000, 2)
+	print("  greedy %.3f random %.3f" % [g, r])
+	check("play: greedy wins more than random", g > r)
