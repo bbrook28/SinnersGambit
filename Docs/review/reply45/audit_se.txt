@@ -1,0 +1,6 @@
+## settings (se)
+- TEXT OVER SEAL "0.6.0 (local) 8682c57" on "Back" by 62x6 pt
+- OVERLAP text "Back" and "0.6.0 (local) 8682c57" by 25x4 pt
+## title (se): ok
+
+1 of 2 fixtures clean at se (375 x 667 pt, safe 20 / 0 pt)
