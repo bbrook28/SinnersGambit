@@ -1,0 +1,4 @@
+## settings (se): ok
+## title (se): ok
+
+2 of 2 fixtures clean at se (375 x 667 pt, safe 20 / 0 pt)
