@@ -75,6 +75,7 @@ func test_new_hand_layout() -> void:
 		if k != "target" and m[k] != Config.DEFAULTS[k]:
 			same = false
 	check("config: override one key", m.target == 20 and same)
+	check("config: prizes stay hidden until the Target by default", Config.DEFAULTS.prizes_after_target == true)
 
 
 func test_skulls_leave_hand() -> void:

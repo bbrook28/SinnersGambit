@@ -18,7 +18,7 @@ const DEFAULTS := {
 	"reroll_need": 4,
 	"reroll_countdown": 2,
 	"extra_pool": "threat,threat,pair,sum,reroll",
-	"prizes_after_target": false,  # true: pair and sum prizes stay hidden until the Target is met (a trial)
+	"prizes_after_target": true,  # pair and sum prizes stay hidden until the Target is met (Ben, 2026-11-20)
 	"rollouts": 64,         # the strong policy's playouts per option
 }
 

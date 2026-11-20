@@ -31,12 +31,12 @@ Pieces:
 - **Table:** the slots the Master lays out. Each slot shows its rule and its reward; some show a countdown.
 
 Order of play:
-1. **Lay out.** The Master deals the hand's table: one Target, one Offering, and 2-3 others drawn from the slot kinds below.
+1. **Lay out.** The Master deals the hand's table: one Target, one Offering, and 2-3 others drawn from the slot kinds below. Pair and Sum prizes are laid face down: they take no dice and their countdowns don't run until the Target is met, when the Master reveals them.
 2. **Throw** every die still in your hand.
 3. **Skulls stay.** Each skull thrown stays on the table, out of your hand for the rest of the hand. Three skulls on the table is a **bust**.
 4. **Place exactly one die** (not a skull) into a slot that accepts it. The rest return to your hand.
 5. **The Master answers**, at once: every countdown drops by one; a threat at 0 strikes, a prize at 0 is taken off the table.
-6. **Throw again or cash out.** Meeting the Target does not end the hand: you may keep throwing to claim the prizes still on the table, risking a bust that forfeits them.
+6. **Throw again or cash out.** Meeting the Target does not end the hand: it reveals the prizes, and you may keep throwing to claim them, risking a bust that forfeits the won hand.
 7. **Last Dance:** when one die is left in your hand, its throw is the Dance: its pips count double wherever it goes, and a skull busts you outright whatever the skull count.
 8. The hand also ends when your hand is empty (every die placed or a skull): that is an automatic cash-out.
 
@@ -72,7 +72,7 @@ A headless Godot script (UI-free rules in their own file, so a later screen reus
 - **C. A polished slice:** closest to the target feel, but locks presentation before the core is proven, the old project's mistake.
 
 ## Decided by Ben
-Push your luck; gothic art stays; the Master is the opponent on the table and answers instantly; Sin pacts are what grows over a run (later); skulls bust at three; dice are placed into slots; a least-bad outlet always exists; a shrinking pool ends in a climax; exactly one die placed per throw; numbers first; after the Target is met you may keep throwing for prizes.
+Push your luck; gothic art stays; the Master is the opponent on the table and answers instantly; Sin pacts are what grows over a run (later); skulls bust at three; dice are placed into slots; a least-bad outlet always exists; a shrinking pool ends in a climax; exactly one die placed per throw; numbers first; after the Target is met you may keep throwing for prizes; prizes stay hidden until the Target is met (from the sim: with prizes open from the start, pushing past the Target never happened).
 
 ## Rules settled after the builder check (my calls, open to Ben)
 - **A threat strikes once and leaves the table.** Its skull counts toward the bust but takes no die from your hand.
