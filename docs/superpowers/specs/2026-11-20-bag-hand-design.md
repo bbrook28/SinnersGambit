@@ -100,3 +100,6 @@ Why: the first baseline (seed 4) met 2 of 6 pass marks. A hand that can stop at 
 - **Tier 1 wins the hand and reveals the prize.** You may cash out at once (2 marks); claiming the prize takes at least two more throws.
 - **Hunger** reads "pass Tier 2 and throw on: draw 4".
 - Replaces `target` and `win_marks`. The sim reports tier marks and prize marks apart, and how often strong throws on past Tier 1 and past Tier 2.
+
+## Change 2 (2026-11-20, Ben): the skill pass mark is marks, not win rate
+With tiers, a policy that takes a safe Tier 1 win and stops posts a higher win rate while leaving marks behind, so win rate no longer measures skill. The pass mark "strong beats greedy by at least 10 points of win rate" becomes "strong earns at least 0.5 more marks a hand than greedy on the same hands" (the 0.5 is my call). The sim still reports the win-rate gap.

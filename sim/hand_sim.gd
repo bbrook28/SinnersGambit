@@ -53,7 +53,7 @@ func _init() -> void:
 	say("same %d hands, strong minus greedy: win rate %+.1f points (95%%: %+.1f to %+.1f), marks %+.2f a hand (95%%: %+.2f to %+.2f)" % [
 		st.hands, 100.0 * gap_won[0], 100.0 * (gap_won[0] - gap_won[1]), 100.0 * (gap_won[0] + gap_won[1]),
 		gap_marks[0], gap_marks[0] - gap_marks[1], gap_marks[0] + gap_marks[1]])
-	_verdict("strong win rate beats greedy by >= 10 points (same hands)", 100.0 * gap_won[0] >= 10.0, "%+.1f" % (100.0 * gap_won[0]))
+	_verdict("strong earns >= 0.5 more marks a hand than greedy (same hands)", gap_marks[0] >= 0.5, "%+.2f" % gap_marks[0])
 	_verdict("greedy wins more than random", g.won > r.won, "%.1f vs %.1f" % [g.won, r.won])
 	_verdict("agony >= 30% of strong's decisions (near-ties, not exact ties)", st.agony >= 30.0, "%.1f%%" % st.agony)
 	_verdict("strong busts in 20-35% of hands", st.bust >= 20.0 and st.bust <= 35.0, "%.1f%%" % st.bust)
