@@ -26,7 +26,9 @@ var cancelled := 0        # skulls a Ward cancelled
 var curse_skulls := 0     # skulls from Curse rethrows
 var late_on := false      # the late wire has struck: a throw began with the bag at cfg.late_bag or fewer
 var throw_bag := 0        # dice in the bag when the last throw began, before the draw
-var rites_armed := false  # a die is in Last Rites: the next uncancelled skull busts
+var rites_armed := false  # a die waits in Last Rites: a skull on the next throw busts; a throw without one banks it
+var rites_pending := 0    # what the waiting Rites die will add to the Target
+var rites_banked := 0     # Rites dice banked
 var rites_busts := 0      # busts Last Rites caused
 var late_skulls := 0      # handful dice that were skulls only because of the late wire
 var decisions: Array = [] # the strong policy's per-placement values
@@ -36,7 +38,7 @@ var stops: Array = []     # the strong policy's stop calls: {now, on, throw}
 func clone():
 	var c = get_script().new()
 	for p in ["cfg", "bag", "skulls", "progress", "offerings", "tax_on", "seeded", "seed_slot", "second_wire", "hunger_on", "revealed",
-			"throws", "outcome", "dance", "dance_reached", "dances", "pushed", "cancelled", "curse_skulls", "late_on", "late_skulls", "throw_bag", "rites_armed", "rites_busts"]:
+			"throws", "outcome", "dance", "dance_reached", "dances", "pushed", "cancelled", "curse_skulls", "late_on", "late_skulls", "throw_bag", "rites_armed", "rites_pending", "rites_banked", "rites_busts"]:
 		c.set(p, get(p))
 	c.slots = slots.duplicate(true)
 	c.target_dice = target_dice.duplicate()

@@ -90,6 +90,7 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var ro_take := 0
 	var ro_close := 0
 	var rites_bust := 0
+	var rites_bank := 0
 	var past := 0
 	var past2 := 0
 	var tier_m := 0
@@ -165,6 +166,7 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 			if top > 0.0:
 				per[c.throw] = per.get(c.throw, false) or absf(c.now - c.on) <= 0.05 * top
 		rites_bust += s.rites_busts
+		rites_bank += s.rites_banked
 		for d in s.decisions:
 			if d.moves >= 2 and d.best > 0.0 and d.throw >= 5:
 				lp_n += 1
@@ -201,8 +203,8 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance), "second_dance": pct.call(second_dance),
 		"cancelled": float(cancelled) / maxi(1, hands), "curse": float(curse) / maxi(1, hands),
 		"late_place": 100.0 * lp_c / maxi(1, lp_n), "late_stop": 100.0 * ls_c / maxi(1, ls_n),
-		"rites": "Last Rites open at %d placements: taken %.1f%%, within 5%% of the best other move %.1f%% | Rites busts %.1f%% of hands" % [
-			ro_n, 100.0 * ro_take / maxi(1, ro_n), 100.0 * ro_close / maxi(1, ro_n), pct.call(rites_bust)],
+		"rites": "Last Rites open at %d placements: taken %.1f%%, within 5%% of the best other move %.1f%% | banked in %.1f%% of hands, Rites busts %.1f%% of hands" % [
+			ro_n, 100.0 * ro_take / maxi(1, ro_n), 100.0 * ro_close / maxi(1, ro_n), pct.call(rites_bank), pct.call(rites_bust)],
 		"late_sk": float(late_sk) / maxi(1, hands), "late_bust": pct.call(late_bust),
 		"past2": pct.call(past2), "tier_m": float(tier_m) / maxi(1, hands), "prize_m": float(prize_m) / maxi(1, hands),
 		"tiers": "won at Tier 1 %.1f%%, Tier 2 %.1f%%, Tier 3 %.1f%%" % [pct.call(tier_n.get(1, 0)), pct.call(tier_n.get(2, 0)), pct.call(tier_n.get(3, 0))],

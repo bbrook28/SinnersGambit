@@ -551,14 +551,19 @@ func test_last_rites() -> void:
 	check("rites: open after a throw from a bag of 3 (checked before the draw)", _moves_to(Rules.legal_moves(s, f), 2).size() == 3)
 	s.slots[3].dice = [2, 3]  # a full Ladder: Rites replaces its doubling
 	Rules.place(s, f, {"die": 0, "slot": 2})
-	check("rites: the die counts x3 toward the Target, no other doubling", s.progress == 12 and s.target_dice == [12] and s.rites_armed)
+	check("rites: placed, it waits: nothing counts yet", s.progress == 0 and s.rites_pending == 12 and s.rites_armed)
 	check("rites: one die a hand", _moves_to(Rules.legal_moves(s, [5] as Array[int]), 2).is_empty())
+	Rules.throw(s, FixedRng.new([3, 5]))
+	check("rites: a skull-free next throw banks it, x3, no other doubling", s.progress == 12 and s.target_dice == [12] and not s.rites_armed and s.rites_banked == 1)
+	s.bag = 4
+	Rules.throw(s, FixedRng.new([1, 5, 5]))
+	check("rites: banked, skulls are normal again", s.outcome == "" and s.skulls == 1)
 	var b = _rites_table()
 	b.bag = 3
 	f = Rules.throw(b, FixedRng.new([4, 5, 6]))
 	Rules.place(b, f, {"die": 0, "slot": 2})
 	Rules.throw(b, FixedRng.new([1, 5]))
-	check("rites: armed, the next uncancelled skull busts outright", b.outcome == "bust" and b.skulls == 1 and b.rites_busts == 1)
+	check("rites: a skull on the next throw busts outright, and the die is lost", b.outcome == "bust" and b.skulls == 1 and b.rites_busts == 1 and b.progress == 0)
 	var w = _table(["rites", "ward"], [])
 	w.cfg = Config.merged({"handful": 3, "ward_dice": 1})
 	w.slots[3].cap = 1
@@ -567,15 +572,16 @@ func test_last_rites() -> void:
 	f = Rules.throw(w, FixedRng.new([4, 5, 6]))
 	Rules.place(w, f, {"die": 0, "slot": 2})
 	Rules.throw(w, FixedRng.new([1, 5]))
-	check("rites: a full Ward cancels that skull", w.outcome == "" and w.skulls == 0 and w.cancelled == 1)
+	check("rites: a full Ward cancels that skull, and the throw still banks it", w.outcome == "" and w.skulls == 0 and w.cancelled == 1 and w.progress == 12)
 	var c = _rites_table()
 	c.bag = 3
 	f = Rules.throw(c, FixedRng.new([4, 5, 6]))
 	Rules.place(c, f, {"die": 2, "slot": 2})
 	Rules.cash_out(c)
-	check("rites: cashing out after it wins normally", c.outcome == "won" and c.progress == 18)
-	var d = _rites_table()
-	d.bag = 1
-	f = Rules.throw(d, FixedRng.new([5]))
-	Rules.place(d, f, {"die": 0, "slot": 2})
-	check("rites: the Dance die counts x3, not x6", d.dance and d.progress == 15)
+	check("rites: cashing out before it banks, it counts nothing", c.outcome == "short" and c.progress == 0)
+	var r = _rites_table()
+	r.bag = 3
+	f = Rules.throw(r, FixedRng.new([4, 5, 6]))
+	Rules.place(r, f, {"die": 0, "slot": 2})
+	Rules.throw(r, FixedRng.new([5, 5]))
+	check("rites: banking can meet the Target and reveal the prize", Rules.tier(r) == 1 and r.revealed)

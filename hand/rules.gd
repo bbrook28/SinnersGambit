@@ -168,6 +168,13 @@ static func throw(s: HandState, rng) -> Array[int]:
 	for i in curse_skulls:
 		s.curse_skulls += 1
 		_land_skull(s, false)
+	if s.rites_armed and s.outcome == "":
+		s.rites_armed = false  # survived the throw: the Rites die banks
+		s.progress += s.rites_pending
+		s.target_dice.append(s.rites_pending)
+		s.rites_pending = 0
+		s.rites_banked += 1
+		_reveal(s)
 	return kept
 
 
@@ -259,9 +266,7 @@ static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
 		"offering":
 			s.offerings += 1
 		"rites":
-			var add := face * int(s.cfg.rites_mult)  # instead of the Ladder's or the Dance's doubling
-			s.progress += add
-			s.target_dice.append(add)
+			s.rites_pending = face * int(s.cfg.rites_mult)  # banks after a survived throw; instead of any doubling
 			slot.dice.append(face)
 			slot.fills += 1
 			s.rites_armed = true
@@ -279,6 +284,10 @@ static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
 				s.seed_slot = move.slot
 	if not s.dance:
 		s.bag += faces.size() if from_hold else faces.size() - 1
+	_reveal(s)
+
+
+static func _reveal(s: HandState) -> void:
 	if target_met(s) and not s.revealed:
 		s.revealed = true
 		for x in s.slots:
