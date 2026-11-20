@@ -29,3 +29,57 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 			"reroll":
 				s.slots.append(_slot("reroll", cfg.reroll_need, 1, cfg.reroll_countdown, 0))
 	return s
+
+
+static func _is_skull(s: HandState, face: int) -> bool:
+	return face <= int(s.cfg.skull_faces)
+
+
+## A skull lands: it stays on the table and leaves your hand. Busts at bust_at, or on the Last Dance.
+static func _land_skull(s: HandState) -> void:
+	s.skulls += 1
+	s.in_hand -= 1
+	if s.skulls >= int(s.cfg.bust_at) or s.dance:
+		s.outcome = "bust"
+
+
+## Throws every die in hand; returns the non-skull faces. A one-die throw is the Last Dance.
+static func throw(s: HandState, rng) -> Array[int]:
+	s.throws += 1
+	s.dance = s.in_hand == 1
+	if s.dance:
+		s.dance_reached = true
+	var faces: Array[int] = []
+	for i in s.in_hand:
+		faces.append(rng.randi_range(1, 6))
+	var kept: Array[int] = []
+	for f in faces:
+		if _is_skull(s, f):
+			_land_skull(s)
+		else:
+			kept.append(f)
+	return kept
+
+
+static func is_dance(s: HandState) -> bool:
+	return s.dance
+
+
+## A face's worth: doubled on the Last Dance.
+static func value(s: HandState, face: int) -> int:
+	return face * 2 if s.dance else face
+
+
+## Spends a reroll token to rethrow faces[index]; a skull follows the throw rules. Returns the new faces.
+static func reroll(s: HandState, faces: Array[int], index: int, rng) -> Array[int]:
+	var out: Array[int] = faces.duplicate()
+	if s.rerolls <= 0 or index < 0 or index >= out.size():
+		return out
+	s.rerolls -= 1
+	var f: int = rng.randi_range(1, 6)
+	if _is_skull(s, f):
+		out.remove_at(index)
+		_land_skull(s)
+	else:
+		out[index] = f
+	return out
