@@ -6,7 +6,7 @@ const HandState = preload("res://hand/hand_state.gd")
 
 
 static func _slot(kind: String, need: int, cap: int, countdown: int, marks: int) -> Dictionary:
-	return {"kind": kind, "need": need, "dice": [], "cap": cap, "countdown": countdown, "marks": marks, "done": false, "gone": false}
+	return {"kind": kind, "need": need, "dice": [], "cap": cap, "countdown": countdown, "marks": marks, "done": false, "gone": false, "hidden": false}
 
 
 ## The Master lays out a hand: the Target, the Offering, then cfg.extras kinds from cfg.extra_pool.
@@ -24,8 +24,10 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 				s.slots.append(_slot("threat", cfg.threat_need, 1, cfg.threat_countdown, 0))
 			"pair":
 				s.slots.append(_slot("pair", 0, 2, cfg.pair_countdown, cfg.pair_marks))
+				s.slots[-1].hidden = cfg.get("prizes_after_target", false)
 			"sum":
 				s.slots.append(_slot("sum", cfg.sum_need, 2, cfg.sum_countdown, cfg.sum_marks))
+				s.slots[-1].hidden = cfg.get("prizes_after_target", false)
 			"reroll":
 				s.slots.append(_slot("reroll", cfg.reroll_need, 1, cfg.reroll_countdown, 0))
 	return s
@@ -85,8 +87,9 @@ static func reroll(s: HandState, faces: Array[int], index: int, rng) -> Array[in
 	return out
 
 
+## In play: not stopped or claimed, not gone, and not still hidden (prizes_after_target).
 static func _live(slot: Dictionary) -> bool:
-	return not slot.done and not slot.gone
+	return not slot.done and not slot.gone and not slot.get("hidden", false)
 
 
 ## Whether a die of this face may go in this slot now.
@@ -138,6 +141,9 @@ static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
 	match slot.kind:
 		"target":
 			s.progress += v
+			if target_met(s):
+				for sl in s.slots:
+					sl.hidden = false  # the Master reveals his prizes once the Target is met
 		"offering":
 			if move.bump >= 0:
 				s.slots[move.bump].countdown += 1

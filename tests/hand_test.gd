@@ -36,6 +36,7 @@ func _init() -> void:
 	test_strong_pushes_for_a_prize()
 	test_same_hand_per_policy()
 	test_playouts_finish_prizes()
+	test_prizes_after_target()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -260,3 +261,20 @@ func test_playouts_finish_prizes() -> void:
 	var f: Array[int] = [4, 6]
 	var m: Dictionary = Policies.push_policy().choose.call(s, f, Rules.legal_moves(s, f), _rng(1))
 	check("push: a die that finishes a prize goes there", m.slot == 2 and f[m.die] == 4)
+
+
+func test_prizes_after_target() -> void:
+	var s = Rules.new_hand(Config.merged({"prizes_after_target": true, "extra_pool": "pair,sum,threat", "extras": 3}), _rng(2))
+	var prizes: Array = s.slots.filter(func(x): return x.kind in ["pair", "sum"])
+	check("hidden prizes: laid out hidden", prizes.size() == 2 and prizes.all(func(x): return x.hidden))
+	var f: Array[int] = [3]
+	var to_prizes: Array = Rules.legal_moves(s, f).filter(func(m): return s.slots[m.slot].kind in ["pair", "sum"])
+	check("hidden prizes: take no dice", to_prizes.is_empty())
+	var cd: int = prizes[0].countdown
+	Rules.master_answer(s)
+	check("hidden prizes: no countdown while hidden", prizes[0].countdown == cd)
+	var big: Array[int] = [6, 6]
+	s.in_hand = 4
+	Rules.place(s, big, {"die": 0, "slot": 0, "bump": -1})
+	Rules.place(s, big, {"die": 1, "slot": 0, "bump": -1})
+	check("hidden prizes: revealed when the Target is met", prizes.all(func(x): return not x.hidden))

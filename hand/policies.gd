@@ -81,7 +81,7 @@ static func push_policy() -> Dictionary:
 
 static func _prize_open(s) -> bool:
 	for slot in s.slots:
-		if slot.kind in ["pair", "sum"] and not slot.done and not slot.gone:
+		if slot.kind in ["pair", "sum"] and Rules._live(slot):
 			return true
 	return false
 
