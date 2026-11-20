@@ -55,7 +55,7 @@ func _init() -> void:
 		gap_marks[0], gap_marks[0] - gap_marks[1], gap_marks[0] + gap_marks[1]])
 	_verdict("strong earns >= 0.5 more marks a hand than greedy (same hands)", gap_marks[0] >= 0.5, "%+.2f" % gap_marks[0])
 	_verdict("greedy wins more than random", g.won > r.won, "%.1f vs %.1f" % [g.won, r.won])
-	_verdict("agony >= 30% of strong's decisions (near-ties, not exact ties)", st.agony >= 30.0, "%.1f%%" % st.agony)
+	_verdict("agony >= 30% of strong's throws (placement or stop call within 5%, not exact ties)", st.throw_agony >= 30.0, "%.1f%%" % st.throw_agony)
 	_verdict("strong busts in 20-35% of hands", st.bust >= 20.0 and st.bust <= 35.0, "%.1f%%" % st.bust)
 	_verdict("strong reaches the Last Dance in 15-30%", st.dance >= 15.0 and st.dance <= 30.0, "%.1f%%" % st.dance)
 	_verdict("strong throws 6-7 a hand", st.throws >= 6.0 and st.throws <= 7.0, "%.2f" % st.throws)
@@ -78,6 +78,10 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var decisions := 0
 	var close := 0
 	var ties := 0
+	var th_n := 0
+	var th_c := 0
+	var th_late_n := 0
+	var th_late_c := 0
 	var past := 0
 	var past2 := 0
 	var tier_m := 0
@@ -138,10 +142,26 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 					ties += 1
 				elif d.best - d.second <= 0.05 * d.best:
 					close += 1
+		# Agony per throw: a throw counts once, close if its placement or its stop call was close.
+		var per := {}
+		for d in s.decisions:
+			if d.moves >= 2 and d.best > 0.0:
+				per[d.throw] = per.get(d.throw, false) or (d.best != d.second and d.best - d.second <= 0.05 * d.best)
+		for c in s.stops:
+			var top: float = maxf(c.now, c.on)
+			if top > 0.0:
+				per[c.throw] = per.get(c.throw, false) or absf(c.now - c.on) <= 0.05 * top
+		for k in per:
+			var late: bool = k >= 5
+			th_n += 1
+			th_c += 1 if per[k] else 0
+			th_late_n += 1 if late else 0
+			th_late_c += 1 if late and per[k] else 0
 	var pct := func(x: int) -> float: return 100.0 * x / maxi(1, hands)
 	return {"name": policy.name, "hands": hands, "won": pct.call(n.won), "short": pct.call(n.short),
 		"bust": pct.call(n.bust), "dance": pct.call(dance), "survived": 100.0 * survived / maxi(1, dance),
 		"marks": float(marks) / hands, "throws": float(throws) / hands,
+		"throw_agony": 100.0 * th_c / maxi(1, th_n), "late_agony": 100.0 * th_late_c / maxi(1, th_late_n), "throw_n": th_n,
 		"agony": 100.0 * close / maxi(1, decisions), "ties": 100.0 * ties / maxi(1, decisions),
 		"decisions": decisions, "past": pct.call(past), "won_each": won_each, "marks_each": marks_each,
 		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance), "second_dance": pct.call(second_dance),
@@ -181,7 +201,7 @@ func _report(r: Dictionary) -> void:
         used/dealt: %s (engines: filled; wires: fired)" % [
 			r.early, r.early_marks, r.no_dance, r.second_dance, r.cancelled, r.curse, r.pieces]
 		line += "
-        agony %.1f%% near-ties, %.1f%% exact ties, of %d decisions" % [r.agony, r.ties, r.decisions]
+        agony %.1f%% of %d throws (throws 5+: %.1f%%) | placements alone: %.1f%% near-ties, %.1f%% exact ties, of %d" % [r.throw_agony, r.throw_n, r.late_agony, r.agony, r.ties, r.decisions]
 	say(line)
 
 

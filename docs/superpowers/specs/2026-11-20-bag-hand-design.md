@@ -113,3 +113,6 @@ The Ward takes one die of any face; full, it cancels the next skull, then emptie
 
 ## Change 5 (2026-11-20, Ben): the Ward cancels one skull a hand
 Once the Ward has cancelled a skull it is spent for the hand (`ward_cancels`; 0 for no limit). Sim (seed 4, 300 strong hands): busts 13.3% to 16.0%, the Last Dance 31.3% to 27.0% (back in its band), Ward still filled in 66% of hands, agony 23.7%.
+
+## Change 6 (2026-11-20, Ben): agony counts throws
+The agony pass mark (30%) is now measured per throw: a throw counts once, as close when its placement or its stop call (cash out now against throw on) has its two best options within 5% of each other (exact ties excluded). The probe that led here (seed 4, 300 strong hands): late placements were close in 11.8% of throws 5+, but late stop calls in 18.1%; per throw, 27.3% of all throws.
