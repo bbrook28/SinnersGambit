@@ -5,8 +5,8 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 ## Kept
 - `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`; the Master of the Dance, the Danse Macabre Reaper, is in `assets/art/master/`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
 - Godot 4.7 stable (standard build, GDScript), 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad. Targets Android and iOS.
-- iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow still reads `VERSION` from `ui/version.gd`, which is gone: fix that before the next TestFlight build.
-- `ui/main.tscn` is a placeholder (the windows and fonts) so `project.godot` needs no change.
+- iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow reads `VERSION` from `ui/version.gd` (bump the minor for each build Ben plays) and runs `tests/load_check.gd`.
+- `ui/main.tscn` opens the playable greybox hand (`ui/hand_screen.gd`), with the guided first hand (`ui/tutorial.gd`). Screenshots: `godot --path . --resolution 1080x2340 --script res://tools/shots.gd` -> `build/shots/`.
 
 ## Design
 - The hand: the bag hand, `docs/superpowers/specs/2026-11-20-bag-hand-design.md` (approved), which replaces the first hand's rules in `2026-11-20-core-hand-design.md` (its goals and pass marks stand). Its rules: `hand/` (no UI; `rules.gd` static functions over `hand_state.gd`, every number in `config.gd`). The first hand's code is in git up to 9a0053e.
