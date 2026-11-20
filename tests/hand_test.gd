@@ -62,7 +62,7 @@ func test_new_hand_layout() -> void:
 	var cfg := Config.merged({})
 	var s = Rules.new_hand(cfg, _rng(7))
 	check("layout: slot count", s.slots.size() == 2 + cfg.extras)
-	check("layout: target first, need 12", s.slots[0].kind == "target" and s.slots[0].need == 12)
+	check("layout: target first, need 8", s.slots[0].kind == "target" and s.slots[0].need == 8)
 	check("layout: offering second", s.slots[1].kind == "offering")
 	check("layout: fresh hand", s.in_hand == 5 and s.skulls == 0 and s.outcome == "")
 	var t = Rules.new_hand(cfg, _rng(7))
