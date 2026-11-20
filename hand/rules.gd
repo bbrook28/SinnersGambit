@@ -60,3 +60,79 @@ static func _deal_wire(s: HandState, kind: String, seeded: int) -> void:
 ## What the Target needs now: its number, plus a fired Tax, minus Offerings.
 static func need(s: HandState) -> int:
 	return int(s.cfg.target) + (int(s.cfg.tax) if s.tax_on else 0) - s.offerings
+
+
+static func _has_wire(s: HandState, kind: String) -> bool:
+	return s.wires.any(func(w): return w.kind == kind)
+
+
+static func _ward_full(s: HandState) -> int:
+	for j in s.slots.size():
+		if s.slots[j].kind == "ward" and s.slots[j].dice.size() >= 2:
+			return j
+	return -1
+
+
+## A skull lands. A full Ward cancels it (the skull goes back to the bag, the Ward empties);
+## otherwise it stays on the table. Busts at bust_at, or at once if it is the Dance die.
+static func _land_skull(s: HandState, dance_die: bool) -> void:
+	if s.outcome != "":
+		return
+	var w := _ward_full(s)
+	if w >= 0:
+		s.slots[w].dice = []
+		s.bag += 1
+		s.cancelled += 1
+		return
+	s.skulls += 1
+	if s.skulls >= int(s.cfg.bust_at) or dance_die:
+		s.outcome = "bust"
+
+
+## Draws a handful from the bag and throws it; returns the non-skull faces. Under Curse, every die
+## waiting alone in an engine slot is rethrown too. Skulls land handful first, then cursed dice.
+static func throw(s: HandState, rng) -> Array[int]:
+	if _has_wire(s, "hunger") and target_met(s):
+		s.hunger_on = true
+	var n := mini(int(s.cfg.hunger_handful if s.hunger_on else s.cfg.handful), s.bag)
+	s.dance = n == 1 and s.bag == 1
+	if s.dance:
+		s.dance_reached = true
+	s.bag -= n
+	s.throws += 1
+	var kept: Array[int] = []
+	var skulls := 0
+	for i in n:
+		var f: int = rng.randi_range(1, 6)
+		if f <= int(s.cfg.skull_faces):
+			skulls += 1
+		else:
+			kept.append(f)
+	var curse_skulls := 0
+	if _has_wire(s, "curse"):
+		for slot in s.slots:
+			if slot.kind in ENGINES and slot.dice.size() == 1:
+				var f: int = rng.randi_range(1, 6)
+				if f <= int(s.cfg.curse_skull_faces):
+					slot.dice = []
+					curse_skulls += 1
+				elif slot.kind == "ladder" and f >= 6:
+					slot.dice = []
+					s.bag += 1
+				else:
+					slot.dice = [f]
+	for i in skulls:
+		_land_skull(s, s.dance)
+	for i in curse_skulls:
+		s.curse_skulls += 1
+		_land_skull(s, false)
+	return kept
+
+
+## A die's worth: doubled on the Last Dance, unless it is the held die.
+static func value(s: HandState, face: int, from_hold: bool) -> int:
+	return face * 2 if s.dance and not from_hold else face
+
+
+static func target_met(s: HandState) -> bool:
+	return s.progress >= need(s)

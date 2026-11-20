@@ -16,6 +16,12 @@ func check(name: String, ok: bool) -> void:
 
 func _init() -> void:
 	test_layout()
+	test_draw_and_skulls()
+	test_ward_cancels()
+	test_dance()
+	test_hunger()
+	test_curse()
+	test_curse_ladder_six()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -68,3 +74,73 @@ func test_layout() -> void:
 	c.slots[2].dice.append(3)
 	c.wire_pool.clear()
 	check("state: clone deep-copies slots and wires", s.slots[2].dice.is_empty() and s.wire_pool.size() == 2)
+
+
+func test_draw_and_skulls() -> void:
+	var s = _table(["ward", "ladder"], [])
+	var f: Array = Rules.throw(s, FixedRng.new([1, 4, 6]))
+	check("throw: draws 3, a skull stays", f == [4, 6] and s.skulls == 1 and s.bag == 5 and s.throws == 1)
+	var b = _table(["ward", "ladder"], [])
+	b.skulls = 2
+	Rules.throw(b, FixedRng.new([1, 4, 6]))
+	check("throw: the third skull busts", b.outcome == "bust" and b.skulls == 3)
+
+
+func test_ward_cancels() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.slots[2].dice = [3, 3]
+	s.skulls = 2
+	Rules.throw(s, FixedRng.new([1, 5, 2]))
+	check("ward: cancels the skull and empties, the skull goes back", s.outcome == "" and s.skulls == 2 and s.slots[2].dice.is_empty() and s.bag == 6 and s.cancelled == 1)
+	var t = _table(["ward", "ladder"], [])
+	t.slots[2].dice = [3, 3]
+	Rules.throw(t, FixedRng.new([1, 1, 4]))
+	check("ward: cancels only the first skull", t.skulls == 1 and t.cancelled == 1)
+
+
+func test_dance() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.bag = 1
+	var f: Array = Rules.throw(s, FixedRng.new([3]))
+	check("dance: the last die alone doubles", f == [3] and s.dance and s.dance_reached and Rules.value(s, 3, false) == 6 and Rules.value(s, 3, true) == 3)
+	var t = _table(["ward", "ladder"], [])
+	t.bag = 1
+	Rules.throw(t, FixedRng.new([1]))
+	check("dance: a skull busts outright", t.outcome == "bust")
+	var w = _table(["ward", "ladder"], [])
+	w.bag = 1
+	w.slots[2].dice = [4, 4]
+	Rules.throw(w, FixedRng.new([1]))
+	check("dance: a full Ward cancels the Dance's skull", w.outcome == "" and w.cancelled == 1)
+	var u = _table(["ward", "ladder"], [])
+	u.bag = 2
+	Rules.throw(u, FixedRng.new([4, 5]))
+	check("dance: emptying a bag of 2 is not a dance", not u.dance and u.bag == 0)
+
+
+func test_hunger() -> void:
+	var s = _table(["ward", "ladder"], ["hunger"])
+	s.progress = 16
+	var f: Array = Rules.throw(s, FixedRng.new([4, 4, 4, 4]))
+	check("hunger: past the Target, draws 4", f.size() == 4 and s.hunger_on and s.bag == 4)
+	var h = _table(["ward", "ladder"], ["hunger"])
+	h.progress = 16
+	h.bag = 1
+	Rules.throw(h, FixedRng.new([4]))
+	check("hunger: one die left is still the Dance", h.dance)
+
+
+func test_curse() -> void:
+	var s = _table(["hold", "ward"], ["curse"])
+	s.slots[2].dice = [5]
+	s.slots[3].dice = [4]
+	Rules.throw(s, FixedRng.new([3, 3, 3, 2, 6]))
+	check("curse: a held die rolling 2 is a skull and leaves Hold", s.skulls == 1 and s.slots[2].dice.is_empty() and s.curse_skulls == 1)
+	check("curse: a waiting die takes its new face", s.slots[3].dice == [6])
+
+
+func test_curse_ladder_six() -> void:
+	var s = _table(["ladder", "ward"], ["curse"])
+	s.slots[2].dice = [3]
+	Rules.throw(s, FixedRng.new([4, 4, 4, 6]))
+	check("curse: a lone 6 in the Ladder goes back to the bag", s.slots[2].dice.is_empty() and s.bag == 6)
