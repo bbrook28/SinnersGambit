@@ -50,6 +50,7 @@ func _init() -> void:
 	test_greedy_stops_at_tier1()
 	test_ward_within_one()
 	test_one_die_ward()
+	test_ward_cancels_once()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -466,3 +467,14 @@ func test_one_die_ward() -> void:
 	var g: Array[int] = [6, 2]
 	var m: Dictionary = Policies.push_policy().choose.call(e, g, Rules.legal_moves(e, g), _rng(1))
 	check("one-die ward: push does not treat an empty Ward as one die from full", e.slots[m.slot].kind == "target")
+
+
+func test_ward_cancels_once() -> void:
+	check("config: the Ward cancels one skull a hand", Config.DEFAULTS.ward_cancels == 1)
+	var s = _table(["ward", "ladder"], [])
+	s.slots[2].dice = [3, 3]
+	Rules.throw(s, FixedRng.new([1, 5, 5]))
+	var f: Array[int] = [5, 5]
+	check("ward: spent after one cancel, it takes no more dice", s.cancelled == 1 and _moves_to(Rules.legal_moves(s, f), 2).is_empty())
+	s.cfg = Config.merged({"handful": 3, "ward_cancels": 0})
+	check("ward: ward_cancels 0 has no limit", _moves_to(Rules.legal_moves(s, f), 2).size() == 2)

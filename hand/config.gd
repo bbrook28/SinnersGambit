@@ -14,6 +14,7 @@ const DEFAULTS := {
 	"pair_marks": 2,
 	"ward_dice": 1,         # dice that fill the Ward: one die of any face buys a cancelled skull (Ben, 2026-11-20; 2 was filled in 3% of hands)
 	                        # ward_spread applies only when this is 2
+	"ward_cancels": 1,      # skulls the Ward may cancel a hand; then it is spent (0: no limit)
 	"ward_spread": 1,       # the Ward's second die may be this many pips from the first (0: matching faces)
 	"sum_need": 8,
 	"sum_marks": 1,

@@ -188,6 +188,8 @@ static func _fits(s: HandState, slot: Dictionary, face: int, from_hold: bool) ->
 		"hold":
 			return not from_hold and slot.dice.is_empty()
 		"ward":
+			if int(s.cfg.ward_cancels) > 0 and s.cancelled >= int(s.cfg.ward_cancels):
+				return false  # spent: it has cancelled its skull this hand
 			return slot.dice.is_empty() or (slot.dice.size() == 1 and int(slot.cap) >= 2 and absi(int(slot.dice[0]) - face) <= int(s.cfg.ward_spread))
 		"ladder":
 			if slot.dice.is_empty():
