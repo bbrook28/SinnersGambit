@@ -9,7 +9,7 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 - `ui/main.tscn` is a placeholder (the windows and fonts) so `project.godot` needs no change.
 
 ## Design
-- The core hand: `docs/superpowers/specs/2026-11-20-core-hand-design.md` (approved). Its rules: `hand/` (no UI; `rules.gd` static functions over `hand_state.gd`, every number in `config.gd`).
+- The hand: the bag hand, `docs/superpowers/specs/2026-11-20-bag-hand-design.md` (approved), which replaces the first hand's rules in `2026-11-20-core-hand-design.md` (its goals and pass marks stand). Its rules: `hand/` (no UI; `rules.gd` static functions over `hand_state.gd`, every number in `config.gd`). The first hand's code is in git up to 9a0053e.
 
 ## Commands (godot = the Godot 4.7.2 console exe; `tests/run_all.sh` has the path)
 - Tests: `bash tests/run_all.sh`.
