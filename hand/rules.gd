@@ -30,6 +30,11 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 				s.slots[-1].hidden = cfg.get("prizes_after_target", false)
 			"reroll":
 				s.slots.append(_slot("reroll", cfg.reroll_need, 1, cfg.reroll_countdown, 0))
+	var face_up := int(cfg.get("open_prizes", 0))
+	for sl in s.slots:
+		if face_up > 0 and sl.hidden:
+			sl.hidden = false
+			face_up -= 1
 	return s
 
 

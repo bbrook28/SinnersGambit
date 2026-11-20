@@ -20,6 +20,7 @@ const DEFAULTS := {
 	"reroll_countdown": 2,
 	"extra_pool": "threat,threat,pair,sum,reroll",
 	"prizes_after_target": true,  # pair and sum prizes stay hidden until the Target is met (Ben, 2026-11-20)
+	"open_prizes": 0,       # of those, how many the Master lays face up from the start
 	"rollouts": 64,         # the strong policy's playouts per option
 }
 

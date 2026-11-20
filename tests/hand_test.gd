@@ -38,6 +38,7 @@ func _init() -> void:
 	test_playouts_finish_prizes()
 	test_prizes_after_target()
 	test_target_band()
+	test_open_prizes()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -301,3 +302,14 @@ func test_target_band() -> void:
 	var gf: Array[int] = [6, 3]
 	var gm: Dictionary = Policies.greedy_move(g, gf, Rules.legal_moves(g, gf))
 	check("band: greedy feeds the Target the highest die it takes", gm.slot == 0 and gf[gm.die] == 3)
+
+
+func test_open_prizes() -> void:
+	check("config: no prize open by default", Config.DEFAULTS.open_prizes == 0)
+	var s = Rules.new_hand(Config.merged({"open_prizes": 1, "extra_pool": "pair,sum,threat", "extras": 3}), _rng(2))
+	var prizes: Array = s.slots.filter(func(x): return x.kind in ["pair", "sum"])
+	check("open prize: exactly one of two prizes face up", prizes.filter(func(x): return not x.hidden).size() == 1)
+	var open: Dictionary = prizes.filter(func(x): return not x.hidden)[0]
+	var cd: int = open.countdown
+	Rules.master_answer(s)
+	check("open prize: its countdown runs before the Target", open.countdown == cd - 1)
