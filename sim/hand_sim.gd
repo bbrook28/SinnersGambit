@@ -82,6 +82,14 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var th_c := 0
 	var th_late_n := 0
 	var th_late_c := 0
+	var lp_n := 0  # placements on throws 5+ with 2+ options
+	var lp_c := 0
+	var ls_n := 0  # stop calls on throws 5+
+	var ls_c := 0
+	var ro_n := 0  # placements where Last Rites was open
+	var ro_take := 0
+	var ro_close := 0
+	var rites_bust := 0
 	var past := 0
 	var past2 := 0
 	var tier_m := 0
@@ -156,6 +164,27 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 			var top: float = maxf(c.now, c.on)
 			if top > 0.0:
 				per[c.throw] = per.get(c.throw, false) or absf(c.now - c.on) <= 0.05 * top
+		rites_bust += s.rites_busts
+		for d in s.decisions:
+			if d.moves >= 2 and d.best > 0.0 and d.throw >= 5:
+				lp_n += 1
+				lp_c += 1 if d.best != d.second and d.best - d.second <= 0.05 * d.best else 0
+			var r_best := -INF
+			var o_best := -INF
+			for oi in d.options.size():
+				if s.slots[d.options[oi].slot].kind == "rites":
+					r_best = maxf(r_best, d.values[oi])
+				else:
+					o_best = maxf(o_best, d.values[oi])
+			if r_best > -INF and o_best > -INF:
+				ro_n += 1
+				ro_take += 1 if r_best > o_best else 0
+				var top := maxf(r_best, o_best)
+				ro_close += 1 if top > 0.0 and absf(r_best - o_best) <= 0.05 * top else 0
+		for c in s.stops:
+			if c.throw >= 5 and maxf(c.now, c.on) > 0.0:
+				ls_n += 1
+				ls_c += 1 if absf(c.now - c.on) <= 0.05 * maxf(c.now, c.on) else 0
 		for k in per:
 			var late: bool = k >= 5
 			th_n += 1
@@ -171,10 +200,13 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		"decisions": decisions, "past": pct.call(past), "won_each": won_each, "marks_each": marks_each,
 		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance), "second_dance": pct.call(second_dance),
 		"cancelled": float(cancelled) / maxi(1, hands), "curse": float(curse) / maxi(1, hands),
+		"late_place": 100.0 * lp_c / maxi(1, lp_n), "late_stop": 100.0 * ls_c / maxi(1, ls_n),
+		"rites": "Last Rites open at %d placements: taken %.1f%%, within 5%% of the best other move %.1f%% | Rites busts %.1f%% of hands" % [
+			ro_n, 100.0 * ro_take / maxi(1, ro_n), 100.0 * ro_close / maxi(1, ro_n), pct.call(rites_bust)],
 		"late_sk": float(late_sk) / maxi(1, hands), "late_bust": pct.call(late_bust),
 		"past2": pct.call(past2), "tier_m": float(tier_m) / maxi(1, hands), "prize_m": float(prize_m) / maxi(1, hands),
 		"tiers": "won at Tier 1 %.1f%%, Tier 2 %.1f%%, Tier 3 %.1f%%" % [pct.call(tier_n.get(1, 0)), pct.call(tier_n.get(2, 0)), pct.call(tier_n.get(3, 0))],
-		"pieces": " ".join(["hold", "ward", "ladder", "tax", "hunger", "curse"].map(func(k):
+		"pieces": " ".join(["hold", "ward", "ladder", "rites", "tax", "hunger", "curse"].map(func(k):
 			return "%s %d%%/%d" % [k, 100 * used.get(k, 0) / maxi(1, dealt.get(k, 0)), dealt.get(k, 0)]))}
 
 
@@ -207,7 +239,9 @@ func _report(r: Dictionary) -> void:
         used/dealt: %s (engines: filled; wires: fired)" % [
 			r.early, r.early_marks, r.no_dance, r.second_dance, r.cancelled, r.curse, r.late_sk, r.late_bust, r.pieces]
 		line += "
-        agony %.1f%% of %d throws (throws 5+: %.1f%%) | placements alone: %.1f%% near-ties, %.1f%% exact ties, of %d" % [r.throw_agony, r.throw_n, r.late_agony, r.agony, r.ties, r.decisions]
+        agony %.1f%% of %d throws (throws 5+: %.1f%%; placements %.1f%%, stop calls %.1f%%) | placements alone: %.1f%% near-ties, %.1f%% exact ties, of %d" % [r.throw_agony, r.throw_n, r.late_agony, r.late_place, r.late_stop, r.agony, r.ties, r.decisions]
+		line += "
+        " + r.rites
 	say(line)
 
 

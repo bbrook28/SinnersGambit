@@ -54,6 +54,7 @@ func _init() -> void:
 	test_strong_records_stops()
 	test_skull_strips()
 	test_late_wire()
+	test_last_rites()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -529,3 +530,52 @@ func test_late_wire() -> void:
 	c.slots[2].dice = [4]
 	Rules.throw(c, FixedRng.new([4, 5, 6, 2]))
 	check("late: a cursed 2 is one Curse skull, not counted as a late skull", c.skulls == 1 and c.curse_skulls == 1 and c.late_skulls == 0)
+
+
+## Last Rites: the table's Target, Offering, Last Rites, a Ladder.
+func _rites_table():
+	var s = _table(["rites", "ladder"], [])
+	s.cfg = Config.merged({"handful": 3})
+	return s
+
+
+func test_last_rites() -> void:
+	check("config: Last Rites is not dealt by default", not ("rites" in Config.DEFAULTS.engine_pool.split(",")))
+	check("config: Last Rites opens from a bag of 3, x3", Config.DEFAULTS.rites_bag == 3 and Config.DEFAULTS.rites_mult == 3)
+	var s = _rites_table()
+	s.bag = 4
+	var f: Array[int] = Rules.throw(s, FixedRng.new([4, 5, 6]))
+	check("rites: closed after a throw from a bag of 4", _moves_to(Rules.legal_moves(s, f), 2).is_empty())
+	s.bag = 3
+	f = Rules.throw(s, FixedRng.new([4, 5, 6]))
+	check("rites: open after a throw from a bag of 3 (checked before the draw)", _moves_to(Rules.legal_moves(s, f), 2).size() == 3)
+	s.slots[3].dice = [2, 3]  # a full Ladder: Rites replaces its doubling
+	Rules.place(s, f, {"die": 0, "slot": 2})
+	check("rites: the die counts x3 toward the Target, no other doubling", s.progress == 12 and s.target_dice == [12] and s.rites_armed)
+	check("rites: one die a hand", _moves_to(Rules.legal_moves(s, [5] as Array[int]), 2).is_empty())
+	var b = _rites_table()
+	b.bag = 3
+	f = Rules.throw(b, FixedRng.new([4, 5, 6]))
+	Rules.place(b, f, {"die": 0, "slot": 2})
+	Rules.throw(b, FixedRng.new([1, 5]))
+	check("rites: armed, the next uncancelled skull busts outright", b.outcome == "bust" and b.skulls == 1 and b.rites_busts == 1)
+	var w = _table(["rites", "ward"], [])
+	w.cfg = Config.merged({"handful": 3, "ward_dice": 1})
+	w.slots[3].cap = 1
+	w.slots[3].dice = [4]
+	w.bag = 3
+	f = Rules.throw(w, FixedRng.new([4, 5, 6]))
+	Rules.place(w, f, {"die": 0, "slot": 2})
+	Rules.throw(w, FixedRng.new([1, 5]))
+	check("rites: a full Ward cancels that skull", w.outcome == "" and w.skulls == 0 and w.cancelled == 1)
+	var c = _rites_table()
+	c.bag = 3
+	f = Rules.throw(c, FixedRng.new([4, 5, 6]))
+	Rules.place(c, f, {"die": 2, "slot": 2})
+	Rules.cash_out(c)
+	check("rites: cashing out after it wins normally", c.outcome == "won" and c.progress == 18)
+	var d = _rites_table()
+	d.bag = 1
+	f = Rules.throw(d, FixedRng.new([5]))
+	Rules.place(d, f, {"die": 0, "slot": 2})
+	check("rites: the Dance die counts x3, not x6", d.dance and d.progress == 15)

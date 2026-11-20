@@ -116,3 +116,8 @@ Once the Ward has cancelled a skull it is spent for the hand (`ward_cancels`; 0 
 
 ## Change 6 (2026-11-20, Ben): agony counts throws
 The agony pass mark (30%) is now measured per throw: a throw counts once, as close when its placement or its stop call (cash out now against throw on) has its two best options within 5% of each other (exact ties excluded). The probe that led here (seed 4, 300 strong hands): late placements were close in 11.8% of throws 5+, but late stop calls in 18.1%; per throw, 27.3% of all throws.
+
+## Trials (2026-11-20, off by default; seed 4, 300 strong hands, against today's 27.3% agony, 23.5% on throws 5+, 16.0% busts)
+- **Skull strips** (`skull_strips`): past Tier 1 a skull takes the last Target die off. Busts 16.3%, late agony 20.9%, the Ward filled in 96% of hands: strong insures instead.
+- **Late wire** (`late_bag 3`): a throw from a bag of 3 or fewer (checked before the draw) counts 2s as skulls; Curse keeps its own rule. Busts 20.0%, agony 25.0%, late 23.0%: strong cashes out before it.
+- **Last Rites** (engine kind `rites`, `rites_bag 3`, `rites_mult`): one thrown die, only from a throw whose bag held 3 or fewer before the draw; it counts `rites_mult` times its pips toward the Target instead of any doubling, and from then on the next uncancelled skull busts outright (a Ward can cancel it; cashing out wins normally). Trial pool rites,ward,ladder (Hold out). x2: taken at 34% of the placements where it was open, close to the best other move at 42%; agony 25.0%, late 23.9%, busts 13.3%, Rites busts 0.3% of hands. x3: taken 56%, close 30%; agony 26.0%, late 27.4%, busts 13.3%, Rites busts 0.7%, marks 4.73. The fork is real, but strong takes Rites and cashes out at once, so its threat almost never bites.

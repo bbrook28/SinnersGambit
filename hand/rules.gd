@@ -3,7 +3,7 @@ extends RefCounted
 
 const HandState = preload("res://hand/hand_state.gd")
 
-const ENGINES := ["hold", "ward", "ladder"]
+const ENGINES := ["hold", "ward", "ladder", "rites"]
 
 
 static func _slot(kind: String, need: int, cap: int, marks: int) -> Dictionary:
@@ -28,7 +28,7 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 	var engines := _pool(cfg.engine_pool)
 	for i in mini(int(cfg.engines), engines.size()):
 		var k := _draw(engines, rng)
-		s.slots.append(_slot(k, 0, {"hold": 1, "ward": int(cfg.ward_dice)}.get(k, 2), 0))
+		s.slots.append(_slot(k, 0, {"hold": 1, "rites": 1, "ward": int(cfg.ward_dice)}.get(k, 2), 0))
 	var prizes := _pool(cfg.prize_pool)
 	if not prizes.is_empty():
 		var p := _draw(prizes, rng)
@@ -115,6 +115,9 @@ static func _land_skull(s: HandState, dance_die: bool) -> void:
 	s.skulls += 1
 	if s.skulls >= int(s.cfg.bust_at) or dance_die:
 		s.outcome = "bust"
+	elif s.rites_armed:
+		s.outcome = "bust"
+		s.rites_busts += 1
 	elif s.cfg.get("skull_strips", false) and tier(s) >= 1 and not s.target_dice.is_empty():
 		s.progress -= int(s.target_dice.pop_back())  # past Tier 1, the skull takes your last Target die (it leaves the hand)
 
@@ -125,6 +128,7 @@ static func throw(s: HandState, rng) -> Array[int]:
 	if _has_wire(s, "hunger") and tier(s) >= 2:
 		s.hunger_on = true
 	s.pushed = maxi(s.pushed, tier(s))
+	s.throw_bag = s.bag
 	var skull_face := int(s.cfg.skull_faces)
 	if s.bag <= int(s.cfg.get("late_bag", 0)):
 		s.late_on = true  # the late wire: checked before the draw
@@ -195,6 +199,8 @@ static func _fits(s: HandState, slot: Dictionary, face: int, from_hold: bool) ->
 			return true
 		"hold":
 			return not from_hold and slot.dice.is_empty()
+		"rites":
+			return not from_hold and slot.dice.is_empty() and s.throw_bag <= int(s.cfg.rites_bag)
 		"ward":
 			if int(s.cfg.ward_cancels) > 0 and s.cancelled >= int(s.cfg.ward_cancels):
 				return false  # spent: it has cancelled its skull this hand
@@ -252,6 +258,16 @@ static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
 			s.target_dice.append(add)
 		"offering":
 			s.offerings += 1
+		"rites":
+			var add := face * int(s.cfg.rites_mult)  # instead of the Ladder's or the Dance's doubling
+			s.progress += add
+			s.target_dice.append(add)
+			slot.dice.append(face)
+			slot.fills += 1
+			s.rites_armed = true
+			if not s.seeded:
+				s.seeded = true
+				s.seed_slot = move.slot
 		_:
 			slot.dice.append(v if slot.kind in ["ladder", "sum"] else face)
 			if slot.dice.size() >= int(slot.cap):

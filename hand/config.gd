@@ -21,6 +21,9 @@ const DEFAULTS := {
 	"skull_strips": false,  # trial: past Tier 1, a skull that is not cancelled takes the last Target die off (it leaves the hand)
 	"late_bag": 0,          # trial late wire, on the table from the start: a throw from a bag of this many or fewer (checked before the draw)
 	"late_skull_faces": 2,  #   counts faces 1..this as skulls (0 for late_bag: no late wire)
+	"rites_bag": 3,         # Last Rites (trial engine kind "rites"): takes one thrown die, only from a throw whose bag held this many or fewer
+	"rites_mult": 3,        #   (checked before the draw); it counts this many times its pips toward the Target, instead of any doubling,
+	                        #   and from then on the next uncancelled skull busts you
 	"engines": 2,           # engine slots dealt per hand
 	"engine_pool": "hold,ward,ladder",
 	"prize_pool": "pair,sum",
