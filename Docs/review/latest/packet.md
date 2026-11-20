@@ -1,30 +1,24 @@
-# Packet: REPLY 43, the playable build (local only, 0 credits, no push)
-**Built** (c6bb2e3, 8eaf5ac, b820a70, 012404f, ac9fc0f, 232649c): the final round runs from the leader down, and the Master names first and last. Fall, hex, the raise and the Master's credit (to -150) are in `core/game.gd`, offered only to a single human seat, so bot sims are unchanged. A rival's turn runs as held beats, with the token pulse, the stake flying to its own token, the slide with a counting label, and the kept half on a bust. Also built: the slip with the 0.6 s guard, the chip, a win shown in deep gold and a loss in red, the hex beat, the tokens' rings, the restack after the slide, the open row, and the Master's table of 4. Save version is now 6, because bets add answers; an older Continue save is not offered.
-**Deviations:** one change per commit was not possible: the pieces share `main.gd`, `table_play.gd` and `table_blockout.gd`, so they landed as six commits by file set. The slip now rises in 0.1 s, so its guard fills 0.7 s after the rise starts; that is the only way both halves of the test spec hold. New wording: the raise is "{Sin}'s fall, now?"; the pick lines are "It beat you last time.", "You've beaten it least.", "Not faced in two tables." and "The dice chose it."; plus five final-order lines.
-**Suite:** 15 of 15 pass. New: `tests/oot_guard_check.gd`. With the guard: no bet from presses begun at 0.01-0.58 s, including one held to 0.8 s, and one tap at 0.9 s takes it. With `--noguard`, part (A) fails, as required.
-**Pace floors** (raised in b820a70, with the beats): median bot turn 6.5 s, match 267 s with every bet passed (before: 2.8 s and 183 s). The floors went from 2.0 s / 120 s to 3.0 s / 180 s.
-**Goldens:** `tests/golden/` holds none (nothing approved yet), so `gallery --check` compares nothing.
-**Text audit** (10 table fixtures, SE and std): clean except "Take" at 2.0:1 in `table_oot_guard`. That fixture shows the slip mid-guard, where the seals are pale by design.
-**Evidence:**
-- `sheet_se.png` and `sheet_std.png`: a rival beat, a bet offered, the guard at 0.4 s, an open bet, the hex offer, the Master's pick, the final round, tokens at 4 and at 7 after a slide, and the open. `shots/` holds every frame at device size.
-- `clip.mp4` (3 s, SE) and `clip_frames.png`: at 7, Gluttony banks 180; the token pulses, "+180" flies, the token slides, then the track restacks.
-
-**Report**
-- During the slide the token leaves its stem behind until the restack.
-- At 7, the restack after the slide moves Envy down a row as Gluttony rises.
-- In `table_final_order`, the "550" post label sits under the crimson post, as it did before this build.
-- The chip covers the foot of the rival's window art.
-- At the open, both token rows' rings sit at least 31 SE px from the page edge (rival row 36, mine 31).
-
-**Item 4, the composite** (unwired; no art work done):
-- The pink beam reduced to a faint wash is intended. REPLY 33 asked for a soft light in place of the hard shaft. The composite lays an elliptical falloff from the active window's foot, at most 0.30, and that one number sets its strength.
-- Die state: the composite pasted try 2's painted dice without today's underlines (gold for a scorer, crimson for a Strike), so it shows none. Once wired, the table would draw the underlines over the art.
-- SE lock boxes against the border's inner edge (26 SE px in; the rule is 12 SE px from an edge):
-  - "1000": the box runs 22 px past and the ink 6 px past.
-  - Bank and Throw: each box runs 15 px past. Their words sit centred inside, clear of the border.
-- The blots at the foot are in try 2's painted page: the REPLY 34 refill stops at the dice, so both corners are as try 2 painted them.
-
+# Packet: the top-down audit and three rework directions (no code changed)
+**Your brief** (interview, confirmed): the pace is the wait through rivals' turns; cut the bets; the rest arrives too fast and explains itself badly; the look is cluttered, half-finished and hard to read; keep only the glass Sin art and the fonts; every rule is negotiable. Full findings, ranked: `audit.md`.
+**Critical findings:**
+1. **Watching beats playing.** The rules make a 1.6-min match (sim), but the real UI takes 267 s, with a 6.5 s median bot turn and 20.75 s between two of your decisions. The bets were built to fill that wait.
+2. **It teaches nothing, and some of it is wrong.** Onboarding was approved and never built; there is no hold-to-explain. Setup says "First to 1000" and the track ends at 1000, but V5 ends on the Master's call at 550, with totals up to 1725 (sheet panels 1 and 5).
+3. **Thin choices, mostly luck.** About 2 throws a turn; best play wins 30.1% against a fair 25% (target 35-45). Claims come 0.14 a game.
+4. **Half-built presentation over the old board's scaffolding.** The table is a layer over the old board. The text audit fails 43 of 94 fixtures at SE, including the offer, setup and rulebook.
+5. **v1 is unbuilt:** the Solo ladder, pass-and-play and onboarding are "not started", while 158 commits went to the table and bets.
+**Should fix:** 7 seats are broken (Greed 30.6% against a fair 14.3%); the design doc holds three rulesets; the UI reads game events by regex over the text log; `main.gd` is 3,825 lines; core carries rules V2 to V5; the table layer makes no sound; the SE text audit crashes in my REPLY 43 clip fixture.
+**Remove one thing:** the multi-seat table in Solo; go heads-up. **Biggest unknown:** whether a duel is tense enough. Cheapest test: a greybox duel on today's core.
+**Code:** keep `core/`, `sins/`, `ai/`, the sims, the beat queue, `rules_text`, the tools and the art. Replace `main.gd`, the table layer with the old board, and the regex events. Suite: 15 of 15.
+**Process:** yes, it is part of the problem.
+- In 5 days: 39 rounds, and 28% of commits were packets. Three rounds went on a version label.
+- The layout was locked before the rules and pacing, and nothing tests whether it's fun.
+- Change to weekly playable milestones, greybox first, decisions rather than placement.
+**Directions, smallest to boldest:**
+- A, strip and finish: 2-3 weeks.
+- B, the duel ladder: greybox 1-2 days, v1 about 4-6 weeks.
+- C, a new dice game: 2-3 months.
+**Evidence:** `sheet.png` (setup, decision at 7, a rival turn, an offer and the game end, all at SE in the table build); `clip.mp4` (one rival bank, 4 s); `text_audit_se.txt`, `text_audit_max.txt`, `sim_check_v4.txt`, `sim_agency.txt`. The REPLY 43 packet moved, unreviewed, to `review/reply43/`.
 **Questions**
-1. Bets are on in the First Game too. Rec: turn them off in game one, as powers and temptations are.
-2. Should the stem travel with its token during the slide? Rec: yes, in the next pass.
-3. A TestFlight build once Ben has played it locally? Rec: yes, on his word only.
+1. Which direction? Rec: B, the duel ladder.
+2. May the greybox duel touch `core/` for typed events and a 2-seat option? Rec: no, not for the greybox (today's core already runs 2 seats); yes for the build after it.
+3. Change the working loop to weekly playable milestones now? Rec: yes, starting with the greybox.
