@@ -3,7 +3,7 @@ A clean slate (2026-11-20): still a dice game with the Seven Sins in stained gla
 The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinners-gambit-v1`; read it with `git show archive/sinners-gambit-v1:<path>`, never restore it wholesale.
 
 ## Kept
-- `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
+- `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`; the Master of the Dance, the Danse Macabre Reaper, is in `assets/art/master/`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
 - Godot 4.7 stable (standard build, GDScript), 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad. Targets Android and iOS.
 - iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow still reads `VERSION` from `ui/version.gd`, which is gone: fix that before the next TestFlight build.
 - `ui/main.tscn` is a placeholder (the windows and fonts) so `project.godot` needs no change.
