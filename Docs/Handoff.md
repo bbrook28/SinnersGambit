@@ -20,6 +20,7 @@ Read `CLAUDE.md` first. Phase list: `Docs/UXPlan.md`. The per-step log to 2026-1
 - **"Greater" is still on screen** in the rulebook and glossary (`ui/rules_text.gd:104-107,199`), though `Docs/TableDesign.md` §1 plans to remove it.
 - **Balance (V4):** 7 seats are off (Greed 29.4 vs 14.3 fair); claims come 0.14 a game against a 0.5-1.5 target.
 - **Old board (replaced by the table, not fixed):** labels under 15 pt, dimmed text under 4.5:1 contrast, a synthetic 12-dice layout with 5 pt gaps, a Buy-dice list of 7-8+ options running past the safe area. Full list: `build/audit/<size>.txt`.
+- **Settings Back seal at SE:** it hangs over the page's lower edge, and its caption ends 11.5 pt above the screen bottom, under the 16 pt margin (REPLY 46). Not fixed: needs Ben's word.
 
 ## Budgets
 - SpriteCook: 572 credits left. No credits on portraits until the clean-up pass.
