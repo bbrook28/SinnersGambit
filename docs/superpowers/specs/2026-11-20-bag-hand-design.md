@@ -110,3 +110,6 @@ With tiers, a policy that takes a safe Tier 1 win and stops posts a higher win r
 
 ## Change 4 (2026-11-20, Ben): a one-die Ward
 The Ward takes one die of any face; full, it cancels the next skull, then empties (`ward_dice`; 2 keeps the two-die Ward of change 3). A Tax only ever watches a 2-die slot (the Ladder, or a two-die Ward), and Curse leaves a full Ward alone. From the sim (seed 4, 300 strong hands): the two-die Ward was filled in 3% of hands, the one-die Ward in 66%; agony on throws 1-2 rose from 20.8% to 25.9%. It costs safety: busts fell to 13% and the Last Dance rose to 31%, both outside their bands, the next thing to fix.
+
+## Change 5 (2026-11-20, Ben): the Ward cancels one skull a hand
+Once the Ward has cancelled a skull it is spent for the hand (`ward_cancels`; 0 for no limit). Sim (seed 4, 300 strong hands): busts 13.3% to 16.0%, the Last Dance 31.3% to 27.0% (back in its band), Ward still filled in 66% of hands, agony 23.7%.
