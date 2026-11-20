@@ -103,3 +103,7 @@ Why: the first baseline (seed 4) met 2 of 6 pass marks. A hand that can stop at 
 
 ## Change 2 (2026-11-20, Ben): the skill pass mark is marks, not win rate
 With tiers, a policy that takes a safe Tier 1 win and stops posts a higher win rate while leaving marks behind, so win rate no longer measures skill. The pass mark "strong beats greedy by at least 10 points of win rate" becomes "strong earns at least 0.5 more marks a hand than greedy on the same hands" (the 0.5 is my call). The sim still reports the win-rate gap.
+
+## Change 3 (2026-11-20, Ben): a handful of 2; the Ward takes two dice within 1 pip
+- **Handful 2** is the default (sweep, seed 4, 300 strong hands, tiers 10/18/26: 4 of 6 pass marks against fewer for 3; a 9-die bag barely lengthened hands and dropped busts and the Dance below their bands, so the bag stays 8).
+- **Ward:** two dice, the second within 1 pip of the first (`ward_spread`; a 4 takes a 3, 4 or 5). With two dice drawn a throw, matching faces filled it in 0 of 192 hands. A lone Ward die rethrown by Curse still fits whatever its new face; only a Curse skull (a 1 or 2) breaks it.

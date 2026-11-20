@@ -48,6 +48,7 @@ func _init() -> void:
 	test_tax_drops_a_tier()
 	test_push_toward_next_tier()
 	test_greedy_stops_at_tier1()
+	test_ward_within_one()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -68,9 +69,9 @@ func _rng(seed_value: int) -> RandomNumberGenerator:
 
 
 ## A fresh hand whose table is the Target, the Offering, the given engine kinds and a hidden Pair,
-## with the given wires dealt and none left to deal.
+## with the given wires dealt and none left to deal. A handful of 3, so the throw tests' dice counts read simply.
 func _table(engines: Array, wire_kinds: Array):
-	var s = Rules.new_hand(Config.merged({}), _rng(1))
+	var s = Rules.new_hand(Config.merged({"handful": 3}), _rng(1))
 	s.slots = [Rules._slot("target", 0, 0, 0), Rules._slot("offering", 0, 0, 0)]
 	for k in engines:
 		s.slots.append(Rules._slot(k, 0, 1 if k == "hold" else 2, 0))
@@ -280,7 +281,7 @@ func test_tax_unmeets() -> void:
 
 
 func test_all_skulls_ends() -> void:
-	var s = Play.play_hand(Config.merged({"skull_faces": 6}), Policies.random_policy(), _rng(1))
+	var s = Play.play_hand(Config.merged({"skull_faces": 6, "handful": 3}), Policies.random_policy(), _rng(1))
 	check("play: an all-skull hand busts", s.outcome == "bust" and s.throws == 1)
 	var w = Play.play_hand(Config.merged({"skull_faces": 6, "bust_at": 99}), Policies.random_policy(), _rng(1))
 	check("play: skulls that never bust still end the hand", w.outcome == "short" and w.bag == 0)
@@ -379,7 +380,7 @@ func test_push_seeds_prize() -> void:
 
 func test_held_on_all_skulls() -> void:
 	var s = _table(["hold", "ward"], [])
-	s.cfg = Config.merged({"bust_at": 5})
+	s.cfg = Config.merged({"bust_at": 5, "handful": 3})
 	s.slots[2].dice = [5]
 	s.progress = 12
 	Play.play_from(s, Policies.greedy_policy(), FixedRng.new([1, 1, 1]), false)
@@ -432,3 +433,13 @@ func test_greedy_stops_at_tier1() -> void:
 	var s = _table(["ward", "ladder"], [])
 	s.progress = 10
 	check("greedy: stops at Tier 1", Policies.greedy_policy().stop.call(s, _rng(1)))
+
+
+func test_ward_within_one() -> void:
+	check("config: a handful of 2, Ward within 1 pip, by default", Config.DEFAULTS.handful == 2 and Config.DEFAULTS.ward_spread == 1)
+	var s = _table(["ward", "ladder"], [])
+	s.slots[2].dice = [4]
+	var f: Array[int] = [3, 5, 6, 2]
+	check("ward: a 4 takes a 3 or a 5, not a 6 or a 2", _moves_to(Rules.legal_moves(s, f), 2).map(func(m): return f[m.die]) == [3, 5])
+	s.cfg = Config.merged({"ward_spread": 0})
+	check("ward: spread 0 is matching faces", _moves_to(Rules.legal_moves(s, f), 2).is_empty())

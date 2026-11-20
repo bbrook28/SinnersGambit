@@ -183,7 +183,7 @@ static func _fits(s: HandState, slot: Dictionary, face: int, from_hold: bool) ->
 		"hold":
 			return not from_hold and slot.dice.is_empty()
 		"ward":
-			return slot.dice.is_empty() or (slot.dice.size() == 1 and int(slot.dice[0]) == face)
+			return slot.dice.is_empty() or (slot.dice.size() == 1 and absi(int(slot.dice[0]) - face) <= int(s.cfg.ward_spread))
 		"ladder":
 			if slot.dice.is_empty():
 				return v <= 5
