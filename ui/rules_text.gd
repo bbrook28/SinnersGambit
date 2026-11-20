@@ -582,6 +582,8 @@ const TABLE := {
 	"chip_die": "-1 die\nat turn end",
 	"hubris_name": "Name {n}",
 	"you_lower": "you",
+	"version": "{version} ({build}) {commit}",
+	"version_local": "local",
 	"bet_fall_title": "{sin}'s fall?",
 	"bet_fall_sub": "Stake {stake}, wins {pay}",
 	"bet_raise_title": "{sin}'s fall, now?",

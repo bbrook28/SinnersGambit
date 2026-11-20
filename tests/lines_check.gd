@@ -61,7 +61,7 @@ func _initialize() -> void:
 		if not (id in Temptations.all_ids()):
 			fails.append("words for unknown offer %s" % id)
 	for k in T.TABLE:
-		if T.table(k, {"n": 1, "sin": "Wrath", "claim": "x", "pts": 80, "strikes": "1 Strike", "me": 30, "lead": 665, "stake": 50, "pay": 65, "face": 6, "cost": 60}).find("{") >= 0:
+		if T.table(k, {"n": 1, "sin": "Wrath", "claim": "x", "pts": 80, "strikes": "1 Strike", "me": 30, "lead": 665, "stake": 50, "pay": 65, "face": 6, "cost": 60, "version": "0.6.0", "build": "local", "commit": "abc1234"}).find("{") >= 0:
 			fails.append("table word %s unfilled" % k)
 	# The Master of the Dance (TableDesign §10): 5 lines an event, 6 words max, none twice, all filled;
 	# each power line beside the seal 10 words max.

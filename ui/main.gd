@@ -50,6 +50,7 @@ const SIN_SCRIPTS := [
 ]
 ## Every rule, term and ability sentence lives in ui/rules_text.gd (numbers from the config).
 const RulesText = preload("res://ui/rules_text.gd")
+const Version = preload("res://ui/version.gd")
 const Rulebook = preload("res://ui/rulebook.gd")
 const ExplainCard = preload("res://ui/explain_card.gd")
 const LONG_PRESS := 0.45          # hold this long anywhere to explain what's under your finger
@@ -715,6 +716,20 @@ func _open_settings() -> void:
 	var bc := CenterContainer.new()
 	bc.add_child(_caption_room(back))
 	v.add_child(bc)
+	# The version, build and short commit in the dark above the page, centred, 16 pt clear of the page and below
+	# the safe inset (REPLY 46: under the heading it stood 3.5 pt from the flourish at SE, under the 10 pt floor).
+	var vp := get_viewport_rect().size
+	var pt := vp.x / 375.0  # px per pt: the SE screen is 375 pt wide
+	var ver := Style.label(RulesText.table("version", {"version": Version.VERSION,
+		"build": Version.BUILD if Version.BUILD != "" else RulesText.table("version_local"),
+		"commit": Version.commit()}).strip_edges(), 44, Style.C_BONE, false, 6)  # 44 px: 15 pt at SE
+	ver.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ver.autowrap_mode = TextServer.AUTOWRAP_OFF  # one line: Style.label wraps
+	var place := func():  # once in the tree: its size is only true there
+		ver.size = ver.get_minimum_size()
+		ver.position = Vector2(roundf((vp.x - ver.size.x) / 2.0), maxf(safe.x, safe.x + 150.0 - ceilf(16.0 * pt) - ver.size.y))
+	ver.ready.connect(place)
+	ov.add_child(ver)
 	add_child(ov)
 	_settings = ov
 	(func():
