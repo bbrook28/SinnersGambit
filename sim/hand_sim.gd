@@ -93,6 +93,8 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var second_dance := 0
 	var cancelled := 0
 	var curse := 0
+	var late_sk := 0
+	var late_bust := 0
 	var dealt := {}   # engine kind or wire kind -> hands dealt
 	var used := {}    # engine kind -> hands filled at least once; wire kind -> hands it fired
 	var won_each: Array = []
@@ -119,6 +121,9 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 			no_dance += 1
 		cancelled += s.cancelled
 		curse += s.curse_skulls
+		late_sk += s.late_skulls
+		if s.outcome == "bust" and s.late_on:
+			late_bust += 1
 		for slot in s.slots:
 			if slot.kind in Rules.ENGINES:
 				dealt[slot.kind] = dealt.get(slot.kind, 0) + 1
@@ -166,6 +171,7 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		"decisions": decisions, "past": pct.call(past), "won_each": won_each, "marks_each": marks_each,
 		"early": pct.call(early), "early_marks": float(early_marks) / maxi(1, early), "no_dance": pct.call(no_dance), "second_dance": pct.call(second_dance),
 		"cancelled": float(cancelled) / maxi(1, hands), "curse": float(curse) / maxi(1, hands),
+		"late_sk": float(late_sk) / maxi(1, hands), "late_bust": pct.call(late_bust),
 		"past2": pct.call(past2), "tier_m": float(tier_m) / maxi(1, hands), "prize_m": float(prize_m) / maxi(1, hands),
 		"tiers": "won at Tier 1 %.1f%%, Tier 2 %.1f%%, Tier 3 %.1f%%" % [pct.call(tier_n.get(1, 0)), pct.call(tier_n.get(2, 0)), pct.call(tier_n.get(3, 0))],
 		"pieces": " ".join(["hold", "ward", "ladder", "tax", "hunger", "curse"].map(func(k):
@@ -197,9 +203,9 @@ func _report(r: Dictionary) -> void:
         marks a hand: tiers %.2f + prize %.2f | %s | threw on past Tier 1 in %.1f%% of hands, past Tier 2 in %.1f%%" % [
 			r.tier_m, r.prize_m, r.tiers, r.past, r.past2]
 		line += "
-        early cash-outs (throws 1-3) %.1f%% paying %.2f | ended without a Dance %.1f%%, with a second Dance %.1f%% | Ward cancels %.2f, Curse skulls %.2f a hand
+        early cash-outs (throws 1-3) %.1f%% paying %.2f | ended without a Dance %.1f%%, with a second Dance %.1f%% | Ward cancels %.2f, Curse skulls %.2f, late-wire skulls %.2f a hand, busts with the late wire on %.1f%%
         used/dealt: %s (engines: filled; wires: fired)" % [
-			r.early, r.early_marks, r.no_dance, r.second_dance, r.cancelled, r.curse, r.pieces]
+			r.early, r.early_marks, r.no_dance, r.second_dance, r.cancelled, r.curse, r.late_sk, r.late_bust, r.pieces]
 		line += "
         agony %.1f%% of %d throws (throws 5+: %.1f%%) | placements alone: %.1f%% near-ties, %.1f%% exact ties, of %d" % [r.throw_agony, r.throw_n, r.late_agony, r.agony, r.ties, r.decisions]
 	say(line)

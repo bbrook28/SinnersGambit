@@ -125,6 +125,10 @@ static func throw(s: HandState, rng) -> Array[int]:
 	if _has_wire(s, "hunger") and tier(s) >= 2:
 		s.hunger_on = true
 	s.pushed = maxi(s.pushed, tier(s))
+	var skull_face := int(s.cfg.skull_faces)
+	if s.bag <= int(s.cfg.get("late_bag", 0)):
+		s.late_on = true  # the late wire: checked before the draw
+		skull_face = maxi(skull_face, int(s.cfg.late_skull_faces))
 	var n := mini(int(s.cfg.hunger_handful if s.hunger_on else s.cfg.handful), s.bag)
 	s.dance = n == 1 and s.bag == 1
 	if s.dance:
@@ -136,8 +140,10 @@ static func throw(s: HandState, rng) -> Array[int]:
 	var skulls := 0
 	for i in n:
 		var f: int = rng.randi_range(1, 6)
-		if f <= int(s.cfg.skull_faces):
+		if f <= skull_face:
 			skulls += 1
+			if f > int(s.cfg.skull_faces):
+				s.late_skulls += 1
 		else:
 			kept.append(f)
 	var curse_skulls := 0

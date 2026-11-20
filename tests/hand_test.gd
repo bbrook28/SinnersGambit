@@ -53,6 +53,7 @@ func _init() -> void:
 	test_ward_cancels_once()
 	test_strong_records_stops()
 	test_skull_strips()
+	test_late_wire()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -510,3 +511,21 @@ func test_skull_strips() -> void:
 	w.slots[2].dice = [3, 3]
 	Rules.throw(w, FixedRng.new([1, 4, 4]))
 	check("strip: a Ward-cancelled skull takes nothing", w.progress == 12)
+
+
+func test_late_wire() -> void:
+	check("config: no late wire by default", Config.DEFAULTS.late_bag == 0)
+	var s = _table(["ward", "ladder"], [])
+	s.cfg = Config.merged({"handful": 3, "late_bag": 3, "late_skull_faces": 2})
+	s.bag = 4
+	Rules.throw(s, FixedRng.new([2, 4, 5]))
+	check("late: a 4-die bag throws a 2 as pips", s.skulls == 0 and not s.late_on and s.late_skulls == 0)
+	s.bag = 3
+	var kept: Array = Rules.throw(s, FixedRng.new([2, 1, 5]))
+	check("late: from a 3-die bag (checked before the draw) 2s are skulls too", s.late_on and s.skulls == 2 and kept == [5] and s.late_skulls == 1)
+	var c = _table(["hold", "ladder"], ["curse"])
+	c.cfg = s.cfg
+	c.bag = 3
+	c.slots[2].dice = [4]
+	Rules.throw(c, FixedRng.new([4, 5, 6, 2]))
+	check("late: a cursed 2 is one Curse skull, not counted as a late skull", c.skulls == 1 and c.curse_skulls == 1 and c.late_skulls == 0)

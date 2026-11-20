@@ -19,6 +19,8 @@ const DEFAULTS := {
 	"sum_need": 8,
 	"sum_marks": 1,
 	"skull_strips": false,  # trial: past Tier 1, a skull that is not cancelled takes the last Target die off (it leaves the hand)
+	"late_bag": 0,          # trial late wire, on the table from the start: a throw from a bag of this many or fewer (checked before the draw)
+	"late_skull_faces": 2,  #   counts faces 1..this as skulls (0 for late_bag: no late wire)
 	"engines": 2,           # engine slots dealt per hand
 	"engine_pool": "hold,ward,ladder",
 	"prize_pool": "pair,sum",
