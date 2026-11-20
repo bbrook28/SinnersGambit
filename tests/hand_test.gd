@@ -37,6 +37,10 @@ func _init() -> void:
 	test_last_placement()
 	test_play_terminates()
 	test_same_hand_per_policy()
+	test_greedy_beats_random()
+	test_push_finishes()
+	test_strong_dedupes()
+	test_strong_plays()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -290,3 +294,54 @@ func test_same_hand_per_policy() -> void:
 	var a = Rules.new_hand(Config.merged({}), Play.hand_rng(1, 17))
 	var b = Rules.new_hand(Config.merged({}), Play.hand_rng(1, 17))
 	check("sim: hand 17 is the same table for every policy", a.slots.map(func(x): return x.kind) == b.slots.map(func(x): return x.kind) and a.wires == b.wires)
+
+
+func _win_rate(policy: Dictionary, hands: int, seed_value: int) -> float:
+	var won := 0
+	for i in hands:
+		if Play.play_hand(Config.merged({}), policy, Play.hand_rng(seed_value, i)).outcome == "won":
+			won += 1
+	return float(won) / hands
+
+
+func _mean_marks(policy: Dictionary, hands: int, seed_value: int) -> float:
+	var total := 0
+	for i in hands:
+		total += Rules.marks(Play.play_hand(Config.merged({}), policy, Play.hand_rng(seed_value, i)))
+	return float(total) / hands
+
+
+func test_greedy_beats_random() -> void:
+	var g := _win_rate(Policies.greedy_policy(), 2000, 2)
+	var r := _win_rate(Policies.random_policy(), 2000, 2)
+	print("  greedy %.3f random %.3f" % [g, r])
+	check("play: greedy wins more than random", g > r)
+
+
+func test_push_finishes() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.slots[2].dice = [4]
+	var f: Array[int] = [6, 4]
+	var m: Dictionary = Policies.push_policy().choose.call(s, f, Rules.legal_moves(s, f), _rng(1))
+	check("push: a die that fills the Ward goes there", m.slot == 2 and f[m.die] == 4)
+
+
+func test_strong_dedupes() -> void:
+	var s = _table(["ward", "ladder"], [])
+	var f: Array[int] = [4, 4]
+	var one: Array[int] = [4]
+	Policies.strong_move(s, f, Rules.legal_moves(s, f), _rng(5), 8)
+	check("strong: two dice of one face are one option per slot", s.decisions[-1].moves == Rules.legal_moves(s, one).size())
+
+
+## Whether strong beats greedy is the sim's verdict (a design question), not a rules test: this checks strong plays legal,
+## finished hands and reports the marks.
+func test_strong_plays() -> void:
+	var t0 := Time.get_ticks_msec()
+	var ok := true
+	for i in 40:
+		var s = Play.play_hand(Config.merged({}), Policies.strong_policy(16), Play.hand_rng(3, i))
+		if not s.outcome in ["won", "short", "bust"] or s.decisions.is_empty() and s.outcome != "bust":
+			ok = false
+	print("  strong %.2f greedy %.2f marks a hand (%.1f s)" % [_mean_marks(Policies.strong_policy(16), 60, 3), _mean_marks(Policies.greedy_policy(), 60, 3), (Time.get_ticks_msec() - t0) / 1000.0])
+	check("strong: plays hands to an end and records its decisions", ok)
