@@ -1,0 +1,52 @@
+diff --git a/.github/workflows/ios.yml b/.github/workflows/ios.yml
+index 5146beb..155fa35 100644
+--- a/.github/workflows/ios.yml
++++ b/.github/workflows/ios.yml
+@@ -90,15 +90,22 @@ jobs:
+         run: |
+           ~/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/load_check.gd
+ 
+-      - name: Set Team ID and build number
++      - name: Set Team ID, version and build number
+         env:
+           TEAM: ${{ env.APPLE_TEAM }}
+         run: |
+-          # Every TestFlight upload needs a higher build number.
++          # The version is ui/version.gd's VERSION (bumped by hand; CLAUDE.md says when).
++          # Every TestFlight upload needs a higher build number: 100 + the run number.
++          VERSION=$(sed -n 's/^const VERSION := "\(.*\)"/\1/p' ui/version.gd)
++          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::ui/version.gd has no VERSION (read: '$VERSION')"; exit 1; }
+           BUILD=$((100 + GITHUB_RUN_NUMBER))
++          COMMIT=$(git rev-parse --short=7 HEAD)
+           sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$TEAM\"/" export_presets.cfg
++          sed -i '' "s/^application\/short_version=.*/application\/short_version=\"$VERSION\"/" export_presets.cfg
+           sed -i '' "s/^application\/version=.*/application\/version=\"$BUILD\"/" export_presets.cfg
+-          echo "Build number $BUILD"
++          sed -i '' "s/^const BUILD := .*/const BUILD := \"$BUILD\"/; s/^const COMMIT := .*/const COMMIT := \"$COMMIT\"/" ui/version.gd
++          grep -E '^const (VERSION|BUILD|COMMIT)' ui/version.gd
++          echo "Version $VERSION, build $BUILD, commit $COMMIT"
+           echo "BUILD=$BUILD" >> $GITHUB_ENV
+ 
+       - name: Export Xcode project
+diff --git a/export_presets.cfg b/export_presets.cfg
+index 9710e01..1a64a79 100644
+--- a/export_presets.cfg
++++ b/export_presets.cfg
+@@ -53,7 +53,7 @@ application/export_project_only=true
+ application/min_ios_version="15.0"
+ application/bundle_identifier="com.benbrook.sinnersgambit"
+ application/signature=""
+-application/short_version="0.1.0"
++application/short_version="0.6.0"
+ application/version="1"
+ application/targeted_device_family=2
+ application/additional_plist_content="<key>ITSAppUsesNonExemptEncryption</key><false/>"
+@@ -123,7 +123,7 @@ application/export_project_only=true
+ application/min_ios_version="15.0"
+ application/bundle_identifier="com.benbrook.sinnersgambit"
+ application/signature=""
+-application/short_version="0.1.0"
++application/short_version="0.6.0"
+ application/version="1"
+ application/targeted_device_family=2
+ application/additional_plist_content="<key>ITSAppUsesNonExemptEncryption</key><false/>"
