@@ -115,6 +115,8 @@ static func _land_skull(s: HandState, dance_die: bool) -> void:
 	s.skulls += 1
 	if s.skulls >= int(s.cfg.bust_at) or dance_die:
 		s.outcome = "bust"
+	elif s.cfg.get("skull_strips", false) and tier(s) >= 1 and not s.target_dice.is_empty():
+		s.progress -= int(s.target_dice.pop_back())  # past Tier 1, the skull takes your last Target die (it leaves the hand)
 
 
 ## Draws a handful from the bag and throws it; returns the non-skull faces. Under Curse, every die
@@ -239,7 +241,9 @@ static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
 	var slot: Dictionary = s.slots[move.slot]
 	match slot.kind:
 		"target":
-			s.progress += v * 2 if _ladder_full(s) else v
+			var add := v * 2 if _ladder_full(s) else v
+			s.progress += add
+			s.target_dice.append(add)
 		"offering":
 			s.offerings += 1
 		_:

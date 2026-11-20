@@ -18,6 +18,7 @@ const DEFAULTS := {
 	"ward_spread": 1,       # the Ward's second die may be this many pips from the first (0: matching faces)
 	"sum_need": 8,
 	"sum_marks": 1,
+	"skull_strips": false,  # trial: past Tier 1, a skull that is not cancelled takes the last Target die off (it leaves the hand)
 	"engines": 2,           # engine slots dealt per hand
 	"engine_pool": "hold,ward,ladder",
 	"prize_pool": "pair,sum",

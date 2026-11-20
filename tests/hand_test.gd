@@ -52,6 +52,7 @@ func _init() -> void:
 	test_one_die_ward()
 	test_ward_cancels_once()
 	test_strong_records_stops()
+	test_skull_strips()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -487,3 +488,25 @@ func test_strong_records_stops() -> void:
 	s.throws = 3
 	Policies.strong_stop(s, _rng(2), 8)
 	check("strong: a stop call records cash-out now, throw on, and the throw", s.stops.size() == 1 and s.stops[0].now == 2.0 and s.stops[0].throw == 3)
+
+
+func test_skull_strips() -> void:
+	check("config: no strip by default", Config.DEFAULTS.skull_strips == false)
+	var s = _table(["ward", "ladder"], [])
+	s.cfg = Config.merged({"handful": 3, "skull_strips": true})
+	Rules.place(s, [4], {"die": 0, "slot": 0})
+	Rules.place(s, [5], {"die": 0, "slot": 0})
+	Rules.throw(s, FixedRng.new([1, 4, 4]))
+	check("strip: below Tier 1 a skull takes nothing", s.progress == 9 and s.skulls == 1)
+	var bag: int = s.bag
+	Rules.place(s, [4, 4], {"die": 0, "slot": 0})
+	check("strip: Tier 1 at 13", Rules.tier(s) == 1)
+	Rules.throw(s, FixedRng.new([1, 3, 3]))
+	check("strip: past Tier 1 a skull takes the last Target die off, out of the hand", s.progress == 9 and s.skulls == 2 and s.bag == bag + 1 - 3 and s.target_dice == [4, 5])
+	var w = _table(["ward", "ladder"], [])
+	w.cfg = s.cfg
+	w.progress = 12
+	w.target_dice = [12]
+	w.slots[2].dice = [3, 3]
+	Rules.throw(w, FixedRng.new([1, 4, 4]))
+	check("strip: a Ward-cancelled skull takes nothing", w.progress == 12)

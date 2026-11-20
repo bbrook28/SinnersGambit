@@ -6,6 +6,7 @@ var bag := 0              # dice still in the bag
 var skulls := 0           # skulls on the table
 var slots: Array = []     # Dictionaries: kind, need, cap, dice, marks, done, hidden, fills; the Target is slots[0]
 var progress := 0         # pips placed toward the Target
+var target_dice: Array = [] # what each die placed in the Target added, in order
 var offerings := 0        # dice placed in the Offering: the Target needs 1 less each
 var tax_on := false       # a Tax has fired: the Target needs cfg.tax more
 var wires: Array = []     # wires dealt: {kind, slot} (slot: the engine slot a Tax watches, else -1)
@@ -33,6 +34,7 @@ func clone():
 			"throws", "outcome", "dance", "dance_reached", "dances", "pushed", "cancelled", "curse_skulls"]:
 		c.set(p, get(p))
 	c.slots = slots.duplicate(true)
+	c.target_dice = target_dice.duplicate()
 	c.wires = wires.duplicate(true)
 	c.wire_pool = wire_pool.duplicate()
 	c.decisions = []
