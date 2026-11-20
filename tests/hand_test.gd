@@ -22,6 +22,15 @@ func _init() -> void:
 	test_hunger()
 	test_curse()
 	test_curse_ladder_six()
+	test_moves()
+	test_place_returns_dice()
+	test_ladder_doubles()
+	test_hold()
+	test_offering_and_reveal()
+	test_prize_and_marks()
+	test_second_wire_and_tax()
+	test_tax_lands_on_two_die_slot()
+	test_tax_unmeets()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -144,3 +153,102 @@ func test_curse_ladder_six() -> void:
 	s.slots[2].dice = [3]
 	Rules.throw(s, FixedRng.new([4, 4, 4, 6]))
 	check("curse: a lone 6 in the Ladder goes back to the bag", s.slots[2].dice.is_empty() and s.bag == 6)
+
+
+func test_moves() -> void:
+	var s = _table(["ward", "ladder"], [])
+	var f: Array[int] = [6, 3]
+	check("moves: a 6 can't start the Ladder", _moves_to(Rules.legal_moves(s, f), 3).map(func(m): return f[m.die]) == [3])
+	s.slots[2].dice = [3]
+	check("moves: Ward wants the matching face", _moves_to(Rules.legal_moves(s, f), 2).map(func(m): return f[m.die]) == [3])
+	s.slots[3].dice = [3]
+	check("moves: the Ladder wants a higher second die", _moves_to(Rules.legal_moves(s, f), 3).map(func(m): return f[m.die]) == [6])
+	check("moves: the hidden prize takes nothing", _moves_to(Rules.legal_moves(s, f), 4).is_empty())
+	check("moves: Target and Offering take any die", _moves_to(Rules.legal_moves(s, f), 0).size() == 2 and _moves_to(Rules.legal_moves(s, f), 1).size() == 2)
+
+
+func test_place_returns_dice() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.bag = 5
+	Rules.place(s, [6, 4, 2], {"die": 0, "slot": 0})
+	check("place: the rest go back to the bag", s.progress == 6 and s.bag == 7)
+	var d = _table(["ward", "ladder"], [])
+	d.bag = 0
+	d.dance = true
+	d.slots[2].dice = [5]
+	Rules.place(d, [3], {"die": -1, "slot": 0})
+	check("place: an unplaced Dance die leaves the hand", d.bag == 0)
+
+
+func test_ladder_doubles() -> void:
+	var s = _table(["ladder", "ward"], [])
+	s.slots[2].dice = [2, 5]
+	Rules.place(s, [4], {"die": 0, "slot": 0})
+	check("ladder: a full Ladder doubles the Target", s.progress == 8)
+	s.dance = true
+	Rules.place(s, [3], {"die": 0, "slot": 0})
+	check("ladder: with the Dance, x4", s.progress == 20)
+
+
+func test_hold() -> void:
+	var s = _table(["hold", "ward"], [])
+	s.slots[2].dice = [6]
+	var f: Array[int] = [2, 3]
+	var held: Array = Rules.legal_moves(s, f).filter(func(m): return m.die == -1)
+	check("hold: the held die can go anywhere but Hold", held.size() > 0 and held.all(func(m): return m.slot != 2))
+	s.bag = 4
+	Rules.place(s, f, {"die": -1, "slot": 0})
+	check("hold: placing it returns both thrown dice", s.progress == 6 and s.bag == 6 and s.slots[2].dice.is_empty())
+	var e: Array[int] = []
+	check("hold: an empty bag offers only the held die", Rules.legal_moves(s, e).is_empty())
+
+
+func test_offering_and_reveal() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 15
+	Rules.place(s, [4], {"die": 0, "slot": 1})
+	check("offering: the Target needs 1 less, and meeting it reveals the prize", Rules.need(s) == 15 and Rules.target_met(s) and s.revealed and not s.slots[4].hidden)
+
+
+func test_prize_and_marks() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.progress = 16
+	Rules.place(s, [5], {"die": 0, "slot": 4})
+	Rules.place(s, [5], {"die": 0, "slot": 4})
+	Rules.cash_out(s)
+	check("marks: a won hand with the Pair claimed", s.outcome == "won" and s.slots[4].done and Rules.marks(s) == 3 + 2)
+	var b = _table(["ward", "ladder"], [])
+	b.outcome = "bust"
+	check("marks: a bust pays nothing", Rules.marks(b) == 0)
+
+
+func test_second_wire_and_tax() -> void:
+	var s = _table(["ladder", "ward"], [])
+	s.wire_pool = ["tax"]
+	Rules.place(s, [3], {"die": 0, "slot": 2})
+	Rules.master_answer(s)
+	check("wire: the first engine die deals Tax onto that slot", s.wires.size() == 1 and s.wires[0].kind == "tax" and s.wires[0].slot == 2 and not s.tax_on)
+	Rules.place(s, [5], {"die": 0, "slot": 2})
+	Rules.master_answer(s)
+	check("tax: filling the slot raises the Target 3", s.tax_on and Rules.need(s) == 19)
+	check("wire: no third wire", s.wires.size() == 1)
+
+
+func test_tax_lands_on_two_die_slot() -> void:
+	var s = _table(["hold", "ward"], [])
+	s.wire_pool = ["tax"]
+	Rules.place(s, [4], {"die": 0, "slot": 2})
+	Rules.master_answer(s)
+	check("tax: seeding Hold puts Tax on the other slot", s.wires[0].slot == 3)
+
+
+func test_tax_unmeets() -> void:
+	var s = _table(["ward", "ladder"], [])
+	s.wires = [{"kind": "tax", "slot": 2}]
+	s.progress = 16
+	Rules.place(s, [3], {"die": 0, "slot": 2})
+	s.hunger_on = true
+	Rules.place(s, [3], {"die": 0, "slot": 2})
+	Rules.master_answer(s)
+	Rules.cash_out(s)
+	check("tax: a late Tax un-meets the Target; the prize stays revealed", s.outcome == "short" and s.revealed and s.hunger_on)

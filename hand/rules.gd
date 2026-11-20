@@ -136,3 +136,124 @@ static func value(s: HandState, face: int, from_hold: bool) -> int:
 
 static func target_met(s: HandState) -> bool:
 	return s.progress >= need(s)
+
+
+## The face waiting in Hold, or 0.
+static func held(s: HandState) -> int:
+	for slot in s.slots:
+		if slot.kind == "hold" and not slot.dice.is_empty():
+			return int(slot.dice[0])
+	return 0
+
+
+static func _ladder_full(s: HandState) -> bool:
+	return s.slots.any(func(x): return x.kind == "ladder" and x.dice.size() >= 2)
+
+
+static func _fits(s: HandState, slot: Dictionary, face: int, from_hold: bool) -> bool:
+	var v := value(s, face, from_hold)
+	match slot.kind:
+		"target", "offering":
+			return true
+		"hold":
+			return not from_hold and slot.dice.is_empty()
+		"ward":
+			return slot.dice.is_empty() or (slot.dice.size() == 1 and int(slot.dice[0]) == face)
+		"ladder":
+			if slot.dice.is_empty():
+				return v <= 5
+			return slot.dice.size() == 1 and v > int(slot.dice[0])
+		"pair":
+			if slot.hidden or slot.done:
+				return false
+			return slot.dice.is_empty() or int(slot.dice[0]) == face
+		"sum":
+			if slot.hidden or slot.done:
+				return false
+			if slot.dice.is_empty():
+				return int(slot.need) - v >= 2
+			return int(slot.dice[0]) + v == int(slot.need)
+	return false
+
+
+## Every legal placement: {die, slot}, die = an index into faces, or -1 for the held die.
+static func legal_moves(s: HandState, faces: Array[int]) -> Array:
+	var moves: Array = []
+	for d in faces.size():
+		for j in s.slots.size():
+			if _fits(s, s.slots[j], faces[d], false):
+				moves.append({"die": d, "slot": j})
+	var h := held(s)
+	if h > 0:
+		for j in s.slots.size():
+			if _fits(s, s.slots[j], h, true):
+				moves.append({"die": -1, "slot": j})
+	return moves
+
+
+## Puts one die in a slot; the unplaced dice go back to the bag (on the Dance they leave the hand).
+## Meeting the Target reveals the prize.
+static func place(s: HandState, faces: Array[int], move: Dictionary) -> void:
+	var from_hold: bool = move.die < 0
+	var face: int
+	if from_hold:
+		face = held(s)
+		for slot in s.slots:
+			if slot.kind == "hold":
+				slot.dice = []
+	else:
+		face = faces[move.die]
+	var v := value(s, face, from_hold)
+	var slot: Dictionary = s.slots[move.slot]
+	match slot.kind:
+		"target":
+			s.progress += v * 2 if _ladder_full(s) else v
+		"offering":
+			s.offerings += 1
+		_:
+			slot.dice.append(v if slot.kind in ["ladder", "sum"] else face)
+			if slot.dice.size() >= int(slot.cap):
+				slot.fills += 1
+				if slot.kind in ["pair", "sum"]:
+					slot.done = true
+			if slot.kind in ENGINES and not s.seeded:
+				s.seeded = true
+				s.seed_slot = move.slot
+	if not s.dance:
+		s.bag += faces.size() if from_hold else faces.size() - 1
+	if target_met(s) and not s.revealed:
+		s.revealed = true
+		for x in s.slots:
+			x.hidden = false
+
+
+## The Master answers a placement: a Tax whose slot is full fires (for the rest of the hand);
+## then, after your first engine die, he deals his second wire (which cannot fire on this answer).
+static func master_answer(s: HandState) -> void:
+	for w in s.wires:
+		if w.kind == "tax" and w.slot >= 0:
+			var slot: Dictionary = s.slots[w.slot]
+			if slot.dice.size() >= int(slot.cap):
+				s.tax_on = true
+	if s.seeded and not s.second_wire and not s.wire_pool.is_empty():
+		s.second_wire = true
+		_deal_wire(s, s.wire_pool.pop_front(), s.seed_slot)
+
+
+static func cash_out(s: HandState) -> void:
+	s.outcome = "won" if target_met(s) else "short"
+
+
+static func ended(s: HandState) -> bool:
+	return s.outcome != ""
+
+
+## 0 unless won; then the win marks plus the prize's marks if it was claimed.
+static func marks(s: HandState) -> int:
+	if s.outcome != "won":
+		return 0
+	var m := int(s.cfg.win_marks)
+	for slot in s.slots:
+		if slot.done and slot.kind in ["pair", "sum"]:
+			m += int(slot.marks)
+	return m

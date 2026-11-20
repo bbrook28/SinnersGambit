@@ -11,6 +11,8 @@ var tax_on := false       # a Tax has fired: the Target needs cfg.tax more
 var wires: Array = []     # wires dealt: {kind, slot} (slot: the engine slot a Tax watches, else -1)
 var wire_pool: Array = [] # wires not yet dealt, in dealing order
 var seeded := false       # a die has gone into an engine slot (the Master deals his second wire)
+var seed_slot := -1       # the engine slot that first die went into
+var second_wire := false  # the Master has dealt his second wire
 var hunger_on := false
 var revealed := false     # the Target has been met: the prize is face up
 var throws := 0
@@ -24,7 +26,7 @@ var decisions: Array = [] # the strong policy's per-placement values
 
 func clone():
 	var c = get_script().new()
-	for p in ["cfg", "bag", "skulls", "progress", "offerings", "tax_on", "seeded", "hunger_on", "revealed",
+	for p in ["cfg", "bag", "skulls", "progress", "offerings", "tax_on", "seeded", "seed_slot", "second_wire", "hunger_on", "revealed",
 			"throws", "outcome", "dance", "dance_reached", "cancelled", "curse_skulls"]:
 		c.set(p, get(p))
 	c.slots = slots.duplicate(true)
