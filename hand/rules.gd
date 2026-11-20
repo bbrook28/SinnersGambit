@@ -133,7 +133,7 @@ static func throw(s: HandState, rng) -> Array[int]:
 	if s.bag <= int(s.cfg.get("late_bag", 0)):
 		s.late_on = true  # the late wire: checked before the draw
 		skull_face = maxi(skull_face, int(s.cfg.late_skull_faces))
-	var n := mini(int(s.cfg.hunger_handful if s.hunger_on else s.cfg.handful), s.bag)
+	var n := next_draw(s)
 	s.dance = n == 1 and s.bag == 1
 	if s.dance:
 		s.dance_reached = true
@@ -151,18 +151,17 @@ static func throw(s: HandState, rng) -> Array[int]:
 		else:
 			kept.append(f)
 	var curse_skulls := 0
-	if _has_wire(s, "curse"):
-		for slot in s.slots:
-			if slot.kind in ENGINES and slot.dice.size() == 1 and (slot.kind == "hold" or int(slot.cap) >= 2):
-				var f: int = rng.randi_range(1, 6)
-				if f <= int(s.cfg.curse_skull_faces):
-					slot.dice = []
-					curse_skulls += 1
-				elif slot.kind == "ladder" and f >= 6:
-					slot.dice = []
-					s.bag += 1
-				else:
-					slot.dice = [f]
+	for j in cursed(s):
+		var slot: Dictionary = s.slots[j]
+		var f: int = rng.randi_range(1, 6)
+		if f <= int(s.cfg.curse_skull_faces):
+			slot.dice = []
+			curse_skulls += 1
+		elif slot.kind == "ladder" and f >= 6:
+			slot.dice = []
+			s.bag += 1
+		else:
+			slot.dice = [f]
 	for i in skulls:
 		_land_skull(s, s.dance)
 	for i in curse_skulls:
@@ -176,6 +175,59 @@ static func throw(s: HandState, rng) -> Array[int]:
 		s.rites_banked += 1
 		_reveal(s)
 	return kept
+
+
+## How many dice the next throw draws (Hunger counts once you are past Tier 2).
+static func next_draw(s: HandState) -> int:
+	var hungry: bool = s.hunger_on or (_has_wire(s, "hunger") and tier(s) >= 2)
+	return mini(int(s.cfg.hunger_handful if hungry else s.cfg.handful), s.bag)
+
+
+## The engine slots whose waiting die Curse throws again with the next handful (in slot order).
+static func cursed(s: HandState) -> Array:
+	var out: Array = []
+	if _has_wire(s, "curse"):
+		for j in s.slots.size():
+			var slot: Dictionary = s.slots[j]
+			if slot.kind in ENGINES and slot.dice.size() == 1 and (slot.kind == "hold" or int(slot.cap) >= 2):
+				out.append(j)
+	return out
+
+
+class _Faces:
+	var queue: Array = []
+	func randi_range(_a: int, _b: int) -> int:
+		return queue.pop_front()
+
+
+## The chance that the next throw busts you: every skull pattern of the handful and the cursed dice,
+## played through throw() itself on a copy, so the Ward, the Dance and every wire count exactly.
+static func bust_chance(s: HandState) -> float:
+	if s.bag <= 0 or s.outcome != "":
+		return 0.0
+	var n := next_draw(s)
+	var k := cursed(s).size()
+	var hand_faces := int(s.cfg.skull_faces)
+	if s.bag <= int(s.cfg.get("late_bag", 0)):
+		hand_faces = maxi(hand_faces, int(s.cfg.late_skull_faces))
+	var p_hand := hand_faces / 6.0
+	var p_curse := int(s.cfg.curse_skull_faces) / 6.0
+	var total := 0.0
+	for bits in 1 << (n + k):
+		var w := 1.0
+		var rng := _Faces.new()
+		for i in n + k:
+			var skull := (bits >> i) & 1 == 1
+			var p := p_hand if i < n else p_curse
+			w *= p if skull else 1.0 - p
+			rng.queue.append(1 if skull else (4 if i < n else 3))
+		if w <= 0.0:
+			continue
+		var c = s.clone()
+		throw(c, rng)
+		if c.outcome == "bust":
+			total += w
+	return total
 
 
 ## A die's worth: doubled on the Last Dance, unless it is the held die.

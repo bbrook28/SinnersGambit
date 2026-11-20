@@ -32,14 +32,14 @@ const STEPS := [
 		"text": "Your first die in an engine slot made the Master deal a second wire: Hunger. Pass Tier 2 and throw on, and every throw draws 4 dice.\n\nWires always show their rule before they can strike."},
 	{"type": "throw", "msg": "Throw."},
 	{"type": "place", "slot": "target", "face": 6, "msg": "Put the 6 in the Target: 11 pips, past Tier 1."},
-	{"type": "card", "title": "Tier 1: the hand is won", "seen": "pair",
-		"text": "Cash out now and you take 2 marks.\n\nThe prize turned face up: a Pair. Two matching dice in it pay +2 marks on top, if you win. Throwing on risks a bust, which loses it all."},
+	{"type": "card", "title": "Tier 1: the hand is won",
+		"text": "Cash out now and you take 2 marks, safe.\n\nOr throw on for Tier 2 (4 marks). The Throw button shows your chance of busting: a bust loses the hand and everything in it."},
 	{"type": "throw", "msg": "Be bold: throw on."},
 	{"type": "card", "title": "The Ward holds",
 		"text": "The Ward cancelled that skull. It went back into the bag, and the Ward is spent for this hand. Still 1 skull of 3."},
-	{"type": "place", "slot": "pair", "face": 5, "msg": "Put the 5 in the Pair. Another 5 later claims it."},
+	{"type": "place", "slot": "target", "face": 5, "msg": "Tap the 5: the Target shows it would reach 16. Put it there."},
 	{"type": "card", "title": "The dice are yours", "seen": "ladder tax offering hunger",
-		"text": "The Ladder: two dice, the second higher. Full, it makes every later Target die count double. But a Tax wire watches it: once full, every tier needs +3.\n\nThe Offering takes any die and lowers every tier by 1.\n\n3 dice left. Cash out when you like."},
+		"text": "16 pips: 2 short of Tier 2.\n\nThe Ladder: two dice, the second higher. Full, every later Target die counts double, but its Tax wire makes every tier need +3. The Offering lowers every tier by 1.\n\nWhen you pick a die, each lit slot says what it would do. 3 dice left: your call."},
 	{"type": "free"},
 ]
 
@@ -62,12 +62,11 @@ static func rng() -> ScriptRng:
 	return ScriptRng.new([5, 3, 1, 4, 6, 2, 1, 5])
 
 
-## The tutorial's table: Target, Offering, Ward, Ladder (watched by a Tax), a face-down Pair; Hunger waits in the pool.
+## The tutorial's table: Target, Offering, Ward, Ladder (watched by a Tax); Hunger waits in the pool.
 static func table(cfg: Dictionary):
 	var s = Rules.new_hand(cfg, RandomNumberGenerator.new())
 	s.slots = [Rules._slot("target", 0, 0, 0), Rules._slot("offering", 0, 0, 0),
-		Rules._slot("ward", 0, int(cfg.ward_dice), 0), Rules._slot("ladder", 0, 2, 0), Rules._slot("pair", 0, 2, int(cfg.pair_marks))]
-	s.slots[4].hidden = true
+		Rules._slot("ward", 0, int(cfg.ward_dice), 0), Rules._slot("ladder", 0, 2, 0)]
 	s.wires = [{"kind": "tax", "slot": 3}]
 	s.wire_pool = ["hunger"]
 	return s

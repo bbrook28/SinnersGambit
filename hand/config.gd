@@ -26,7 +26,7 @@ const DEFAULTS := {
 	                        #   times its pips toward the Target (instead of any doubling); a skull on that throw busts you outright
 	"engines": 2,           # engine slots dealt per hand
 	"engine_pool": "hold,ward,ladder",
-	"prize_pool": "pair,sum",
+	"prize_pool": "",         # no prize (change 7, Ben: cut for clarity); "pair,sum" deals one face down
 	"wire_pool": "tax,hunger,curse",
 	"rollouts": 64,         # the strong policy's playouts per option
 }

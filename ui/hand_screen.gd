@@ -437,6 +437,13 @@ func _build() -> void:
 	skull_row.add_theme_constant_override("separation", 8)
 	status.add_child(skull_row)
 	v.add_child(status)
+	var core := Label.new()
+	core.text = "Place 1 die each throw  ·  3 skulls bust you  ·  cash out for your highest tier"
+	core.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	core.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	core.add_theme_font_size_override("font_size", 28)
+	core.add_theme_color_override("font_color", Color(IVORY, 0.75))
+	v.add_child(core)
 
 	target_view.tapped.connect(_on_slot)
 	v.add_child(target_view)
@@ -499,7 +506,7 @@ func _style_button(b: Button, c: Color) -> void:
 			sb.draw_center = false
 		b.add_theme_stylebox_override(st, sb)
 	b.add_theme_font_override("font", CINZEL)
-	b.add_theme_font_size_override("font_size", 38)
+	b.add_theme_font_size_override("font_size", 34)
 	b.add_theme_color_override("font_color", IVORY)
 	b.add_theme_color_override("font_disabled_color", Color(IVORY, 0.35))
 	b.focus_mode = Control.FOCUS_NONE
@@ -587,10 +594,18 @@ func _refresh() -> void:
 		for j in s.slots.size():
 			if s.slots[j].kind == tut.step().slot:
 				glow[j] = true
+	var cursed: Array = Rules.cursed(s)
 	for j in s.slots.size():
-		slot_views[j].show_slot(s, j, lit.has(j), glow.has(j))
+		var pv := ""
+		if lit.has(j):
+			for m in mv:
+				if m.die == picked and m.slot == j:
+					pv = _preview(m)
+		var tg := "Cursed: thrown again on your next throw. A 1 or 2 makes it a skull." if j in cursed else ""
+		slot_views[j].show_slot(s, j, lit.has(j), glow.has(j), pv, tg)
 	tier_bar.show_hand(s)
 	target_view.title.text = "The Target: %d pips%s" % [s.progress, "  (Ladder: x2)" if Rules._ladder_full(s) else ""]
+	target_view.rule.text = _goal()
 
 	for c in wires_box.get_children():
 		c.queue_free()
@@ -612,7 +627,7 @@ func _refresh() -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.add_theme_font_size_override("font_size", 28)
 		l.add_theme_color_override("font_color", Color(IVORY, 0.65))
-		l.text = "Your first die in Hold, the Ward or the Ladder makes the Master deal one more wire."
+		l.text = "Face down: one more wire. The Master deals it when you first put a die in Hold, the Ward or the Ladder."
 		wires_box.add_child(l)
 
 	for c in tray.get_children():
@@ -648,25 +663,83 @@ func _refresh() -> void:
 			tray.add_child(sk)
 
 	var hunger: bool = s.hunger_on or (Rules._has_wire(s, "hunger") and Rules.tier(s) >= 2)
-	var n := mini(int(cfg.hunger_handful) if hunger else int(cfg.handful), s.bag)
+	var n := Rules.next_draw(s)
 	if s.bag == 1:
-		throw_btn.text = "Throw the Last Dance"
+		throw_btn.text = "Last Dance"
 	else:
 		throw_btn.text = "Throw %d dice%s" % [n, " (Hunger)" if hunger else ""]
+	if phase == "throw" and s.bag > 0:
+		var p := Rules.bust_chance(s)
+		throw_btn.text += "
+" + ("no bust risk" if p <= 0.0 else "%d%% bust" % roundi(p * 100.0))
 	throw_btn.disabled = phase != "throw" or not _tut_allows("throw") or not overlay_free()
 	if Rules.target_met(s):
-		cash_btn.text = "Cash out: %d marks" % (Rules.tier_marks(s) + Rules.prize_marks(s))
+		cash_btn.text = "Cash out
+%d marks, safe" % (Rules.tier_marks(s) + Rules.prize_marks(s))
 	else:
-		cash_btn.text = "Cash out (lose)"
+		cash_btn.text = "Cash out
+lose: short"
 	cash_btn.disabled = phase == "over" or (phase == "place" and s.bag > 0) or not _tut_allows("cash") or not overlay_free()
 	if tut == null or tut.done():
 		match phase:
 			"throw":
-				prompt.text = "Throw on for more, or cash out." if Rules.target_met(s) else "Throw: the Target needs %d for Tier 1." % Rules.need(s)
+				if s.bag == 1:
+					prompt.text = "Next throw is the Last Dance: the last die counts x2, and any skull busts you."
+				else:
+					prompt.text = "Throw on, or cash out." if Rules.target_met(s) else "Throw: you need Tier 1 to win."
 			"place":
 				prompt.text = "Pick a die to place." if picked == -2 else "Tap a lit slot to place it."
 			_:
 				prompt.text = ""
+
+
+## What placing this die here would do, worked out on a copy of the hand.
+func _preview(m: Dictionary) -> String:
+	var c = s.clone()
+	var f := faces.duplicate()
+	Rules.place(c, f, m)
+	Rules.master_answer(c)
+	var slot: Dictionary = s.slots[m.slot]
+	var parts: Array = []
+	match slot.kind:
+		"target":
+			parts.append("Target to %d" % c.progress)
+		"offering":
+			var needs: Array = []
+			for i in range(1, Rules.tiers(c) + 1):
+				needs.append(str(Rules.tier_need(c, i)))
+			parts.append("Tiers to %s" % " / ".join(needs))
+		"ward":
+			parts.append("Cancels your next skull")
+		"hold":
+			parts.append("Kept for a later throw")
+		"ladder":
+			if Rules._ladder_full(c):
+				parts.append("Full: Target dice count x2 from now")
+			else:
+				parts.append("First rung: the next die must be higher")
+		"rites":
+			parts.append("Counts x%d if your next throw has no skull" % int(cfg.rites_mult))
+	if c.tax_on and not s.tax_on:
+		parts.append("Tax fires: tiers +%d" % int(cfg.tax))
+	if Rules.tier(c) > Rules.tier(s):
+		parts.append("Tier %d: %d marks" % [Rules.tier(c), Rules.tier_marks(c)])
+	elif Rules.tier(c) < Rules.tier(s):
+		parts.append("Drops to Tier %d" % Rules.tier(c))
+	if c.wires.size() > s.wires.size():
+		parts.append("The Master deals a wire")
+	return ". ".join(parts) + "."
+
+
+## The next thing to aim for, in one line.
+func _goal() -> String:
+	var t := Rules.tier(s)
+	var n := Rules.tiers(s)
+	if t >= n:
+		return "Top tier cleared: %d marks if you cash out." % Rules.tier_marks(s)
+	var need: int = Rules.tier_need(s, t + 1) - s.progress
+	var m := int(Rules._ints(cfg.tier_marks)[t])
+	return "Tier %d: %d more pip%s for %d marks." % [t + 1, need, "" if need == 1 else "s", m]
 
 
 func overlay_free() -> bool:

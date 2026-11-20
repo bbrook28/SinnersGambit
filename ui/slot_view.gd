@@ -14,6 +14,8 @@ var index := -1
 var title := Label.new()
 var rule := Label.new()
 var extra := Label.new()
+var preview := Label.new()  # what placing the picked die here would do
+var tag := Label.new()      # a warning about this slot: cursed
 var dice_row := HBoxContainer.new()
 var body := VBoxContainer.new()
 
@@ -27,6 +29,14 @@ func _init() -> void:
 	title.add_theme_font_size_override("font_size", 46)
 	title.add_theme_color_override("font_color", GOLD)
 	body.add_child(title)
+	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview.add_theme_font_size_override("font_size", 32)
+	preview.add_theme_color_override("font_color", Color("ffd27a"))
+	body.add_child(preview)
+	tag.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tag.add_theme_font_size_override("font_size", 28)
+	tag.add_theme_color_override("font_color", BLOOD)
+	body.add_child(tag)
 	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rule.add_theme_font_size_override("font_size", 28)
 	rule.add_theme_color_override("font_color", IVORY)
@@ -40,11 +50,16 @@ func _init() -> void:
 
 
 ## lit: the picked die fits here. glow: the tutorial points here.
-func show_slot(s, i: int, lit: bool, glow: bool) -> void:
+func show_slot(s, i: int, lit: bool, glow: bool, preview_text := "", tag_text := "") -> void:
 	index = i
+	preview.text = preview_text
+	preview.visible = lit and preview_text != ""
+	tag.text = tag_text
+	tag.visible = tag_text != ""
 	var slot: Dictionary = s.slots[i]
 	title.text = Texts.slot_name(slot) if not slot.hidden else "Prize (face down)"
 	rule.text = Texts.slot_rule(s, slot)
+	rule.visible = not (lit and preview_text != "")  # lit: the consequence replaces the rule
 	for c in dice_row.get_children():
 		c.queue_free()
 	if slot.kind == "target":

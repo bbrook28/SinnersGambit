@@ -35,7 +35,7 @@ func _initialize() -> void:
 	h._on_throw()
 	h._on_card_btn()
 	h._on_die(0)
-	h._on_slot(4)
+	h._on_slot(0)
 	h._on_card_btn()
 	await _shot("tutorial_free")
 	h._on_cash()
@@ -48,6 +48,14 @@ func _initialize() -> void:
 	while not h.cards.is_empty():
 		h._on_card_btn()
 	await _shot("real_hand_throw")
+	var mv: Array = h._moves()
+	if not mv.is_empty():
+		h._on_die(mv[0].die)
+		await _shot("real_hand_preview")
+		h._on_slot(mv[0].slot)
+		while not h.cards.is_empty():
+			h._on_card_btn()
+		await _shot("real_hand_stakes")
 	h._on_help()
 	await _shot("rules_card")
 	DirAccess.remove_absolute("user://shots.cfg")

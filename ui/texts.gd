@@ -20,7 +20,7 @@ static func slot_rule(s, slot: Dictionary) -> String:
 		return "Face down. The Master turns it up when you reach Tier 1."
 	match slot.kind:
 		"target":
-			return "Any die, as many as you like: adds its pips. Cash out to be paid the highest tier you have cleared."
+			return "Any die, as many as you like: adds its pips."
 		"offering":
 			return "Any die, as many as you like: every tier needs 1 less."
 		"hold":

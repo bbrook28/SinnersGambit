@@ -55,6 +55,7 @@ func _init() -> void:
 	test_skull_strips()
 	test_late_wire()
 	test_last_rites()
+	test_bust_chance()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -93,10 +94,12 @@ func _moves_to(moves: Array, slot: int) -> Array:
 
 
 func test_layout() -> void:
-	var cfg := Config.merged({})
+	var d = Rules.new_hand(Config.merged({}), _rng(7))
+	check("layout: no prize by default (change 7): target, offering, 2 engines", d.slots.size() == 4 and d.slots.all(func(x): return x.kind in ["target", "offering", "hold", "ward", "ladder"]))
+	var cfg := Config.merged({"prize_pool": "pair,sum"})
 	var s = Rules.new_hand(cfg, _rng(7))
 	var kinds: Array = s.slots.map(func(x): return x.kind)
-	check("layout: target, offering, 2 engines, 1 prize", kinds.size() == 5 and kinds[0] == "target" and kinds[1] == "offering"
+	check("layout: with a prize pool, target, offering, 2 engines, 1 prize", kinds.size() == 5 and kinds[0] == "target" and kinds[1] == "offering"
 		and kinds[2] in ["hold", "ward", "ladder"] and kinds[3] in ["hold", "ward", "ladder"] and kinds[2] != kinds[3] and kinds[4] in ["pair", "sum"])
 	check("layout: the prize is face down", s.slots[4].hidden)
 	check("layout: a full bag, one wire", s.bag == 8 and s.skulls == 0 and s.wires.size() == 1 and s.wire_pool.size() == 2)
@@ -585,3 +588,27 @@ func test_last_rites() -> void:
 	Rules.place(r, f, {"die": 0, "slot": 2})
 	Rules.throw(r, FixedRng.new([5, 5]))
 	check("rites: banking can meet the Target and reveal the prize", Rules.tier(r) == 1 and r.revealed)
+
+
+func test_bust_chance() -> void:
+	var s = _table(["ladder", "hold"], [])
+	s.cfg = Config.merged({})
+	check("odds: no skulls on the table, 2 dice: no bust", is_equal_approx(Rules.bust_chance(s), 0.0) and Rules.next_draw(s) == 2)
+	s.skulls = 2
+	check("odds: 2 skulls, 2 dice: 1 - (5/6)^2", is_equal_approx(Rules.bust_chance(s), 1.0 - 25.0 / 36.0))
+	var w = _table(["ward", "hold"], [])
+	w.cfg = s.cfg
+	w.slots[2].cap = 1
+	w.slots[2].dice = [3]
+	w.skulls = 2
+	check("odds: a full Ward: both dice must be skulls", is_equal_approx(Rules.bust_chance(w), 1.0 / 36.0))
+	var d = _table(["ladder", "hold"], [])
+	d.cfg = s.cfg
+	d.bag = 1
+	check("odds: the Last Dance busts on any skull", is_equal_approx(Rules.bust_chance(d), 1.0 / 6.0))
+	var c = _table(["ladder", "hold"], ["curse"])
+	c.cfg = s.cfg
+	c.skulls = 2
+	c.slots[3].dice = [4]
+	check("odds: a cursed Hold die adds its own 2-in-6 skull", Rules.cursed(c) == [3] and is_equal_approx(Rules.bust_chance(c), 1.0 - 25.0 / 36.0 * 4.0 / 6.0))
+	check("odds: reading the odds changes nothing", c.skulls == 2 and c.bag == 8 and c.slots[3].dice == [4] and c.throws == 0)
