@@ -49,6 +49,7 @@ func _init() -> void:
 	test_push_toward_next_tier()
 	test_greedy_stops_at_tier1()
 	test_ward_within_one()
+	test_one_die_ward()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -443,3 +444,25 @@ func test_ward_within_one() -> void:
 	check("ward: a 4 takes a 3 or a 5, not a 6 or a 2", _moves_to(Rules.legal_moves(s, f), 2).map(func(m): return f[m.die]) == [3, 5])
 	s.cfg = Config.merged({"ward_spread": 0})
 	check("ward: spread 0 is matching faces", _moves_to(Rules.legal_moves(s, f), 2).is_empty())
+
+
+func test_one_die_ward() -> void:
+	check("config: a two-die Ward by default", Config.DEFAULTS.ward_dice == 2)
+	var cfg := Config.merged({"ward_dice": 1, "handful": 3, "engine_pool": "ward,ladder", "wire_pool": "tax"})
+	var s = Rules.new_hand(cfg, _rng(1))
+	var w: int = s.slots.map(func(x): return x.kind).find("ward")
+	check("one-die ward: a Tax goes on the Ladder, not the Ward", s.slots[s.wires[0].slot].kind == "ladder")
+	var f: Array[int] = [6]
+	check("one-die ward: any die fits", _moves_to(Rules.legal_moves(s, f), w).size() == 1)
+	Rules.place(s, f, {"die": 0, "slot": w})
+	check("one-die ward: one die fills it", s.slots[w].fills == 1)
+	s.wires.append({"kind": "curse", "slot": -1})
+	var before: int = s.bag
+	Rules.throw(s, FixedRng.new([1, 4, 4]))
+	check("one-die ward: it cancels the skull, and Curse leaves a full Ward alone", s.skulls == 0 and s.cancelled == 1 and s.bag == before - 3 + 1)
+	var e = _table(["ward", "ladder"], [])
+	e.cfg = cfg
+	e.slots[2].cap = 1
+	var g: Array[int] = [6, 2]
+	var m: Dictionary = Policies.push_policy().choose.call(e, g, Rules.legal_moves(e, g), _rng(1))
+	check("one-die ward: push does not treat an empty Ward as one die from full", e.slots[m.slot].kind == "target")

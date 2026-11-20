@@ -81,7 +81,7 @@ static func push_policy(nerve: int = -1) -> Dictionary:
 static func push_move(s, faces: Array, moves: Array) -> Dictionary:
 	for m in moves:
 		var slot: Dictionary = s.slots[m.slot]
-		if slot.kind in ["ward", "ladder", "pair", "sum"] and slot.dice.size() == int(slot.cap) - 1:
+		if slot.kind in ["ward", "ladder", "pair", "sum"] and int(slot.cap) >= 2 and slot.dice.size() == int(slot.cap) - 1:
 			return m
 	if Rules.target_met(s):
 		for m in moves:

@@ -28,7 +28,7 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 	var engines := _pool(cfg.engine_pool)
 	for i in mini(int(cfg.engines), engines.size()):
 		var k := _draw(engines, rng)
-		s.slots.append(_slot(k, 0, 1 if k == "hold" else 2, 0))
+		s.slots.append(_slot(k, 0, {"hold": 1, "ward": int(cfg.ward_dice)}.get(k, 2), 0))
 	var prizes := _pool(cfg.prize_pool)
 	if not prizes.is_empty():
 		var p := _draw(prizes, rng)
@@ -47,11 +47,11 @@ static func new_hand(cfg: Dictionary, rng) -> HandState:
 static func _deal_wire(s: HandState, kind: String, seeded: int) -> void:
 	var at := -1
 	if kind == "tax":
-		if seeded >= 0 and s.slots[seeded].kind in ["ward", "ladder"]:
+		if seeded >= 0 and _two_die(s.slots[seeded]):
 			at = seeded
 		else:
 			for j in s.slots.size():
-				if s.slots[j].kind in ["ward", "ladder"]:
+				if _two_die(s.slots[j]):
 					at = j
 					break
 	s.wires.append({"kind": kind, "slot": at})
@@ -84,13 +84,18 @@ static func tier(s: HandState) -> int:
 	return t
 
 
+## A Ward or Ladder that takes 2 dice: the only slots a Tax can watch.
+static func _two_die(slot: Dictionary) -> bool:
+	return slot.kind in ["ward", "ladder"] and int(slot.cap) >= 2
+
+
 static func _has_wire(s: HandState, kind: String) -> bool:
 	return s.wires.any(func(w): return w.kind == kind)
 
 
 static func _ward_full(s: HandState) -> int:
 	for j in s.slots.size():
-		if s.slots[j].kind == "ward" and s.slots[j].dice.size() >= 2:
+		if s.slots[j].kind == "ward" and s.slots[j].dice.size() >= int(s.slots[j].cap):
 			return j
 	return -1
 
@@ -136,7 +141,7 @@ static func throw(s: HandState, rng) -> Array[int]:
 	var curse_skulls := 0
 	if _has_wire(s, "curse"):
 		for slot in s.slots:
-			if slot.kind in ENGINES and slot.dice.size() == 1:
+			if slot.kind in ENGINES and slot.dice.size() == 1 and (slot.kind == "hold" or int(slot.cap) >= 2):
 				var f: int = rng.randi_range(1, 6)
 				if f <= int(s.cfg.curse_skull_faces):
 					slot.dice = []
@@ -183,7 +188,7 @@ static func _fits(s: HandState, slot: Dictionary, face: int, from_hold: bool) ->
 		"hold":
 			return not from_hold and slot.dice.is_empty()
 		"ward":
-			return slot.dice.is_empty() or (slot.dice.size() == 1 and absi(int(slot.dice[0]) - face) <= int(s.cfg.ward_spread))
+			return slot.dice.is_empty() or (slot.dice.size() == 1 and int(slot.cap) >= 2 and absi(int(slot.dice[0]) - face) <= int(s.cfg.ward_spread))
 		"ladder":
 			if slot.dice.is_empty():
 				return v <= 5
