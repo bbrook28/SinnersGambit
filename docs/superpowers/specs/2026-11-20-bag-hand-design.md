@@ -91,3 +91,12 @@ The bag and the handful; three skulls bust, skulls stay and leave the bag; 6-7 t
 ## Left to the builder
 - The strong policy keeps its playout method; its playout policy needs a small greedy rule for each engine slot.
 - How the sim reports per-piece use.
+
+## Change 1 (2026-11-20, approved by Ben): the Target in tiers
+Why: the first baseline (seed 4) met 2 of 6 pass marks. A hand that can stop at the Target lasts as long as the Target takes (3.5 throws), so the engine never pays back its dice and strong play only matched greedy. Going deep has to pay.
+
+- **The Target has three tiers:** 10 / 18 / 26 (`tiers`; the sim sweeps them). Tax adds +3 to every tier; each Offering lowers every tier by 1. "Met" stays a live check, so a late Tax can drop you back a tier, or out of a won hand.
+- **Pay:** a won hand pays the marks of the **highest** tier cleared at cash-out, 2 / 4 / 7 (`tier_marks`), **not summed**: clearing Tier 3 pays 7, not 2 + 4 + 7 = 13. A claimed prize adds its marks on top. A bust pays nothing; cashing out below Tier 1 loses the hand.
+- **Tier 1 wins the hand and reveals the prize.** You may cash out at once (2 marks); claiming the prize takes at least two more throws.
+- **Hunger** reads "pass Tier 2 and throw on: draw 4".
+- Replaces `target` and `win_marks`. The sim reports tier marks and prize marks apart, and how often strong throws on past Tier 1 and past Tier 2.
