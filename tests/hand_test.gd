@@ -32,6 +32,9 @@ func _init() -> void:
 	test_play_terminates()
 	test_greedy_beats_random()
 	test_strong_beats_greedy()
+	test_strong_dedupes_options()
+	test_strong_pushes_for_a_prize()
+	test_same_hand_per_policy()
 	print("hand_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -224,3 +227,26 @@ func test_strong_beats_greedy() -> void:
 	var g := _mean_marks(Policies.greedy_policy(), 300, 3)
 	print("  strong %.2f greedy %.2f marks a hand (%.1f s)" % [st, g, (Time.get_ticks_msec() - t0) / 1000.0])
 	check("strong: more marks than greedy", st > g)
+
+
+func test_strong_dedupes_options() -> void:
+	var s = _table([])
+	s.in_hand = 3
+	var f: Array[int] = [4, 4]
+	Policies.strong_move(s, f, Rules.legal_moves(s, f), _rng(5), 8)
+	check("strong: two dice of one face are one option per slot", s.decisions[-1].moves == 2)
+
+
+func test_strong_pushes_for_a_prize() -> void:
+	var s = _table([Rules._slot("pair", 0, 2, -1, 2)])
+	s.progress = 12
+	s.in_hand = 3
+	s.slots[2].dice = [5]
+	check("strong: throws on for a half-filled prize", not Policies.strong_stop(s, _rng(6), 64))
+
+
+func test_same_hand_per_policy() -> void:
+	var cfg := Config.merged({})
+	var a = Rules.new_hand(cfg, Play.hand_rng(1, 17))
+	var b = Rules.new_hand(cfg, Play.hand_rng(1, 17))
+	check("sim: hand 17 is the same table for every policy", a.slots.map(func(x): return x.kind) == b.slots.map(func(x): return x.kind))

@@ -6,6 +6,13 @@ extends RefCounted
 const Rules = preload("res://hand/rules.gd")
 
 
+## The rng for hand number i of a run: every policy plays the same tables and dice stream per hand.
+static func hand_rng(run_seed: int, i: int) -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.seed = run_seed * 1000003 + i
+	return r
+
+
 static func play_hand(cfg: Dictionary, policy: Dictionary, rng):
 	return play_from(Rules.new_hand(cfg, rng), policy, rng, false)
 

@@ -51,7 +51,7 @@ static func greedy_move(s, faces: Array, moves: Array) -> Dictionary:
 	return moves[0]
 
 
-## Tries every legal move (and every reroll) with `rollouts` greedy playouts each and takes the best mean marks.
+## Tries every distinct legal move (and reroll) with `rollouts` push-policy playouts each and takes the best mean marks.
 ## Stops when cashing out now beats the mean of throwing on. Records each choice's best and second-best value.
 static func strong_policy(rollouts: int) -> Dictionary:
 	return {
@@ -63,12 +63,40 @@ static func strong_policy(rollouts: int) -> Dictionary:
 	}
 
 
+## Greedy placement; once the Target is met, throws on while a prize is still open and one more skull won't bust.
+static func push_policy() -> Dictionary:
+	return {
+		"name": "push",
+		"choose": func(s, faces: Array, moves: Array, _rng) -> Dictionary:
+			return greedy_move(s, faces, moves),
+		"stop": func(s, _rng) -> bool:
+			return Rules.target_met(s) and (not _prize_open(s) or s.skulls >= int(s.cfg.bust_at) - 1),
+	}
+
+
+static func _prize_open(s) -> bool:
+	for slot in s.slots:
+		if slot.kind in ["pair", "sum"] and not slot.done and not slot.gone:
+			return true
+	return false
+
+
 static func strong_move(s, faces: Array, moves: Array, rng, rollouts: int) -> Dictionary:
-	var options: Array = moves.duplicate()
+	# One option per distinct (face, slot, bump): two dice of one face are the same choice.
+	var options: Array = []
+	var seen := {}
+	for m in moves:
+		var key := "%d|%d|%d" % [faces[m.die], m.slot, m.bump]
+		if not seen.has(key):
+			seen[key] = true
+			options.append(m)
 	if s.rerolls > 0:
 		for d in faces.size():
-			options.append({"reroll": d})
-	var greedy := greedy_policy()
+			var key := "r%d" % faces[d]
+			if not seen.has(key):
+				seen[key] = true
+				options.append({"reroll": d})
+	var greedy := push_policy()
 	var base: int = rng.randi_range(0, 1 << 30)
 	var values: Array = []
 	for opt in options:
@@ -96,7 +124,7 @@ static func strong_move(s, faces: Array, moves: Array, rng, rollouts: int) -> Di
 			second = maxf(second, values[i])
 	if second == -INF:
 		second = values[best]
-	s.decisions.append({"best": values[best], "second": second, "moves": options.size()})
+	s.decisions.append({"best": values[best], "second": second, "moves": options.size(), "met": Rules.target_met(s)})
 	return options[best]
 
 
@@ -105,7 +133,7 @@ static func strong_stop(s, rng, rollouts: int) -> bool:
 		return false  # cashing out short pays nothing; throwing on never pays less
 	var now = s.clone()
 	Rules.cash_out(now)
-	var greedy := greedy_policy()
+	var greedy := push_policy()
 	var base: int = rng.randi_range(0, 1 << 30)
 	var total := 0
 	for k in rollouts:

@@ -47,9 +47,14 @@ func _init() -> void:
 	for res in [r, g, st]:
 		_report(res)
 	say("verdict:")
-	_verdict("strong win rate beats greedy by >= 10 points", st.won - g.won >= 10.0, "%+.1f" % (st.won - g.won))
+	var gap_won := _paired(st.won_each, g.won_each)
+	var gap_marks := _paired(st.marks_each, g.marks_each)
+	say("same %d hands, strong minus greedy: win rate %+.1f points (95%%: %+.1f to %+.1f), marks %+.2f a hand (95%%: %+.2f to %+.2f)" % [
+		st.hands, 100.0 * gap_won[0], 100.0 * (gap_won[0] - gap_won[1]), 100.0 * (gap_won[0] + gap_won[1]),
+		gap_marks[0], gap_marks[0] - gap_marks[1], gap_marks[0] + gap_marks[1]])
+	_verdict("strong win rate beats greedy by >= 10 points (same hands)", 100.0 * gap_won[0] >= 10.0, "%+.1f" % (100.0 * gap_won[0]))
 	_verdict("greedy wins more than random", g.won > r.won, "%.1f vs %.1f" % [g.won, r.won])
-	_verdict("agony >= 30% of strong's decisions", st.agony >= 30.0, "%.1f%%" % st.agony)
+	_verdict("agony >= 30% of strong's decisions (near-ties, not exact ties)", st.agony >= 30.0, "%.1f%%" % st.agony)
 	_verdict("strong busts in 20-35% of hands", st.bust >= 20.0 and st.bust <= 35.0, "%.1f%%" % st.bust)
 	_verdict("strong reaches the Last Dance in 15-30%", st.dance >= 15.0 and st.dance <= 30.0, "%.1f%%" % st.dance)
 	var keys: Array = cfg.keys()
@@ -63,8 +68,6 @@ func _init() -> void:
 
 
 func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> Dictionary:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value
 	var n := {"won": 0, "short": 0, "bust": 0}
 	var dance := 0
 	var survived := 0
@@ -72,8 +75,16 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 	var throws := 0
 	var decisions := 0
 	var close := 0
+	var ties := 0
+	var past := 0
+	var won_each: Array = []
+	var marks_each: Array = []
 	for i in hands:
-		var s = Play.play_hand(cfg, policy, rng)
+		var s = Play.play_hand(cfg, policy, Play.hand_rng(seed_value, i))
+		won_each.append(1.0 if s.outcome == "won" else 0.0)
+		marks_each.append(float(Rules.marks(s)))
+		if s.decisions.any(func(d): return d.met):
+			past += 1
 		n[s.outcome] += 1
 		if s.dance_reached:
 			dance += 1
@@ -84,20 +95,40 @@ func _run(cfg: Dictionary, policy: Dictionary, hands: int, seed_value: int) -> D
 		for d in s.decisions:
 			if d.moves >= 2 and d.best > 0.0:
 				decisions += 1
-				if d.best - d.second <= 0.05 * d.best:
+				if d.best == d.second:
+					ties += 1
+				elif d.best - d.second <= 0.05 * d.best:
 					close += 1
 	var pct := func(x: int) -> float: return 100.0 * x / maxi(1, hands)
 	return {"name": policy.name, "hands": hands, "won": pct.call(n.won), "short": pct.call(n.short),
 		"bust": pct.call(n.bust), "dance": pct.call(dance), "survived": 100.0 * survived / maxi(1, dance),
 		"marks": float(marks) / hands, "throws": float(throws) / hands,
-		"agony": 100.0 * close / maxi(1, decisions), "decisions": decisions}
+		"agony": 100.0 * close / maxi(1, decisions), "ties": 100.0 * ties / maxi(1, decisions),
+		"decisions": decisions, "past": pct.call(past), "won_each": won_each, "marks_each": marks_each}
+
+
+## Mean and 95% half-width of a[i] - b[i] over the hands both played.
+func _paired(a: Array, b: Array) -> Array:
+	var n := mini(a.size(), b.size())
+	var d: Array = []
+	for i in n:
+		d.append(a[i] - b[i])
+	var mean := 0.0
+	for x in d:
+		mean += x
+	mean /= maxi(1, n)
+	var v := 0.0
+	for x in d:
+		v += (x - mean) * (x - mean)
+	v /= maxi(1, n - 1)
+	return [mean, 1.96 * sqrt(v / maxi(1, n))]
 
 
 func _report(r: Dictionary) -> void:
 	var line := "%-7s %5d hands | won %5.1f%% short %5.1f%% bust %5.1f%% | Last Dance %5.1f%% (survived %5.1f%%) | marks %.2f | throws %.2f" % [
 		r.name, r.hands, r.won, r.short, r.bust, r.dance, r.survived, r.marks, r.throws]
 	if r.name == "strong":
-		line += " | agony %.1f%% of %d decisions" % [r.agony, r.decisions]
+		line += " | agony %.1f%% near-ties, %.1f%% exact ties, of %d decisions | threw on past the Target in %.1f%% of hands" % [r.agony, r.ties, r.decisions, r.past]
 	say(line)
 
 
