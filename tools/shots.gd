@@ -53,12 +53,16 @@ func _initialize() -> void:
 		else:
 			h._on_seal(1 if h.s.skulls >= 2 else 2)
 		await settle()
-	for i in 600:
-		if h.overlay.visible:
+	var paid := false
+	for i in 900:
+		if not paid and h.counting and h.fx.get_child_count() > 2:
+			paid = true
+			await _shot("payout")
+		if h.next_box.visible:
 			break
 		await process_frame
-	await _shot("result_card")
-	h._on_card_btn()
+	await _shot("result_banner")
+	h._on_next()
 	h._on_help()
 	await _shot("hand_ranking")
 	DirAccess.remove_absolute("user://shots.cfg")

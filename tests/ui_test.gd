@@ -81,10 +81,10 @@ func test_tutorial() -> void:
 	check("ui: free play: 3 in the bag, 1 skull", h.tut.done() and h.s.bag == 3 and h.s.skulls == 1 and not h.overlay.visible)
 
 
-## Waits for the result card, which follows a pause after the hand ends.
-func await_card() -> void:
-	for i in 600:
-		if h.overlay.visible:
+## Waits for the result banner and Next hand, which follow the payout after the hand ends.
+func await_result() -> void:
+	for i in 900:
+		if h.next_box.visible:
 			break
 		await process_frame
 
@@ -102,19 +102,21 @@ func play_out() -> void:
 		else:
 			h._on_seal(2 if h.s.bag >= 2 else 1)
 		await settle()
-	await await_card()
+	await await_result()
 
 
 func test_free_hands() -> void:
 	await play_out()
-	check("ui: the tutorial hand ends with a result card", h.s.over and h.overlay.visible and h.card_btn.text == "Next hand")
-	h._on_card_btn()
+	check("ui: the tutorial hand ends with the result banner and Next hand", h.s.over and h.banner.visible and h.next_box.visible
+		and not h.seal_box.visible and h.banner_title.text != "")
+	check("ui: the counter shows the new total", h.marks_label.text == str(h.total))
+	h._on_next()
 	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
 	var ok := true
 	for i in 12:
 		await play_out()
-		ok = ok and h.s.over and h.overlay.visible
-		h._on_card_btn()
+		ok = ok and h.s.over and h.banner.visible and h.next_box.visible and h.marks_label.text == str(h.total)
+		h._on_next()
 	check("ui: 12 free hands play out", ok and h.hands == 13)
 	var c := ConfigFile.new()
 	check("ui: marks are saved", c.load("user://ui_test.cfg") == OK and int(c.get_value("dice", "total", -1)) == h.total)
@@ -122,7 +124,11 @@ func test_free_hands() -> void:
 
 func test_help() -> void:
 	h._on_help()
-	check("ui: ? lists the hands with their pay", h.overlay.visible and h.card_text.text.contains("Five of a kind   12") and h.card_text.text.contains("Straight (2 3 4 5 6)   5"))
+	var grid: GridContainer = h.card_body.get_child(0)
+	var cells := grid.get_children()
+	check("ui: ? lists the hands in columns: name, dice, pay", h.overlay.visible and grid.columns == 3 and cells.size() == 21
+		and cells[0].text == "Five of a kind" and cells[1].get_child_count() == 5 and cells[2].text == "12"
+		and cells[9].text == "Straight" and cells[11].text == "5")
 	h._on_card_btn()
 	check("ui: the help card closes", not h.overlay.visible)
 
@@ -144,3 +150,8 @@ func test_labels() -> void:
 	check("ui: four of a kind gets the grand card", h._big(h.s) == 2)
 	h.s.row = [6, 6, 2, 3, 4]
 	check("ui: a pair gets the plain card", h._big(h.s) == 0)
+	check("ui: risk is ivory near zero, then reddens as it grows", h.risk_color(0.005) == h.IVORY
+		and h.risk_color(0.4).g < h.risk_color(0.05).g and h.risk_color(0.4).r > 0.9)
+	check("ui: IM Fell text takes its digits from Cinzel (lining figures)", not h.serif.base_font.has_char(0x31)
+		and h.serif.base_font.has_char(0x61) and h.serif.fallbacks[0].has_char(0x31))
+	check("ui: the ribbon preview is not red", h.UMBER.r < 0.6 and absf(h.UMBER.r - h.UMBER.g) < 0.25)
