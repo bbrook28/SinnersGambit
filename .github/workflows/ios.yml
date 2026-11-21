@@ -7,10 +7,6 @@ name: iOS TestFlight
 on:
   workflow_dispatch:
     inputs:
-      xcode27:
-        description: "Build with Xcode 27.1 (fills the iPhone Duo inner screen). Off: Xcode 26 on macos-15."
-        type: boolean
-        default: false
       notes:
         description: "TestFlight What to Test text (empty: leave it)"
         type: string
@@ -27,7 +23,8 @@ env:
 
 jobs:
   testflight:
-    runs-on: ${{ inputs.xcode27 && 'xcode-27' || 'macos-15' }}
+    # Apple requires the iOS 27 SDK for uploads (email to Ben, 2026-11-21): Xcode 27 on the macOS 26 image.
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -54,12 +51,16 @@ jobs:
             exit 1
           fi
 
-      - name: Pick Xcode (a release, never a beta or RC)
+      - name: Pick Xcode 27 (the newest release, never a beta or RC; fails rather than fall back to an older SDK)
         run: |
-          if [ "${{ inputs.xcode27 }}" = "true" ]; then newest=/Applications/Xcode_27.1.app; else newest=""; fi
-          [ -d "$newest" ] || newest=$(ls -d /Applications/Xcode_*.app | grep -iv "beta\|release_candidate" | sort -V | tail -1)
+          ls -d /Applications/Xcode_*.app
+          newest=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | grep -iv "beta\|release_candidate" | sort -V | tail -1)
+          if [ -z "$newest" ]; then echo "::error::No Xcode 27 release on this runner image; Apple needs the iOS 27 SDK."; exit 1; fi
           sudo xcode-select -s "$newest"
           xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iOS SDK $sdk"
+          case "$sdk" in 27*|28*|29*) ;; *) echo "::error::iOS SDK $sdk is older than 27"; exit 1 ;; esac
 
       - name: Cache Godot and export templates
         id: cache-godot
