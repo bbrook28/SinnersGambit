@@ -17,7 +17,7 @@ func _init() -> void:
 	for m in 6:
 		dist[m] = _dist(m)
 	var t0 := Time.get_ticks_msec()
-	_core_b()
+	_core_e()
 	print("run time %.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
 	quit()
 
@@ -363,3 +363,320 @@ func _b_throw(row: Array, skulls: int, bag: int, n: int) -> float:
 				best = maxf(best, _b(row + [f], skulls + k, bag - k - 1))
 			total += o[1] * best
 	return total
+
+
+# ---------- D: core B, plus a stop (cash out the row) once k candles are out ----------
+
+var dm := {}
+var dmode := ""
+var dk := 0
+var dstops := 0.0
+
+func _core_d(k: int) -> void:
+	dk = k
+	print("== D%d: core B, and you may cash out your row once %d or more skulls are out." % [k, k])
+	var out := {}
+	for m in ["strong", "rule", "rule_stop3"]:
+		dmode = m
+		dm.clear()
+		out[m] = _d([], 0, 7)
+	print("  marks a hand: strong %.3f, the draw rule with no stops %.3f, the draw rule cashing at three of a kind or better %.3f" % [out.strong, out.rule, out.rule_stop3])
+	var best_obvious: float = maxf(out.rule, out.rule_stop3)
+	print("  strong over the best obvious play: %+.0f%%" % (100.0 * (out.strong / best_obvious - 1.0)))
+	# how often best play stops, and how close those calls are, over states it reaches
+	dmode = "strong"
+	var reach := _d_reach()
+	print("  best play cashes out early in %.0f%% of hands; stop calls within 0.5 marks: %.0f%% of the calls it faces" % [100.0 * reach.stop, 100.0 * reach.close])
+
+
+func _d(row: Array, skulls: int, bag: int) -> float:
+	var r := row.duplicate()
+	r.sort()
+	var key := "%s|%d|%d" % [r, skulls, bag]
+	if dm.has(key):
+		return dm[key]
+	var cash := float(Rules.score(cfg, r).marks)
+	var v := cash
+	if r.size() < 5 and bag > 0:
+		var ns: Array = range(1, mini(3, bag) + 1) if dmode == "strong" else [mini(3 - skulls, bag)]
+		var best := -1.0
+		for n in ns:
+			best = maxf(best, _d_throw(r, skulls, bag, n))
+		v = best
+		if skulls >= dk and not r.is_empty():
+			if dmode == "strong":
+				v = maxf(v, cash)
+			elif dmode == "rule_stop3" and Rules.score(cfg, r).hand >= 3:
+				v = cash
+	dm[key] = v
+	return v
+
+
+func _d_throw(row: Array, skulls: int, bag: int, n: int) -> float:
+	var dance := bag == 1
+	var total := 0.0
+	for o in dist[n]:
+		var k: int = o[0].count(1)
+		if skulls + k >= 3 or (dance and k > 0):
+			continue
+		var pips := _pips(o[0])
+		if dance:
+			total += o[1] * _d(row + [0], skulls + k, 0)
+		elif pips.is_empty():
+			total += o[1] * _d(row, skulls + k, bag - n)
+		elif dmode == "strong":
+			var best := -1.0
+			for f in pips:
+				best = maxf(best, _d(row + [f], skulls + k, bag - k - 1))
+			total += o[1] * best
+		else:
+			var bi := 0
+			var bk := -1
+			for i in pips.size():
+				var f: int = pips[i]
+				var kk: int = Rules.score(cfg, row + [f]).marks * 100 + row.count(f) * 10 + f
+				if kk > bk:
+					bk = kk
+					bi = i
+			total += o[1] * _d(row + [pips[bi]], skulls + k, bag - k - 1)
+	return total
+
+
+## Walks best play's reachable states with their probabilities.
+func _d_reach() -> Dictionary:
+	var probs := {"[]|0|7": [[], 0, 7, 1.0]}
+	var stop := 0.0
+	var faced := 0.0
+	var close := 0.0
+	for depth in 12:
+		var nxt := {}
+		for key in probs:
+			var e: Array = probs[key]
+			var row: Array = e[0]
+			var sk: int = e[1]
+			var bag: int = e[2]
+			var p: float = e[3]
+			if row.size() >= 5 or bag == 0:
+				continue
+			var cash := float(Rules.score(cfg, row).marks)
+			var bn := 1
+			var bv := -1.0
+			for n in range(1, mini(3, bag) + 1):
+				var tv := _d_throw(row, sk, bag, n)
+				if tv > bv:
+					bv = tv
+					bn = n
+			if sk >= dk and not row.is_empty():
+				faced += p
+				if absf(bv - cash) < 0.5:
+					close += p
+				if cash >= bv:
+					stop += p
+					continue
+			var dance := bag == 1
+			for o in dist[bn]:
+				var k: int = o[0].count(1)
+				if sk + k >= 3 or (dance and k > 0):
+					continue
+				var pips := _pips(o[0])
+				var nr: Array
+				var nb: int
+				if dance:
+					nr = row + [0]
+					nb = 0
+				elif pips.is_empty():
+					nr = row
+					nb = bag - bn
+				else:
+					var best := -1.0
+					var bf := 0
+					for f in pips:
+						var vv := _d(row + [f], sk + k, bag - k - 1)
+						if vv > best:
+							best = vv
+							bf = f
+					nr = row + [bf]
+					nb = bag - k - 1
+				nr = nr.duplicate()
+				nr.sort()
+				var nk := "%s|%d|%d" % [nr, sk + k, nb]
+				if not nxt.has(nk):
+					nxt[nk] = [nr, sk + k, nb, 0.0]
+				nxt[nk][3] += p * o[1]
+		probs = nxt
+	return {"stop": stop, "close": close / maxf(faced, 1e-9)}
+
+
+# ---------- E: variants of core B: draw options, pay tables, a skull kept in the row as a dead place ----------
+
+var em := {}
+var emode := ""          # strong, rule, rule_row (obvious: a skull goes to the row only when it would be the third)
+var eopts: Array = [1, 2, 3]
+var erow := false        # a skull may fill a row place (a dead place, worth nothing) instead of snuffing a candle
+var et := 2              # the obvious rule draws the most dice while skulls < et, then the fewest
+
+func _core_e() -> void:
+	var base_pay: String = cfg.pay
+	for v in [
+			["B as built", [1, 2, 3], false, base_pay],
+			["B, draw 1 or 3 only", [1, 3], false, base_pay],
+			["B, full house 6", [1, 2, 3], false, "0,1,2,3,5,6,8,12"],
+			["B, three of a kind 4, straight 6", [1, 2, 3], false, "0,1,2,4,6,5,8,12"],
+			["B + skull may fill a row place", [1, 2, 3], true, base_pay],
+			["B + skull to the row, draw 1 or 3", [1, 3], true, base_pay]]:
+		eopts = v[1]
+		erow = v[2]
+		cfg.pay = v[3]
+		var out := {}
+		emode = "strong"
+		em.clear()
+		out.strong = _e([], 0, 7)
+		var ob := 0.0
+		var obname := ""
+		for m in (["rule", "rule_row"] if erow else ["rule"]):
+			for t in [0, 1, 2, 3]:
+				emode = m
+				et = t
+				em.clear()
+				var vv := _e([], 0, 7)
+				if vv > ob:
+					ob = vv
+					obname = "%s t%d" % [m, t]
+		emode = "strong"
+		em.clear()
+		ebm.clear()
+		var bust := _e_bust([], 0, 7)
+		print("== E %s: strong %.3f, best obvious %.3f (%s), gap %+.0f%%, strong busts %.1f%%" % [v[0], out.strong, ob, obname, 100.0 * (out.strong / ob - 1.0), 100.0 * bust])
+	cfg.pay = base_pay
+
+
+func _e_draws(skulls: int, bag: int) -> Array:
+	var out: Array = []
+	for n in eopts:
+		if n <= bag:
+			out.append(n)
+	if out.is_empty():
+		out = [mini(1, bag)]
+	if emode == "strong":
+		return out
+	# the obvious rule: the most dice while skulls < et, then the fewest
+	return [out.max() if skulls < et else out.min()]
+
+
+func _e(row: Array, skulls: int, bag: int) -> float:
+	var r := row.duplicate()
+	r.sort()
+	var key := "%s|%d|%d" % [r, skulls, bag]
+	if em.has(key):
+		return em[key]
+	var v := float(Rules.score(cfg, r.filter(func(x): return x != -1)).marks)
+	if r.size() < 5 and bag > 0:
+		var best := -1.0
+		for n in _e_draws(skulls, bag):
+			best = maxf(best, _e_throw(r, skulls, bag, n))
+		v = best
+	em[key] = v
+	return v
+
+
+## Expected value of a throw of n; -1 in a row is a dead place.
+func _e_throw(row: Array, skulls: int, bag: int, n: int) -> float:
+	var dance := bag == 1
+	var total := 0.0
+	for o in dist[n]:
+		var k: int = o[0].count(1)
+		var pips := _pips(o[0])
+		if dance:
+			if k > 0:
+				continue
+			total += o[1] * _e(row + [0], skulls, 0)
+			continue
+		var best := -1.0
+		var room := 5 - row.size()
+		# j skulls go to the row as dead places, the rest snuff candles
+		var jmax := mini(k, room) if erow else 0
+		for j in range(0, jmax + 1):
+			var sk := skulls + (k - j)
+			if sk >= 3:
+				continue
+			if emode == "rule" and j > 0:
+				continue
+			if emode == "rule_row" and j != maxi(0, skulls + k - 2) and j != mini(k, room):
+				continue
+			var nrow: Array = row.duplicate()
+			for t in j:
+				nrow.append(-1)
+			var nbag := bag - n
+			if pips.is_empty() or nrow.size() >= 5:
+				best = maxf(best, _e(nrow, sk, nbag + pips.size()))
+			elif emode == "strong":
+				for f in pips:
+					best = maxf(best, _e(nrow + [f], sk, nbag + pips.size() - 1))
+			else:
+				var bi := 0
+				var bk := -1
+				var live: Array = nrow.filter(func(x): return x != -1)
+				for i in pips.size():
+					var f: int = pips[i]
+					var kk: int = Rules.score(cfg, live + [f]).marks * 100 + live.count(f) * 10 + f
+					if kk > bk:
+						bk = kk
+						bi = i
+				best = maxf(best, _e(nrow + [pips[bi]], sk, nbag + pips.size() - 1))
+		if best >= 0.0:
+			total += o[1] * best
+	return total
+
+
+## Strong play's bust chance from a state (follows its own choices).
+var ebm := {}
+func _e_bust(row: Array, skulls: int, bag: int) -> float:
+	var r := row.duplicate()
+	r.sort()
+	var key := "%s|%d|%d" % [r, skulls, bag]
+	if ebm.has(key):
+		return ebm[key]
+	var out := 0.0
+	if r.size() < 5 and bag > 0:
+		var bn := 1
+		var bv := -1.0
+		for n in _e_draws(skulls, bag):
+			var tv := _e_throw(r, skulls, bag, n)
+			if tv > bv:
+				bv = tv
+				bn = n
+		var dance := bag == 1
+		for o in dist[bn]:
+			var k: int = o[0].count(1)
+			var pips := _pips(o[0])
+			if dance:
+				out += o[1] * (1.0 if k > 0 else 0.0)
+				continue
+			var best := -1.0
+			var bstate = null
+			var jmax := mini(k, 5 - r.size()) if erow else 0
+			for j in range(0, jmax + 1):
+				var sk := skulls + (k - j)
+				if sk >= 3:
+					continue
+				var nrow: Array = r.duplicate()
+				for t in j:
+					nrow.append(-1)
+				var nbag := bag - bn
+				if pips.is_empty() or nrow.size() >= 5:
+					var vv := _e(nrow, sk, nbag + pips.size())
+					if vv > best:
+						best = vv
+						bstate = [nrow, sk, nbag + pips.size()]
+				else:
+					for f in pips:
+						var vv := _e(nrow + [f], sk, nbag + pips.size() - 1)
+						if vv > best:
+							best = vv
+							bstate = [nrow + [f], sk, nbag + pips.size() - 1]
+			if bstate == null:
+				out += o[1]
+			else:
+				out += o[1] * _e_bust(bstate[0], bstate[1], bstate[2])
+	ebm[key] = out
+	return out
