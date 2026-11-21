@@ -11,6 +11,8 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 ## Design
 - The hand: dice poker against the Master, `docs/superpowers/specs/2026-11-20-dice-poker-pitch.md` (approved), changed by Ben on 2026-11-20: no cash out (a hand plays to a full row or a bust), bag 7, and each throw you choose to draw 1, 2 or 3 dice (core B, from `sim/cores_sim.gd`). Rules: `dice/` (no UI; `rules.gd` static functions over `state.gd`, every number in `config.gd`; `policies.gd` has the exact solver). The bag hand is in git up to 4cb86d0.
 
+- The Sin's demand (0.12.0, a prototype): `docs/superpowers/specs/2026-11-21-sin-demand-pitch.md` (approved). The hosting Sin pays marks on top of the hand for what it wants; `dice/demands.gd` has the three (Pride, Envy, Wrath), and only they host (`HOSTS` in `ui/dice_screen.gd`). Sim: add `demand=pride|envy|wrath`. Which face a Sin names is only paint: a new Sin needs a new shape.
+
 ## Commands (godot = the Godot 4.7.2 console exe; `tests/run_all.sh` has the path)
 - Tests: `bash tests/run_all.sh`.
 - Sim: `godot --headless --path . --script res://sim/dice_sim.gd -- [hands=20000] [seed=4] [key=value ...]` (any `dice/config.gd` key). Report: stdout and `build/sim/dice_<seed>.txt`, with PASS/MISS against the plan's pass marks.
