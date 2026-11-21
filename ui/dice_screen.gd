@@ -417,13 +417,14 @@ func _on_next() -> void:
 
 
 ## What was paid, in words: "Your row is paid." with no Sin; "Pair 1 + Pride 4." or "Pair 1, Envy takes 2." with one.
+## Envy can take more than the hand made; the hand then pays nothing, never less.
 func paid_line(t: Dictionary) -> String:
 	if demand_line() == "":
 		return "Your row is paid."
 	if t.sin > 0:
 		return "%s %d + %s %d." % [t.name, t.marks, sin_name(), t.sin]
-	if t.sin < 0 and t.marks > 0:
-		return "%s %d, %s takes %d." % [t.name, t.marks, sin_name(), mini(-t.sin, t.marks)]
+	if t.sin < 0:   # the Sin's own number, as the ribbon shows it; the title says what is left (never less than 0)
+		return "%s %d, %s takes %d." % [t.name, t.marks, sin_name(), -t.sin]
 	return "%s %d. %s pays nothing." % [t.name, t.marks, sin_name()]
 
 

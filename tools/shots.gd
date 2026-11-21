@@ -62,20 +62,82 @@ func _initialize() -> void:
 			break
 		await process_frame
 	await _shot("result_banner")
+	h._on_next()              # the first hand with a demand: the card, once, then Pride opens
+	await _shot("demand_card")
 	Engine.time_scale = 1.0   # the opening at its real pace, caught while the window fills the screen
-	h.hands = 1               # the next hand is Greed's
-	h._on_next()
+	h._on_card_btn()
+	for i in 20:
+		await process_frame
 	await _shot("sin_opening")
 	Engine.time_scale = 4.0
-	for i in 120:
+	for i in 400:
 		if not h.opener.visible:
 			break
 		await process_frame
 	await _shot("sin_window")
+	# Pride: a 6 in the row, a 6 and a 3 thrown, the 6 picked
+	hosted(1, [6, 6, 3])
+	h._on_seal(1)
+	await settle()
+	h._on_seal(2)
+	await settle()
+	await _shot("pride_thrown")
+	h._on_die(0)
+	await _shot("pride_pick")
+	# Pride pays 6 6 5 3 3: the Sin's coins, then the banner
+	hosted(1, [6, 6, 5, 3, 3])
+	for i in 5:
+		h._on_seal(1)
+		await settle()
+	var second := false
+	for i in 900:
+		if not second and h.counting and int(h.marks_label.text) >= h.total - 4 and int(h.marks_label.text) < h.total - 1:
+			second = true
+			await _shot("pride_sin_pays")
+		if h.next_box.visible:
+			break
+		await process_frame
+	await _shot("pride_result")
+	# Envy: a 2 costs; the pair of 2s is taken
+	hosted(2, [2, 2, 3, 3, 4, 5])
+	h._on_seal(1)
+	await settle()
+	h._on_seal(2)
+	await settle()
+	h._on_die(0)
+	await _shot("envy_pick")
+	h._on_keep()
+	await settle()
+	for i in 3:
+		h._on_seal(1)
+		await settle()
+	for i in 900:
+		if h.next_box.visible:
+			break
+		await process_frame
+	await _shot("envy_result")
+	# Wrath: two skulls show, and each seal says what it pays
+	hosted(3, [4, 1, 1, 5, 3])
+	h._on_seal(1)
+	await settle()
+	h._on_seal(2)
+	await settle()
+	await _shot("wrath_seals")
+	h._on_seal(2)
+	await settle()
+	await _shot("wrath_owed")
 	h._on_help()
 	await _shot("hand_ranking")
 	DirAccess.remove_absolute("user://shots.cfg")
 	quit(0)
+
+
+## A scripted hand hosted by the Sin of hand number k (1 Pride, 2 Envy, 3 Wrath).
+func hosted(k: int, faces: Array) -> void:
+	h.phase = "throw"
+	h.hands = k
+	h._new_hand(h.Tutorial.ScriptRng.new(faces))
+	h._end_opening()
 
 
 func settle() -> void:

@@ -271,7 +271,7 @@ func test_demand() -> void:
 		h._on_seal(1)
 		await settle()
 	await await_result()
-	check("ui: Envy: the banner says what was taken", h.banner_title.text == "No marks" and h.banner_text.text.begins_with("Pair 1, Envy takes 1.") and h.total == before)
+	check("ui: Envy: the banner says what was taken", h.banner_title.text == "No marks" and h.banner_text.text.begins_with("Pair 1, Envy takes 2.") and h.total == before)
 	h._on_next()
 	# Wrath: two skulls, then the seals pay
 	await hosted(3, [4, 1, 1, 5, 3])
