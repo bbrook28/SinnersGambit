@@ -141,16 +141,22 @@ static func _classify(row: Array) -> int:
 	return 0
 
 
-## What the Sin pays for a row: its faces' marks, and the bank from throws already made.
+## What the Sin pays for a row: its faces' marks, a face that stands alone, and the bank from throws already made.
 static func sin_marks(cfg: Dictionary, row: Array, bank: int) -> int:
-	var faces: Dictionary = Demands.of(cfg).get("faces", {})
+	var demand: Dictionary = Demands.of(cfg)
+	var faces: Dictionary = demand.get("faces", {})
 	var m := bank
 	for f in row:
 		m += int(faces.get(f, 0))
+	var lone: Dictionary = demand.get("lone", {})
+	for f in lone:
+		if row.count(f) == 1:
+			m += int(lone[f])
 	return m
 
 
-## What a row pays in all: {hand, name, marks (the poker hand), sin (the Sin's marks), total (never less than 0)}.
+## What a row pays in all: {hand, name, marks (the poker hand), sin (the Sin's marks), total (never less than 0),
+## wild_as (the face the wild die was paid as; 0 with no wild)}.
 ## A 0 is wild and takes the face that pays most in all; a tie goes to the better hand.
 static func total(cfg: Dictionary, row: Array, bank: int) -> Dictionary:
 	var w := row.find(0)
@@ -162,10 +168,11 @@ static func total(cfg: Dictionary, row: Array, bank: int) -> Dictionary:
 			var t: Dictionary = total(cfg, r, bank)
 			if best.is_empty() or t.total > best.total or (t.total == best.total and t.hand > best.hand):
 				best = t
+				best.wild_as = f
 		return best
 	var sc: Dictionary = score(cfg, row)
 	var sin: int = sin_marks(cfg, row, bank)
-	return {"hand": sc.hand, "name": sc.name, "marks": sc.marks, "sin": sin, "total": maxi(0, sc.marks + sin)}
+	return {"hand": sc.hand, "name": sc.name, "marks": sc.marks, "sin": sin, "total": maxi(0, sc.marks + sin), "wild_as": 0}
 
 
 ## What the Sin pays for throwing n dice now: Wrath pays for each die thrown in danger, never on the Last Dance.
@@ -184,6 +191,11 @@ static func danger_pay(cfg: Dictionary, skulls: int, bag: int, n: int) -> int:
 ## What keeping thrown die i would make of the row.
 static func preview(s, i: int) -> Dictionary:
 	return score(s.cfg, s.row + [s.thrown[i]])
+
+
+## What keeping thrown die i would do to the Sin's pay: +4 for a first 6 under Pride, -4 for a second.
+static func keep_delta(s, i: int) -> int:
+	return sin_marks(s.cfg, s.row + [s.thrown[i]], s.bank) - sin_marks(s.cfg, s.row, s.bank)
 
 
 ## What keeping thrown die i would pay in all (see total).

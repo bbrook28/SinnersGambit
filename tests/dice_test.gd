@@ -197,33 +197,44 @@ func test_draw_choice() -> void:
 
 func test_demand_faces() -> void:
 	var pride := Config.merged({"demand": "pride"})
-	var t: Dictionary = Rules.total(pride, [6, 6, 5, 3, 3], 0)
-	check("Pride: two pair 2, two 6s and a 5 pay 5, 7 in all", t.name == "Two pair" and t.marks == 2 and t.sin == 5 and t.total == 7)
+	var t: Dictionary = Rules.total(pride, [6, 3, 3, 4, 5], 0)
+	check("Pride: a lone 6 pays 4 on a pair: 5 in all", t.name == "Pair" and t.marks == 1 and t.sin == 4 and t.total == 5)
+	t = Rules.total(pride, [6, 6, 3, 4, 5], 0)
+	check("Pride: a second 6 and it pays nothing", t.marks == 1 and t.sin == 0 and t.total == 1)
+	t = Rules.total(pride, [6, 2, 2, 4, 5], 0)
+	check("Pride: each 2 costs 1", t.marks == 1 and t.sin == 2 and t.total == 3)
+	t = Rules.total(pride, [2, 2, 3, 4, 5], 0)
+	check("Pride: a pair of 2s pays 1, costs 2, never less than 0", t.marks == 1 and t.sin == -2 and t.total == 0)
 	var envy := Config.merged({"demand": "envy"})
-	t = Rules.total(envy, [2, 2, 3, 4, 5], 0)
-	check("Envy: a pair of 2s pays 1, costs 2, never less than 0", t.marks == 1 and t.sin == -2 and t.total == 0)
-	t = Rules.total(Config.merged({}), [6, 6, 5, 3, 3], 0)
-	check("no Sin: the hand alone", t.marks == 2 and t.sin == 0 and t.total == 2)
-	var s = hand([6, 3], {"demand": "pride"})
+	t = Rules.total(envy, [6, 6, 5, 3, 3], 0)
+	check("Envy still pays by the face: two 6s pay 2", t.marks == 2 and t.sin == 2 and t.total == 4)
+	t = Rules.total(Config.merged({}), [6, 3, 3, 4, 5], 0)
+	check("no Sin: the hand alone", t.marks == 1 and t.sin == 0 and t.total == 1 and t.wild_as == 0)
+	var s = hand([6, 2], {"demand": "pride"})
 	Rules.throw(s)
-	check("Pride: the preview counts both", Rules.preview_total(s, 0).sin == 2 and Rules.preview_total(s, 1).sin == 0
+	check("Pride: the preview counts both", Rules.preview_total(s, 0).sin == 4 and Rules.preview_total(s, 1).sin == -1
 		and Rules.preview(s, 0).marks == 0)
-	s = hand([6, 2, 6, 3, 5, 2, 3, 4, 3, 6], {"demand": "pride"})
+	check("Pride: a first 6 would add 4, a 2 would take 1", Rules.keep_delta(s, 0) == 4 and Rules.keep_delta(s, 1) == -1)
+	s.row = [6]
+	check("Pride: a second 6 would take the 4 back", Rules.keep_delta(s, 0) == -4)
+	s.row = [6, 6]
+	check("Pride: a third 6 changes nothing", Rules.keep_delta(s, 0) == 0)
+	s = hand([6, 2, 3, 2, 3, 2, 4, 2, 5, 2], {"demand": "pride"})
 	for i in 5:
 		Rules.throw(s)
 		Rules.keep(s, 0)
-	check("Pride: a paid row pays hand and Sin (%d)" % s.marks, s.over and s.row == [6, 6, 5, 3, 3] and s.marks == 7)
+	check("Pride: a paid row pays hand and Sin (%d)" % s.marks, s.over and s.row == [6, 3, 3, 4, 5] and s.marks == 5)
 
 
 func test_demand_wild() -> void:
 	var pride := Config.merged({"demand": "pride"})
-	var t: Dictionary = Rules.total(pride, [4, 4, 4, 0], 0)
-	check("Pride: the wild makes four 4s (7), not a 6 (3 + 2)", t.name == "Four of a kind" and t.total == 7 and t.sin == 0)
-	t = Rules.total(pride, [3, 3, 0], 0)
-	check("Pride: a tie goes to the better hand: three 3s", t.name == "Three of a kind" and t.total == 3)
-	t = Rules.total(pride, [3, 0], 0)
-	check("Pride: a lone 3's wild is a 6 (0 + 2), not a pair (1)", t.name == "High die" and t.sin == 2 and t.total == 2)
-	check("score still means the poker hand", Rules.score(pride, [3, 0]).name == "Pair")
+	var t: Dictionary = Rules.total(pride, [3, 3, 4, 0], 0)
+	check("Pride: the wild is a lone 6 (pair 1 + 4), not a third 3 (3)", t.name == "Pair" and t.total == 5 and t.sin == 4 and t.wild_as == 6)
+	t = Rules.total(pride, [6, 3, 0], 0)
+	check("Pride: holding a 6, the wild pairs the 3 and leaves the 6 alone", t.name == "Pair" and t.total == 5 and t.wild_as == 3)
+	t = Rules.total(pride, [4, 4, 4, 0], 0)
+	check("Pride: four 4s (7) beat three 4s and a lone 6 (3 + 4): a tie goes to the better hand", t.name == "Four of a kind" and t.total == 7 and t.wild_as == 4)
+	check("score still means the poker hand", Rules.score(pride, [3, 3, 4, 0]).name == "Three of a kind")
 
 
 func test_demand_wrath() -> void:
@@ -256,8 +267,12 @@ func test_demand_solver() -> void:
 	var start: float = none.value([], 0, 7)
 	check("no Sin: best play is still worth 3.581 (%.3f)" % start, absf(start - 3.581) < 0.0005)
 	var pride = Policies.Solver.new(Config.merged({"demand": "pride"}))
-	check("Pride: a full row is worth hand and Sin", is_equal_approx(pride.value([6, 6, 5, 3, 3], 0, 2), 7.0))
+	check("Pride: a full row is worth hand and Sin", is_equal_approx(pride.value([6, 3, 3, 4, 5], 0, 2), 5.0))
 	check("Pride: the start is worth more than with no Sin", pride.value([], 0, 7) > start + 1.0)
+	var alone = Policies.Solver.new(Config.merged({"demand": "pride"}), true)
+	check("the Sin alone: the hand is worth nothing, and a cost is not floored", is_equal_approx(alone.value([6, 3, 3, 4, 5], 0, 2), 4.0)
+		and is_equal_approx(alone.value([2, 2, 3, 4, 5], 0, 2), -2.0))
+	check("the Sin alone: its wild is a lone 6", is_equal_approx(alone.value([3, 3, 4, 0], 0, 0), 4.0))
 	var wrath = Policies.Solver.new(Config.merged({"demand": "wrath"}))
 	check("Wrath: a full row is worth its hand and its bank", is_equal_approx(wrath.value([4, 4, 2, 3, 5], 2, 0, 3), 4.0))
 	check("Wrath: the bank is part of the state", wrath.value([4, 4], 2, 3, 2) > wrath.value([4, 4], 2, 3, 0) + 1.0)

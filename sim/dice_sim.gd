@@ -14,6 +14,8 @@ const Demands = preload("res://dice/demands.gd")
 const CLOSE := 0.15   # a decision is close when its best two options are within this many marks (not exact ties)
 
 var _lines: Array = []
+var _plain    # the solver for the same hand with no Sin, and
+var _alone    # the solver for the Sin alone: together they say when a keep is a question
 
 
 func say(text: String) -> void:
@@ -44,6 +46,11 @@ func _init() -> void:
 	var cfg := Config.merged(overrides)
 	var t0 := Time.get_ticks_msec()
 	var strong := Policies.strong_policy(cfg)  # exact best play
+	if not Demands.of(cfg).is_empty():
+		var bare: Dictionary = cfg.duplicate()
+		bare.demand = ""
+		_plain = Policies.Solver.new(bare)
+		_alone = Policies.Solver.new(cfg, true)
 	var r := _run(cfg, Policies.random_policy(seed_value), hands, seed_value, null)
 	var g := _run(cfg, Policies.greedy_policy(), hands, seed_value, null)
 	var st := _run(cfg, strong, hands, seed_value, strong.solver)
@@ -57,6 +64,13 @@ func _init() -> void:
 	var costly: float = 100.0 * st.costly_keeps / maxi(st.keeps, 1)
 	say("  the best two different faces are worth the same in %.1f%% of keeps" % same)
 	say("  strong's marks: %.2f from the hand, %.2f from the Sin" % [st.poker, st.sin])
+	var choice: float = float(st.keeps) / hands
+	var asked: float = float(st.asked) / hands
+	var hand_wins: float = 100.0 * st.hand_wins / maxi(st.asked, 1)
+	say("  choice keeps (two or more different faces thrown): %.2f a hand" % choice)
+	if _plain != null:
+		say("  questions asked (no die is best for both the hand alone and the Sin alone): %.2f a hand; the hand wins %.0f%%, the Sin %.0f%%" % [
+			asked, hand_wins, 100.0 - hand_wins])
 	var d2: Dictionary = st.draws_at_two
 	var t2: int = maxi(d2.get(1, 0) + d2.get(2, 0) + d2.get(3, 0), 1)
 	var two: float = 100.0 * d2.get(2, 0) / t2
@@ -70,14 +84,18 @@ func _init() -> void:
 	if demand.is_empty():
 		_verdict("strong earns >= 15% more marks than greedy, interval above zero", rel >= 0.15 and gap[0] - gap[1] > 0.0, "%+.0f%%" % (100.0 * rel))
 	else:
-		say("  (strong against greedy is not judged: greedy does not know the demand)")
-		if not demand.faces.is_empty():
-			_verdict("under 25% of keeps are worth the same either way", same < 25.0, "%.1f%%" % same)
-			_verdict("a wrong keep costs >= 0.25 marks in over 70% of keeps", costly > 70.0, "%.1f%%" % costly)
+		say("  (not judged, by the second revision of the pitch: strong against greedy, coin-flip keeps %.1f%%, costly keeps %.1f%%, busts)" % [same, costly])
+		_verdict("the Sin asks 0.4 questions a hand or more", asked >= 0.4, "%.2f" % asked)
+		_verdict("neither side wins more than 70% of them", hand_wins <= 70.0 and hand_wins >= 30.0, "the hand %.0f%%" % hand_wins)
+		_verdict("choice keeps do not fall below 2.33 a hand", choice >= 2.33, "%.2f" % choice)
+		_verdict("the Sin pays less than the hand", st.sin < st.poker, "%.2f vs %.2f" % [st.sin, st.poker])
 		if int(demand.danger) > 0:
-			_verdict("with two skulls showing strong draws two dice in 30-70% of throws", two >= 30.0 and two <= 70.0, "%.0f%%" % two)
+			say("  with two skulls showing strong draws two dice in %.0f%% of throws" % two)
 	_verdict("greedy earns more than random", g.marks > r.marks, "%.3f vs %.3f" % [g.marks, r.marks])
-	_verdict("strong busts in 20-30% of hands", st.bust >= 20.0 and st.bust <= 30.0, "%.1f%%" % st.bust)
+	if demand.is_empty():
+		_verdict("strong busts in 20-30% of hands", st.bust >= 20.0 and st.bust <= 30.0, "%.1f%%" % st.bust)
+	else:
+		say("  strong busts in %.1f%% of hands (not judged under a Sin)" % st.bust)
 	_verdict("strong reaches the Last Dance in 15-30% of hands", st.dance >= 15.0 and st.dance <= 30.0, "%.1f%%" % st.dance)
 	var keys: Array = cfg.keys()
 	say("config: hands=%d seed=%d %s" % [hands, seed_value, " ".join(keys.map(func(k): return "%s=%s" % [k, cfg[k]]))])
@@ -91,7 +109,8 @@ func _init() -> void:
 
 func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> Dictionary:
 	var res := {"name": p.name, "hands": hands, "marks_each": [], "hand_counts": {}, "keeps": 0, "close_keeps": 0,
-		"costly_keeps": 0, "near_keeps": 0, "same_keeps": 0, "draws": {}, "draws_at_two": {}}
+		"costly_keeps": 0, "near_keeps": 0, "same_keeps": 0, "draws": {}, "draws_at_two": {},
+		"asked": 0, "hand_wins": 0}
 	var poker := 0
 	var sin := 0
 	var marks := 0
@@ -119,6 +138,30 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 					res.keeps += 1
 					if d <= 1e-9:
 						res.same_keeps += 1
+					if _plain != null:
+						# a question: no thrown face is best for both the hand alone and the Sin alone
+						var bag2: int = s.bag + s.thrown.size() - 1
+						var for_hand := {}
+						var for_sin := {}
+						var best_hand := -1e9
+						var best_sin := -1e9
+						var best_all := -1e9
+						var kept := 0
+						for f in by_face:
+							for_hand[f] = snappedf(_plain.value(s.row + [f], s.skulls, bag2, 0), 1e-9)
+							for_sin[f] = snappedf(_alone.value(s.row + [f], s.skulls, bag2, s.bank), 1e-9)
+							best_hand = maxf(best_hand, for_hand[f])
+							best_sin = maxf(best_sin, for_sin[f])
+							if by_face[f] > best_all:
+								best_all = by_face[f]
+								kept = f
+						var shared := false
+						for f in by_face:
+							shared = shared or (for_hand[f] == best_hand and for_sin[f] == best_sin)
+						if not shared:
+							res.asked += 1
+							if for_hand[kept] == best_hand:
+								res.hand_wins += 1
 					if d > 1e-9 and d < CLOSE:
 						res.close_keeps += 1
 					if d > 1e-9 and d < 0.5:

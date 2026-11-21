@@ -10,9 +10,25 @@ const Rules = preload("res://dice/rules.gd")
 class Solver:
 	var cfg: Dictionary
 	var memo := {}
+	var sin_only := false   # the hand is worth nothing: what the Sin alone wants (the sim's "questions asked")
 
-	func _init(c: Dictionary) -> void:
+	func _init(c: Dictionary, only_the_sin := false) -> void:
 		cfg = c
+		sin_only = only_the_sin
+
+	## What a finished row is worth: all it pays, or with sin_only the Sin's marks alone (a cost is not floored).
+	func paid(row: Array, bank: int) -> float:
+		if not sin_only:
+			return float(Rules.total(cfg, row, bank).total)
+		var w := row.find(0)
+		if w < 0:
+			return float(Rules.sin_marks(cfg, row, bank))
+		var best := -1e9
+		for f in range(int(cfg.skull_faces) + 1, 7):
+			var r := row.duplicate()
+			r[w] = f
+			best = maxf(best, paid(r, bank))
+		return best
 
 	## Expected marks with nothing waiting: a full row or empty bag is paid, otherwise you throw.
 	func value(row: Array, skulls: int, bag: int, bank := 0) -> float:
@@ -21,9 +37,9 @@ class Solver:
 		var key := "%s|%d|%d|%d" % [r, skulls, bag, bank]
 		if memo.has(key):
 			return memo[key]
-		var v := float(Rules.total(cfg, r, bank).total)
+		var v := paid(r, bank)
 		if r.size() < int(cfg.row) and bag > 0:
-			v = -1.0
+			v = -1e9
 			for n in range(1, mini(int(cfg.max_draw), bag) + 1):
 				v = maxf(v, throw_value(r, skulls, bag, n, bank))
 		memo[key] = v
@@ -55,7 +71,7 @@ class Solver:
 			elif pips.is_empty():
 				total += value(row, sk, bag - n, bank)
 			else:
-				var best := -1.0
+				var best := -1e9
 				for f in pips:
 					best = maxf(best, value(row + [f], sk, bag - k - 1, bank))
 				total += best
