@@ -43,6 +43,9 @@ func _init() -> void:
 	test_draw_choice()
 	test_solver()
 	test_policies_play()
+	test_demand_faces()
+	test_demand_wild()
+	test_demand_wrath()
 	print("dice_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -189,3 +192,59 @@ func test_draw_choice() -> void:
 	check("no more than the bag holds", Rules.draw_options(s) == [1, 2])
 	s.bag = 1
 	check("a one-die bag: the Last Dance only", Rules.draw_options(s) == [1])
+
+
+func test_demand_faces() -> void:
+	var pride := Config.merged({"demand": "pride"})
+	var t: Dictionary = Rules.total(pride, [6, 6, 5, 3, 3], 0)
+	check("Pride: two pair 2, two 6s and a 5 pay 5, 7 in all", t.name == "Two pair" and t.marks == 2 and t.sin == 5 and t.total == 7)
+	var envy := Config.merged({"demand": "envy"})
+	t = Rules.total(envy, [2, 2, 3, 4, 5], 0)
+	check("Envy: a pair of 2s pays 1, costs 2, never less than 0", t.marks == 1 and t.sin == -2 and t.total == 0)
+	t = Rules.total(Config.merged({}), [6, 6, 5, 3, 3], 0)
+	check("no Sin: the hand alone", t.marks == 2 and t.sin == 0 and t.total == 2)
+	var s = hand([6, 3], {"demand": "pride"})
+	Rules.throw(s)
+	check("Pride: the preview counts both", Rules.preview_total(s, 0).sin == 2 and Rules.preview_total(s, 1).sin == 0
+		and Rules.preview(s, 0).marks == 0)
+	s = hand([6, 2, 6, 3, 5, 2, 3, 4, 3, 6], {"demand": "pride"})
+	for i in 5:
+		Rules.throw(s)
+		Rules.keep(s, 0)
+	check("Pride: a paid row pays hand and Sin (%d)" % s.marks, s.over and s.row == [6, 6, 5, 3, 3] and s.marks == 7)
+
+
+func test_demand_wild() -> void:
+	var pride := Config.merged({"demand": "pride"})
+	var t: Dictionary = Rules.total(pride, [4, 4, 4, 0], 0)
+	check("Pride: the wild makes four 4s (7), not a 6 (3 + 2)", t.name == "Four of a kind" and t.total == 7 and t.sin == 0)
+	t = Rules.total(pride, [3, 3, 0], 0)
+	check("Pride: a tie goes to the better hand: three 3s", t.name == "Three of a kind" and t.total == 3)
+	t = Rules.total(pride, [3, 0], 0)
+	check("Pride: a lone 3's wild is a 6 (0 + 2), not a pair (1)", t.name == "High die" and t.sin == 2 and t.total == 2)
+	check("score still means the poker hand", Rules.score(pride, [3, 0]).name == "Pair")
+
+
+func test_demand_wrath() -> void:
+	var s = hand([1, 1, 4, 5, 3], {"demand": "wrath"})
+	Rules.throw(s)
+	check("Wrath: nothing for a throw with no skulls showing", s.bank == 0 and s.skulls == 2)
+	check("Wrath: two dice at two skulls would pay 2", Rules.throw_pays(s, 2) == 2 and Rules.throw_pays(s, 1) == 1)
+	Rules.throw(s)
+	check("Wrath: the throw is banked", s.bank == 2)
+	s = hand([1, 1, 1, 5], {"demand": "wrath"})
+	Rules.throw(s)
+	Rules.throw(s)
+	check("Wrath: a bust pays nothing, bank and all", s.busted and s.marks == 0 and s.bank == 2)
+	s = hand([4], {"demand": "wrath", "bag": 1})
+	s.skulls = 2
+	check("Wrath: the Last Dance pays nothing", Rules.throw_pays(s, 1) == 0)
+	s = hand([1, 1, 4, 5, 4, 6, 4, 4], {"demand": "wrath", "bag": 8})
+	Rules.throw(s)          # two skulls, bag 6
+	Rules.throw(s)          # 4,5 at two skulls: banks 2
+	Rules.keep(s, 0)
+	check("Wrath: one skull showing pays nothing", Rules.throw_pays(hand([], {"demand": "wrath"}), 3) == 0)
+	check("Wrath: the total adds the bank", Rules.total(s.cfg, [4, 4], s.bank).total == 3 and Rules.total(s.cfg, [4, 4], s.bank).sin == 2)
+	check("no Sin: no throw pays", Rules.throw_pays(hand([]), 3) == 0)
+	var c = s.clone()
+	check("a clone keeps the bank", c.bank == 2)

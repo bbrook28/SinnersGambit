@@ -2,6 +2,7 @@
 extends RefCounted
 
 const State = preload("res://dice/state.gd")
+const Demands = preload("res://dice/demands.gd")
 
 const HANDS := ["High die", "Pair", "Two pair", "Three of a kind", "Straight", "Full house", "Four of a kind", "Five of a kind"]
 
@@ -41,6 +42,7 @@ static func throw(s, draw := 0) -> void:
 	if not can_throw(s):
 		return
 	var n := next_draw(s, draw)
+	s.bank += throw_pays(s, n)
 	s.dance = is_dance(s)
 	s.bag -= n
 	s.throws += 1
@@ -81,10 +83,10 @@ static func keep(s, i: int) -> void:
 	_settle(s)
 
 
-## The hand is paid: the row's best poker hand.
+## The hand is paid: the row's best poker hand, and what the Sin pays on top.
 static func _pay_out(s) -> void:
 	s.over = true
-	s.marks = score(s.cfg, s.row).marks
+	s.marks = total(s.cfg, s.row, s.bank).total
 
 
 ## A full row or an empty bag ends the hand and pays it.
@@ -139,9 +141,49 @@ static func _classify(row: Array) -> int:
 	return 0
 
 
+## What the Sin pays for a row: its faces' marks, and the bank from throws already made.
+static func sin_marks(cfg: Dictionary, row: Array, bank: int) -> int:
+	var faces: Dictionary = Demands.of(cfg).get("faces", {})
+	var m := bank
+	for f in row:
+		m += int(faces.get(f, 0))
+	return m
+
+
+## What a row pays in all: {hand, name, marks (the poker hand), sin (the Sin's marks), total (never less than 0)}.
+## A 0 is wild and takes the face that pays most in all; a tie goes to the better hand.
+static func total(cfg: Dictionary, row: Array, bank: int) -> Dictionary:
+	var w := row.find(0)
+	if w >= 0:
+		var best := {}
+		for f in range(int(cfg.skull_faces) + 1, 7):
+			var r := row.duplicate()
+			r[w] = f
+			var t: Dictionary = total(cfg, r, bank)
+			if best.is_empty() or t.total > best.total or (t.total == best.total and t.hand > best.hand):
+				best = t
+		return best
+	var sc: Dictionary = score(cfg, row)
+	var sin: int = sin_marks(cfg, row, bank)
+	return {"hand": sc.hand, "name": sc.name, "marks": sc.marks, "sin": sin, "total": maxi(0, sc.marks + sin)}
+
+
+## What the Sin pays for throwing n dice now: Wrath pays for each die thrown in danger, never on the Last Dance.
+static func throw_pays(s, n: int) -> int:
+	var danger := int(Demands.of(s.cfg).get("danger", 0))
+	if danger == 0 or is_dance(s) or s.skulls < Demands.DANGER_AT:
+		return 0
+	return danger * next_draw(s, n)
+
+
 ## What keeping thrown die i would make of the row.
 static func preview(s, i: int) -> Dictionary:
 	return score(s.cfg, s.row + [s.thrown[i]])
+
+
+## What keeping thrown die i would pay in all (see total).
+static func preview_total(s, i: int) -> Dictionary:
+	return total(s.cfg, s.row + [s.thrown[i]], s.bank)
 
 
 ## The chance a throw of n dice busts you.

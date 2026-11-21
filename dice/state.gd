@@ -13,6 +13,7 @@ var throws := 0
 var over := false
 var busted := false
 var marks := 0
+var bank := 0                # marks the Sin has promised for throws already made (Wrath); paid with the hand
 
 
 func clone():
@@ -29,4 +30,5 @@ func clone():
 	c.over = over
 	c.busted = busted
 	c.marks = marks
+	c.bank = bank
 	return c

@@ -9,6 +9,7 @@ const DEFAULTS := {
 	"bust_at": 3,          # skulls on the table that bust you
 	"row": 5,              # places in your row; the hand plays until it is full (or you bust): no cash out (Ben, 2026-11-20)
 	"pay": "0,1,2,3,5,5,7,12",  # marks for each hand, in the order of Rules.HANDS
+	"demand": "",          # the hosting Sin whose demand pays on top (a key of dice/demands.gd), or "" for none
 }
 
 
