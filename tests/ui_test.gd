@@ -1,9 +1,8 @@
-## Drives the hand screen through the guided tutorial and into a real hand, as taps would.
+## Drives the dice screen through the guided first hand and into free hands, as taps would.
 ## godot --headless --path . --script res://tests/ui_test.gd
 extends SceneTree
 
-const HandScreen = preload("res://ui/hand_screen.gd")
-const Rules = preload("res://hand/rules.gd")
+const DiceScreen = preload("res://ui/dice_screen.gd")
 
 var _fails := 0
 var h
@@ -16,92 +15,100 @@ func check(name: String, ok: bool) -> void:
 
 
 func _initialize() -> void:
+	Engine.time_scale = 20.0
 	DirAccess.remove_absolute("user://ui_test.cfg")
-	h = HandScreen.new()
+	h = DiceScreen.new()
 	h.save_path = "user://ui_test.cfg"
+	h.size = Vector2(1080, 1920)
 	root.add_child(h)
 	await process_frame
-	test_tutorial()
-	test_free_hands()
+	await process_frame
+	await test_tutorial()
+	await test_free_hands()
+	await test_help()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
 
-func _slot_of(kind: String) -> int:
-	for j in h.s.slots.size():
-		if h.s.slots[j].kind == kind:
-			return j
-	return -1
+## Waits out the throw and keep animations.
+func settle() -> void:
+	for i in 600:
+		await process_frame
+		if h.phase != "anim":
+			break
+	await process_frame
 
 
 func test_tutorial() -> void:
-	check("ui: a first launch opens the tutorial on its first card", h.tut != null and h.cards.size() == 1 and h.overlay.visible)
-	check("ui: Throw waits while a card is up", h.throw_btn.disabled)
+	check("ui: a first launch opens the tutorial's first card", h.tut != null and h.overlay.visible and h.card_title.text == "The Master's dice")
 	h._on_card_btn()
-	check("ui: Throw is open, Cash out is not", not h.throw_btn.disabled and h.cash_btn.disabled)
-	h._on_throw()
-	check("ui: the scripted throw is 5, 3", h.faces == [5, 3] and h.phase == "place")
+	check("ui: only the 2 seal works on the first throw", h.seals[0].btn.disabled and not h.seals[1].btn.disabled and h.seals[2].btn.disabled)
+	h._on_seal(1)
+	check("ui: the 1 seal is ignored", h.s.throws == 0)
+	h._on_seal(2)
+	await settle()
+	check("ui: two dice wait for a keep", h.phase == "keep" and h.s.thrown == [4, 6])
+	check("ui: the keep seal shows, the draw seals hide", h.keep_box.visible and not h.seal_box.visible)
 	h._on_die(1)
-	check("ui: the tutorial won't let the 3 be picked", h.picked == -2)
+	check("ui: the 6 is not the tutorial's die", h.selected == -1)
 	h._on_die(0)
-	h._on_slot(1)
-	check("ui: the 5 can't go to the Offering here", h.s.progress == 0 and h.phase == "place")
-	h._on_slot(0)
-	check("ui: the 5 is in the Target; the 3 went back", h.s.progress == 5 and h.s.bag == 7 and h.phase == "throw")
-	check("ui: the bag card is up", h.cards.size() == 1 and h.card_title.text == "Back into the bag")
+	check("ui: picking the 4 previews it", h.selected == 0 and h.ribbon_label.text == "High die · 0" and h.keep_cap.text == "Keep the 4")
+	h._on_keep()
+	await settle()
+	check("ui: the 4 is in the row", h.s.row == [4] and h.phase == "throw")
+	h._on_seal(2)
+	await settle()
+	check("ui: a skull snuffs a candle; the lone 4 is kept: a pair", h.s.skulls == 1 and h.candles[0].texture == h.CANDLE_OUT
+		and h.s.row == [4, 4] and h.ribbon_label.text == "Pair · 1")
+	check("ui: the skull card", h.overlay.visible and h.card_title.text == "A skull")
 	h._on_card_btn()
-	h._on_throw()
-	check("ui: a skull lands, the skull card is up", h.s.skulls == 1 and h.card_title.text == "A skull" and h.thrown_skulls == 1)
+	check("ui: the risk card", h.overlay.visible and h.card_title.text == "More dice, more risk")
 	h._on_card_btn()
+	check("ui: the seals show the risk", h.seals[2].cap.text.contains("% to lose it") and h.seals[0].cap.text.contains("no risk"))
+	h._on_seal(3)
+	await settle()
 	h._on_die(0)
-	check("ui: the Ward previews its effect and the new wire", h.slot_views[_slot_of("ward")].preview.text == "Cancels your next skull. The Master deals a wire.")
-	h._on_slot(_slot_of("ward"))
-	check("ui: the 4 is in the Ward; the Master deals Hunger", h.s.slots[_slot_of("ward")].dice == [4] and h.s.wires.size() == 2 and h.card_title.text == "The Master answers")
+	check("ui: the third 4 previews three of a kind", h.ribbon_label.text == "Three of a kind · 3")
+	h._on_keep()
+	await settle()
+	check("ui: the last card hands over the dice", h.overlay.visible and h.card_title.text == "The dice are yours")
 	h._on_card_btn()
-	h._on_throw()
-	h._on_die(0)
-	h._on_slot(0)
-	check("ui: 11 pips, Tier 1", h.s.progress == 11 and Rules.tier(h.s) == 1 and h.card_title.text.begins_with("Tier 1"))
-	h._on_card_btn()
-	check("ui: the tutorial makes you throw on", h.cash_btn.disabled and not h.throw_btn.disabled)
-	check("ui: the buttons show the stakes", h.throw_btn.text.ends_with("no bust risk") and h.cash_btn.text.contains("2 marks"))
-	h._on_throw()
-	check("ui: the Ward cancels the skull", h.s.cancelled == 1 and h.s.skulls == 1 and h.card_title.text == "The Ward holds")
-	h._on_card_btn()
-	h._on_die(0)
-	check("ui: the Target previews 16", h.slot_views[0].preview.text.begins_with("Target to 16"))
-	h._on_slot(0)
-	check("ui: the 5 is in the Target; the last card is up", h.s.progress == 16 and h.card_title.text == "The dice are yours")
-	h._on_card_btn()
-	check("ui: the dice are yours: Throw and Cash out both open", h.tut.done() and not h.throw_btn.disabled and not h.cash_btn.disabled and h.s.bag == 3)
-	h._on_cash()
-	check("ui: cashing out ends the guided hand with its marks", h.phase == "over" and h.total == 2 and h.tutorial_done and h.card_btn.text == "Next hand")
-	h._on_card_btn()
-	check("ui: the next hand is a real deal", h.tut == null and h.phase == "throw" and h.s.bag == 8 and h.hand_no == 2)
+	check("ui: free play: 3 in the bag, 1 skull", h.tut.done() and h.s.bag == 3 and h.s.skulls == 1 and not h.overlay.visible)
 
 
-## Plays real hands to their end by always taking the first legal move and throwing on: no dead ends, no crash.
+func play_out() -> void:
+	var guard := 0
+	while not h.s.over and guard < 40:
+		guard += 1
+		if h.overlay.visible:
+			h._on_card_btn()
+			continue
+		if h.phase == "keep":
+			h._on_die(0)
+			h._on_keep()
+		else:
+			h._on_seal(2 if h.s.bag >= 2 else 1)
+		await settle()
+
+
 func test_free_hands() -> void:
-	var ended := 0
-	for k in 30:
-		var guard := 0
-		while h.phase != "over" and guard < 200:
-			guard += 1
-			while not h.cards.is_empty() and h.phase != "over":
-				h._on_card_btn()
-			if h.phase == "throw":
-				h._on_throw()
-			elif h.phase == "place":
-				var mv: Array = h._moves()
-				if mv.is_empty():
-					h._on_cash()
-				else:
-					h._on_die(mv[0].die)
-					h._on_slot(mv[0].slot)
-		if h.phase == "over":
-			ended += 1
-			while not h.cards.is_empty():
-				h._on_card_btn()  # the result card: Next hand
-	check("ui: 30 played hands each reach an end", ended == 30)
-	check("ui: hands are counted", h.hand_no == 32)
+	await play_out()
+	check("ui: the tutorial hand ends with a result card", h.s.over and h.overlay.visible and h.card_btn.text == "Next hand")
+	h._on_card_btn()
+	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
+	var ok := true
+	for i in 12:
+		await play_out()
+		ok = ok and h.s.over and h.overlay.visible
+		h._on_card_btn()
+	check("ui: 12 free hands play out", ok and h.hands == 13)
+	var c := ConfigFile.new()
+	check("ui: marks are saved", c.load("user://ui_test.cfg") == OK and int(c.get_value("dice", "total", -1)) == h.total)
+
+
+func test_help() -> void:
+	h._on_help()
+	check("ui: ? lists the hands with their pay", h.overlay.visible and h.card_text.text.contains("Five of a kind   12") and h.card_text.text.contains("Straight (2 3 4 5 6)   5"))
+	h._on_card_btn()
+	check("ui: the help card closes", not h.overlay.visible)

@@ -6,14 +6,14 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 - `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`; the Master of the Dance, the Danse Macabre Reaper, is in `assets/art/master/`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
 - Godot 4.7 stable (standard build, GDScript), 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad. Targets Android and iOS.
 - iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow reads `VERSION` from `ui/version.gd` (bump the minor for each build Ben plays) and runs `tests/load_check.gd`.
-- `ui/main.tscn` opens the playable greybox hand (`ui/hand_screen.gd`), with the guided first hand (`ui/tutorial.gd`). Screenshots: `godot --path . --resolution 1080x2340 --script res://tools/shots.gd` -> `build/shots/`.
+- `ui/main.tscn` opens dice poker (`ui/dice_screen.gd`, dressed with the kept art), with the guided first hand (`ui/dice_tutorial.gd`). Screenshots: `godot --path . --resolution 1080x2340 --script res://tools/shots.gd` -> `build/shots/`.
 
 ## Design
-- The hand: the bag hand, `docs/superpowers/specs/2026-11-20-bag-hand-design.md` (approved), which replaces the first hand's rules in `2026-11-20-core-hand-design.md` (its goals and pass marks stand). Its rules: `hand/` (no UI; `rules.gd` static functions over `hand_state.gd`, every number in `config.gd`). The first hand's code is in git up to 9a0053e.
+- The hand: dice poker against the Master, `docs/superpowers/specs/2026-11-20-dice-poker-pitch.md` (approved), changed by Ben on 2026-11-20: no cash out (a hand plays to a full row or a bust), bag 7, and each throw you choose to draw 1, 2 or 3 dice (core B, from `sim/cores_sim.gd`). Rules: `dice/` (no UI; `rules.gd` static functions over `state.gd`, every number in `config.gd`; `policies.gd` has the exact solver). The bag hand is in git up to 4cb86d0.
 
 ## Commands (godot = the Godot 4.7.2 console exe; `tests/run_all.sh` has the path)
 - Tests: `bash tests/run_all.sh`.
-- Sim: `godot --headless --path . --script res://sim/hand_sim.gd -- [hands=2000] [strong_hands=500] [seed=1] [key=value ...]` (any `hand/config.gd` key). Report: stdout and `build/sim/hand_<seed>.txt`, with PASS/MISS against the design's pass marks.
+- Sim: `godot --headless --path . --script res://sim/dice_sim.gd -- [hands=20000] [seed=4] [key=value ...]` (any `dice/config.gd` key). Report: stdout and `build/sim/dice_<seed>.txt`, with PASS/MISS against the plan's pass marks.
 
 ## Working
 - The concept comes first: interview Ben and get a one-page pitch approved before any game code.
