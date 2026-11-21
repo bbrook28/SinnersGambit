@@ -49,6 +49,7 @@ class Solver:
 					pips.append(f)
 			var sk := skulls + k
 			if sk >= int(cfg.bust_at) or (dance and k > 0):
+				total -= float(cfg.get("stake", 0))
 				continue
 			if dance:
 				total += value(row + [0], sk, 0)

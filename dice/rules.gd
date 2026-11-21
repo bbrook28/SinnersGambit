@@ -54,7 +54,7 @@ static func throw(s) -> void:
 		s.thrown = []
 		s.over = true
 		s.busted = true
-		s.marks = 0
+		s.marks = -int(s.cfg.get("stake", 0))
 		return
 	if s.dance:
 		s.thrown = []
