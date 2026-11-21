@@ -9,3 +9,4 @@ Its no-Sin value (3.581 marks a hand) matches `sim/dice_sim.gd`.
 - `python -I demand5.py`: how many keeps and draws a demand changes, prices, and the draw mix (the revised pitch's table).
 - `python -I demand7.py`: the hand itself: bigger draws, refusing a throw, a Sin on the draw (the refusal pitch's tables).
 - `python -I demand6.py`: more shapes tried, among them "a lone 6 pays 4, each 2 costs 1".
+- `python -I demand8.py`: the refusal against simple refusal rules, and the Last Dance under it.

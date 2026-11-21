@@ -13,7 +13,7 @@ Each hand a Sin hosts, and the Sin pays marks for something the poker hand punis
 **The Sin pays for what the hand punishes.** Its window says what. Paid with your hand; lost on a bust.
 
 ## One shape to prototype
-**Pride: a 6 that stands alone pays 4. Each 2 costs 1.**
+**Pride: a lone 6 pays 4. Each 2 costs 1.** (A 6 that stands alone in your row; a second 6 and it pays nothing.)
 Take one 6 and never pair it; and a 2 now hurts, so a throw of low dice is a real problem. One Sin, one build, then Ben plays.
 
 ## What the probe says (best play, exact)
@@ -35,7 +35,7 @@ A **question** is a keep where no thrown die is best for both the poker alone an
 1. **Questions asked:** 0.4 a hand or more, and neither side wins more than 70% of them (a question one side always wins is not a question).
 2. **Choice keeps a hand do not fall** below today's 2.33. This replaces the bust band for Sins: the cost of a safe shape is fewer decisions, and "held once" fails here at 1.78 because best play draws a single die 58% of the time with no skulls.
 3. **The Sin pays less than the poker hand.**
-4. **Ben plays three hands** and can name a keep he would have made differently without the Sin.
+4. **Ben plays six hands** and can name a keep he would have made differently without the Sin. Six, not three: at 0.43 questions a hand, three hands may not ask one.
 
 **Supporting numbers only:** best play beats greedy+ by 17% and poker+ by 11%; busts 22.1%. These gaps are not marks, because they can be high with no question asked: "no 6 in a full row" has the best gaps of anything tried (37% and 20%) and asks 0.02 questions a hand. Best play there is simply "never keep a 6", and the gap only measures players who keep 6s blindly.
 
