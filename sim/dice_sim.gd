@@ -1,13 +1,15 @@
-## Dice poker against the plan's pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md); no cash out; you choose to draw 1-3 dice.
+## Dice poker against the plans' pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md, and 2026-11-21-sin-demand.md
+## when a Sin demands: demand=pride|envy|wrath); no cash out; you choose to draw 1-3 dice.
 ## greedy is the obvious rule (draw 3 with no skulls, 2 with one, 1 with two; keep what scores best now).
 ## The 5-7 throws mark is dropped: a five-die row caps a hand near 5 throws (Ben, 2026-11-20).
 ## godot --headless --path . --script res://sim/dice_sim.gd -- [hands=20000] [seed=4] [key=value ...]
-## Any dice/config.gd key can be overridden. Writes the report to stdout and build/sim/dice_<seed>.txt.
+## Any dice/config.gd key can be overridden. Writes the report to stdout and build/sim/dice_<seed>.txt (dice_<seed>_<sin>.txt with a demand).
 extends SceneTree
 
 const Config = preload("res://dice/config.gd")
 const Rules = preload("res://dice/rules.gd")
 const Policies = preload("res://dice/policies.gd")
+const Demands = preload("res://dice/demands.gd")
 
 const CLOSE := 0.15   # a decision is close when its best two options are within this many marks (not exact ties)
 
@@ -51,12 +53,29 @@ func _init() -> void:
 	say("strong's decisions: keeps with different dice %d, close %.1f%%, a wrong keep costs >= 0.25 marks in %.1f%%" % [
 		st.keeps, 100.0 * st.close_keeps / maxi(st.keeps, 1), 100.0 * st.costly_keeps / maxi(st.keeps, 1)])
 	say("  within 0.5 marks: %.1f%% of keeps" % (100.0 * st.near_keeps / maxi(st.keeps, 1)))
+	var same: float = 100.0 * st.same_keeps / maxi(st.keeps, 1)
+	var costly: float = 100.0 * st.costly_keeps / maxi(st.keeps, 1)
+	say("  the best two different faces are worth the same in %.1f%% of keeps" % same)
+	say("  strong's marks: %.2f from the hand, %.2f from the Sin" % [st.poker, st.sin])
+	var d2: Dictionary = st.draws_at_two
+	var t2: int = maxi(d2.get(1, 0) + d2.get(2, 0) + d2.get(3, 0), 1)
+	var two: float = 100.0 * d2.get(2, 0) / t2
+	say("  with two skulls showing strong draws: 1 die %.0f%%, 2 dice %.0f%%, 3 dice %.0f%%" % [100.0 * d2.get(1, 0) / t2, two, 100.0 * d2.get(3, 0) / t2])
 	say("verdict:")
 	var gap := _paired(st.marks_each, g.marks_each)
 	var rel: float = gap[0] / maxf(g.marks, 0.001)
 	say("same %d hands, strong minus greedy: %+.3f marks a hand (95%%: %+.3f to %+.3f), %+.0f%%" % [
 		hands, gap[0], gap[0] - gap[1], gap[0] + gap[1], 100.0 * rel])
-	_verdict("strong earns >= 15% more marks than greedy, interval above zero", rel >= 0.15 and gap[0] - gap[1] > 0.0, "%+.0f%%" % (100.0 * rel))
+	var demand: Dictionary = Demands.of(cfg)
+	if demand.is_empty():
+		_verdict("strong earns >= 15% more marks than greedy, interval above zero", rel >= 0.15 and gap[0] - gap[1] > 0.0, "%+.0f%%" % (100.0 * rel))
+	else:
+		say("  (strong against greedy is not judged: greedy does not know the demand)")
+		if not demand.faces.is_empty():
+			_verdict("under 25% of keeps are worth the same either way", same < 25.0, "%.1f%%" % same)
+			_verdict("a wrong keep costs >= 0.25 marks in over 70% of keeps", costly > 70.0, "%.1f%%" % costly)
+		if int(demand.danger) > 0:
+			_verdict("with two skulls showing strong draws two dice in 30-70% of throws", two >= 30.0 and two <= 70.0, "%.0f%%" % two)
 	_verdict("greedy earns more than random", g.marks > r.marks, "%.3f vs %.3f" % [g.marks, r.marks])
 	_verdict("strong busts in 20-30% of hands", st.bust >= 20.0 and st.bust <= 30.0, "%.1f%%" % st.bust)
 	_verdict("strong reaches the Last Dance in 15-30% of hands", st.dance >= 15.0 and st.dance <= 30.0, "%.1f%%" % st.dance)
@@ -64,14 +83,17 @@ func _init() -> void:
 	say("config: hands=%d seed=%d %s" % [hands, seed_value, " ".join(keys.map(func(k): return "%s=%s" % [k, cfg[k]]))])
 	say("run time %.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/sim"))
-	var f := FileAccess.open("res://build/sim/dice_%d.txt" % seed_value, FileAccess.WRITE)
+	var tag: String = "" if str(cfg.demand) == "" else "_" + str(cfg.demand)
+	var f := FileAccess.open("res://build/sim/dice_%d%s.txt" % [seed_value, tag], FileAccess.WRITE)
 	f.store_string("\n".join(_lines) + "\n")
 	quit()
 
 
 func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> Dictionary:
 	var res := {"name": p.name, "hands": hands, "marks_each": [], "hand_counts": {}, "keeps": 0, "close_keeps": 0,
-		"costly_keeps": 0, "near_keeps": 0, "draws": {}}
+		"costly_keeps": 0, "near_keeps": 0, "same_keeps": 0, "draws": {}, "draws_at_two": {}}
+	var poker := 0
+	var sin := 0
 	var marks := 0
 	var busts := 0
 	var throws := 0
@@ -87,10 +109,16 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 				for f in s.thrown:
 					uniq[f] = true
 				if sol != null and uniq.size() > 1:
-					var vals: Array = sol.keep_values(s)
+					var all: Array = sol.keep_values(s)
+					var by_face := {}
+					for j in s.thrown.size():
+						by_face[s.thrown[j]] = all[j]
+					var vals: Array = by_face.values()   # one value a face: two 4s are not a choice
 					vals.sort()
 					var d: float = vals[-1] - vals[-2]
 					res.keeps += 1
+					if d <= 1e-9:
+						res.same_keeps += 1
 					if d > 1e-9 and d < CLOSE:
 						res.close_keeps += 1
 					if d > 1e-9 and d < 0.5:
@@ -102,6 +130,8 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 			dance = dance or Rules.is_dance(s)
 			var nd: int = p.draw.call(s)
 			res.draws[nd] = res.draws.get(nd, 0) + 1
+			if s.skulls == 2 and not Rules.is_dance(s):
+				res.draws_at_two[nd] = res.draws_at_two.get(nd, 0) + 1
 			Rules.throw(s, nd)
 		marks += s.marks
 		res.marks_each.append(float(s.marks))
@@ -109,11 +139,16 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 		if s.busted:
 			busts += 1
 		else:
-			var nm: String = Rules.score(cfg, s.row).name
+			var paid: Dictionary = Rules.total(cfg, s.row, s.bank)
+			poker += paid.marks
+			sin += paid.sin
+			var nm: String = paid.name
 			res.hand_counts[nm] = res.hand_counts.get(nm, 0) + 1
 		if dance:
 			dances += 1
 	res.marks = float(marks) / hands
+	res.poker = float(poker) / hands
+	res.sin = float(sin) / hands
 	res.bust = 100.0 * busts / hands
 	res.throws = float(throws) / hands
 	res.dance = 100.0 * dances / hands

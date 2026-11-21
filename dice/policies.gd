@@ -5,7 +5,8 @@ extends RefCounted
 const Rules = preload("res://dice/rules.gd")
 
 
-## Exact expected marks under best play. The state that matters is the row (sorted), the skulls and the bag.
+## Exact expected marks under best play. The state that matters is the row (sorted), the skulls, the bag,
+## and the bank (what the Sin has promised for throws already made).
 class Solver:
 	var cfg: Dictionary
 	var memo := {}
@@ -14,24 +15,25 @@ class Solver:
 		cfg = c
 
 	## Expected marks with nothing waiting: a full row or empty bag is paid, otherwise you throw.
-	func value(row: Array, skulls: int, bag: int) -> float:
+	func value(row: Array, skulls: int, bag: int, bank := 0) -> float:
 		var r := row.duplicate()
 		r.sort()
-		var key := "%s|%d|%d" % [r, skulls, bag]
+		var key := "%s|%d|%d|%d" % [r, skulls, bag, bank]
 		if memo.has(key):
 			return memo[key]
-		var v := float(Rules.score(cfg, r).marks)
+		var v := float(Rules.total(cfg, r, bank).total)
 		if r.size() < int(cfg.row) and bag > 0:
 			v = -1.0
 			for n in range(1, mini(int(cfg.max_draw), bag) + 1):
-				v = maxf(v, throw_value(r, skulls, bag, n))
+				v = maxf(v, throw_value(r, skulls, bag, n, bank))
 		memo[key] = v
 		return v
 
 	## Expected marks of throwing n dice now, then playing on at best.
-	func throw_value(row: Array, skulls: int, bag: int, n: int) -> float:
+	func throw_value(row: Array, skulls: int, bag: int, n: int, bank := 0) -> float:
 		n = mini(n, bag)
 		var dance := bag == 1
+		bank += Rules.danger_pay(cfg, skulls, bag, n)
 		var total := 0.0
 		var combos := int(pow(6, n))
 		for c in combos:
@@ -49,13 +51,13 @@ class Solver:
 			if sk >= int(cfg.bust_at) or (dance and k > 0):
 				continue
 			if dance:
-				total += value(row + [0], sk, 0)
+				total += value(row + [0], sk, 0, bank)
 			elif pips.is_empty():
-				total += value(row, sk, bag - n)
+				total += value(row, sk, bag - n, bank)
 			else:
 				var best := -1.0
 				for f in pips:
-					best = maxf(best, value(row + [f], sk, bag - k - 1))
+					best = maxf(best, value(row + [f], sk, bag - k - 1, bank))
 				total += best
 		return total / combos
 
@@ -64,7 +66,7 @@ class Solver:
 		var best := 1
 		var bv := -1.0
 		for n in Rules.draw_options(s):
-			var v := throw_value(s.row, s.skulls, s.bag, n)
+			var v := throw_value(s.row, s.skulls, s.bag, n, s.bank)
 			if v > bv + 1e-12:
 				bv = v
 				best = n
@@ -74,7 +76,7 @@ class Solver:
 	func keep_values(s) -> Array:
 		var out: Array = []
 		for f in s.thrown:
-			out.append(value(s.row + [f], s.skulls, s.bag + s.thrown.size() - 1))
+			out.append(value(s.row + [f], s.skulls, s.bag + s.thrown.size() - 1, s.bank))
 		return out
 
 

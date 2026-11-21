@@ -170,10 +170,15 @@ static func total(cfg: Dictionary, row: Array, bank: int) -> Dictionary:
 
 ## What the Sin pays for throwing n dice now: Wrath pays for each die thrown in danger, never on the Last Dance.
 static func throw_pays(s, n: int) -> int:
-	var danger := int(Demands.of(s.cfg).get("danger", 0))
-	if danger == 0 or is_dance(s) or s.skulls < Demands.DANGER_AT:
+	return danger_pay(s.cfg, s.skulls, s.bag, next_draw(s, n))
+
+
+## throw_pays without a hand: n dice thrown from a bag of that size with that many skulls showing.
+static func danger_pay(cfg: Dictionary, skulls: int, bag: int, n: int) -> int:
+	var danger := int(Demands.of(cfg).get("danger", 0))
+	if danger == 0 or bag <= 1 or skulls < Demands.DANGER_AT:
 		return 0
-	return danger * next_draw(s, n)
+	return danger * n
 
 
 ## What keeping thrown die i would make of the row.

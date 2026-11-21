@@ -46,6 +46,7 @@ func _init() -> void:
 	test_demand_faces()
 	test_demand_wild()
 	test_demand_wrath()
+	test_demand_solver()
 	print("dice_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -248,3 +249,22 @@ func test_demand_wrath() -> void:
 	check("no Sin: no throw pays", Rules.throw_pays(hand([]), 3) == 0)
 	var c = s.clone()
 	check("a clone keeps the bank", c.bank == 2)
+
+
+func test_demand_solver() -> void:
+	var none = Policies.Solver.new(Config.merged({}))
+	var start: float = none.value([], 0, 7)
+	check("no Sin: best play is still worth 3.581 (%.3f)" % start, absf(start - 3.581) < 0.0005)
+	var pride = Policies.Solver.new(Config.merged({"demand": "pride"}))
+	check("Pride: a full row is worth hand and Sin", is_equal_approx(pride.value([6, 6, 5, 3, 3], 0, 2), 7.0))
+	check("Pride: the start is worth more than with no Sin", pride.value([], 0, 7) > start + 1.0)
+	var wrath = Policies.Solver.new(Config.merged({"demand": "wrath"}))
+	check("Wrath: a full row is worth its hand and its bank", is_equal_approx(wrath.value([4, 4, 2, 3, 5], 2, 0, 3), 4.0))
+	check("Wrath: the bank is part of the state", wrath.value([4, 4], 2, 3, 2) > wrath.value([4, 4], 2, 3, 0) + 1.0)
+	var s = hand([], {"demand": "wrath"})
+	s.row = [4, 4, 4]
+	s.skulls = 2
+	s.bag = 2
+	var p: Dictionary = Policies.strong_policy(s.cfg)
+	check("Wrath: the solver weighs each draw with what it pays", p.solver.throw_value(s.row, 2, 2, 2, 0) != p.solver.throw_value(s.row, 2, 2, 1, 0)
+		and p.draw.call(s) in [1, 2])
