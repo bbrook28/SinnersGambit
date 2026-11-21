@@ -8,10 +8,16 @@ const Config = preload("res://dice/config.gd")
 const Tutorial = preload("res://ui/dice_tutorial.gd")
 const Version = preload("res://ui/version.gd")
 
-const BLACKLETTER := preload("res://assets/fonts/PirataOne-Regular.ttf")
-const FELL := preload("res://assets/fonts/IMFellEnglish-NoDigits.ttf")   # IM Fell minus its old-style digits
-const CINZEL := preload("res://assets/fonts/Cinzel.ttf")
-const CINZEL_BOLD := preload("res://assets/fonts/cinzel_bold.tres")
+# Each face is cut without its own digits and falls back to EB Garamond's lining figures (a 1 with a flag and a
+# foot), sized to the text around them (EB Garamond: assets/fonts/EBGaramond-OFL.txt).
+const PIRATA_FILE := preload("res://assets/fonts/PirataOne-NoDigits.ttf")
+const FELL_FILE := preload("res://assets/fonts/IMFellEnglish-NoDigits.ttf")
+const CINZEL_FILE := preload("res://assets/fonts/Cinzel-NoDigits.ttf")
+const CINZEL_BOLD_FILE := preload("res://assets/fonts/Cinzel-Bold-NoDigits.ttf")
+const DIGITS_TEXT := preload("res://assets/fonts/Digits-Text.ttf")
+const DIGITS_TITLE := preload("res://assets/fonts/Digits-Title.ttf")
+const DIGITS_CAPS := preload("res://assets/fonts/Digits-Caps.ttf")
+const DIGITS_CAPS_BOLD := preload("res://assets/fonts/Digits-CapsBold.ttf")
 
 const DICE := {
 	0: preload("res://assets/art/runtime/dice/blank.png"),
@@ -31,12 +37,14 @@ const IDLE := preload("res://assets/art/master/master_fiddle_idle_8f.png")   # 8
 const CANDLE_LIT := preload("res://assets/art/runtime/table/candle_lit.png")
 const CANDLE_OUT := preload("res://assets/art/runtime/table/candle_out.png")
 const RIBBON := preload("res://assets/art/ui/label_ribbon.png")
-const BANNER := preload("res://assets/art/ui/turn_banner.png")
+const PLATE := preload("res://assets/art/runtime/table/plate.png")
+const COIN := preload("res://assets/art/ui/coin_single.png")
 const SEAL := preload("res://assets/art/runtime/seals/normal.png")
 const SEAL_DOWN := preload("res://assets/art/runtime/seals/pressed.png")
 const SEAL_SMALL := preload("res://assets/art/ui/seal_small_normal.png")
 const SEAL_SMALL_DOWN := preload("res://assets/art/ui/seal_small_pressed.png")
-const SEAL_PLAY := preload("res://assets/art/runtime/seals/e_play.png")
+const SEAL_THROW := preload("res://assets/art/runtime/seals/e_throw.png")   # Next hand
+const SEAL_CHOOSE := preload("res://assets/art/runtime/seals/e_choose.png")  # Got it
 const SEAL_BACK := preload("res://assets/art/runtime/seals/e_back.png")
 const SEAL_BOOK := preload("res://assets/art/runtime/seals/e_rulebook.png")
 const NUMERALS := [null, preload("res://assets/art/runtime/seals/n1.png"),
@@ -74,6 +82,7 @@ const DIE := 176         # die size in the row
 const TDIE := 196        # die size in the tray
 const EDGE_Y := 420      # the table's far edge in the stage
 const FPS := 8.0         # the Master's idle
+const CANDLE_H := 220.0  # a lit candle's height
 
 var save_path := "user://dice.cfg"   # tests point it elsewhere
 var cfg := Config.merged({})
@@ -87,7 +96,10 @@ var sin_i := 0
 var seen := {}
 var cards: Array = []     # [{title, text, button, then, alt, alt_then, big, icon, body}]
 var counting := false     # the marks counter is counting up a payout
-var serif: FontVariation  # IM Fell with Cinzel's lining figures
+var serif: FontVariation      # IM Fell
+var blackletter: FontVariation  # Pirata One
+var caps: FontVariation       # Cinzel
+var caps_bold: FontVariation  # Cinzel, bold
 var clock := 0.0
 
 # nodes
@@ -127,9 +139,17 @@ var fx: Control
 
 
 func _init() -> void:
-	serif = FontVariation.new()
-	serif.base_font = FELL
-	serif.fallbacks = [CINZEL]
+	serif = _face(FELL_FILE, DIGITS_TEXT)
+	blackletter = _face(PIRATA_FILE, DIGITS_TITLE)
+	caps = _face(CINZEL_FILE, DIGITS_CAPS)
+	caps_bold = _face(CINZEL_BOLD_FILE, DIGITS_CAPS_BOLD)
+
+
+func _face(base: Font, digits: Font) -> FontVariation:
+	var f := FontVariation.new()
+	f.base_font = base
+	f.fallbacks = [digits]
+	return f
 
 
 func _ready() -> void:
@@ -278,29 +298,34 @@ func _payout(before: int) -> void:
 	_sfx("pay_big" if big >= 1 else "pay_small")
 	_buzz(40 if big == 0 else 120)
 	var n := mini(m, 12)
-	var from: Vector2 = row_slots[2].global_position + Vector2(DIE, DIE) / 2.0
-	var to: Vector2 = coins_icon.global_position
+	var from: Vector2 = row_slots[0].global_position + Vector2(DIE / 2.0, DIE / 2.0)
+	var to: Vector2 = coins_icon.global_position + coins_icon.size / 2.0
+	var bend := Vector2(-160.0, (from.y + to.y) / 2.0)
 	for k in n:
 		var c := TextureRect.new()
-		c.texture = COINS
+		c.texture = COIN
 		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		c.size = Vector2(72, 72)
-		c.pivot_offset = Vector2(36, 36)
+		c.size = Vector2(66, 25)
+		c.pivot_offset = c.size / 2.0
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.scale = Vector2.ZERO
 		fx.add_child(c)
-		c.global_position = from + Vector2(randf_range(-200, 200), randf_range(-40, 40)) - Vector2(36, 36)
+		var start := from + Vector2(randf_range(-50, 30), randf_range(-30, 30))
+		c.global_position = start - c.pivot_offset
 		var shown := before + roundi(float(m) * (k + 1) / n)
 		var tw := create_tween()
 		tw.tween_interval(0.08 * k)
 		tw.tween_property(c, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tw.tween_property(c, "global_position", to, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_method(func(t: float):
+			var q := start.lerp(bend, t).lerp(bend.lerp(to, t), t)
+			c.global_position = q - c.pivot_offset
+			c.rotation = t * 6.0, 0.0, 1.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		tw.tween_callback(func():
 			c.queue_free()
 			_sfx("coin", 0.12, -4.0)
 			marks_label.text = "%d" % shown
 			_pulse(marks_label))
-	await get_tree().create_timer(0.08 * n + 0.8).timeout
+	await get_tree().create_timer(0.08 * n + 0.9).timeout
 
 
 func _show_result() -> void:
@@ -311,11 +336,11 @@ func _show_result() -> void:
 		text = "Three skulls. The hand pays nothing." if s.skulls >= int(cfg.bust_at) else "A skull on the Last Dance. The hand pays nothing."
 	else:
 		var sc: Dictionary = Rules.score(cfg, s.row)
-		title = "%s · %d mark%s" % [sc.name, sc.marks, "" if sc.marks == 1 else "s"]
-		text = "Your row is full, and it is paid. You have %d marks in all." % total
+		title = "%d mark%s" % [sc.marks, "" if sc.marks == 1 else "s"] if sc.marks > 0 else "No marks"
+		text = "Your row is paid. You have %d marks in all." % total
 	var big := _big(s)
 	banner_title.text = title
-	banner_title.add_theme_font_size_override("font_size", [56, 64, 72][big])
+	banner_title.add_theme_font_size_override("font_size", (52 if s.busted else [72, 84, 96][big]))
 	banner_title.add_theme_color_override("font_color", GOLD if big > 0 else IVORY)
 	banner_text.text = text
 	tray.move_child(banner, -1)
@@ -509,9 +534,15 @@ func _shake() -> void:
 	tw.tween_property(stage, "position", p0, 0.05)
 
 
+## Both candle pictures are drawn at one scale with their bottoms on the table, so the wax lines up.
 func _set_candle(k: int, lit: bool) -> void:
-	candles[k].texture = CANDLE_LIT if lit else CANDLE_OUT
-	glows[k].visible = lit
+	var c: TextureRect = candles[k]
+	c.texture = CANDLE_LIT if lit else CANDLE_OUT
+	var sz: Vector2 = c.texture.get_size() * (CANDLE_H / CANDLE_LIT.get_size().y)
+	c.size = sz
+	c.position = Vector2(c.get_meta("x") - sz.x / 2.0, c.get_meta("base") - sz.y)
+	if k < glows.size():
+		glows[k].visible = lit
 
 
 # ---------- sound and touch ----------
@@ -625,8 +656,9 @@ func _refresh() -> void:
 				odds = "under 1% to lose it"
 			else:
 				odds = "%d%% to lose it" % roundi(100.0 * p)
-		sd.cap.text = "%s\n%s" % [label, odds]
-		sd.cap.add_theme_color_override("font_color", risk_color(p))
+		sd.cap.text = label
+		sd.odds.text = odds
+		sd.odds.add_theme_color_override("font_color", risk_color(p))
 	if phase == "keep" and selected >= 0:
 		keep_cap.text = "Keep the %d" % s.thrown[selected]
 		keep_btn.disabled = false
@@ -745,7 +777,7 @@ func _build() -> void:
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.modulate = Color(0.62, 0.52, 0.44)
+	bg.modulate = Color(0.86, 0.72, 0.6)
 	add_child(bg)
 	wall = TextureRect.new()
 	wall.texture = _gradient([[0.0, Color("060303")], [0.7, Color("1a0e09")], [1.0, Color("2a170d")]])
@@ -753,7 +785,7 @@ func _build() -> void:
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(wall)
 	var vignette := TextureRect.new()
-	vignette.texture = _gradient([[0.0, Color(0, 0, 0, 0)], [0.55, Color(0, 0, 0, 0.1)], [1.0, Color(0, 0, 0, 0.8)]], true)
+	vignette.texture = _gradient([[0.0, Color(0, 0, 0, 0)], [0.6, Color(0, 0, 0, 0.05)], [1.0, Color(0, 0, 0, 0.55)]], true)
 	vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -833,7 +865,7 @@ func _top_bar() -> Control:
 	coins_icon.size = Vector2(72, 72)
 	coins_icon.position = Vector2(10, 12)
 	bar.add_child(coins_icon)
-	marks_label = _label("0", CINZEL_BOLD, 50, GOLD)
+	marks_label = _label("0", caps_bold, 50, GOLD)
 	marks_label.position = Vector2(92, 12)
 	bar.add_child(marks_label)
 	var mk := _label("marks", serif, 32)
@@ -845,7 +877,7 @@ func _top_bar() -> Control:
 	bi.size = Vector2(60, 66)
 	bi.position = Vector2(W / 2.0 - 150, 14)
 	bar.add_child(bi)
-	bag_label = _label("7 in the bag", CINZEL_BOLD, 38)
+	bag_label = _label("7 in the bag", caps_bold, 38)
 	bag_label.position = Vector2(W / 2.0 - 80, 24)
 	bar.add_child(bag_label)
 	var help := TextureButton.new()
@@ -857,7 +889,7 @@ func _top_bar() -> Control:
 	help.position = Vector2(W - 100, 2)
 	help.pressed.connect(_on_help)
 	bar.add_child(help)
-	var q := _label("?", BLACKLETTER, 60, GOLD)
+	var q := _label("?", blackletter, 60, GOLD)
 	q.size = Vector2(92, 92)
 	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -899,7 +931,7 @@ func _stage() -> Control:
 	var add := CanvasItemMaterial.new()
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	for k in 3:
-		var x := W / 2.0 + (k - 1) * 250
+		var x: float = [140.0, 222.0, 860.0][k]   # two at his left, one at his right: both hands clear
 		var base := EDGE_Y + 60.0
 		var sh := TextureRect.new()
 		sh.texture = SOFT
@@ -911,21 +943,21 @@ func _stage() -> Control:
 		var c := TextureRect.new()
 		c.texture = CANDLE_LIT
 		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-		c.size = Vector2(50, 220)
-		c.position = Vector2(x - 25, base - 220)
+		c.set_meta("x", x)
+		c.set_meta("base", base)
 		stage.add_child(c)
 		candles.append(c)
 		var g := TextureRect.new()
 		g.texture = GLOW
 		g.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		g.size = Vector2(300, 300)
-		g.position = Vector2(x - 150, c.position.y + 26 - 150)
+		g.position = Vector2(x - 150, base - CANDLE_H + 26 - 150)
 		g.material = add
 		g.modulate = Color(1.0, 0.62, 0.28, 0.5)
 		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(g)
 		glows.append(g)
+		_set_candle(k, true)
 	return stage
 
 
@@ -942,6 +974,18 @@ func _message() -> Control:
 func _tray() -> Control:
 	tray = Control.new()
 	tray.custom_minimum_size = Vector2(W - 20, 360)
+	# candlelight pooled on the table around the mat
+	var pool := TextureRect.new()
+	pool.texture = GLOW
+	pool.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pool.size = Vector2(1500, 900)
+	pool.position = Vector2((W - 20 - 1500) / 2.0, 180 - 450)
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	pool.material = add
+	pool.modulate = Color(1.0, 0.6, 0.3, 0.16)
+	pool.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tray.add_child(pool)
 	var shadow := Panel.new()
 	var ssb := StyleBoxFlat.new()
 	ssb.bg_color = Color(0, 0, 0, 0.35)
@@ -968,15 +1012,16 @@ func _tray() -> Control:
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	banner.visible = false
 	tray.add_child(banner)
-	var bt := TextureRect.new()
-	bt.texture = BANNER
-	bt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bt.size = Vector2(940, 182)
-	bt.position = Vector2((W - 20 - 940) / 2.0, 34)
+	var bt := NinePatchRect.new()
+	bt.texture = PLATE
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+		bt.set_patch_margin(side, 40)
+	bt.size = Vector2(760, 170)
+	bt.position = Vector2((W - 20 - 760) / 2.0, 40)
 	banner.add_child(bt)
-	banner_title = _label("", BLACKLETTER, 60)
-	banner_title.size = Vector2(700, 182)
-	banner_title.position = Vector2((W - 20 - 700) / 2.0, 30)
+	banner_title = _label("", blackletter, 60)
+	banner_title.size = Vector2(680, 170)
+	banner_title.position = Vector2((W - 20 - 680) / 2.0, 36)
 	banner_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1029,7 +1074,7 @@ func _ribbon() -> Control:
 	r.texture = RIBBON
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.custom_minimum_size = Vector2(760, 140)
-	ribbon_label = _label("Your row", BLACKLETTER, 56, INK)
+	ribbon_label = _label("Your row", blackletter, 56, INK)
 	ribbon_label.remove_theme_color_override("font_shadow_color")
 	ribbon_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ribbon_label.offset_bottom = -22
@@ -1056,7 +1101,7 @@ func _row() -> Control:
 		var d := _die_node(2, DIE)
 		d.visible = false
 		slot.add_child(d)
-		var wl := _label("WILD", CINZEL_BOLD, 34, Color("b8860b"))
+		var wl := _label("WILD", caps_bold, 34, Color("b8860b"))
 		wl.size = Vector2(DIE, DIE)
 		wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		wl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1106,18 +1151,21 @@ func _seals() -> Control:
 		var bc := CenterContainer.new()
 		bc.add_child(btn)
 		box.add_child(bc)
-		var cap := _label("", CINZEL_BOLD, 34)
+		var cap := _label("", caps_bold, 38)
 		cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(cap)
+		var odds := _label("", caps_bold, 29)
+		odds.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(odds)
 		seal_box.add_child(box)
-		seals.append({"box": box, "btn": btn, "cap": cap})
+		seals.append({"box": box, "btn": btn, "cap": cap, "odds": odds})
 	var kb := VBoxContainer.new()
 	kb.size = Vector2(W, 330)
 	kb.alignment = BoxContainer.ALIGNMENT_BEGIN
 	kb.add_theme_constant_override("separation", 0)
 	keep_btn = _seal_button(SEAL, SEAL_DOWN, 240)
 	keep_btn.pressed.connect(_on_keep)
-	var kl := _label("KEEP", CINZEL_BOLD, 46, GOLD)
+	var kl := _label("KEEP", caps_bold, 46, GOLD)
 	kl.size = Vector2(240, 240)
 	kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	kl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1126,7 +1174,7 @@ func _seals() -> Control:
 	var kc := CenterContainer.new()
 	kc.add_child(keep_btn)
 	kb.add_child(kc)
-	keep_cap = _label("", CINZEL_BOLD, 38)
+	keep_cap = _label("", caps_bold, 38)
 	keep_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	kb.add_child(keep_cap)
 	kb.visible = false
@@ -1135,12 +1183,12 @@ func _seals() -> Control:
 	var nb := VBoxContainer.new()
 	nb.size = Vector2(W, 330)
 	nb.add_theme_constant_override("separation", 0)
-	next_btn = _seal_button(SEAL_PLAY, null, 240)
+	next_btn = _seal_button(SEAL_THROW, null, 240)
 	next_btn.pressed.connect(_on_next)
 	var nc := CenterContainer.new()
 	nc.add_child(next_btn)
 	nb.add_child(nc)
-	var ncap := _label("Next hand", CINZEL_BOLD, 40)
+	var ncap := _label("Next hand", caps_bold, 40)
 	ncap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nb.add_child(ncap)
 	nb.visible = false
@@ -1180,7 +1228,7 @@ func _build_overlay() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 22)
 	page.add_child(v)
-	card_title = _label("", BLACKLETTER, 64, INK)
+	card_title = _label("", blackletter, 64, INK)
 	card_title.remove_theme_color_override("font_shadow_color")
 	card_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	card_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1198,9 +1246,9 @@ func _build_overlay() -> void:
 	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card_text.custom_minimum_size = Vector2(780, 0)
 	v.add_child(card_text)
-	var buttons := HBoxContainer.new()
+	var buttons := VBoxContainer.new()   # stacked: two seals with their words side by side are wider than the page
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 40)
+	buttons.add_theme_constant_override("separation", 0)
 	v.add_child(buttons)
 	card_btn = _card_button()
 	card_btn.pressed.connect(_on_card_btn)
@@ -1216,22 +1264,23 @@ func _card_button() -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_override("font", CINZEL_BOLD)
+	b.add_theme_font_override("font", caps_bold)
 	b.add_theme_font_size_override("font_size", 40)
 	for c in ["font_color", "font_hover_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, INK)
 	b.add_theme_color_override("font_pressed_color", BLOOD)
-	b.add_theme_constant_override("icon_max_width", 120)
+	b.add_theme_constant_override("icon_max_width", 150)
 	b.add_theme_constant_override("h_separation", 18)
-	b.custom_minimum_size = Vector2(0, 130)
-	b.icon = SEAL_PLAY
+	b.custom_minimum_size = Vector2(0, 160)
+	b.icon = SEAL_CHOOSE
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.button_down.connect(func(): b.modulate = Color(0.85, 0.75, 0.75))
 	b.button_up.connect(func(): b.modulate = Color.WHITE)
 	return b
 
 
 func _card(title: String, text: String, button: String, then: Callable, alt := "", alt_then := Callable(), big := 0,
-		icon: Texture2D = SEAL_PLAY, body: Control = null) -> void:
+		icon: Texture2D = SEAL_CHOOSE, body: Control = null) -> void:
 	cards.append({"title": title, "text": text, "button": button, "then": then, "alt": alt, "alt_then": alt_then,
 		"big": big, "icon": icon, "body": body})
 	if not overlay.visible:
@@ -1310,7 +1359,7 @@ func hand_ranking() -> GridContainer:
 			d.custom_minimum_size = Vector2(54, 54)
 			dice.add_child(d)
 		g.add_child(dice)
-		var pay := _label("%d" % Rules.pay(cfg, h), CINZEL_BOLD, 42, BLOOD if Rules.pay(cfg, h) >= 5 else INK)
+		var pay := _label("%d" % Rules.pay(cfg, h), caps_bold, 42, INK)
 		pay.remove_theme_color_override("font_shadow_color")
 		pay.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		pay.custom_minimum_size = Vector2(60, 0)

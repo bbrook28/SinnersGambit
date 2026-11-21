@@ -69,7 +69,7 @@ func test_tutorial() -> void:
 	h._on_card_btn()
 	check("ui: the risk card", h.overlay.visible and h.card_title.text == "More dice, more risk")
 	h._on_card_btn()
-	check("ui: the seals show the risk", h.seals[2].cap.text.contains("% to lose it") and h.seals[0].cap.text.contains("no risk"))
+	check("ui: the seals show the risk", h.seals[2].odds.text.contains("% to lose it") and h.seals[0].odds.text == "no risk" and h.seals[0].cap.text == "1 die")
 	h._on_seal(3)
 	await settle()
 	h._on_die(0)
@@ -108,7 +108,7 @@ func play_out() -> void:
 func test_free_hands() -> void:
 	await play_out()
 	check("ui: the tutorial hand ends with the result banner and Next hand", h.s.over and h.banner.visible and h.next_box.visible
-		and not h.seal_box.visible and h.banner_title.text != "")
+		and not h.seal_box.visible and h.banner_title.text != "" and not h.banner_title.text.contains(h.ribbon_label.text.get_slice(" · ", 0)))
 	check("ui: the counter shows the new total", h.marks_label.text == str(h.total))
 	h._on_next()
 	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
@@ -135,10 +135,10 @@ func test_help() -> void:
 
 func test_labels() -> void:
 	h._new_hand()
-	check("ui: three dice with no skulls: under 1%, not no risk", h.seals[2].cap.text.contains("under 1% to lose it"))
+	check("ui: three dice with no skulls: under 1%, not no risk", h.seals[2].odds.text.contains("under 1% to lose it"))
 	h.s.bag = 2
 	h._refresh()
-	check("ui: a two-die bag: the 3 seal says so, the prompt offers 1 or 2", h.seals[2].cap.text.contains("only 2 in the bag")
+	check("ui: a two-die bag: the 3 seal says so, the prompt offers 1 or 2", h.seals[2].odds.text.contains("only 2 in the bag")
 		and h.msg.text.begins_with("Draw 1 or 2 dice"))
 	h.s.row = [3, 5, 5, 2]
 	check("ui: the row shows matches first", h.shown_row() == [5, 5, 3, 2])
@@ -152,6 +152,13 @@ func test_labels() -> void:
 	check("ui: a pair gets the plain card", h._big(h.s) == 0)
 	check("ui: risk is ivory near zero, then reddens as it grows", h.risk_color(0.005) == h.IVORY
 		and h.risk_color(0.4).g < h.risk_color(0.05).g and h.risk_color(0.4).r > 0.9)
-	check("ui: IM Fell text takes its digits from Cinzel (lining figures)", not h.serif.base_font.has_char(0x31)
-		and h.serif.base_font.has_char(0x61) and h.serif.fallbacks[0].has_char(0x31))
+	var faces_ok := true
+	for f in [h.serif, h.blackletter, h.caps, h.caps_bold]:
+		faces_ok = faces_ok and not f.base_font.has_char(0x31) and f.base_font.has_char(0x61) and f.fallbacks[0].has_char(0x31)
+	check("ui: every face takes its digits from EB Garamond (a 1 with a flag and a foot)", faces_ok)
 	check("ui: the ribbon preview is not red", h.UMBER.r < 0.6 and absf(h.UMBER.r - h.UMBER.g) < 0.25)
+	h._on_help()
+	await process_frame
+	var page: Control = h.card_title.get_parent().get_parent()
+	check("ui: the help card fits on the screen", page.get_global_rect().end.x <= h.get_viewport_rect().size.x and page.get_global_rect().position.x >= 0.0)
+	h._on_card_btn()
