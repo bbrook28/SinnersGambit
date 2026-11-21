@@ -7,6 +7,8 @@
      no gain      refuses when no thrown die improves the hand's poker marks now (never on an empty row)
      no match     refuses when no thrown die matches a face in the row (never on an empty row)
      no match 2+  the same, but only once the row holds two dice or more
+     knows the 6  no match 2+ for the lone 6: a first 6 counts as a match; a second 6 or a 2 is never kept
+                  (if nothing else was thrown, it refuses); among the dice it may keep, it keeps as best play does
    and "today's best" plays the no-refusal game exactly right and never refuses.
    Each is scored in the refusal game; gap = (best - player) / player; refusals a hand for each.
 2. The Last Dance: how many hands reach it, how many of those only because of a refusal (a hand that
@@ -50,6 +52,16 @@ def rule_no_match(g, least=1):
     return keep
 
 
+def rule_knows_six(g):
+    def keep(row, skulls, bag, bank, opts):
+        ok = [o for o in opts if o[0] != "refuse" and o[0] != 2 and not (o[0] == 6 and 6 in row)]
+        wanted = [o for o in ok if o[0] in row or o[0] == 6]
+        if not ok or (len(row) >= 2 and not wanted):
+            return refuse_opt(opts)
+        return max(ok, key=lambda o: g.value(*o[1]))
+    return keep
+
+
 def play(g, draw, keep):
     """Exact (marks, refusals a hand, bust, dance reached, dance reached after a refusal, bust on the dance)."""
     @lru_cache(maxsize=None)
@@ -78,7 +90,7 @@ def play(g, draw, keep):
     return ev((), 0, g.bag, 0, False)
 
 
-def report(name, g, today):
+def report(name, g, today, extra=()):
     bd = lambda row, skulls, bag, bank: g.best_draw(row, skulls, bag, bank)
     td = lambda row, skulls, bag, bank: today.best_draw(row, skulls, bag, bank)
     players = [("best play", bd, best_keep(g)),
@@ -87,6 +99,7 @@ def report(name, g, today):
                ("refuse when nothing gains", bd, rule_no_gain(g)),
                ("refuse when nothing matches", bd, rule_no_match(g)),
                ("nothing matches, row of 2+", bd, rule_no_match(g, 2))]
+    players += [(who, bd, make(g)) for who, make in extra]
     print(name)
     print("  %-30s %6s %8s %9s %6s | %6s %14s %16s" % ("player", "marks", "best is", "refusals", "busts", "Dance", "after refusing", "busts on Dance"))
     best = None
@@ -107,4 +120,11 @@ if __name__ == "__main__":
             bag, r[0], 100 * r[2], 100 * r[3], 100 * r[5] / r[2]))
         report("YOU MAY REFUSE, bag %d" % bag, Hand("refuse", bag=bag, refuse=True), today)
     report("YOU MAY REFUSE, bag 8, with the lone 6 (pays 4, each 2 costs 1)",
-           Hand("refuse", bag=8, refuse=True, end_bonus=lone6), Hand("today", bag=8, end_bonus=lone6))
+           Hand("refuse", bag=8, refuse=True, end_bonus=lone6), Hand("today", bag=8, end_bonus=lone6),
+           extra=[("knows the 6: no match, row 2+", rule_knows_six)])
+    # why "today's best, never refuses" earns less with a bag of 8 than with 7: the Last Dance's wild die
+    for bag in (7, 8):
+        t = Hand("today", bag=bag)
+        d = lambda row, sk, b, k, t=t: t.best_draw(row, sk, b, k)
+        r = play(t, d, best_keep(t))
+        print("no refusal, bag %d: %.2f marks; the Last Dance (and its wild die) comes in %.0f%% of hands" % (bag, r[0], 100 * r[3]))

@@ -57,10 +57,11 @@ Each player draws and keeps as best play does, and only decides the refusal by i
 | Refuses when no die matches the row | 3.69 | 24% | 2.91 | 29.1% |
 | Refuses when no die matches, once the row holds two | 4.24 | 8% | 1.63 | 25.2% |
 
-With the lone 6 hosting, best play (6.10 marks, 1.37 refusals) is 35% ahead of the best of these rules and 41% ahead of never refusing.
+With the lone 6 hosting, best play (6.10 marks, 1.37 refusals) is 35% ahead of the best of these rules and 41% ahead of never refusing. But a rule that knows the Sin closes most of that: "fill two places, then refuse anything that does not match; a first 6 counts as a match; never keep a second 6 or a 2" earns 5.59 with 1.94 refusals a hand, and best play is only **9%** ahead of it. (That rule is flattered a little: among the dice it allows, it keeps as best play does.)
 
 - **Without a Sin, one rule of thumb gets within 8%:** "fill two places, then refuse anything that does not match". That is closer than greedy gets today (11%), so the refusal alone is mostly a habit to learn, not a question to weigh.
-- **With a Sin it is a real decision:** the same rule falls 35% behind, because the Sin's die and the matching die are different dice.
+- **With a Sin it is still mostly a rule of thumb,** once the rule knows the Sin: 9% behind best play, against 8% with no Sin. My earlier reading (35% behind, "a real decision") only measured a rule that ignored the Sin. The refusal multiplies the questions asked (1.65 a hand), but a three-line habit answers most of them.
+- **Why never refusing earns 3.10 with a bag of 8 against 3.58 today:** with 8 dice the row fills before the bag can fall to one die, so the Last Dance and its wild die never come (37% of hands today), and the wild is worth the difference.
 - **It is not optional.** Never refusing costs half the marks, so this is a second core rule, not a spare button.
 - "No die improves the hand" and "no die matches the row" are the same rule in practice, and refuse far too much (2.91 a hand).
 
