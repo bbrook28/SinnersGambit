@@ -26,6 +26,7 @@ func _initialize() -> void:
 	await test_tutorial()
 	await test_free_hands()
 	await test_help()
+	await test_labels()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -50,13 +51,16 @@ func test_tutorial() -> void:
 	await settle()
 	check("ui: two dice wait for a keep", h.phase == "keep" and h.s.thrown == [4, 6])
 	check("ui: the keep seal shows, the draw seals hide", h.keep_box.visible and not h.seal_box.visible)
-	h._on_die(1)
-	check("ui: the 6 is not the tutorial's die", h.selected == -1)
-	h._on_die(0)
+	h.tap_tray((h.tray_x(0) + h.tray_x(1)) / 2.0)
+	check("ui: a tap between two dice picks neither", h.selected == -1)
+	h.tap_tray(h.tray_x(1) - 60.0)
+	check("ui: a tap on the inner half of the 6 is the 6, refused by the tutorial", h.selected == -1)
+	h.tap_tray(h.tray_x(0) + 60.0)
 	check("ui: picking the 4 previews it", h.selected == 0 and h.ribbon_label.text == "High die · 0" and h.keep_cap.text == "Keep the 4")
 	h._on_keep()
 	await settle()
 	check("ui: the 4 is in the row", h.s.row == [4] and h.phase == "throw")
+	check("ui: the row says what one more die would make", h.hint.text == "One more 4: Pair · 1")
 	h._on_seal(2)
 	await settle()
 	check("ui: a skull snuffs a candle; the lone 4 is kept: a pair", h.s.skulls == 1 and h.candles[0].texture == h.CANDLE_OUT
@@ -77,6 +81,14 @@ func test_tutorial() -> void:
 	check("ui: free play: 3 in the bag, 1 skull", h.tut.done() and h.s.bag == 3 and h.s.skulls == 1 and not h.overlay.visible)
 
 
+## Waits for the result card, which follows a pause after the hand ends.
+func await_card() -> void:
+	for i in 600:
+		if h.overlay.visible:
+			break
+		await process_frame
+
+
 func play_out() -> void:
 	var guard := 0
 	while not h.s.over and guard < 40:
@@ -90,6 +102,7 @@ func play_out() -> void:
 		else:
 			h._on_seal(2 if h.s.bag >= 2 else 1)
 		await settle()
+	await await_card()
 
 
 func test_free_hands() -> void:
@@ -112,3 +125,22 @@ func test_help() -> void:
 	check("ui: ? lists the hands with their pay", h.overlay.visible and h.card_text.text.contains("Five of a kind   12") and h.card_text.text.contains("Straight (2 3 4 5 6)   5"))
 	h._on_card_btn()
 	check("ui: the help card closes", not h.overlay.visible)
+
+
+func test_labels() -> void:
+	h._new_hand()
+	check("ui: three dice with no skulls: under 1%, not no risk", h.seals[2].cap.text.contains("under 1% to lose it"))
+	h.s.bag = 2
+	h._refresh()
+	check("ui: a two-die bag: the 3 seal says so, the prompt offers 1 or 2", h.seals[2].cap.text.contains("only 2 in the bag")
+		and h.msg.text.begins_with("Draw 1 or 2 dice"))
+	h.s.row = [3, 5, 5, 2]
+	check("ui: the row shows matches first", h.shown_row() == [5, 5, 3, 2])
+	h.s.row = [6, 5, 4, 3]
+	h._refresh()
+	check("ui: a straight draw is named", h.hint.text == "One more 2: Straight · 5")
+	h.s.busted = false
+	h.s.row = [6, 6, 6, 6, 2]
+	check("ui: four of a kind gets the grand card", h._big(h.s) == 2)
+	h.s.row = [6, 6, 2, 3, 4]
+	check("ui: a pair gets the plain card", h._big(h.s) == 0)

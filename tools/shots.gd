@@ -53,6 +53,10 @@ func _initialize() -> void:
 		else:
 			h._on_seal(1 if h.s.skulls >= 2 else 2)
 		await settle()
+	for i in 600:
+		if h.overlay.visible:
+			break
+		await process_frame
 	await _shot("result_card")
 	h._on_card_btn()
 	h._on_help()

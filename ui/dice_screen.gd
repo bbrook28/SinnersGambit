@@ -72,6 +72,7 @@ var msg: Label
 var tray: Control
 var tray_dice: Array = []
 var ribbon_label: Label
+var hint: Label
 var row_slots: Array = []
 var row_dice: Array = []
 var seals: Array = []       # [{btn, cap}]
@@ -193,12 +194,14 @@ func _end() -> void:
 	total += s.marks
 	_save()
 	_refresh()
+	if s.busted:
+		_laugh()
+	await get_tree().create_timer(1.6).timeout   # let the bust or the last die be seen first
 	var title := ""
 	var text := ""
 	if s.busted:
 		title = "The Master takes the hand"
 		text = "Three skulls. The hand pays nothing." if s.skulls >= int(cfg.bust_at) else "A skull on the Last Dance. The hand pays nothing."
-		_laugh()
 	else:
 		var sc: Dictionary = Rules.score(cfg, s.row)
 		title = "%s: %d mark%s" % [sc.name, sc.marks, "" if sc.marks == 1 else "s"]
@@ -209,7 +212,15 @@ func _end() -> void:
 			seen["tutorial"] = true
 			_save()
 		_new_hand()
-	_card(title, text, "Next hand", then)
+	_card(title, text, "Next hand", then, "", Callable(), _big(s))
+
+
+## How grand the result card is: 0 for a bust or a small hand, 1 for three of a kind, 2 for a straight or better.
+func _big(st) -> int:
+	if st.busted:
+		return 0
+	var m: int = Rules.score(cfg, st.row).marks
+	return 2 if m >= 5 else (1 if m >= 3 else 0)
 
 
 # ---------- animation ----------
@@ -223,7 +234,7 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 	var n := faces.size()
 	for j in n:
 		var d := _die_node(faces[j], TDIE)
-		var x := tray.size.x / 2.0 + (j - (n - 1) / 2.0) * (TDIE + 40) - TDIE / 2.0
+		var x := tray_x(j) - TDIE / 2.0
 		var y := tray.size.y / 2.0 - TDIE / 2.0
 		d.position = Vector2(x, y + 260)
 		d.scale = Vector2(0.3, 0.3)
@@ -332,14 +343,15 @@ func _refresh() -> void:
 		return
 	marks_label.text = "%d" % total
 	bag_label.text = "%d in the bag" % s.bag
-	# the row
+	# the row, sorted so matches sit together
+	var shown := shown_row()
 	for j in row_dice.size():
 		var d: TextureRect = row_dice[j]
-		if j < s.row.size():
-			d.texture = DICE[s.row[j]]
+		if j < shown.size():
+			d.texture = DICE[shown[j]]
 			d.modulate = Color.WHITE
 			d.visible = true
-			d.get_child(0).visible = s.row[j] == 0
+			d.get_child(0).visible = shown[j] == 0
 		elif j == s.row.size() and selected >= 0 and phase == "keep":
 			d.texture = DICE[s.thrown[selected]]
 			d.modulate = Color(1, 1, 1, 0.5)
@@ -347,6 +359,7 @@ func _refresh() -> void:
 			d.get_child(0).visible = false
 		else:
 			d.visible = false
+	hint.text = next_hint() if phase != "over" else ""
 	# the hand's name, or what the picked die would make
 	if phase == "keep" and selected >= 0:
 		var pv: Dictionary = Rules.preview(s, selected)
@@ -378,12 +391,23 @@ func _refresh() -> void:
 		sd.box.visible = not dance or n == 1
 		sd.btn.disabled = not ok
 		sd.btn.modulate = Color.WHITE if ok else Color(0.45, 0.4, 0.4)
-		var pct := roundi(100.0 * Rules.bust_chance(s, n)) if n <= s.bag else 0
 		var label := "%d %s" % [n, "die" if n == 1 else "dice"]
 		if dance:
 			label = "The Last Dance"
-		sd.cap.text = "%s\n%s" % [label, "no risk" if pct == 0 else "%d%% to lose it" % pct]
-		sd.cap.add_theme_color_override("font_color", IVORY if pct == 0 else (Color("f0a080") if pct < 20 else Color("ff6a5a")))
+		var odds := ""
+		var p := 0.0
+		if n > s.bag:
+			odds = "only %d in the bag" % s.bag
+		else:
+			p = Rules.bust_chance(s, n)
+			if p <= 0.0:
+				odds = "no risk"
+			elif p < 0.01:
+				odds = "under 1% to lose it"
+			else:
+				odds = "%d%% to lose it" % roundi(100.0 * p)
+		sd.cap.text = "%s\n%s" % [label, odds]
+		sd.cap.add_theme_color_override("font_color", IVORY if p < 0.01 else (Color("f0a080") if p < 0.2 else Color("ff6a5a")))
 	if phase == "keep" and selected >= 0:
 		keep_cap.text = "Keep the %d" % s.thrown[selected]
 		keep_btn.disabled = false
@@ -402,12 +426,43 @@ func _refresh() -> void:
 				elif s.thrown.is_empty() and s.throws > 0 and s.row.size() == 0 and s.skulls > 0 and s.last_faces.size() > 0 and s.last_faces.max() <= int(cfg.skull_faces):
 					m = "Nothing but skulls. Draw again."
 				else:
-					m = "Draw 1, 2 or 3 dice. You keep one; the rest go back."
+					var o: Array = Rules.draw_options(s)
+					var said: String = " or ".join(o.map(func(x): return str(x))) if o.size() <= 2 else "1, 2 or 3"
+					m = "Draw %s %s. You keep one; the rest go back." % [said, "die" if o == [1] else "dice"]
 			"keep":
 				m = "Tap a die to see what it makes; tap again or Keep." if selected < 0 else "Keep it, or tap another die."
 			"over":
 				m = ""
 	msg.text = m
+
+
+## The row as shown: the most-matched faces first, then the higher; the wild die last.
+func shown_row() -> Array:
+	var r: Array = s.row.duplicate()
+	r.sort_custom(func(a, b):
+		if (a == 0) != (b == 0):
+			return b == 0
+		var ca: int = s.row.count(a)
+		var cb: int = s.row.count(b)
+		return ca > cb if ca != cb else a > b)
+	return r
+
+
+## What one more die would make at best ("One more 4: Full house · 5"), or "" when no die improves the row.
+func next_hint() -> String:
+	if s.row.is_empty() or s.row.size() >= int(cfg.row):
+		return ""
+	var now: Dictionary = Rules.score(cfg, s.row)
+	var best := {}
+	var bf := 0
+	for f in range(int(cfg.skull_faces) + 1, 7):
+		var sc: Dictionary = Rules.score(cfg, s.row + [f])
+		if sc.marks > now.marks and (best.is_empty() or sc.marks > best.marks or (sc.marks == best.marks and sc.hand > best.hand)):
+			best = sc
+			bf = f
+	if best.is_empty():
+		return ""
+	return "One more %d: %s · %d" % [bf, best.name, best.marks]
 
 
 func _set_windows() -> void:
@@ -474,6 +529,10 @@ func _build() -> void:
 	v.add_child(_spacer())
 	v.add_child(_centered(_ribbon()))
 	v.add_child(_centered(_row()))
+	hint = _label("", SERIF, 32, GOLD)
+	hint.custom_minimum_size = Vector2(W, 48)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_centered(hint))
 	v.add_child(_spacer())
 	v.add_child(_centered(_seals()))
 
@@ -523,7 +582,7 @@ func _top_bar() -> Control:
 	bar.add_child(marks_label)
 	var mk := _label("marks", SERIF, 26)
 	mk.position = Vector2(92, 64)
-	mk.add_theme_font_size_override("font_size", 24)
+	mk.add_theme_font_size_override("font_size", 32)
 	bar.add_child(mk)
 	var bi := TextureRect.new()
 	bi.texture = BAG_ICON
@@ -611,39 +670,42 @@ func _tray() -> Control:
 	t.set_anchors_preset(Control.PRESET_FULL_RECT)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tray.add_child(t)
-	# invisible buttons over the three die places pick the dice
-	for j in 3:
-		var b := Button.new()
-		b.flat = true
-		b.focus_mode = Control.FOCUS_NONE
-		b.size = Vector2(TDIE + 30, TDIE + 30)
-		b.position = Vector2((W - 20) / 2.0 + (j - 1) * (TDIE + 40) - (TDIE + 30) / 2.0, 360 / 2.0 - (TDIE + 30) / 2.0)
-		b.pressed.connect(_on_tray_tap.bind(j))
-		tray.add_child(b)
-		b.set_meta("place", j)
+	tray.mouse_filter = Control.MOUSE_FILTER_STOP
+	tray.gui_input.connect(_on_tray_input)
 	return tray
 
 
-## A tap on tray place j picks the pip die shown there (places depend on how many dice were thrown).
-func _on_tray_tap(place: int) -> void:
+## Touch arrives as an emulated mouse press, so only mouse buttons are handled (no double taps).
+func _on_tray_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+		tap_tray(e.position.x)
+
+
+## A tap at x in the tray picks the pip die drawn nearest it (within half a die's spacing).
+func tap_tray(x: float) -> void:
 	if phase != "keep":
 		return
 	var n: int = s.last_faces.size()
-	var center := (W - 20) / 2.0 + (place - 1) * (TDIE + 40)
 	var best := -1
 	var bd := 1e9
 	for j in n:
-		var x := (W - 20) / 2.0 + (j - (n - 1) / 2.0) * (TDIE + 40)
-		if absf(x - center) < bd and s.last_faces[j] > int(cfg.skull_faces):
-			bd = absf(x - center)
+		var cx := tray_x(j)
+		if s.last_faces[j] > int(cfg.skull_faces) and absf(x - cx) < bd:
+			bd = absf(x - cx)
 			best = j
-	if best < 0 or bd > (TDIE + 40) / 2.0:
+	if best < 0 or bd >= (TDIE + 40) / 2.0:
 		return
 	var pip := -1
 	for j in best + 1:
 		if s.last_faces[j] > int(cfg.skull_faces):
 			pip += 1
 	_on_die(pip)
+
+
+## The x in the tray where thrown face j sits (tests tap here).
+func tray_x(j: int) -> float:
+	var n: int = s.last_faces.size()
+	return tray.size.x / 2.0 + (j - (n - 1) / 2.0) * (TDIE + 40)
 
 
 func _ribbon() -> Control:
@@ -719,7 +781,7 @@ func _seals() -> Control:
 		var bc := CenterContainer.new()
 		bc.add_child(btn)
 		box.add_child(bc)
-		var cap := _label("", CINZEL, 30)
+		var cap := _label("", CINZEL, 36)
 		cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(cap)
 		seal_box.add_child(box)
@@ -744,7 +806,7 @@ func _seals() -> Control:
 	var kc := CenterContainer.new()
 	kc.add_child(keep_btn)
 	kb.add_child(kc)
-	keep_cap = _label("", CINZEL, 32)
+	keep_cap = _label("", CINZEL, 36)
 	keep_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	kb.add_child(keep_cap)
 	kb.visible = false
@@ -774,9 +836,9 @@ func _build_overlay() -> void:
 	psb.texture_margin_right = 200
 	psb.texture_margin_top = 200
 	psb.texture_margin_bottom = 200
-	psb.content_margin_left = 110
-	psb.content_margin_right = 110
-	psb.content_margin_top = 190
+	psb.content_margin_left = 130
+	psb.content_margin_right = 130
+	psb.content_margin_top = 215
 	psb.content_margin_bottom = 180
 	page.add_theme_stylebox_override("panel", psb)
 	page.custom_minimum_size = Vector2(980, 0)
@@ -830,8 +892,8 @@ func _card_button() -> Button:
 	return b
 
 
-func _card(title: String, text: String, button: String, then: Callable, alt := "", alt_then := Callable()) -> void:
-	cards.append({"title": title, "text": text, "button": button, "then": then, "alt": alt, "alt_then": alt_then})
+func _card(title: String, text: String, button: String, then: Callable, alt := "", alt_then := Callable(), big := 0) -> void:
+	cards.append({"title": title, "text": text, "button": button, "then": then, "alt": alt, "alt_then": alt_then, "big": big})
 	if not overlay.visible:
 		_show_card()
 
@@ -839,6 +901,8 @@ func _card(title: String, text: String, button: String, then: Callable, alt := "
 func _show_card() -> void:
 	var c: Dictionary = cards[0]
 	card_title.text = c.title
+	card_title.add_theme_font_size_override("font_size", [64, 76, 92][c.big])
+	card_title.add_theme_color_override("font_color", BLOOD if c.big == 2 else INK)
 	card_text.text = c.text
 	card_btn.text = c.button
 	card_alt.text = c.alt
