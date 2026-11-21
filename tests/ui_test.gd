@@ -27,6 +27,7 @@ func _initialize() -> void:
 	await test_free_hands()
 	await test_help()
 	await test_labels()
+	await test_demand()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -79,6 +80,7 @@ func test_tutorial() -> void:
 	check("ui: the last card hands over the dice", h.overlay.visible and h.card_title.text == "The dice are yours")
 	h._on_card_btn()
 	check("ui: free play: 3 in the bag, 1 skull", h.tut.done() and h.s.bag == 3 and h.s.skulls == 1 and not h.overlay.visible)
+	check("ui: the guided hand has no demand", h.cfg.demand == "" and h.demand_label.text == "" and not h.sin_label.visible and h.sin_name() == "Pride")
 
 
 ## Waits for the result banner and Next hand, which follow the payout after the hand ends.
@@ -112,6 +114,11 @@ func test_free_hands() -> void:
 	check("ui: the counter shows the new total", h.marks_label.text == str(h.total))
 	h._on_next()
 	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
+	check("ui: the first hand with a demand explains it once", h.overlay.visible and h.card_title.text == "The Sin's demand" and h.seen.get("demand", false)
+		and not h.opener.visible)
+	h._on_card_btn()
+	check("ui: then Pride opens the hand with its demand", h.opener.visible and h.opener_name.text == "Pride" and h.opener_line.text == "Each 6 pays 2. Each 5 pays 1."
+		and h.demand_label.text == "Each 6 pays 2. Each 5 pays 1.")
 	var ok := true
 	for i in 12:
 		await play_out()
@@ -183,23 +190,21 @@ func test_labels() -> void:
 	# one Sin per hand, whose window opens the hand; a tap or a seal ends the opening
 	h.phase = "throw"
 	var sins_seen := []
-	for k in 7:
+	for k in range(1, 7):
 		h.hands = k
 		h._new_hand()
 		sins_seen.append(h.sin_name())
-	check("ui: all seven Sins host in turn", sins_seen == ["Pride", "Greed", "Lust", "Envy", "Gluttony", "Wrath", "Sloth"])
-	for k in [1, 2, 4]:   # Greed, Lust and Gluttony open at full screen like the rest
-		h.hands = k
-		h._new_hand()
-		check("ui: %s opens its hand at full screen" % h.sin_name(), h.opener.visible and h.window.texture.resource_path.ends_with("%s_window.png" % h.sin_name().to_lower()))
-	h.hands = 3
+		check("ui: %s opens hand %d at full screen, with no second card" % [h.sin_name(), k], h.opener.visible and not h.overlay.visible
+			and h.window.texture.resource_path.ends_with("%s_window.png" % h.sin_name().to_lower()) and h.cfg.demand == h.sin_name().to_lower())
+	check("ui: Pride, Envy and Wrath host in turn", sins_seen == ["Pride", "Envy", "Wrath", "Pride", "Envy", "Wrath"])
+	h.hands = 2
 	h._new_hand()
 	check("ui: the hand opens on its Sin", h.opener.visible and h.opener_name.text == "Envy" and h.window.texture.resource_path.ends_with("envy_window.png"))
 	h._on_seal(2)
 	check("ui: a seal during the opening ends it and throws", not h.opener.visible and h.window.modulate.a == 1.0 and h.s.throws == 1)
 	await settle()
 	h._new_hand()
-	for i in 200:
+	for i in 400:
 		if not h.opener.visible:
 			break
 		await process_frame
@@ -208,4 +213,78 @@ func test_labels() -> void:
 	await process_frame
 	var page: Control = h.card_title.get_parent().get_parent()
 	check("ui: the help card fits on the screen", page.get_global_rect().end.x <= h.get_viewport_rect().size.x and page.get_global_rect().position.x >= 0.0)
+	h._on_card_btn()
+
+
+## Plays scripted dice in a hand hosted by the Sin of hand number k (1 Pride, 2 Envy, 3 Wrath).
+func hosted(k: int, faces: Array) -> void:
+	h.phase = "throw"
+	h.hands = k
+	h._new_hand(h.Tutorial.ScriptRng.new(faces))
+
+
+func test_demand() -> void:
+	var glyphs := true
+	for f in [h.caps_bold, h.blackletter]:
+		for ch in [0x2b, 0x2212]:
+			glyphs = glyphs and (f.base_font.has_char(ch) or f.fallbacks[0].has_char(ch))
+	check("ui: the faces have a plus and a true minus", glyphs)
+	# Pride: a 6 is kept alone, then a 6 and a 3 are thrown
+	await hosted(1, [6, 6, 3])
+	h._on_seal(1)
+	await settle()
+	check("ui: Pride: the row shows the hand and what the Sin pays", h.s.row == [6] and h.ribbon_label.text == "High die · 0"
+		and h.sin_label.visible and h.sin_label.text == "Pride · 2" and h.sin_plus.visible)
+	h._on_seal(2)
+	await settle()
+	check("ui: Pride: the 6 carries +2, the 3 nothing", h.phase == "keep" and h.tray_dice[0].get_child_count() == 1
+		and h.tray_dice[0].get_child(0).text == "+2" and h.tray_dice[1].get_child_count() == 0)
+	h._on_die(0)
+	check("ui: Pride: picking the 6 previews the hand and the Sin", h.ribbon_label.text == "Pair · 1" and h.sin_label.text == "Pride · 4" and h.ribbon_if.visible)
+	h._on_die(1)
+	check("ui: Pride: picking the 3 previews less from the Sin", h.ribbon_label.text == "High die · 0" and h.sin_label.text == "Pride · 2")
+	check("ui: Pride: no seal pays for a throw", not h.seals[0].pay.visible and not h.seals[1].pay.visible)
+	# Pride pays: 6 6 5 3 3
+	await hosted(1, [6, 6, 5, 3, 3])
+	var before: int = h.total
+	for i in 5:
+		h._on_seal(1)
+		await settle()
+	await await_result()
+	check("ui: Pride: the banner counts the hand and the Sin", h.banner_title.text == "7 marks" and h.banner_text.text.begins_with("Two pair 2 + Pride 5.")
+		and h.total == before + 7 and h.marks_label.text == str(h.total))
+	h._on_next()
+	# Envy takes: 2 2 3 4 5 pays a pair, and Envy takes it
+	await hosted(2, [2, 2, 3, 3, 4, 5])
+	h._on_seal(1)
+	await settle()
+	check("ui: Envy: a 2 in the row costs, in red", h.sin_label.text == "Envy · −1" and not h.sin_plus.visible
+		and h.sin_label.get_theme_color("font_color") == h.BLOOD)
+	h._on_seal(2)
+	await settle()
+	check("ui: Envy: the 2 carries its cost", h.tray_dice[0].get_child(0).text == "−1" and h.tray_dice[0].get_child(0).get_theme_color("font_color") == h.COST)
+	h._on_die(0)
+	h._on_keep()
+	await settle()
+	before = h.total
+	for i in 3:
+		h._on_seal(1)
+		await settle()
+	await await_result()
+	check("ui: Envy: the banner says what was taken", h.banner_title.text == "No marks" and h.banner_text.text.begins_with("Pair 1, Envy takes 1.") and h.total == before)
+	h._on_next()
+	# Wrath: two skulls, then the seals pay
+	await hosted(3, [4, 1, 1, 5, 3])
+	h._on_seal(1)
+	await settle()
+	check("ui: Wrath: one die in, nothing owed yet, no seal pays", not h.seals[1].pay.visible and h.sin_label.text == "Wrath · 0")
+	h._on_seal(2)
+	await settle()
+	check("ui: Wrath: at two skulls each seal shows what it pays", h.s.skulls == 2 and h.seals[0].pay.visible and h.seals[0].pay.text == "+1"
+		and h.seals[1].pay.text == "+2" and h.seals[2].pay.text == "+3" and h.msg.text.begins_with("Two skulls show: Wrath pays 1"))
+	h._on_seal(2)
+	await settle()
+	check("ui: Wrath: the throw is owed while the dice wait", h.phase == "keep" and h.s.bank == 2 and h.sin_label.text == "Wrath · 2")
+	h._on_help()
+	check("ui: ? names the host and its demand", h.card_text.text.begins_with("Wrath hosts this hand. Each die thrown at two skulls pays 1."))
 	h._on_card_btn()

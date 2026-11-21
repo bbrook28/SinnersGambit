@@ -5,6 +5,7 @@ extends Control
 
 const Rules = preload("res://dice/rules.gd")
 const Config = preload("res://dice/config.gd")
+const Demands = preload("res://dice/demands.gd")
 const Tutorial = preload("res://ui/dice_tutorial.gd")
 const Version = preload("res://ui/version.gd")
 
@@ -54,6 +55,8 @@ const COINS := preload("res://assets/art/ui/icon_coins.png")
 const BAG_ICON := preload("res://assets/art/ui/icon_die.png")
 const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
+## The Sins that host in 0.12.0: the three with a demand (dice/demands.gd), in turn. The other windows wait their turn.
+const HOSTS := ["pride", "envy", "wrath"]
 ## All seven host hands, in this order, and each opens its hand at full screen.
 ## TODO(art): Greed's window needs a SpriteCook redo (Ben, 2026-11-21): the dice patch redrew his hands and robe,
 ## with a finer glass grain and lead lines that do not meet at its edge (see assets/art/spritecook-assets.json, 498a2ec6).
@@ -61,6 +64,8 @@ const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
 const SIN_LIGHT := {"pride": Color("8a50ff"), "greed": Color("aeb8cc"), "lust": Color("e0306a"),
 	"envy": Color("3fc85a"), "gluttony": Color("ff8a30"), "wrath": Color("ff4a20"), "sloth": Color("3a6aff")}
 const OPEN_TIME := 0.85   # the Sin's opening beat, in seconds; a tap ends it
+const OPEN_READ := 2.5    # the opening when the Sin has a demand to read
+const COST := Color("ff3b2e")   # a die or a row that costs marks (the deep end of risk_color)
 const SFX := {
 	"dice_roll": preload("res://assets/audio/dice_roll.wav"),
 	"die_land": preload("res://assets/audio/die_land.wav"),
@@ -121,6 +126,8 @@ var spill: TextureRect
 var opener: Control
 var opener_glass: TextureRect
 var opener_name: Label
+var opener_line: Label    # the Sin's demand, under its name
+var demand_label: Label   # the demand, on the table edge under the window, for the whole hand
 var opening: Tween
 var candles: Array = []
 var glows: Array = []
@@ -132,6 +139,8 @@ var banner_title: Label
 var banner_text: Label
 var ribbon_label: Label
 var ribbon_if: Label
+var sin_plus: Label
+var sin_label: Label      # what the Sin pays for the row: "Pride · 4"
 var hint: Label
 var row_slots: Array = []
 var row_dice: Array = []
@@ -190,17 +199,26 @@ func _new_hand(rng = null) -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
+	# the guided hand teaches the poker alone: its Sin (Pride's window) demands nothing
+	var host: String = HOSTS[0] if tut != null else HOSTS[posmod(hands - 1, HOSTS.size())]
+	cfg = Config.merged({"demand": "" if tut != null else host})
 	s = Rules.new_hand(cfg, rng)
 	selected = -1
 	phase = "throw"
-	sin_i = hands % SINS.size()
+	sin_i = SINS.find(host)
 	_end_opening()
 	_set_sin()
 	for k in candles.size():
 		_set_candle(k, true)
 	_clear_tray()
 	_refresh()
-	if tut == null:
+	if tut != null:
+		return
+	if demand_line() != "" and not seen.get("demand", false):
+		seen["demand"] = true
+		_save()
+		_card("The Sin's demand", "Each hand a Sin hosts, and pays you marks for what it wants, on top of your hand.\n\nIts window says what. Lose the hand and the Sin pays nothing.", "Got it", func(): _open_sin())
+	else:
 		_open_sin()
 
 
@@ -309,15 +327,27 @@ func _end() -> void:
 
 ## Marks fly from the row to the counter, which counts up; the Master and the sound scale with the hand.
 func _payout(before: int) -> void:
-	var m: int = s.marks
 	var big := _big(s)
 	_react(big)
-	if m <= 0:
+	if s.marks <= 0:
 		return
 	_sfx("pay_big" if big >= 1 else "pay_small")
 	_buzz(40 if big == 0 else 120)
+	# the hand's marks fly from the row, then the Sin's from its window; what a Sin takes comes off the row's
+	var t: Dictionary = Rules.total(cfg, s.row, s.bank)
+	var from_row: int = s.marks if t.sin <= 0 else t.marks
+	var from_sin: int = s.marks - from_row
+	if from_row > 0:
+		await _coins(row_slots[0].global_position + Vector2(DIE / 2.0, DIE / 2.0), from_row, before, 0.9 if from_sin == 0 else 0.75)
+	if from_sin > 0:
+		_sfx("pay_small")
+		_pulse(window)
+		await _coins(window.global_position + window.size / 2.0, from_sin, before + from_row, 0.9)
+
+
+## m marks fly as coins from a point to the counter, which counts up from `before`; then a pause.
+func _coins(from: Vector2, m: int, before: int, pause: float) -> void:
 	var n := mini(m, 12)
-	var from: Vector2 = row_slots[0].global_position + Vector2(DIE / 2.0, DIE / 2.0)
 	var to: Vector2 = coins_icon.global_position + coins_icon.size / 2.0
 	var bend := Vector2(40.0, (from.y + to.y) / 2.0)
 	for k in n:
@@ -344,7 +374,7 @@ func _payout(before: int) -> void:
 			_sfx("coin", 0.12, -4.0)
 			marks_label.text = "%d" % shown
 			_pulse(marks_label))
-	await get_tree().create_timer(0.08 * n + 0.9).timeout
+	await get_tree().create_timer(0.08 * n + pause).timeout
 
 
 func _show_result() -> void:
@@ -354,9 +384,9 @@ func _show_result() -> void:
 		title = "The Master takes the hand"
 		text = "Three skulls. The hand pays nothing." if s.skulls >= int(cfg.bust_at) else "A skull on the Last Dance. The hand pays nothing."
 	else:
-		var sc: Dictionary = Rules.score(cfg, s.row)
-		title = "%d mark%s" % [sc.marks, "" if sc.marks == 1 else "s"] if sc.marks > 0 else "No marks"
-		text = "Your row is paid. You have %d marks in all." % total
+		var t: Dictionary = Rules.total(cfg, s.row, s.bank)
+		title = "%d mark%s" % [t.total, "" if t.total == 1 else "s"] if t.total > 0 else "No marks"
+		text = "%s You have %d marks in all." % [paid_line(t), total]
 	var big := _big(s)
 	banner_title.text = title
 	banner_title.add_theme_font_size_override("font_size", (52 if s.busted else [72, 84, 96][big]))
@@ -384,6 +414,17 @@ func _on_next() -> void:
 		seen["tutorial"] = true
 		_save()
 	_new_hand()
+
+
+## What was paid, in words: "Your row is paid." with no Sin; "Pair 1 + Pride 4." or "Pair 1, Envy takes 2." with one.
+func paid_line(t: Dictionary) -> String:
+	if demand_line() == "":
+		return "Your row is paid."
+	if t.sin > 0:
+		return "%s %d + %s %d." % [t.name, t.marks, sin_name(), t.sin]
+	if t.sin < 0 and t.marks > 0:
+		return "%s %d, %s takes %d." % [t.name, t.marks, sin_name(), mini(-t.sin, t.marks)]
+	return "%s %d. %s pays nothing." % [t.name, t.marks, sin_name()]
 
 
 ## How grand the result is: 0 for a bust or a small hand, 1 for three of a kind, 2 for a straight or better.
@@ -425,6 +466,7 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 	for j in n:
 		if is_instance_valid(tray_dice[j]):
 			tray_dice[j].texture = DICE[faces[j]]
+			_tag_die(tray_dice[j], faces[j])
 	_sfx("die_land", 0.1, -3.0)
 	if s.skulls > skulls0:
 		for k in range(skulls0, mini(s.skulls, candles.size())):
@@ -461,6 +503,24 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 		phase = "throw"
 	_refresh()
 	_tut_sync()
+
+
+## A thrown die the Sin cares about carries what it would pay or cost in the row: "+2", "−1".
+func _tag_die(d: TextureRect, face: int) -> void:
+	var m := int(Demands.of(cfg).get("faces", {}).get(face, 0))
+	if m == 0:
+		return
+	var tag := _label(marks_text(m), caps_bold, 44, GOLD if m > 0 else COST)
+	tag.size = Vector2(TDIE, 54)
+	tag.position = Vector2(0, TDIE - 4)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	d.add_child(tag)
+
+
+## A gain or a cost with its sign: "+2", "−1".
+func marks_text(m: int) -> String:
+	return "+%d" % m if m >= 0 else "−%d" % -m
 
 
 ## While a die tumbles its face flickers; it settles on the face thrown.
@@ -629,16 +689,27 @@ func _refresh() -> void:
 			d.visible = false
 	hint.text = next_hint() if phase != "over" else ""
 	# the hand's name, or what the picked die would make
+	var paid: Dictionary
 	if phase == "keep" and selected >= 0:
-		var pv: Dictionary = Rules.preview(s, selected)
-		ribbon_label.text = "%s · %d" % [pv.name, pv.marks]
+		paid = Rules.preview_total(s, selected)
+		ribbon_label.text = "%s · %d" % [paid.name, paid.marks]
 		ribbon_if.visible = true
 	else:
-		var sc: Dictionary = Rules.score(cfg, s.row)
-		ribbon_label.text = "%s · %d" % [sc.name, sc.marks] if not s.row.is_empty() else "Your row"
+		paid = Rules.total(cfg, s.row, s.bank)
+		ribbon_label.text = "%s · %d" % [paid.name, paid.marks] if not s.row.is_empty() else "Your row"
 		if phase == "over" and s.busted:
 			ribbon_label.text = "Nothing paid"
 		ribbon_if.visible = false
+	# what the Sin pays for that row, beside the hand
+	var owed: bool = demand_line() != "" and not (phase == "over" and s.busted) and (not s.row.is_empty() or ribbon_if.visible or paid.sin != 0)
+	sin_label.visible = owed
+	sin_plus.visible = owed and paid.sin >= 0
+	if owed:
+		sin_label.text = "%s · %s" % [sin_name(), str(paid.sin) if paid.sin >= 0 else marks_text(paid.sin)]
+		sin_label.add_theme_color_override("font_color", INK if paid.sin >= 0 else BLOOD)
+	for l in [ribbon_label, sin_plus, sin_label]:
+		l.add_theme_font_size_override("font_size", 42 if owed else 56)
+	demand_label.text = demand_line()
 	# tray dice: lift the picked one, dim skulls
 	if phase != "over":
 		for j in tray_dice.size():
@@ -680,6 +751,9 @@ func _refresh() -> void:
 				odds = "under 1% to lose it"
 			else:
 				odds = "%d%% to lose it" % roundi(100.0 * p)
+		var pays: int = Rules.throw_pays(s, n) if ok else 0
+		sd.pay.visible = pays > 0
+		sd.pay.text = marks_text(pays)
 		sd.cap.text = label
 		sd.odds.text = odds
 		sd.odds.add_theme_color_override("font_color", risk_color(p))
@@ -698,6 +772,8 @@ func _refresh() -> void:
 			"throw":
 				if Rules.is_dance(s):
 					m = "One die left: the Last Dance. Any face is wild; a skull loses the hand."
+				elif Rules.throw_pays(s, 1) > 0:
+					m = "Two skulls show: %s pays %d for each die you throw now." % [sin_name(), Rules.throw_pays(s, 1)]
 				elif s.thrown.is_empty() and s.throws > 0 and s.row.size() == 0 and s.skulls > 0 and s.last_faces.size() > 0 and s.last_faces.max() <= int(cfg.skull_faces):
 					m = "Nothing but skulls. Draw again."
 				else:
@@ -761,26 +837,36 @@ func sin_name() -> String:
 	return SINS[sin_i].capitalize()
 
 
+## The hosting Sin's demand in words, or "" when it demands nothing.
+func demand_line() -> String:
+	return Demands.of(cfg).get("line", "")
+
+
 ## The Sin's window fills the screen for a beat, then settles into its place on the wall. A tap ends it.
 func _open_sin() -> void:
 	_end_opening()
 	opener_glass.texture = window.texture
 	opener_name.text = sin_name()
+	opener_line.text = demand_line()
 	var vp := get_viewport_rect().size
 	var big := Vector2(vp.x * 0.86, vp.x * 0.86 * 820.0 / 640.0)
 	opener_glass.size = big
 	opener_glass.position = (vp - big) / 2.0 - Vector2(0, 60)
 	opener_name.position = Vector2(0, opener_glass.position.y + big.y + 10)
 	opener_name.size = Vector2(vp.x, 120)
+	opener_line.position = Vector2(60, opener_name.position.y + 130)
+	opener_line.size = Vector2(vp.x - 120, 120)
 	opener.modulate.a = 0.0
 	opener_name.modulate.a = 1.0
+	opener_line.modulate.a = 1.0
 	opener.visible = true
 	window.modulate.a = 0.0
 	var from := Rect2(opener_glass.position, big)
 	opening = create_tween()
 	opening.tween_property(opener, "modulate:a", 1.0, 0.15)
-	opening.tween_interval(OPEN_TIME - 0.55)
-	opening.tween_property(opener_name, "modulate:a", 0.0, 0.12)
+	opening.tween_interval((OPEN_TIME if demand_line() == "" else OPEN_READ) - 0.55)
+	opening.tween_property(opener_line, "modulate:a", 0.0, 0.12)
+	opening.parallel().tween_property(opener_name, "modulate:a", 0.0, 0.12)
 	# the window's place is read as the glass flies, so a layout still settling cannot misplace it
 	opening.tween_method(func(t: float):
 		var to := window.get_global_rect()
@@ -929,6 +1015,11 @@ func _build_opener() -> void:
 	opener_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	opener_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	opener.add_child(opener_name)
+	opener_line = _label("", serif, 46)
+	opener_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	opener_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	opener_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	opener.add_child(opener_line)
 
 
 func _centered(c: Control) -> CenterContainer:
@@ -1064,6 +1155,11 @@ func _stage() -> Control:
 	edge.size = Vector2(W + 600, 110)
 	edge.position = Vector2(-300, EDGE_Y)
 	stage.add_child(edge)
+	demand_label = _label("", serif, 34, GOLD)
+	demand_label.size = Vector2(820, 50)
+	demand_label.position = Vector2(10, EDGE_Y + 34)
+	demand_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(demand_label)
 	var add := CanvasItemMaterial.new()
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	for k in 3:
@@ -1210,14 +1306,23 @@ func _ribbon() -> Control:
 	r.texture = RIBBON
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.custom_minimum_size = Vector2(760, 176)
+	var line := HBoxContainer.new()
+	line.set_anchors_preset(Control.PRESET_FULL_RECT)
+	line.offset_top = 44
+	line.offset_bottom = -26
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 18)
+	r.add_child(line)
 	ribbon_label = _label("Your row", blackletter, 56, INK)
-	ribbon_label.remove_theme_color_override("font_shadow_color")
-	ribbon_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ribbon_label.offset_top = 44
-	ribbon_label.offset_bottom = -26
-	ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ribbon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	r.add_child(ribbon_label)
+	sin_plus = _label("+", blackletter, 56, INK)
+	sin_label = _label("", blackletter, 56, INK)
+	for l in [ribbon_label, sin_plus, sin_label]:
+		l.remove_theme_color_override("font_shadow_color")
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		line.add_child(l)
+	sin_plus.visible = false
+	sin_label.visible = false
 	ribbon_if = _label("if kept", serif, 28, INK)   # the ghost die in the row shows which one
 	ribbon_if.remove_theme_color_override("font_shadow_color")
 	ribbon_if.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1293,6 +1398,13 @@ func _seals() -> Control:
 		num.position = Vector2(55, 48)
 		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		btn.add_child(num)
+		var pay := _label("", caps_bold, 46, GOLD)
+		pay.size = Vector2(90, 56)
+		pay.position = Vector2(150, 0)
+		pay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pay.visible = false
+		btn.add_child(pay)
 		var bc := CenterContainer.new()
 		bc.add_child(btn)
 		box.add_child(bc)
@@ -1303,7 +1415,7 @@ func _seals() -> Control:
 		odds.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(odds)
 		seal_box.add_child(box)
-		seals.append({"box": box, "btn": btn, "cap": cap, "odds": odds})
+		seals.append({"box": box, "btn": btn, "cap": cap, "odds": odds, "pay": pay})
 	var kb := VBoxContainer.new()
 	kb.size = Vector2(W, 330)
 	kb.alignment = BoxContainer.ALIGNMENT_BEGIN
@@ -1481,6 +1593,8 @@ func _on_help() -> void:
 	if overlay.visible:
 		return
 	var text := "Each throw, draw 1, 2 or 3 dice and keep one in your row; the rest go back. A 1 is a skull: it stays out and snuffs a candle. Three skulls and the Master takes the hand. A full row is paid. The bag's last die is thrown alone: wild, but a skull loses the hand."
+	if demand_line() != "":
+		text = "%s hosts this hand. %s\n\n%s" % [sin_name(), demand_line(), text]
 	text += "\n\n%s%s" % [Version.VERSION, (" (%s)" % Version.BUILD) if Version.BUILD != "" else ""]
 	_card("The hands", text, "Back", Callable(), "Replay the tutorial", func():
 		_start_tutorial(), 0, SEAL_BACK, hand_ranking())
