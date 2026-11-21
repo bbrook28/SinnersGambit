@@ -34,7 +34,7 @@ func _init() -> void:
 	test_lone_die_kept()
 	test_two_skulls()
 	test_bust()
-	test_cash_out()
+	test_no_cash_out()
 	test_full_row_cashes()
 	test_last_dance_wild()
 	test_last_dance_skull()
@@ -71,21 +71,21 @@ func test_keep_returns_the_other() -> void:
 	Rules.throw(s)
 	check("two pips wait for a keep", s.thrown == [3, 5] and not Rules.can_throw(s))
 	Rules.keep(s, 1)
-	check("kept 5 in the row, the 3 went back", s.row == [5] and s.thrown.is_empty() and s.bag == 7)
+	check("kept 5 in the row, the 3 went back", s.row == [5] and s.thrown.is_empty() and s.bag == 6)
 	check("can throw again", Rules.can_throw(s) and s.throws == 1)
 
 
 func test_lone_die_kept() -> void:
 	var s = hand([1, 4])
 	Rules.throw(s)
-	check("skull stays and leaves the bag; the lone 4 is kept", s.skulls == 1 and s.row == [4] and s.bag == 6 and s.thrown.is_empty())
+	check("skull stays and leaves the bag; the lone 4 is kept", s.skulls == 1 and s.row == [4] and s.bag == 5 and s.thrown.is_empty())
 	check("last_faces shows both", s.last_faces == [1, 4])
 
 
 func test_two_skulls() -> void:
 	var s = hand([1, 1])
 	Rules.throw(s)
-	check("two skulls, nothing to keep, not bust", s.skulls == 2 and s.row.is_empty() and s.bag == 6 and not s.over and Rules.can_throw(s))
+	check("two skulls, nothing to keep, not bust", s.skulls == 2 and s.row.is_empty() and s.bag == 5 and not s.over and Rules.can_throw(s))
 
 
 func test_bust() -> void:
@@ -95,15 +95,13 @@ func test_bust() -> void:
 	check("third skull busts: nothing paid", s.over and s.busted and s.marks == 0 and s.skulls == 3)
 
 
-func test_cash_out() -> void:
-	var s = hand([4, 2, 4, 6])
-	Rules.throw(s)
-	Rules.keep(s, 0)
-	Rules.throw(s)
-	Rules.keep(s, 0)
-	check("can cash with nothing waiting", Rules.can_cash(s))
-	Rules.cash_out(s)
-	check("a pair pays 1", s.over and not s.busted and s.marks == 1)
+func test_no_cash_out() -> void:
+	var s = hand([4, 2, 4, 6, 3, 5, 2, 6, 5, 6])
+	for i in 5:
+		Rules.throw(s)
+		Rules.keep(s, 0)
+	check("the hand plays to a full row: a pair of 4s pays 1", s.over and s.row == [4, 4, 3, 2, 5] and s.marks == 1)
+	check("there is no cash out", not (Rules.new() as Object).has_method("cash_out") and not (Rules.new() as Object).has_method("can_cash"))
 
 
 func test_full_row_cashes() -> void:
@@ -116,7 +114,7 @@ func test_full_row_cashes() -> void:
 
 
 func test_last_dance_wild() -> void:
-	var s = hand([4, 2, 1, 1, 4, 3, 4], {"bag": 5})
+	var s = hand([4, 2, 1, 1, 4, 3, 4], {"bag": 5})  # 5 dice so the Last Dance comes on the fourth throw
 	Rules.throw(s)          # 4,2: keep 4, bag 4
 	Rules.keep(s, 0)
 	Rules.throw(s)          # 1,1: two skulls, bag 2
@@ -161,7 +159,7 @@ func test_solver() -> void:
 	check("a full row is worth its pay", is_equal_approx(sol.value([2, 3, 4, 5, 6], 0, 3), 5.0))
 	var start: float = sol.value([], 0, int(cfg.bag))
 	check("the start is worth more than nothing (%.3f)" % start, start > 0.5)
-	check("a pair with two skulls is worth at least its cash", sol.value([4, 4], 2, 4) >= 1.0)
+	check("a pair with two skulls is worth less than with none", sol.value([4, 4], 2, 3) < sol.value([4, 4], 0, 5))
 
 
 func test_policies_play() -> void:

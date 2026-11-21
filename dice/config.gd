@@ -2,13 +2,12 @@
 extends RefCounted
 
 const DEFAULTS := {
-	"bag": 8,              # dice in the bag at the start of a hand
+	"bag": 7,              # dice in the bag at the start of a hand (7: the Last Dance comes in ~25% of hands; at 8 it never can)
 	"draw": 2,             # dice drawn each throw (fewer when the bag holds fewer)
 	"skull_faces": 1,      # faces 1..skull_faces are skulls; the rest are pips
 	"bust_at": 3,          # skulls on the table that bust you
-	"row": 5,              # places in your row; a full row cashes out by itself
+	"row": 5,              # places in your row; the hand plays until it is full (or you bust): no cash out (Ben, 2026-11-20)
 	"pay": "0,1,2,3,5,5,7,12",  # marks for each hand, in the order of Rules.HANDS
-	"stake": 0,            # marks a bust costs you (trial: your stake, kept by the Master; cashing out keeps it)
 }
 
 

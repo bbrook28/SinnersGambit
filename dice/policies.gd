@@ -1,5 +1,5 @@
 ## Players for the sim: random, greedy, and strong (exact best play from the Solver).
-## A policy is {name, keep: Callable(s) -> int, stop: Callable(s) -> bool}.
+## A policy is {name, keep: Callable(s) -> int}: the keep is the only choice (no cash out, Ben 2026-11-20).
 extends RefCounted
 
 const Rules = preload("res://dice/rules.gd")
@@ -13,24 +13,20 @@ class Solver:
 	func _init(c: Dictionary) -> void:
 		cfg = c
 
-	## Best value with nothing waiting: the better of cashing out and throwing.
+	## Expected marks with nothing waiting: a full row or empty bag is paid, otherwise you throw.
 	func value(row: Array, skulls: int, bag: int) -> float:
 		var r := row.duplicate()
 		r.sort()
 		var key := "%s|%d|%d" % [r, skulls, bag]
 		if memo.has(key):
 			return memo[key]
-		var cash := float(Rules.score(cfg, r).marks)
-		var v := cash
+		var v := float(Rules.score(cfg, r).marks)
 		if r.size() < int(cfg.row) and bag > 0:
-			v = maxf(cash, throw_value(r, skulls, bag))
+			v = throw_value(r, skulls, bag)
 		memo[key] = v
 		return v
 
-	func cash_value(row: Array) -> float:
-		return float(Rules.score(cfg, row).marks)
-
-	## Expected value of throwing now, then playing on at best.
+	## Expected marks of the next throw, then playing on at best.
 	func throw_value(row: Array, skulls: int, bag: int) -> float:
 		var n := mini(int(cfg.draw), bag)
 		var dance := bag == 1
@@ -49,7 +45,6 @@ class Solver:
 					pips.append(f)
 			var sk := skulls + k
 			if sk >= int(cfg.bust_at) or (dance and k > 0):
-				total -= float(cfg.get("stake", 0))
 				continue
 			if dance:
 				total += value(row + [0], sk, 0)
@@ -75,12 +70,10 @@ static func strong_policy(cfg: Dictionary) -> Dictionary:
 	return {"name": "strong", "solver": sol,
 		"keep": func(s) -> int:
 			var vals: Array = sol.keep_values(s)
-			return vals.find(vals.max()),
-		"stop": func(s) -> bool:
-			return sol.throw_value(s.row, s.skulls, s.bag) <= sol.cash_value(s.row) + 1e-9}
+			return vals.find(vals.max())}
 
 
-## Keeps the die that scores best now (ties: the face it already has most of, then the higher); cashes out at a pair.
+## Keeps the die that scores best now (ties: the face it already has most of, then the higher).
 static func greedy_policy() -> Dictionary:
 	return {"name": "greedy",
 		"keep": func(s) -> int:
@@ -92,9 +85,7 @@ static func greedy_policy() -> Dictionary:
 				if key > best_key:
 					best_key = key
 					best = i
-			return best,
-		"stop": func(s) -> bool:
-			return Rules.score(s.cfg, s.row).marks >= 1}
+			return best}
 
 
 static func random_policy(seed_value := 1) -> Dictionary:
@@ -102,9 +93,7 @@ static func random_policy(seed_value := 1) -> Dictionary:
 	rng.seed = seed_value
 	return {"name": "random",
 		"keep": func(s) -> int:
-			return rng.randi_range(0, s.thrown.size() - 1),
-		"stop": func(s) -> bool:
-			return not s.row.is_empty() and rng.randf() < 0.3}
+			return rng.randi_range(0, s.thrown.size() - 1)}
 
 
 ## Plays a hand to the end. Returns {throws, marks, busted, dance}.
@@ -115,9 +104,7 @@ static func play(s, p: Dictionary) -> Dictionary:
 		guard += 1
 		if s.thrown.size() > 1:
 			Rules.keep(s, p.keep.call(s))
-		elif Rules.can_throw(s) and (s.row.is_empty() or not p.stop.call(s)):
+		else:
 			dance = dance or Rules.is_dance(s)
 			Rules.throw(s)
-		else:
-			Rules.cash_out(s)
 	return {"throws": s.throws, "marks": s.marks, "busted": s.busted, "dance": dance}

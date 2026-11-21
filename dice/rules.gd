@@ -28,10 +28,6 @@ static func can_throw(s) -> bool:
 	return not s.over and s.thrown.is_empty() and s.bag > 0 and s.row.size() < int(s.cfg.row)
 
 
-static func can_cash(s) -> bool:
-	return not s.over and s.thrown.is_empty()
-
-
 static func throw(s) -> void:
 	if not can_throw(s):
 		return
@@ -54,7 +50,7 @@ static func throw(s) -> void:
 		s.thrown = []
 		s.over = true
 		s.busted = true
-		s.marks = -int(s.cfg.get("stake", 0))
+		s.marks = 0
 		return
 	if s.dance:
 		s.thrown = []
@@ -76,17 +72,16 @@ static func keep(s, i: int) -> void:
 	_settle(s)
 
 
-static func cash_out(s) -> void:
-	if not can_cash(s):
-		return
+## The hand is paid: the row's best poker hand.
+static func _pay_out(s) -> void:
 	s.over = true
 	s.marks = score(s.cfg, s.row).marks
 
 
-## A full row or an empty bag cashes out by itself.
+## A full row or an empty bag ends the hand and pays it.
 static func _settle(s) -> void:
 	if s.thrown.is_empty() and (s.row.size() >= int(s.cfg.row) or s.bag == 0):
-		cash_out(s)
+		_pay_out(s)
 
 
 static func pay(cfg: Dictionary, hand: int) -> int:

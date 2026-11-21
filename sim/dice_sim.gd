@@ -1,4 +1,5 @@
-## Dice poker against the plan's pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md).
+## Dice poker against the plan's pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md); no cash out, so the keep is the only choice.
+## The 5-7 throws mark is dropped: a five-die row caps a hand near 5 throws (Ben, 2026-11-20).
 ## godot --headless --path . --script res://sim/dice_sim.gd -- [hands=20000] [seed=4] [key=value ...]
 ## Any dice/config.gd key can be overridden. Writes the report to stdout and build/sim/dice_<seed>.txt.
 extends SceneTree
@@ -48,9 +49,7 @@ func _init() -> void:
 	say("best play is worth %.3f marks a hand from the first throw" % strong.solver.value([], 0, int(cfg.bag)))
 	say("strong's decisions: keeps with two different dice %d, close %.1f%%, a wrong keep costs >= 0.25 marks in %.1f%%" % [
 		st.keeps, 100.0 * st.close_keeps / maxi(st.keeps, 1), 100.0 * st.costly_keeps / maxi(st.keeps, 1)])
-	say("  stop calls %d, close %.1f%%; agony (any close decision) %.1f%% of decisions" % [
-		st.stops, 100.0 * st.close_stops / maxi(st.stops, 1), 100.0 * (st.close_keeps + st.close_stops) / maxi(st.keeps + st.stops, 1)])
-	say("  within 0.5 marks: keeps %.1f%%, stop calls %.1f%%" % [100.0 * st.near_keeps / maxi(st.keeps, 1), 100.0 * st.near_stops / maxi(st.stops, 1)])
+	say("  within 0.5 marks: %.1f%% of keeps" % (100.0 * st.near_keeps / maxi(st.keeps, 1)))
 	say("verdict:")
 	var gap := _paired(st.marks_each, g.marks_each)
 	var rel: float = gap[0] / maxf(g.marks, 0.001)
@@ -59,7 +58,7 @@ func _init() -> void:
 	_verdict("strong earns >= 15% more marks than greedy, interval above zero", rel >= 0.15 and gap[0] - gap[1] > 0.0, "%+.0f%%" % (100.0 * rel))
 	_verdict("greedy earns more than random", g.marks > r.marks, "%.3f vs %.3f" % [g.marks, r.marks])
 	_verdict("strong busts in 20-30% of hands", st.bust >= 20.0 and st.bust <= 30.0, "%.1f%%" % st.bust)
-	_verdict("strong throws 5-7 a hand", st.throws >= 5.0 and st.throws <= 7.0, "%.2f" % st.throws)
+	_verdict("strong reaches the Last Dance in 15-30% of hands", st.dance >= 15.0 and st.dance <= 30.0, "%.1f%%" % st.dance)
 	var keys: Array = cfg.keys()
 	say("config: hands=%d seed=%d %s" % [hands, seed_value, " ".join(keys.map(func(k): return "%s=%s" % [k, cfg[k]]))])
 	say("run time %.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
@@ -71,7 +70,7 @@ func _init() -> void:
 
 func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> Dictionary:
 	var res := {"name": p.name, "hands": hands, "marks_each": [], "hand_counts": {}, "keeps": 0, "close_keeps": 0,
-		"costly_keeps": 0, "stops": 0, "close_stops": 0, "near_keeps": 0, "near_stops": 0}
+		"costly_keeps": 0, "near_keeps": 0}
 	var marks := 0
 	var busts := 0
 	var throws := 0
@@ -95,22 +94,8 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 						res.costly_keeps += 1
 				Rules.keep(s, p.keep.call(s))
 				continue
-			if not Rules.can_throw(s):
-				Rules.cash_out(s)
-				continue
-			if sol != null and not s.row.is_empty():
-				var d: float = absf(sol.throw_value(s.row, s.skulls, s.bag) - sol.cash_value(s.row))
-				res.stops += 1
-				if d > 1e-9 and d < CLOSE:
-					res.close_stops += 1
-				if d > 1e-9 and d < 0.5:
-					res.near_stops += 1
-			if not s.row.is_empty() and p.stop.call(s):
-				res.early = res.get("early", 0) + 1
-				Rules.cash_out(s)
-			else:
-				dance = dance or Rules.is_dance(s)
-				Rules.throw(s)
+			dance = dance or Rules.is_dance(s)
+			Rules.throw(s)
 		marks += s.marks
 		res.marks_each.append(float(s.marks))
 		throws += s.throws
@@ -135,7 +120,6 @@ func _report(res: Dictionary) -> void:
 		if res.hand_counts.has(h):
 			parts.append("%s %.1f%%" % [h, 100.0 * res.hand_counts[h] / res.hands])
 	say("  cashed: " + ", ".join(parts))
-	say("  cashed out by choice (row not full) in %.1f%% of hands" % (100.0 * res.get("early", 0) / res.hands))
 
 
 ## Mean of a - b over the same hands, and its 95% half-width.
