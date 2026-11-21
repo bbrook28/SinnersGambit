@@ -54,10 +54,9 @@ const COINS := preload("res://assets/art/ui/icon_coins.png")
 const BAG_ICON := preload("res://assets/art/ui/icon_die.png")
 const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
-## The Sins that host hands, in turn. Greed sits out until its portrait's dice are repainted.
-const ROTATION := ["pride", "lust", "envy", "gluttony", "wrath", "sloth"]
-## Sins whose portrait dice are loose: shown on the wall, never at full screen.
-const NO_OPENING := ["lust", "gluttony"]
+## All seven host hands, in this order, and each opens its hand at full screen.
+## TODO(art): Greed's window needs a SpriteCook redo (Ben, 2026-11-21): the dice patch redrew his hands and robe,
+## with a finer glass grain and lead lines that do not meet at its edge (see assets/art/spritecook-assets.json, 498a2ec6).
 ## Each Sin's glass colour, spilled on the wall and the table edge (never on the mat, dice or captions).
 const SIN_LIGHT := {"pride": Color("8a50ff"), "greed": Color("aeb8cc"), "lust": Color("e0306a"),
 	"envy": Color("3fc85a"), "gluttony": Color("ff8a30"), "wrath": Color("ff4a20"), "sloth": Color("3a6aff")}
@@ -194,14 +193,14 @@ func _new_hand(rng = null) -> void:
 	s = Rules.new_hand(cfg, rng)
 	selected = -1
 	phase = "throw"
-	sin_i = hands % ROTATION.size()
+	sin_i = hands % SINS.size()
 	_end_opening()
 	_set_sin()
 	for k in candles.size():
 		_set_candle(k, true)
 	_clear_tray()
 	_refresh()
-	if tut == null and not ROTATION[sin_i] in NO_OPENING:
+	if tut == null:
 		_open_sin()
 
 
@@ -753,13 +752,13 @@ func next_hint() -> String:
 
 ## This hand's Sin: its window on the wall, its colour on the wall and the table edge.
 func _set_sin() -> void:
-	var sin: String = ROTATION[sin_i]
+	var sin: String = SINS[sin_i]
 	window.texture = load("res://assets/art/runtime/sins/%s_window.png" % sin)
 	spill.modulate = Color(SIN_LIGHT[sin], 0.42)
 
 
 func sin_name() -> String:
-	return ROTATION[sin_i].capitalize()
+	return SINS[sin_i].capitalize()
 
 
 ## The Sin's window fills the screen for a beat, then settles into its place on the wall. A tap ends it.

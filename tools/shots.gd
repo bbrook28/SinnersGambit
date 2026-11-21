@@ -63,7 +63,7 @@ func _initialize() -> void:
 		await process_frame
 	await _shot("result_banner")
 	Engine.time_scale = 1.0   # the opening at its real pace, caught while the window fills the screen
-	h.hands = 2               # the next hand is Envy's, which opens at full screen
+	h.hands = 1               # the next hand is Greed's
 	h._on_next()
 	await _shot("sin_opening")
 	Engine.time_scale = 4.0

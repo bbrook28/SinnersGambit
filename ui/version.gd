@@ -4,7 +4,7 @@
 ## stay empty in the repo, so a build made here shows "local" and the commit git reports.
 extends RefCounted
 
-const VERSION := "0.11.1"
+const VERSION := "0.11.2"
 const BUILD := ""
 const COMMIT := ""
 

@@ -183,15 +183,16 @@ func test_labels() -> void:
 	# one Sin per hand, whose window opens the hand; a tap or a seal ends the opening
 	h.phase = "throw"
 	var sins_seen := []
-	for k in 6:
+	for k in 7:
 		h.hands = k
 		h._new_hand()
 		sins_seen.append(h.sin_name())
-	check("ui: six Sins host in turn, Greed sitting out", sins_seen == ["Pride", "Lust", "Envy", "Gluttony", "Wrath", "Sloth"])
+	check("ui: all seven Sins host in turn", sins_seen == ["Pride", "Greed", "Lust", "Envy", "Gluttony", "Wrath", "Sloth"])
+	for k in [1, 2, 4]:   # Greed, Lust and Gluttony open at full screen like the rest
+		h.hands = k
+		h._new_hand()
+		check("ui: %s opens its hand at full screen" % h.sin_name(), h.opener.visible and h.window.texture.resource_path.ends_with("%s_window.png" % h.sin_name().to_lower()))
 	h.hands = 3
-	h._new_hand()
-	check("ui: Gluttony goes straight to the wall", not h.opener.visible and h.window.texture.resource_path.ends_with("gluttony_window.png"))
-	h.hands = 2
 	h._new_hand()
 	check("ui: the hand opens on its Sin", h.opener.visible and h.opener_name.text == "Envy" and h.window.texture.resource_path.ends_with("envy_window.png"))
 	h._on_seal(2)
