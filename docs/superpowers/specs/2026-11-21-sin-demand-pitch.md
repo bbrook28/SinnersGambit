@@ -1,54 +1,57 @@
-# Sinners' Gambit: the Sin's demand (pitch)
+# Sinners' Gambit: the Sin's demand (pitch, revised)
 
-Date: 2026-11-21. Status: draft for Ben's approval. Adds to the dice poker pitch (`2026-11-20-dice-poker-pitch.md`); the hand's rules do not change.
+Date: 2026-11-21, revised the same day after the review of 0.12.0. Status: **draft for Ben's approval.** Adds to the dice poker pitch (`2026-11-20-dice-poker-pitch.md`); the hand's rules do not change. Numbers: `sim/demand_probe/demand5.py` (exact).
 
 ## The pitch
-Each hand, one Sin hosts, and the Sin wants something. Give it what it wants and it pays marks on top of your poker hand. Bust and it pays nothing. The poker hand asks "what am I building?"; the Sin asks "and what is it worth to spoil it?"
+Each hand, one Sin hosts, and the Sin pays marks for something the poker hand punishes. To be paid you must spoil your hand a little; the question each keep asks is whether the Sin's marks are worth it. Bust and the Sin pays nothing.
 
-## Why (Ben, after three hands of 0.11.1)
-"The hand never asks a new question." About a third of keeps were coin flips (holding a 4, choosing a 2 or a 3), he drew three dice every throw until the second skull, and the Last Dance was the one moment he cared. The Sin must "make the dead dice matter".
+## Why
+- **The review session, after three hands of 0.11.1:** "the hand never asks a new question"; a third of keeps were coin flips; the Last Dance was the one moment that mattered.
+- **The review of 0.12.0:** the first demands (Pride: each 6 pays 2, each 5 pays 1; Envy: each 6 pays 1, each 2 costs 1) turned coin flips into obvious keeps. A player who ignores the Sin except to break ties earns within 2% to 5% of best play, and Pride paid more than the poker.
 
 ## The one rule
-**The Sin pays marks for each thing it wants.** Its window shows what, and how much. Paid with your hand; lost on a bust. That is the whole rule; only the "what" changes from Sin to Sin.
+**The Sin pays for what the hand punishes.** Its window says what. Paid with your hand; lost on a bust.
 
-## Three Sins for the prototype
-| Sin | Wants | The question it asks |
+## Two shapes to prototype
+| Shape | The demand | What it pulls against |
 |---|---|---|
-| **Pride** | Each 6 pays +2, each 5 pays +1 | Break the pair of 3s for a 6? |
-| **Envy** | Each 6 pays +1, each 2 costs 1 | A die can now hurt you: draw more to dodge it? |
-| **Wrath** | Each die you throw while two skulls show pays +1 | One die and safe, or two dice and paid? |
+| **A lone 6** | A 6 that stands alone in your row pays 4. A second 6 and it pays nothing. | Pairing your 6 |
+| **Held once** | Each face you hold exactly once pays 1. | Every pair and set |
 
-The other four Sins wait until Ben has played these three.
+Prices are the highest at which the Sin still pays less than the poker: a lone 6 at 5, or held once at 1.5, pays more than the hand.
 
-## What the solver says (exact best play, `sim/demand_probe/`)
-| | Keeps that are coin flips | A wrong keep costs 1/4 mark or more | Busts | Marks from poker / from the Sin |
-|---|---|---|---|---|
-| No Sin (0.11.2) | 44% | 55% | 20% | 3.6 / 0 |
-| Pride | 20% | 78% | 23% | 3.2 / 3.9 |
-| Envy | 21% | 76% | 27% | 3.3 / 1.1 |
-| Wrath | 43% | 56% | 24% | 3.5 / 0.4 |
+## What the probe says (best play, exact)
+| | Marks: hand / Sin | Busts | Best over greedy+ | Best over poker+ | Hands where the Sin changes a keep |
+|---|---|---|---|---|---|
+| No Sin | 3.58 / 0 | 20.0% | 11% | 0% | 0% |
+| 0.12.0 Pride | 3.22 / 3.83 | 23.4% | 2% | 5% | 8% |
+| 0.12.0 Envy | 3.30 / 1.11 | 27.1% | 4% | 7% | 4% |
+| A lone 6 pays 4 | 2.98 / 2.46 | 17.0% | 21% | 9% | 26% |
+| Held once pays 1 | 2.88 / 2.29 | 15.6% | 16% | 7% | 40% |
+| A lone 6 pays 4, each 2 costs 1 | 2.98 / 1.94 | 22.1% | 17% | 11% | 23% |
 
-- **The examples in the handoff do not work, and the table above is what replaced them.**
-  - "Each 6 pays +1" alone leaves 35% coin flips: it only settles keeps that include a 6. The Sin needs two faces at different prices (or a face that costs).
-  - "Wrath pays per skull survived" changes nothing: skulls are luck, so best play is the same as with no Sin.
-  - "Pays per throw of three dice" makes you draw three every time; "pays per throw of one die" makes you draw one every time, with no keeps at all.
-- **Which face a Sin names is only paint.** "Each 6" and "each 2" are the same game to the last decimal, because the poker ranking treats every face alike. Seven Sins cannot be seven faces; they must be seven shapes. This is the main risk of the idea, and why the prototype is three shapes, not seven Sins.
-- **Wrath does not fix the coin-flip keeps** (43%). It asks its question about the draw instead: with two skulls showing, best play today is always one die; under Wrath it splits 41% one die, 59% two.
-- **Draw count is still a habit under Pride and Envy** (three dice with no skulls, mostly two with one). Only Wrath makes it a choice.
-- The poker hand still carries its weight: best play makes about the same hands with a Sin as without.
+Greedy+ keeps what scores best in poker now; poker+ plays the no-Sin game exactly right; both break ties toward the Sin. "Changes a keep" means poker+ would keep a different die and lose a quarter mark or more by it.
 
-## On screen
-The Sin's opening names its demand in one line. During the hand the demand stays on its window, each thrown die shows what it would pay or cost, and the payout counts the hand and the Sin separately.
+## What argues against this
+- **The Sin is silent in most hands.** A lone 6 changes a keep in 26% of hands; held once in 40%. No shape the probe tried passes one changed keep in two hands. A hand has only about two keeps with a real choice, so a payout rule has little to act on.
+- **These shapes reward safe draws.** Best play throws fewer dice (1.98 and 1.82 a throw, against 2.16 with no Sin); with no skulls showing, held once draws a single die 58% of the time, because any new face is welcome. That is why busts fall, and it also leaves fewer keeps with a choice (2.16 and 1.78 a hand, against 2.33).
+- **The gap over greedy+ flatters.** Greedy+ is already 11% behind with no Sin. Poker+ is the honest measure, and there the gain is 7% to 9%.
+- **A gap over poker+ can come from the draw alone.** 0.12.0's Envy shows 7% while changing a keep in 4% of hands. So the marks gap cannot be the only pass mark.
 
-## Out of scope
-- **Marks still have no purpose.** That is a separate gap; this pitch does not close it.
-- The run, the other four Sins, new art.
+## Pass marks
+1. Best play beats greedy+ by more than 11%.
+2. Best play beats poker+ by 7% or more, **and** the Sin changes a keep in at least a quarter of hands. The second half is there because of Envy above; a quarter is what the better shapes reach, not a comfortable target.
+3. The Sin pays less than the poker hand.
+4. Busts between 20% and 30%.
+5. **Ben plays three hands of each** and can name a keep he would have made differently without the Sin.
 
-## How we'll know it works
-- **The solver:** under Pride and Envy, fewer than 25% of keeps are coin flips (44% today) and a wrong keep costs 1/4 mark or more in over 70%; under Wrath, best play with two skulls is a real split; busts stay between 20% and 30%.
-- **Ben plays three hands of each** and can name, for each Sin, a keep or a throw he would have made differently without it.
+Neither shape meets mark 4 as it stands. For the lone 6, adding "each 2 costs 1" brings busts to 22.1% and passes marks 1 to 4, at the cost of a two-part rule. For held once, no price or added cost in the probe gets above 18%; it rewards safe draws by nature, and I would rather prototype it at 15.6% and let Ben judge than bend it.
 
-## My calls (open to Ben)
-- Which Sin gets which demand, and the prices; the sim tunes the prices.
-- Envy takes marks away. It is the only demand here that makes a dead die hurt, but a hand can now pay less than its poker (never below 0).
-- The other four Sins keep hosting as they do in 0.11.2, with no demand, until the three are judged.
+## Open risks
+- **A face is only paint.** This gives two shapes; seven Sins need seven.
+- **Wrath speaks only at two skulls,** about a third of hands, and is unchanged by this revision.
+- **Marks still have no purpose.** A separate gap; this pitch does not close it.
+- **If one changed keep in three hands is too quiet,** the fix is probably not a better demand but more keeps in a hand, or a demand on the draw.
+
+## On screen, and in the same build (after approval)
+The demand on the opening and in the hand, each thrown die showing what it would pay; plus the review's fixes: the hint names a live straight, the wild die shows the face it was paid as, a hand the Sin takes to zero gets its own plate, and then the demand line's size and digits, the ribbon's sign, the seal badges and the die tags.
