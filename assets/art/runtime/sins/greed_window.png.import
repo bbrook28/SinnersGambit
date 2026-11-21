@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://s22q0flomp40"
-path="res://.godot/imported/page_clean.png-27454d907ecefb9b111979617e8549e3.ctex"
+uid="uid://cp0t0yuradwnl"
+path="res://.godot/imported/greed_window.png-8992691e07b32ca0a2055fe25dd0a1be.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/runtime/page_clean.png"
-dest_files=["res://.godot/imported/page_clean.png-27454d907ecefb9b111979617e8549e3.ctex"]
+source_file="res://assets/art/runtime/sins/greed_window.png"
+dest_files=["res://.godot/imported/greed_window.png-8992691e07b32ca0a2055fe25dd0a1be.ctex"]
 
 [params]
 

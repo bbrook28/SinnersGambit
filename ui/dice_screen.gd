@@ -49,11 +49,15 @@ const SEAL_BACK := preload("res://assets/art/runtime/seals/e_back.png")
 const SEAL_BOOK := preload("res://assets/art/runtime/seals/e_rulebook.png")
 const NUMERALS := [null, preload("res://assets/art/runtime/seals/n1.png"),
 	preload("res://assets/art/runtime/seals/n2.png"), preload("res://assets/art/runtime/seals/n3.png")]
-const PAGE := preload("res://assets/art/runtime/page_clean.png")
+const PAGE := preload("res://assets/art/runtime/page_plain.png")   # plain torn parchment, 1000 x 1400, made whole
 const COINS := preload("res://assets/art/ui/icon_coins.png")
 const BAG_ICON := preload("res://assets/art/ui/icon_die.png")
 const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
+## Each Sin's glass colour, spilled on the wall and the table edge (never on the mat, dice or captions).
+const SIN_LIGHT := {"pride": Color("8a50ff"), "greed": Color("aeb8cc"), "lust": Color("e0306a"),
+	"envy": Color("3fc85a"), "gluttony": Color("ff8a30"), "wrath": Color("ff4a20"), "sloth": Color("3a6aff")}
+const OPEN_TIME := 0.85   # the Sin's opening beat, in seconds; a tap ends it
 const SFX := {
 	"dice_roll": preload("res://assets/audio/dice_roll.wav"),
 	"die_land": preload("res://assets/audio/die_land.wav"),
@@ -75,7 +79,6 @@ const IVORY := Color("efe3c8")
 const GOLD := Color("e8c06a")
 const INK := Color("3a1f12")
 const BLOOD := Color("9e1b1b")
-const UMBER := Color("6e4a0e")   # a preview on the ribbon: not red, red only means danger
 
 const W := 1020          # content width
 const DIE := 176         # die size in the row
@@ -109,7 +112,12 @@ var coins_icon: TextureRect
 var bag_label: Label
 var stage: Control
 var master: TextureRect
-var windows: Array = []
+var window: TextureRect
+var spill: TextureRect
+var opener: Control
+var opener_glass: TextureRect
+var opener_name: Label
+var opening: Tween
 var candles: Array = []
 var glows: Array = []
 var msg: Label
@@ -119,6 +127,7 @@ var banner: Control
 var banner_title: Label
 var banner_text: Label
 var ribbon_label: Label
+var ribbon_if: Label
 var hint: Label
 var row_slots: Array = []
 var row_dice: Array = []
@@ -181,20 +190,25 @@ func _new_hand(rng = null) -> void:
 	selected = -1
 	phase = "throw"
 	sin_i = hands % SINS.size()
-	_set_windows()
+	_set_sin()
 	for k in candles.size():
 		_set_candle(k, true)
 	_clear_tray()
 	_refresh()
+	if tut == null:
+		_open_sin()
 
 
 func _start_tutorial() -> void:
+	_end_opening()
 	tut = Tutorial.new()
 	_new_hand(Tutorial.rng())
 	_tut_sync()
 
 
 func _on_seal(n: int) -> void:
+	if opener != null and opener.visible:
+		_end_opening()
 	if phase != "throw" or overlay.visible or not n in Rules.draw_options(s):
 		return
 	if tut != null and not tut.done():
@@ -300,7 +314,7 @@ func _payout(before: int) -> void:
 	var n := mini(m, 12)
 	var from: Vector2 = row_slots[0].global_position + Vector2(DIE / 2.0, DIE / 2.0)
 	var to: Vector2 = coins_icon.global_position + coins_icon.size / 2.0
-	var bend := Vector2(-160.0, (from.y + to.y) / 2.0)
+	var bend := Vector2(40.0, (from.y + to.y) / 2.0)
 	for k in n:
 		var c := TextureRect.new()
 		c.texture = COIN
@@ -310,7 +324,7 @@ func _payout(before: int) -> void:
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.scale = Vector2.ZERO
 		fx.add_child(c)
-		var start := from + Vector2(randf_range(-50, 30), randf_range(-30, 30))
+		var start := from + Vector2(randf_range(-30, 30), randf_range(-30, 30))
 		c.global_position = start - c.pivot_offset
 		var shown := before + roundi(float(m) * (k + 1) / n)
 		var tw := create_tween()
@@ -588,7 +602,7 @@ func _refresh() -> void:
 		return
 	if not counting:
 		marks_label.text = "%d" % total
-	bag_label.text = "%d in the bag" % s.bag
+	bag_label.text = "%d  in the bag" % s.bag
 	# the row, sorted so matches sit together
 	var shown := shown_row()
 	for j in row_dice.size():
@@ -610,11 +624,13 @@ func _refresh() -> void:
 	if phase == "keep" and selected >= 0:
 		var pv: Dictionary = Rules.preview(s, selected)
 		ribbon_label.text = "%s · %d" % [pv.name, pv.marks]
-		ribbon_label.add_theme_color_override("font_color", UMBER)
+		ribbon_if.visible = true
+		ribbon_label.offset_top = 22   # room for "if kept" above the name
 	else:
 		var sc: Dictionary = Rules.score(cfg, s.row)
 		ribbon_label.text = "%s · %d" % [sc.name, sc.marks] if not s.row.is_empty() else "Your row"
-		ribbon_label.add_theme_color_override("font_color", INK)
+		ribbon_if.visible = false
+		ribbon_label.offset_top = 0
 	# tray dice: lift the picked one, dim skulls
 	if phase != "over":
 		for j in tray_dice.size():
@@ -708,13 +724,16 @@ func shown_row() -> Array:
 
 ## What one more die would make at best ("One more 4: Full house · 5"), or "" when no die improves the row.
 func next_hint() -> String:
-	if s.row.is_empty() or s.row.size() >= int(cfg.row):
+	var row: Array = s.row.duplicate()
+	if phase == "keep" and selected >= 0:
+		row.append(s.thrown[selected])   # count the picked die, as the ribbon does
+	if row.is_empty() or row.size() >= int(cfg.row):
 		return ""
-	var now: Dictionary = Rules.score(cfg, s.row)
+	var now: Dictionary = Rules.score(cfg, row)
 	var best := {}
 	var bf := 0
 	for f in range(int(cfg.skull_faces) + 1, 7):
-		var sc: Dictionary = Rules.score(cfg, s.row + [f])
+		var sc: Dictionary = Rules.score(cfg, row + [f])
 		if sc.marks > now.marks and (best.is_empty() or sc.marks > best.marks or (sc.marks == best.marks and sc.hand > best.hand)):
 			best = sc
 			bf = f
@@ -723,9 +742,58 @@ func next_hint() -> String:
 	return "One more %d: %s · %d" % [bf, best.name, best.marks]
 
 
-func _set_windows() -> void:
-	for k in windows.size():
-		windows[k].texture = load("res://assets/art/runtime/sins/%s.png" % SINS[(sin_i + k * 3) % SINS.size()])
+## This hand's Sin: its window on the wall, its colour on the wall and the table edge.
+func _set_sin() -> void:
+	var sin: String = SINS[sin_i]
+	window.texture = load("res://assets/art/runtime/sins/%s_window.png" % sin)
+	spill.modulate = Color(SIN_LIGHT[sin], 0.42)
+
+
+func sin_name() -> String:
+	return SINS[sin_i].capitalize()
+
+
+## The Sin's window fills the screen for a beat, then settles into its place on the wall. A tap ends it.
+func _open_sin() -> void:
+	_end_opening()
+	opener_glass.texture = window.texture
+	opener_name.text = sin_name()
+	var vp := get_viewport_rect().size
+	var big := Vector2(vp.x * 0.86, vp.x * 0.86 * 820.0 / 640.0)
+	opener_glass.size = big
+	opener_glass.position = (vp - big) / 2.0 - Vector2(0, 60)
+	opener_name.position = Vector2(0, opener_glass.position.y + big.y + 10)
+	opener_name.size = Vector2(vp.x, 120)
+	opener.modulate.a = 0.0
+	opener_name.modulate.a = 1.0
+	opener.visible = true
+	window.modulate.a = 0.0
+	var from := Rect2(opener_glass.position, big)
+	opening = create_tween()
+	opening.tween_property(opener, "modulate:a", 1.0, 0.15)
+	opening.tween_interval(OPEN_TIME - 0.55)
+	opening.tween_property(opener_name, "modulate:a", 0.0, 0.12)
+	# the window's place is read as the glass flies, so a layout still settling cannot misplace it
+	opening.tween_method(func(t: float):
+		var to := window.get_global_rect()
+		opener_glass.position = from.position.lerp(to.position, t)
+		opener_glass.size = from.size.lerp(to.size, t), 0.0, 1.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	opening.tween_callback(_end_opening)
+
+
+func _end_opening() -> void:
+	if opening != null and opening.is_valid():
+		opening.kill()
+	opening = null
+	if opener != null:
+		opener.visible = false
+	if window != null:
+		window.modulate.a = 1.0
+
+
+func _on_opener_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed:
+		_end_opening()
 
 
 func _clear_tray() -> void:
@@ -828,7 +896,30 @@ func _build() -> void:
 	fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fx)
+	_build_opener()
 	_build_overlay()
+
+
+func _build_opener() -> void:
+	opener = Control.new()
+	opener.set_anchors_preset(Control.PRESET_FULL_RECT)
+	opener.mouse_filter = Control.MOUSE_FILTER_STOP
+	opener.gui_input.connect(_on_opener_input)
+	opener.visible = false
+	add_child(opener)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	opener.add_child(dim)
+	opener_glass = TextureRect.new()
+	opener_glass.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	opener_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	opener.add_child(opener_glass)
+	opener_name = _label("", blackletter, 110, GOLD)
+	opener_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	opener_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	opener.add_child(opener_name)
 
 
 func _centered(c: Control) -> CenterContainer:
@@ -902,24 +993,39 @@ func _top_bar() -> Control:
 func _stage() -> Control:
 	stage = Control.new()
 	stage.custom_minimum_size = Vector2(W, EDGE_Y + 110)
-	for k in 2:
-		var w := TextureRect.new()
-		w.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		w.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		w.size = Vector2(150, 380)
-		w.position = Vector2(20 if k == 0 else W - 170, 16)
-		w.modulate = Color(0.8, 0.78, 0.85)
-		stage.add_child(w)
-		windows.append(w)
+	stage.clip_contents = false
+	# the Sin's light on the wall and the table edge, kept inside the stage (off the mat and the text)
+	var light := Control.new()
+	light.clip_contents = true
+	light.size = Vector2(W + 60, EDGE_Y + 110)
+	light.position = Vector2(-30, 0)
+	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(light)
+	var add_light := CanvasItemMaterial.new()
+	add_light.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	spill = TextureRect.new()
+	spill.texture = GLOW
+	spill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	spill.size = Vector2(900, 900)
+	spill.position = Vector2(30 + 165 - 450, 210 - 450)
+	spill.material = add_light
+	spill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	light.add_child(spill)
+	window = TextureRect.new()
+	window.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	window.size = Vector2(320, 410)
+	window.position = Vector2(4, 8)
+	window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(window)
 	master = TextureRect.new()
 	var at := AtlasTexture.new()
 	at.atlas = IDLE
 	at.region = Rect2(0, 0, 640, 640)
 	master.texture = at
 	master.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	master.size = Vector2(510, 510)
-	master.position = Vector2((W - 510) / 2.0, EDGE_Y + 86 - 510)
-	master.pivot_offset = Vector2(255, 510)
+	master.size = Vector2(500, 500)
+	master.position = Vector2(334, EDGE_Y + 84 - 500)
+	master.pivot_offset = Vector2(250, 500)
 	master.set_meta("p0", master.position)
 	stage.add_child(master)
 	var edge := TextureRect.new()
@@ -931,13 +1037,13 @@ func _stage() -> Control:
 	var add := CanvasItemMaterial.new()
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	for k in 3:
-		var x: float = [140.0, 222.0, 860.0][k]   # two at his left, one at his right: both hands clear
+		var x: float = [872.0, 932.0, 992.0][k]   # together at his right, past the fiddle's scroll, off the window
 		var base := EDGE_Y + 60.0
 		var sh := TextureRect.new()
 		sh.texture = SOFT
 		sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sh.size = Vector2(120, 30)
-		sh.position = Vector2(x - 54, base - 16)
+		sh.size = Vector2(96, 26)
+		sh.position = Vector2(x - 44, base - 14)
 		sh.modulate = Color(0, 0, 0, 0.8)
 		stage.add_child(sh)
 		var c := TextureRect.new()
@@ -1081,6 +1187,14 @@ func _ribbon() -> Control:
 	ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ribbon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	r.add_child(ribbon_label)
+	ribbon_if = _label("if kept", serif, 30, INK)   # the ghost die in the row shows which one
+	ribbon_if.remove_theme_color_override("font_shadow_color")
+	ribbon_if.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ribbon_if.offset_top = 16
+	ribbon_if.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ribbon_if.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	ribbon_if.visible = false
+	r.add_child(ribbon_if)
 	return r
 
 
@@ -1214,14 +1328,14 @@ func _build_overlay() -> void:
 	var page := PanelContainer.new()
 	var psb := StyleBoxTexture.new()
 	psb.texture = PAGE
-	psb.texture_margin_left = 72
-	psb.texture_margin_right = 72
-	psb.texture_margin_top = 72
-	psb.texture_margin_bottom = 72
-	psb.content_margin_left = 100
-	psb.content_margin_right = 100
-	psb.content_margin_top = 96
-	psb.content_margin_bottom = 80
+	psb.texture_margin_left = 90
+	psb.texture_margin_right = 90
+	psb.texture_margin_top = 90
+	psb.texture_margin_bottom = 90
+	psb.content_margin_left = 96
+	psb.content_margin_right = 96
+	psb.content_margin_top = 80
+	psb.content_margin_bottom = 64
 	page.add_theme_stylebox_override("panel", psb)
 	page.custom_minimum_size = Vector2(980, 0)
 	cc.add_child(page)
@@ -1246,10 +1360,11 @@ func _build_overlay() -> void:
 	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card_text.custom_minimum_size = Vector2(780, 0)
 	v.add_child(card_text)
-	var buttons := VBoxContainer.new()   # stacked: two seals with their words side by side are wider than the page
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	var bc := CenterContainer.new()      # stacked in one column, seals on one left edge
+	v.add_child(bc)
+	var buttons := VBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 0)
-	v.add_child(buttons)
+	bc.add_child(buttons)
 	card_btn = _card_button()
 	card_btn.pressed.connect(_on_card_btn)
 	buttons.add_child(card_btn)
@@ -1273,7 +1388,8 @@ func _card_button() -> Button:
 	b.add_theme_constant_override("h_separation", 18)
 	b.custom_minimum_size = Vector2(0, 160)
 	b.icon = SEAL_CHOOSE
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_horizontal = Control.SIZE_FILL
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.button_down.connect(func(): b.modulate = Color(0.85, 0.75, 0.75))
 	b.button_up.connect(func(): b.modulate = Color.WHITE)
 	return b

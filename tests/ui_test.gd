@@ -156,7 +156,34 @@ func test_labels() -> void:
 	for f in [h.serif, h.blackletter, h.caps, h.caps_bold]:
 		faces_ok = faces_ok and not f.base_font.has_char(0x31) and f.base_font.has_char(0x61) and f.fallbacks[0].has_char(0x31)
 	check("ui: every face takes its digits from EB Garamond (a 1 with a flag and a foot)", faces_ok)
-	check("ui: the ribbon preview is not red", h.UMBER.r < 0.6 and absf(h.UMBER.r - h.UMBER.g) < 0.25)
+	# the preview is ink with a small "if kept"; the hint counts the picked die
+	h._new_hand()
+	h.s.row = [4, 4]
+	h.s.thrown = [4, 2]
+	h.s.last_faces = [4, 2]
+	h.phase = "keep"
+	h.selected = 0
+	h._refresh()
+	check("ui: the preview reads in ink with 'if kept' over it", h.ribbon_label.get_theme_color("font_color") == h.INK
+		and h.ribbon_if.visible and h.ribbon_label.text == "Three of a kind · 3")
+	check("ui: the hint counts the picked die", h.hint.text == "One more 4: Four of a kind · 7")
+	h.selected = -1
+	h._refresh()
+	check("ui: no 'if kept' without a pick", not h.ribbon_if.visible)
+	# one Sin per hand, whose window opens the hand; a tap or a seal ends the opening
+	h.phase = "throw"
+	h.hands = 3
+	h._new_hand()
+	check("ui: the hand opens on its Sin", h.opener.visible and h.opener_name.text == "Envy" and h.window.texture.resource_path.ends_with("envy_window.png"))
+	h._on_seal(2)
+	check("ui: a seal during the opening ends it and throws", not h.opener.visible and h.window.modulate.a == 1.0 and h.s.throws == 1)
+	await settle()
+	h._new_hand()
+	for i in 200:
+		if not h.opener.visible:
+			break
+		await process_frame
+	check("ui: the opening ends by itself", not h.opener.visible)
 	h._on_help()
 	await process_frame
 	var page: Control = h.card_title.get_parent().get_parent()

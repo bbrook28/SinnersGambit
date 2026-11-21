@@ -62,7 +62,15 @@ func _initialize() -> void:
 			break
 		await process_frame
 	await _shot("result_banner")
+	Engine.time_scale = 1.0   # the opening at its real pace, caught while the window fills the screen
 	h._on_next()
+	await _shot("sin_opening")
+	Engine.time_scale = 4.0
+	for i in 120:
+		if not h.opener.visible:
+			break
+		await process_frame
+	await _shot("sin_window")
 	h._on_help()
 	await _shot("hand_ranking")
 	DirAccess.remove_absolute("user://shots.cfg")
