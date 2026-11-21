@@ -14,9 +14,18 @@ static func new_hand(cfg: Dictionary, rng):
 	return s
 
 
-## Dice the next throw draws.
-static func next_draw(s) -> int:
-	return mini(int(s.cfg.draw), s.bag)
+## Dice a throw of n draws (n <= 0: the default draw); never more than the bag holds.
+static func next_draw(s, n := 0) -> int:
+	if n <= 0:
+		n = int(s.cfg.draw)
+	return mini(n, s.bag)
+
+
+## The draws you may choose now: 1 to max_draw, no more than the bag holds.
+static func draw_options(s) -> Array:
+	if not can_throw(s):
+		return []
+	return range(1, mini(int(s.cfg.max_draw), s.bag) + 1)
 
 
 ## The next throw is the Last Dance: the bag's last die, thrown alone.
@@ -28,10 +37,10 @@ static func can_throw(s) -> bool:
 	return not s.over and s.thrown.is_empty() and s.bag > 0 and s.row.size() < int(s.cfg.row)
 
 
-static func throw(s) -> void:
+static func throw(s, draw := 0) -> void:
 	if not can_throw(s):
 		return
-	var n := next_draw(s)
+	var n := next_draw(s, draw)
 	s.dance = is_dance(s)
 	s.bag -= n
 	s.throws += 1
@@ -135,9 +144,9 @@ static func preview(s, i: int) -> Dictionary:
 	return score(s.cfg, s.row + [s.thrown[i]])
 
 
-## The chance the next throw busts you.
-static func bust_chance(s) -> float:
-	var n := next_draw(s)
+## The chance a throw of n dice busts you.
+static func bust_chance(s, draw := 0) -> float:
+	var n := next_draw(s, draw)
 	if n <= 0:
 		return 0.0
 	var p := float(int(s.cfg.skull_faces)) / 6.0

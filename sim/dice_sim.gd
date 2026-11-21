@@ -1,4 +1,5 @@
-## Dice poker against the plan's pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md); no cash out, so the keep is the only choice.
+## Dice poker against the plan's pass marks (docs/superpowers/plans/2026-11-20-dice-poker.md); no cash out; you choose to draw 1-3 dice.
+## greedy is the obvious rule (draw 3 with no skulls, 2 with one, 1 with two; keep what scores best now).
 ## The 5-7 throws mark is dropped: a five-die row caps a hand near 5 throws (Ben, 2026-11-20).
 ## godot --headless --path . --script res://sim/dice_sim.gd -- [hands=20000] [seed=4] [key=value ...]
 ## Any dice/config.gd key can be overridden. Writes the report to stdout and build/sim/dice_<seed>.txt.
@@ -40,14 +41,14 @@ func _init() -> void:
 				overrides[k] = v if Config.DEFAULTS[k] is String else str_to_var(v)
 	var cfg := Config.merged(overrides)
 	var t0 := Time.get_ticks_msec()
-	var strong := Policies.strong_policy(cfg)
+	var strong := Policies.strong_policy(cfg)  # exact best play
 	var r := _run(cfg, Policies.random_policy(seed_value), hands, seed_value, null)
 	var g := _run(cfg, Policies.greedy_policy(), hands, seed_value, null)
 	var st := _run(cfg, strong, hands, seed_value, strong.solver)
 	for res in [r, g, st]:
 		_report(res)
 	say("best play is worth %.3f marks a hand from the first throw" % strong.solver.value([], 0, int(cfg.bag)))
-	say("strong's decisions: keeps with two different dice %d, close %.1f%%, a wrong keep costs >= 0.25 marks in %.1f%%" % [
+	say("strong's decisions: keeps with different dice %d, close %.1f%%, a wrong keep costs >= 0.25 marks in %.1f%%" % [
 		st.keeps, 100.0 * st.close_keeps / maxi(st.keeps, 1), 100.0 * st.costly_keeps / maxi(st.keeps, 1)])
 	say("  within 0.5 marks: %.1f%% of keeps" % (100.0 * st.near_keeps / maxi(st.keeps, 1)))
 	say("verdict:")
@@ -70,7 +71,7 @@ func _init() -> void:
 
 func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> Dictionary:
 	var res := {"name": p.name, "hands": hands, "marks_each": [], "hand_counts": {}, "keeps": 0, "close_keeps": 0,
-		"costly_keeps": 0, "near_keeps": 0}
+		"costly_keeps": 0, "near_keeps": 0, "draws": {}}
 	var marks := 0
 	var busts := 0
 	var throws := 0
@@ -82,9 +83,13 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 		var dance := false
 		while not s.over:
 			if s.thrown.size() > 1:
-				if sol != null and s.thrown[0] != s.thrown[1]:
+				var uniq := {}
+				for f in s.thrown:
+					uniq[f] = true
+				if sol != null and uniq.size() > 1:
 					var vals: Array = sol.keep_values(s)
-					var d: float = absf(vals[0] - vals[1])
+					vals.sort()
+					var d: float = vals[-1] - vals[-2]
 					res.keeps += 1
 					if d > 1e-9 and d < CLOSE:
 						res.close_keeps += 1
@@ -95,7 +100,9 @@ func _run(cfg: Dictionary, p: Dictionary, hands: int, seed_value: int, sol) -> D
 				Rules.keep(s, p.keep.call(s))
 				continue
 			dance = dance or Rules.is_dance(s)
-			Rules.throw(s)
+			var nd: int = p.draw.call(s)
+			res.draws[nd] = res.draws.get(nd, 0) + 1
+			Rules.throw(s, nd)
 		marks += s.marks
 		res.marks_each.append(float(s.marks))
 		throws += s.throws
@@ -120,6 +127,13 @@ func _report(res: Dictionary) -> void:
 		if res.hand_counts.has(h):
 			parts.append("%s %.1f%%" % [h, 100.0 * res.hand_counts[h] / res.hands])
 	say("  cashed: " + ", ".join(parts))
+	var dp: Array = []
+	var tot := 0
+	for k in res.draws:
+		tot += res.draws[k]
+	for k in [1, 2, 3]:
+		dp.append("%d dice %.0f%%" % [k, 100.0 * res.draws.get(k, 0) / maxi(tot, 1)])
+	say("  draws: " + ", ".join(dp))
 
 
 ## Mean of a - b over the same hands, and its 95% half-width.

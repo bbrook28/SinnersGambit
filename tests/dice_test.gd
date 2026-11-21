@@ -40,6 +40,7 @@ func _init() -> void:
 	test_last_dance_skull()
 	test_bust_chance()
 	test_preview()
+	test_draw_choice()
 	test_solver()
 	test_policies_play()
 	print("dice_test: %d failure(s)" % _fails)
@@ -173,3 +174,18 @@ func test_policies_play() -> void:
 			var r: Dictionary = Policies.play(s, p)
 			ok = ok and s.over and r.throws >= 1 and r.throws <= 20
 	check("every policy finishes its hands", ok)
+
+
+func test_draw_choice() -> void:
+	var s = hand([5, 1, 3])
+	check("you may draw 1, 2 or 3", Rules.draw_options(s) == [1, 2, 3])
+	Rules.throw(s, 3)
+	check("three drawn: a skull, and 5 and 3 wait", s.last_faces == [5, 1, 3] and s.skulls == 1 and s.thrown == [5, 3] and s.bag == 4)
+	Rules.keep(s, 0)
+	check("the 3 goes back", s.row == [5] and s.bag == 5)
+	s.skulls = 1
+	check("three dice with one skull: 16/216", is_equal_approx(Rules.bust_chance(s, 3), 16.0 / 216.0))
+	s.bag = 2
+	check("no more than the bag holds", Rules.draw_options(s) == [1, 2])
+	s.bag = 1
+	check("a one-die bag: the Last Dance only", Rules.draw_options(s) == [1])
