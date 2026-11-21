@@ -23,8 +23,9 @@ env:
 
 jobs:
   testflight:
-    # Apple requires the iOS 27 SDK for uploads (email to Ben, 2026-11-21): Xcode 27 on the macOS 26 image.
-    runs-on: macos-26
+    # Apple requires the iOS 27 SDK for uploads (email to Ben, 2026-11-21). GitHub has Xcode 27 only on its
+    # public-preview image xcode-27 (actions/runner-images#14404; macos-26 tops out at Xcode 26.6); it may queue.
+    runs-on: xcode-27
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
