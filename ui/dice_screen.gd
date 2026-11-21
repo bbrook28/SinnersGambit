@@ -55,8 +55,8 @@ const COINS := preload("res://assets/art/ui/icon_coins.png")
 const BAG_ICON := preload("res://assets/art/ui/icon_die.png")
 const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
-## The Sins that host in 0.12.0: the three with a demand (dice/demands.gd), in turn. The other windows wait their turn.
-const HOSTS := ["pride", "envy", "wrath"]
+## The Sins that host. 0.13.0: Pride alone, with the one demand under test (dice/demands.gd). The other windows wait.
+const HOSTS := ["pride"]
 ## All seven host hands, in this order, and each opens its hand at full screen.
 ## TODO(art): Greed's window needs a SpriteCook redo (Ben, 2026-11-21): the dice patch redrew his hands and robe,
 ## with a finer glass grain and lead lines that do not meet at its edge (see assets/art/spritecook-assets.json, 498a2ec6).
@@ -64,7 +64,7 @@ const HOSTS := ["pride", "envy", "wrath"]
 const SIN_LIGHT := {"pride": Color("8a50ff"), "greed": Color("aeb8cc"), "lust": Color("e0306a"),
 	"envy": Color("3fc85a"), "gluttony": Color("ff8a30"), "wrath": Color("ff4a20"), "sloth": Color("3a6aff")}
 const OPEN_TIME := 0.85   # the Sin's opening beat, in seconds; a tap ends it
-const OPEN_READ := 2.5    # the opening when the Sin has a demand to read
+const OPEN_READ := 2.5    # the opening the first time a demand is met, to read it (after its card); later hands use OPEN_TIME
 const COST := Color("ff3b2e")   # a die or a row that costs marks (the deep end of risk_color)
 const SFX := {
 	"dice_roll": preload("res://assets/audio/dice_roll.wav"),
@@ -139,7 +139,8 @@ var banner_title: Label
 var banner_text: Label
 var ribbon_label: Label
 var ribbon_if: Label
-var sin_plus: Label
+var sin_plus: Label           # "+", or a minus when the Sin takes
+var open_hold := 0.0          # how long the last opening held, in seconds (tests read it)
 var sin_label: Label      # what the Sin pays for the row: "Pride · 4"
 var hint: Label
 var row_slots: Array = []
@@ -214,10 +215,11 @@ func _new_hand(rng = null) -> void:
 	_refresh()
 	if tut != null:
 		return
-	if demand_line() != "" and not seen.get("demand", false):
-		seen["demand"] = true
+	var met := "demand: " + demand_line()   # one card, and one slow opening, for each demand the player meets
+	if demand_line() != "" and not seen.get(met, false):
+		seen[met] = true
 		_save()
-		_card("The Sin's demand", "Each hand a Sin hosts, and pays you marks for what it wants, on top of your hand.\n\nIts window says what. Lose the hand and the Sin pays nothing.", "Got it", func(): _open_sin())
+		_card("The Sin's demand", "Each hand a Sin hosts, and pays you marks for what it wants, on top of your hand.\n\nIts window says what. Lose the hand and the Sin pays nothing.", "Got it", func(): _open_sin(OPEN_READ))
 	else:
 		_open_sin()
 
@@ -386,6 +388,8 @@ func _show_result() -> void:
 	else:
 		var t: Dictionary = Rules.total(cfg, s.row, s.bank)
 		title = "%d mark%s" % [t.total, "" if t.total == 1 else "s"] if t.total > 0 else "No marks"
+		if t.total == 0 and t.sin < 0 and t.marks > 0:
+			title = "%s takes it all" % sin_name()   # the hand made marks and the Sin took them: not a bust, not a blank
 		text = "%s You have %d marks in all." % [paid_line(t), total]
 	var big := _big(s)
 	banner_title.text = title
@@ -506,14 +510,17 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 	_tut_sync()
 
 
-## A thrown die the Sin cares about carries what it would pay or cost in the row: "+2", "−1".
+## A thrown die carries what keeping it would do to the Sin's pay: "+4" for a first 6 under Pride, "−4" for a
+## second (it takes the 4 back), "−1" for a 2. Only when there is a keep to decide; above the die, clear of the mat's stitching.
 func _tag_die(d: TextureRect, face: int) -> void:
-	var m := int(Demands.of(cfg).get("faces", {}).get(face, 0))
+	if face <= int(cfg.skull_faces) or s.thrown.size() < 2:
+		return
+	var m: int = Rules.sin_marks(cfg, s.row + [face], s.bank) - Rules.sin_marks(cfg, s.row, s.bank)
 	if m == 0:
 		return
 	var tag := _label(marks_text(m), caps_bold, 44, GOLD if m > 0 else COST)
 	tag.size = Vector2(TDIE, 54)
-	tag.position = Vector2(0, TDIE - 4)
+	tag.position = Vector2(0, -56)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	d.add_child(tag)
@@ -677,10 +684,18 @@ func _refresh() -> void:
 	for j in row_dice.size():
 		var d: TextureRect = row_dice[j]
 		if j < shown.size():
-			d.texture = DICE[shown[j]]
+			var wl: Label = d.get_child(0)
+			var paid_as: int = Rules.total(cfg, s.row, s.bank).wild_as if shown[j] == 0 and s.over and not s.busted else 0
+			d.texture = DICE[paid_as if paid_as > 0 else shown[j]]
 			d.modulate = Color.WHITE
 			d.visible = true
-			d.get_child(0).visible = shown[j] == 0
+			wl.visible = shown[j] == 0
+			# on the blank die WILD fills the face; under the face it was paid as it sits below the die, where the
+			# hint was (the hint is empty once the hand is over), so it never covers a pip
+			wl.position = Vector2(0, DIE + 6) if paid_as > 0 else Vector2.ZERO
+			wl.size = Vector2(DIE, 40) if paid_as > 0 else Vector2(DIE, DIE)
+			wl.add_theme_font_size_override("font_size", 30 if paid_as > 0 else 34)
+			wl.add_theme_color_override("font_color", GOLD if paid_as > 0 else Color("b8860b"))
 		elif j == s.row.size() and selected >= 0 and phase == "keep":
 			d.texture = DICE[s.thrown[selected]]
 			d.modulate = Color(1, 1, 1, 0.5)
@@ -704,13 +719,21 @@ func _refresh() -> void:
 	# what the Sin pays for that row, beside the hand
 	var owed: bool = demand_line() != "" and not (phase == "over" and s.busted) and (not s.row.is_empty() or ribbon_if.visible or paid.sin != 0)
 	sin_label.visible = owed
-	sin_plus.visible = owed and paid.sin >= 0
+	sin_plus.visible = owed
 	if owed:
-		sin_label.text = "%s · %s" % [sin_name(), str(paid.sin) if paid.sin >= 0 else marks_text(paid.sin)]
-		sin_label.add_theme_color_override("font_color", INK if paid.sin >= 0 else BLOOD)
+		sin_plus.text = "+" if paid.sin >= 0 else "−"
+		sin_label.text = "%s · %d" % [sin_name(), absi(paid.sin)]
+		for l in [sin_plus, sin_label]:
+			l.add_theme_color_override("font_color", INK if paid.sin >= 0 else BLOOD)
 	for l in [ribbon_label, sin_plus, sin_label]:
 		l.add_theme_font_size_override("font_size", 42 if owed else 56)
 	demand_label.text = demand_line()
+	# the largest size, from 40 px down, at which the line ends left of the candles
+	var room: float = candles[0].get_meta("x") - 60.0 - demand_label.position.x
+	for px in [40, 38, 36, 34, 32, 30]:
+		demand_label.add_theme_font_size_override("font_size", px)
+		if demand_width() <= room:
+			break
 	# tray dice: lift the picked one, dim skulls
 	if phase != "over":
 		for j in tray_dice.size():
@@ -814,6 +837,14 @@ func next_hint() -> String:
 		row.append(s.thrown[selected])   # count the picked die, as the ribbon does
 	if row.is_empty() or row.size() >= int(cfg.row):
 		return ""
+	# three or four dice, all different: the straight is the hand in play, so name the faces it still needs
+	if row.size() >= 3 and not 0 in row:
+		var missing: Array = []
+		for f in range(int(cfg.skull_faces) + 1, 7):
+			if not f in row:
+				missing.append(str(f))
+		if missing.size() == int(cfg.row) - row.size():
+			return "Needs %s: Straight · %d" % [" and ".join(missing), Rules.pay(cfg, 4)]
 	var now: Dictionary = Rules.score(cfg, row)
 	var best := {}
 	var bf := 0
@@ -838,14 +869,21 @@ func sin_name() -> String:
 	return SINS[sin_i].capitalize()
 
 
+## The width of the demand line as drawn on the table edge, in pixels.
+func demand_width() -> float:
+	return demand_label.get_theme_font("font").get_string_size(demand_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		demand_label.get_theme_font_size("font_size")).x
+
+
 ## The hosting Sin's demand in words, or "" when it demands nothing.
 func demand_line() -> String:
 	return Demands.of(cfg).get("line", "")
 
 
 ## The Sin's window fills the screen for a beat, then settles into its place on the wall. A tap ends it.
-func _open_sin() -> void:
+func _open_sin(hold := OPEN_TIME) -> void:
 	_end_opening()
+	open_hold = hold
 	opener_glass.texture = window.texture
 	opener_name.text = sin_name()
 	opener_line.text = demand_line()
@@ -865,7 +903,7 @@ func _open_sin() -> void:
 	var from := Rect2(opener_glass.position, big)
 	opening = create_tween()
 	opening.tween_property(opener, "modulate:a", 1.0, 0.15)
-	opening.tween_interval((OPEN_TIME if demand_line() == "" else OPEN_READ) - 0.55)
+	opening.tween_interval(hold - 0.55)
 	opening.tween_property(opener_line, "modulate:a", 0.0, 0.12)
 	opening.parallel().tween_property(opener_name, "modulate:a", 0.0, 0.12)
 	# the window's place is read as the glass flies, so a layout still settling cannot misplace it
@@ -1156,9 +1194,9 @@ func _stage() -> Control:
 	edge.size = Vector2(W + 600, 110)
 	edge.position = Vector2(-300, EDGE_Y)
 	stage.add_child(edge)
-	demand_label = _label("", serif, 34, GOLD)
-	demand_label.size = Vector2(820, 50)
-	demand_label.position = Vector2(10, EDGE_Y + 34)
+	demand_label = _label("", caps_bold, 40)   # Cinzel bold: the hand's rule, with lining digits
+	demand_label.size = Vector2(800, 56)
+	demand_label.position = Vector2(10, EDGE_Y + 30)
 	demand_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(demand_label)
 	var add := CanvasItemMaterial.new()
