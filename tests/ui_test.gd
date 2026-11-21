@@ -170,9 +170,28 @@ func test_labels() -> void:
 	h.selected = -1
 	h._refresh()
 	check("ui: no 'if kept' without a pick", not h.ribbon_if.visible)
+	h.s.busted = true
+	h.phase = "over"
+	h._refresh()
+	check("ui: a bust's ribbon says nothing was paid", h.ribbon_label.text == "Nothing paid")
+	h.s.busted = false
+	h.s.bag = 7
+	h.phase = "throw"
+	h._refresh()
+	check("ui: the bag count and its words, one space apart", h.bag_label.text == "7" and h.bag_words.text == "in the bag"
+		and h.bag_words.position.x > h.bag_label.position.x)
 	# one Sin per hand, whose window opens the hand; a tap or a seal ends the opening
 	h.phase = "throw"
+	var sins_seen := []
+	for k in 6:
+		h.hands = k
+		h._new_hand()
+		sins_seen.append(h.sin_name())
+	check("ui: six Sins host in turn, Greed sitting out", sins_seen == ["Pride", "Lust", "Envy", "Gluttony", "Wrath", "Sloth"])
 	h.hands = 3
+	h._new_hand()
+	check("ui: Gluttony goes straight to the wall", not h.opener.visible and h.window.texture.resource_path.ends_with("gluttony_window.png"))
+	h.hands = 2
 	h._new_hand()
 	check("ui: the hand opens on its Sin", h.opener.visible and h.opener_name.text == "Envy" and h.window.texture.resource_path.ends_with("envy_window.png"))
 	h._on_seal(2)

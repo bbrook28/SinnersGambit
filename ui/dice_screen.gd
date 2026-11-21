@@ -54,6 +54,10 @@ const COINS := preload("res://assets/art/ui/icon_coins.png")
 const BAG_ICON := preload("res://assets/art/ui/icon_die.png")
 const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
+## The Sins that host hands, in turn. Greed sits out until its portrait's dice are repainted.
+const ROTATION := ["pride", "lust", "envy", "gluttony", "wrath", "sloth"]
+## Sins whose portrait dice are loose: shown on the wall, never at full screen.
+const NO_OPENING := ["lust", "gluttony"]
 ## Each Sin's glass colour, spilled on the wall and the table edge (never on the mat, dice or captions).
 const SIN_LIGHT := {"pride": Color("8a50ff"), "greed": Color("aeb8cc"), "lust": Color("e0306a"),
 	"envy": Color("3fc85a"), "gluttony": Color("ff8a30"), "wrath": Color("ff4a20"), "sloth": Color("3a6aff")}
@@ -109,7 +113,8 @@ var clock := 0.0
 var wall: TextureRect
 var marks_label: Label
 var coins_icon: TextureRect
-var bag_label: Label
+var bag_label: Label      # the number
+var bag_words: Label
 var stage: Control
 var master: TextureRect
 var window: TextureRect
@@ -189,13 +194,14 @@ func _new_hand(rng = null) -> void:
 	s = Rules.new_hand(cfg, rng)
 	selected = -1
 	phase = "throw"
-	sin_i = hands % SINS.size()
+	sin_i = hands % ROTATION.size()
+	_end_opening()
 	_set_sin()
 	for k in candles.size():
 		_set_candle(k, true)
 	_clear_tray()
 	_refresh()
-	if tut == null:
+	if tut == null and not ROTATION[sin_i] in NO_OPENING:
 		_open_sin()
 
 
@@ -366,7 +372,7 @@ func _show_result() -> void:
 	tw.tween_property(banner, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	for d in tray_dice:
 		if is_instance_valid(d):
-			d.modulate.a = 0.3
+			tw.tween_property(d, "modulate:a", 0.0, 0.25)
 	_refresh()
 
 
@@ -602,7 +608,10 @@ func _refresh() -> void:
 		return
 	if not counting:
 		marks_label.text = "%d" % total
-	bag_label.text = "%d  in the bag" % s.bag
+	bag_label.text = "%d" % s.bag
+	var f: Font = bag_label.get_theme_font("font")
+	var fs := bag_label.get_theme_font_size("font_size")
+	bag_words.position.x = bag_label.position.x + f.get_string_size(bag_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	# the row, sorted so matches sit together
 	var shown := shown_row()
 	for j in row_dice.size():
@@ -625,12 +634,12 @@ func _refresh() -> void:
 		var pv: Dictionary = Rules.preview(s, selected)
 		ribbon_label.text = "%s · %d" % [pv.name, pv.marks]
 		ribbon_if.visible = true
-		ribbon_label.offset_top = 22   # room for "if kept" above the name
 	else:
 		var sc: Dictionary = Rules.score(cfg, s.row)
 		ribbon_label.text = "%s · %d" % [sc.name, sc.marks] if not s.row.is_empty() else "Your row"
+		if phase == "over" and s.busted:
+			ribbon_label.text = "Nothing paid"
 		ribbon_if.visible = false
-		ribbon_label.offset_top = 0
 	# tray dice: lift the picked one, dim skulls
 	if phase != "over":
 		for j in tray_dice.size():
@@ -744,13 +753,13 @@ func next_hint() -> String:
 
 ## This hand's Sin: its window on the wall, its colour on the wall and the table edge.
 func _set_sin() -> void:
-	var sin: String = SINS[sin_i]
+	var sin: String = ROTATION[sin_i]
 	window.texture = load("res://assets/art/runtime/sins/%s_window.png" % sin)
 	spill.modulate = Color(SIN_LIGHT[sin], 0.42)
 
 
 func sin_name() -> String:
-	return SINS[sin_i].capitalize()
+	return ROTATION[sin_i].capitalize()
 
 
 ## The Sin's window fills the screen for a beat, then settles into its place on the wall. A tap ends it.
@@ -907,8 +916,9 @@ func _build_opener() -> void:
 	opener.gui_input.connect(_on_opener_input)
 	opener.visible = false
 	add_child(opener)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.72)
+	var dim := TextureRect.new()
+	dim.texture = _gradient([[0.0, Color(0, 0, 0, 0.45)], [0.32, Color(0, 0, 0, 0.5)], [0.42, Color(0, 0, 0, 0.88)], [1.0, Color(0, 0, 0, 0.9)]])
+	dim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	opener.add_child(dim)
@@ -968,9 +978,12 @@ func _top_bar() -> Control:
 	bi.size = Vector2(60, 66)
 	bi.position = Vector2(W / 2.0 - 150, 14)
 	bar.add_child(bi)
-	bag_label = _label("7 in the bag", caps_bold, 38)
+	bag_label = _label("7", caps_bold, 38)
 	bag_label.position = Vector2(W / 2.0 - 80, 24)
 	bar.add_child(bag_label)
+	bag_words = _label("in the bag", caps_bold, 38)
+	bag_words.position = Vector2(W / 2.0 - 50, 24)
+	bar.add_child(bag_words)
 	var help := TextureButton.new()
 	help.texture_normal = SEAL_SMALL
 	help.texture_pressed = SEAL_SMALL_DOWN
@@ -997,8 +1010,8 @@ func _stage() -> Control:
 	# the Sin's light on the wall and the table edge, kept inside the stage (off the mat and the text)
 	var light := Control.new()
 	light.clip_contents = true
-	light.size = Vector2(W + 60, EDGE_Y + 110)
-	light.position = Vector2(-30, 0)
+	light.size = Vector2(W + 60, EDGE_Y + 110 + 400)
+	light.position = Vector2(-30, -400)   # reaches up behind the top bar so its glow is never cut off
 	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(light)
 	var add_light := CanvasItemMaterial.new()
@@ -1007,16 +1020,34 @@ func _stage() -> Control:
 	spill.texture = GLOW
 	spill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	spill.size = Vector2(900, 900)
-	spill.position = Vector2(30 + 165 - 450, 210 - 450)
+	spill.position = Vector2(30 + 167 - 450, 400 + 194 - 450)
 	spill.material = add_light
 	spill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	light.add_child(spill)
 	window = TextureRect.new()
 	window.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	window.size = Vector2(320, 410)
-	window.position = Vector2(4, 8)
+	window.size = Vector2(290, 372)
+	window.position = Vector2(22, EDGE_Y - 40 - 372)
 	window.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(window)
+	var sill := ColorRect.new()
+	sill.color = Color("4e4238")
+	sill.size = Vector2(326, 14)
+	sill.position = Vector2(4, EDGE_Y - 42)
+	sill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(sill)
+	var sill_lip := ColorRect.new()
+	sill_lip.color = Color(0.78, 0.63, 0.35, 0.8)
+	sill_lip.size = Vector2(326, 2)
+	sill_lip.position = Vector2(4, EDGE_Y - 42)
+	sill_lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(sill_lip)
+	var sill_shadow := ColorRect.new()
+	sill_shadow.color = Color(0, 0, 0, 0.45)
+	sill_shadow.size = Vector2(326, 6)
+	sill_shadow.position = Vector2(4, EDGE_Y - 28)
+	sill_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(sill_shadow)
 	master = TextureRect.new()
 	var at := AtlasTexture.new()
 	at.atlas = IDLE
@@ -1123,18 +1154,18 @@ func _tray() -> Control:
 	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
 		bt.set_patch_margin(side, 40)
 	bt.size = Vector2(760, 170)
-	bt.position = Vector2((W - 20 - 760) / 2.0, 40)
+	bt.position = Vector2((W - 20 - 760) / 2.0, 46)
 	banner.add_child(bt)
 	banner_title = _label("", blackletter, 60)
 	banner_title.size = Vector2(680, 170)
-	banner_title.position = Vector2((W - 20 - 680) / 2.0, 36)
+	banner_title.position = Vector2((W - 20 - 680) / 2.0, 42)
 	banner_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.add_child(banner_title)
 	banner_text = _label("", serif, 34)
 	banner_text.size = Vector2(W - 140, 120)
-	banner_text.position = Vector2(60, 224)
+	banner_text.position = Vector2(60, 226)
 	banner_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1179,18 +1210,19 @@ func _ribbon() -> Control:
 	var r := TextureRect.new()
 	r.texture = RIBBON
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	r.custom_minimum_size = Vector2(760, 140)
+	r.custom_minimum_size = Vector2(760, 176)
 	ribbon_label = _label("Your row", blackletter, 56, INK)
 	ribbon_label.remove_theme_color_override("font_shadow_color")
 	ribbon_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ribbon_label.offset_bottom = -22
+	ribbon_label.offset_top = 44
+	ribbon_label.offset_bottom = -26
 	ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ribbon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	r.add_child(ribbon_label)
-	ribbon_if = _label("if kept", serif, 30, INK)   # the ghost die in the row shows which one
+	ribbon_if = _label("if kept", serif, 28, INK)   # the ghost die in the row shows which one
 	ribbon_if.remove_theme_color_override("font_shadow_color")
 	ribbon_if.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ribbon_if.offset_top = 16
+	ribbon_if.offset_top = 14
 	ribbon_if.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ribbon_if.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	ribbon_if.visible = false
@@ -1319,7 +1351,7 @@ func _build_overlay() -> void:
 	overlay.visible = false
 	add_child(overlay)
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
+	dim.color = Color(0, 0, 0, 0.84)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(dim)
 	var cc := CenterContainer.new()
