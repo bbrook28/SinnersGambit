@@ -1586,13 +1586,17 @@ func _build_overlay() -> void:
 	card_inner.add_theme_constant_override("separation", 22)
 	card_inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card_inner.minimum_size_changed.connect(_fit_card)
-	card_scroll.add_child(card_inner)
+	var gutter := MarginContainer.new()   # room for the scroll bar, so it never crosses the pay column
+	gutter.add_theme_constant_override("margin_right", 28)
+	gutter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_scroll.add_child(gutter)
+	gutter.add_child(card_inner)
 	card_body = VBoxContainer.new()
 	card_inner.add_child(card_body)
 	card_text = _label("", serif, 38, INK)
 	card_text.remove_theme_color_override("font_shadow_color")
 	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	card_text.custom_minimum_size = Vector2(780, 0)
+	card_text.custom_minimum_size = Vector2(752, 0)
 	card_inner.add_child(card_text)
 	var bc := CenterContainer.new()      # stacked in one column, seals on one left edge
 	v.add_child(bc)

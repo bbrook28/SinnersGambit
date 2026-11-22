@@ -1,4 +1,4 @@
-## Screenshots of the dice screen at phone size, for Ben. Needs a window (not --headless):
+## Screenshots of the three lessons and of free play at phone size, for Ben. Needs a window (not --headless):
 ## godot --path . --resolution 1080x2340 --script res://tools/shots.gd   ->  build/shots/*.png
 extends SceneTree
 
@@ -22,29 +22,96 @@ func _initialize() -> void:
 	h.save_path = "user://shots.cfg"
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(h)
-	await _shot("tutorial_intro")
+	# lesson 1: the row
+	await _shot("l1_card_masters_dice")
 	h._on_card_btn()
-	await _shot("first_throw")
+	await _shot("l1_roll_two")
 	h._on_seal(2)
 	await settle()
+	await _shot("l1_two_dice")
 	h._on_die(0)
-	await _shot("pick_preview")
+	await _shot("l1_pick_the_4")
 	h._on_keep()
 	await settle()
+	await _shot("l1_roll_two_again")
 	h._on_seal(2)
 	await settle()
-	await _shot("skull_card")
+	await keep_face(4)
+	await _shot("l1_card_a_pair")
 	h._on_card_btn()
-	h._on_card_btn()
-	await _shot("risk_seals")
+	await _shot("l1_roll_three")
 	h._on_seal(3)
 	await settle()
 	h._on_die(0)
-	await _shot("three_dice_preview")
+	await _shot("l1_third_4_if_kept")
 	h._on_keep()
 	await settle()
+	await _shot("l1_hint_under_row")
+	h._on_seal(2)
+	await settle()
+	await _shot("l1_keep_the_6")
+	await keep_face(6)
+	h._on_seal(2)
+	await settle()
+	await _shot("l1_last_place")
+	await keep_face(6)
+	await _result()
+	await _shot("l1_card_paid")
 	h._on_card_btn()
-	await _shot("free_play")
+	await _shot("l1_result")
+	h._on_next()
+	# lesson 2: skulls
+	await _shot("l2_card_skulls")
+	h._on_card_btn()
+	await _shot("l2_roll_two")
+	h._on_seal(2)
+	await settle()
+	await _shot("l2_card_more_dice_more_risk")
+	h._on_card_btn()
+	await _shot("l2_risk_under_buttons")
+	h._on_seal(3)
+	await settle()
+	await _shot("l2_second_skull")
+	await keep_face(5)
+	await _shot("l2_one_die_is_safest")
+	h._on_seal(1)
+	await settle()
+	await _shot("l2_roll_one_again")
+	h._on_seal(1)
+	await settle()
+	await _shot("l2_card_last_dance")
+	h._on_card_btn()
+	await _shot("l2_roll_the_last_die")
+	h._on_seal(1)
+	await settle()
+	await _result()
+	await _shot("l2_result_any")
+	h._on_next()
+	# lesson 3: the Sin
+	await _shot("l3_card_the_sin")
+	Engine.time_scale = 1.0   # the opening at its real pace, caught while the window fills the screen
+	h._on_card_btn()
+	for i in 20:
+		await process_frame
+	await _shot("l3_sin_opening")
+	Engine.time_scale = 4.0
+	for i in 400:
+		if not h.opener.visible:
+			break
+		await process_frame
+	await _shot("l3_rule_on_table_edge")
+	h._on_seal(2)
+	await settle()
+	await _shot("l3_first_6_plus_4")
+	await keep_face(6)
+	await _shot("l3_roll_two_again")
+	h._on_seal(2)
+	await settle()
+	await _shot("l3_second_6_minus_4")
+	await keep_face(4)
+	await _shot("l3_card_dice_are_yours")
+	h._on_card_btn()
+	await _shot("l3_free_play")
 	# play the hand out and show the result
 	var guard := 0
 	while not h.s.over and guard < 40:
@@ -65,20 +132,7 @@ func _initialize() -> void:
 		if h.next_box.visible:
 			break
 		await process_frame
-	await _shot("result_banner")
-	h._on_next()              # the first hand with a demand: the card, once, then Pride opens slowly
-	await _shot("demand_card")
-	Engine.time_scale = 1.0   # the opening at its real pace, caught while the window fills the screen
-	h._on_card_btn()
-	for i in 20:
-		await process_frame
-	await _shot("sin_opening")
-	Engine.time_scale = 4.0
-	for i in 400:
-		if not h.opener.visible:
-			break
-		await process_frame
-	await _shot("demand_line")
+	await _shot("l3_result")
 	# a first 6 thrown beside a 3 and a 2
 	hosted([3, 6, 3, 2])
 	h._on_seal(1)
@@ -152,7 +206,9 @@ func _initialize() -> void:
 	Engine.time_scale = 4.0
 	h._end_opening()
 	h._on_help()
-	await _shot("hand_ranking")
+	await _shot("help_top")
+	h.card_scroll.scroll_vertical = 100000
+	await _shot("help_foot")
 	DirAccess.remove_absolute("user://shots.cfg")
 	quit(0)
 
@@ -163,6 +219,13 @@ func hosted(faces: Array) -> void:
 	h.hands = 1
 	h._new_hand(h.Tutorial.ScriptRng.new(faces))
 	h._end_opening()
+
+
+## Taps the thrown die showing that face, then Keep.
+func keep_face(face: int) -> void:
+	h._on_die(h.s.thrown.find(face))
+	h._on_keep()
+	await settle()
 
 
 ## Waits for the result banner.
