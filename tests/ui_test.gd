@@ -303,5 +303,5 @@ func test_demand() -> void:
 	check("ui: the wild die shows the 6 it was paid as, still marked wild", h.s.row == [3, 3, 4, 5, 0] and h.row_dice[4].texture == h.DICE[6]
 		and h.row_dice[4].get_child(0).visible and h.banner_text.text.begins_with("Pair 1 + Pride 4."))
 	h._on_help()
-	check("ui: ? names the host and its demand", h.card_text.text.begins_with("Pride hosts this hand. A lone 6 pays 4. Each 2 costs 1."))
+	check("ui: ? names the host and its demand", h.card_text.text.begins_with("Pride hosts this hand.\nA lone 6 pays 4. Each 2 costs 1."))
 	h._on_card_btn()

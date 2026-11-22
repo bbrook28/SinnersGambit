@@ -91,7 +91,8 @@ const BLOOD := Color("9e1b1b")
 const W := 1020          # content width
 const DIE := 176         # die size in the row
 const TDIE := 196        # die size in the tray
-const EDGE_Y := 420      # the table's far edge in the stage
+const LIGHT_PAD := 600  # how far the Sin's light may reach past each side of the stage
+const EDGE_Y := 420     # the table's far edge in the stage
 const FPS := 8.0         # the Master's idle
 const CANDLE_H := 220.0  # a lit candle's height
 
@@ -1139,8 +1140,9 @@ func _stage() -> Control:
 	# the Sin's light on the wall and the table edge, kept inside the stage (off the mat and the text)
 	var light := Control.new()
 	light.clip_contents = true
-	light.size = Vector2(W + 60, EDGE_Y + 110 + 400)
-	light.position = Vector2(-30, -400)   # reaches up behind the top bar so its glow is never cut off
+	# cut only at the bottom: it reaches up behind the top bar and out past both sides (a wide screen shows the wall there)
+	light.size = Vector2(W + 60 + 2 * LIGHT_PAD, EDGE_Y + 110 + 400)
+	light.position = Vector2(-30 - LIGHT_PAD, -400)
 	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(light)
 	var add_light := CanvasItemMaterial.new()
@@ -1149,7 +1151,7 @@ func _stage() -> Control:
 	spill.texture = GLOW
 	spill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	spill.size = Vector2(900, 900)
-	spill.position = Vector2(30 + 167 - 450, 400 + 194 - 450)
+	spill.position = Vector2(LIGHT_PAD + 30 + 167 - 450, 400 + 194 - 450)
 	spill.material = add_light
 	spill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	light.add_child(spill)
@@ -1633,7 +1635,7 @@ func _on_help() -> void:
 		return
 	var text := "Each throw, draw 1, 2 or 3 dice and keep one in your row; the rest go back. A 1 is a skull: it stays out and snuffs a candle. Three skulls and the Master takes the hand. A full row is paid. The bag's last die is thrown alone: wild, but a skull loses the hand."
 	if demand_line() != "":
-		text = "%s hosts this hand. %s\n\n%s" % [sin_name(), demand_line(), text]
+		text = "%s hosts this hand.\n%s\n\n%s" %[sin_name(), demand_line(), text]
 	text += "\n\n%s%s" % [Version.VERSION, (" (%s)" % Version.BUILD) if Version.BUILD != "" else ""]
 	_card("The hands", text, "Back", Callable(), "Replay the tutorial", func():
 		_start_tutorial(), 0, SEAL_BACK, hand_ranking())
