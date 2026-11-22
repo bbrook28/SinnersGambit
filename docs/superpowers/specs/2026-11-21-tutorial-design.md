@@ -1,6 +1,6 @@
 # The tutorial: three short guided hands, and plainer words
 
-Status: **a draft until Ben approves it.** Written 2026-11-21 after Ben's note on 0.13.1: a lot of the lingo and the functions are not explained.
+Status: **approved by Ben, 2026-11-21.** Plan: `docs/superpowers/plans/2026-11-21-tutorial.md`. Written 2026-11-21 after Ben's note on 0.13.1: a lot of the lingo and the functions are not explained.
 
 ## Why
 A player who has never played poker or a dice game must understand everything on the screen. Today the guided hand says "poker hand", "Pair" and "Three of a kind" without saying what makes one; marks, the Sin, the tags on the dice, the ribbon, the hint and "wild" are not taught at all; and "draw" and "throw" name one act.
@@ -25,7 +25,7 @@ A player who has never played poker or a dice game must understand everything on
 | draw, throw | roll | all on-screen text |
 | Straight | Run | hand name |
 | Full house | Three and a pair | hand name |
-| High die | No match | hand name, and it joins the ranking at 0 |
+| High die | No match | hand name, shown only on a row not yet full (a full row always makes at least a Pair or a Run, so it is not in the ranking) |
 | wild / WILD | counts as any number / ANY | messages, the label on the die |
 | a lone 6 | exactly one 6 | Pride's line: "Exactly one 6 pays 4. Each 2 costs 1." |
 | Pride hosts this hand | Pride is watching this hand | ? page, the Sin's card |
@@ -68,7 +68,7 @@ Teaches: the window, the Sin's line on the table edge, the tags above the dice, 
 The one-time cards that today follow the tutorial (first skull, first Last Dance, first demand) are marked seen when the lessons are finished, and still appear for a player who skipped.
 
 ## The ? page
-Same words as the lessons, in this order: the ranking (eight rows, No match at 0), the Sin watching this hand and its line, then the rules in four short paragraphs (rolling and keeping; skulls and candles; the Last Dance; the Sin). Version at the foot. It scrolls if it does not fit.
+Same words as the lessons, in this order: the ranking (seven rows, each with a line on what makes it), the Sin watching this hand and its line, then the rules in four short paragraphs (rolling and keeping; skulls and candles; the Last Dance; the Sin). Version at the foot. It scrolls if it does not fit.
 
 ## Approaches
 - **Three short guided hands (chosen by Ben).** A few ideas each, learned by doing; about 15 taps a lesson.
