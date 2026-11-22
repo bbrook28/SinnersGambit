@@ -202,9 +202,9 @@ func _new_hand(rng = null) -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
-	# the guided hand teaches the poker alone: its Sin (Pride's window) demands nothing
+	# a lesson names its own Sin: none for the first two (Pride's window still hangs there), Pride for the third
 	var host: String = HOSTS[0] if tut != null else HOSTS[posmod(hands - 1, HOSTS.size())]
-	cfg = Config.merged({"demand": "" if tut != null else host})
+	cfg = Config.merged({"demand": tut.demand() if tut != null else host})
 	s = Rules.new_hand(cfg, rng)
 	selected = -1
 	phase = "throw"
@@ -227,10 +227,29 @@ func _new_hand(rng = null) -> void:
 
 
 func _start_tutorial() -> void:
-	_end_opening()
 	tut = Tutorial.new()
-	_new_hand(Tutorial.rng())
+	_start_lesson()
+
+
+## The current lesson's scripted hand.
+func _start_lesson() -> void:
+	_end_opening()
+	cards.clear()
+	overlay.visible = false
+	_new_hand(tut.rng())
 	_tut_sync()
+
+
+## The lessons end: by the skip button (only the tutorial is marked seen, so the one-time cards still come), or
+## after the last lesson (everything they taught is marked seen).
+func _end_tutorial(finished: bool) -> void:
+	if finished:
+		for k in ["skull", "dance", "demand: " + Demands.DEMANDS["pride"].line]:
+			seen[k] = true
+	tut = null
+	seen["tutorial"] = true
+	_save()
+	_new_hand()
 
 
 func _on_seal(n: int) -> void:
@@ -409,6 +428,7 @@ func _show_result() -> void:
 		if is_instance_valid(d):
 			tw.tween_property(d, "modulate:a", 0.0, 0.25)
 	_refresh()
+	_tut_sync()   # a lesson's last card comes with the result
 
 
 func _on_next() -> void:
@@ -416,9 +436,11 @@ func _on_next() -> void:
 		return
 	_sfx("press")
 	if tut != null:
-		tut = null
-		seen["tutorial"] = true
-		_save()
+		if tut.next_lesson():
+			_start_lesson()
+		else:
+			_end_tutorial(true)
+		return
 	_new_hand()
 
 
@@ -659,7 +681,12 @@ func _tut_sync() -> void:
 	while not tut.done() and tut.step().type == "card":
 		var st: Dictionary = tut.step()
 		tut.advance()
-		_card(st.title, st.text, "Got it", func(): _tut_sync())
+		var then := func():
+			if st.get("open", false):
+				_open_sin(OPEN_READ)
+			_tut_sync()
+		_card(st.title, st.text, "Got it", then, "Skip the lessons" if st.get("skip", false) else "",
+			func(): _end_tutorial(false), 0, SEAL_CHOOSE, hand_ranking() if st.get("body", "") == "ranking" else null)
 		return
 	_refresh()
 

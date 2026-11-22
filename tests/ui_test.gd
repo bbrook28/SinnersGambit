@@ -23,12 +23,14 @@ func _initialize() -> void:
 	root.add_child(h)
 	await process_frame
 	await process_frame
-	await test_tutorial()
+	test_lesson_data()
+	await test_lessons()
 	await test_free_hands()
 	await test_help()
 	await test_labels()
 	await test_demand()
 	await test_words()
+	await test_lesson_edges()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -43,45 +45,157 @@ func settle() -> void:
 	await process_frame
 
 
-func test_tutorial() -> void:
-	check("ui: a first launch opens the tutorial's first card", h.tut != null and h.overlay.visible and h.card_title.text == "The Master's dice")
+## The three lessons, played through the rules alone: each ends as the design says, and reads plainly.
+func test_lesson_data() -> void:
+	var T = h.Tutorial
+	check("data: three lessons", T.LESSONS.size() == 3)
+	var words_ok := true
+	var cards_ok := true
+	var bad: Array = []
+	var ends: Array = []
+	for li in T.LESSONS.size():
+		var t = T.new()
+		t.lesson = li
+		var cfg: Dictionary = h.Config.merged({"demand": t.demand()})
+		var st = h.Rules.new_hand(cfg, t.rng())
+		var steps: Array = t.steps()
+		var danced := false
+		for k in steps.size():
+			var x: Dictionary = steps[k]
+			bad += banned_in(str(x.get("text", "")) + " " + str(x.get("msg", "")) + " " + str(x.get("title", "")))
+			if x.type == "card":
+				words_ok = words_ok and str(x.text).replace("\n", " ").split(" ", false).size() <= 45
+				cards_ok = cards_ok and (k == 0 or steps[k - 1].type != "card")
+			elif x.type == "throw":
+				danced = h.Rules.is_dance(st)
+				h.Rules.throw(st, x.n)
+			elif x.type == "keep":
+				h.Rules.keep(st, st.thrown.find(x.face))
+		ends.append({"row": st.row.duplicate(), "skulls": st.skulls, "over": st.over, "marks": st.marks, "danced": danced,
+			"name": h.Rules.score(cfg, st.row).name, "sin": h.Rules.sin_marks(cfg, st.row, st.bank)})
+	check("data: no card is over 45 words", words_ok)
+	check("data: never two cards in a row", cards_ok)
+	check("data: the lessons use no jargon %s" % str(bad), bad.is_empty())
+	check("data: lesson 1 ends on three 4s and two 6s, paid 5 (%s)" % str(ends[0]), ends[0].row == [4, 4, 4, 6, 6] and ends[0].skulls == 0
+		and ends[0].over and ends[0].marks == 5 and ends[0].name == "Three and a pair")
+	check("data: lesson 2 ends on the Last Dance: four 5s, paid 7, two skulls (%s)" % str(ends[1]), ends[1].row == [5, 5, 5, 3, 0]
+		and ends[1].skulls == 2 and ends[1].over and ends[1].marks == 7 and ends[1].danced and ends[1].name == "Four of a kind")
+	check("data: lesson 3 hands over a 6 and a 4, Pride paying 4 (%s)" % str(ends[2]), ends[2].row == [6, 4] and not ends[2].over and ends[2].sin == 4)
+
+
+## Taps the thrown die showing that face, then Keep.
+func keep_face(face: int) -> void:
+	h._on_die(h.s.thrown.find(face))
+	h._on_keep()
+	await settle()
+
+
+func test_lessons() -> void:
+	# lesson 1: the row
+	check("ui: a first launch opens lesson 1, with a way to skip", h.tut != null and h.tut.lesson == 0 and h.overlay.visible
+		and h.card_title.text == "The Master's dice" and h.card_alt.visible and h.card_alt.text == "Skip the lessons")
 	h._on_card_btn()
-	check("ui: only the 2 seal works on the first throw", h.seals[0].btn.disabled and not h.seals[1].btn.disabled and h.seals[2].btn.disabled)
+	check("ui: only the 2 button works on the first roll", h.seals[0].btn.disabled and not h.seals[1].btn.disabled and h.seals[2].btn.disabled
+		and h.msg.text.begins_with("Tap the 2 button"))
 	h._on_seal(1)
-	check("ui: the 1 seal is ignored", h.s.throws == 0)
+	check("ui: the 1 button is ignored", h.s.throws == 0)
 	h._on_seal(2)
 	await settle()
-	check("ui: two dice wait for a keep", h.phase == "keep" and h.s.thrown == [4, 6])
-	check("ui: the keep seal shows, the draw seals hide", h.keep_box.visible and not h.seal_box.visible)
+	check("ui: two dice wait for a keep", h.phase == "keep" and h.s.thrown == [4, 6] and h.keep_box.visible and not h.seal_box.visible)
 	h.tap_tray((h.tray_x(0) + h.tray_x(1)) / 2.0)
 	check("ui: a tap between two dice picks neither", h.selected == -1)
 	h.tap_tray(h.tray_x(1) - 60.0)
-	check("ui: a tap on the inner half of the 6 is the 6, refused by the tutorial", h.selected == -1)
+	check("ui: a tap on the 6 is refused by the lesson", h.selected == -1 and h.tut.step().type == "keep")
 	h.tap_tray(h.tray_x(0) + 60.0)
 	check("ui: picking the 4 previews it", h.selected == 0 and h.ribbon_label.text == "No match · 0" and h.keep_cap.text == "Keep the 4")
 	h._on_keep()
 	await settle()
-	check("ui: the 4 is in the row", h.s.row == [4] and h.phase == "throw")
-	check("ui: the row says what one more die would make", h.hint.text == "One more 4: Pair · 1")
+	check("ui: the 4 is in the row, 6 in the bag", h.s.row == [4] and h.phase == "throw" and h.s.bag == 6 and h.bag_label.text == "6"
+		and h.hint.text == "One more 4: Pair · 1" and h.msg.text == "Roll two again.")
 	h._on_seal(2)
 	await settle()
-	check("ui: a skull snuffs a candle; the lone 4 is kept: a pair", h.s.skulls == 1 and h.candles[0].texture == h.CANDLE_OUT
-		and h.s.row == [4, 4] and h.ribbon_label.text == "Pair · 1")
-	check("ui: the skull card", h.overlay.visible and h.card_title.text == "A skull")
+	await keep_face(4)
+	check("ui: a pair, and its card", h.s.row == [4, 4] and h.ribbon_label.text == "Pair · 1" and h.overlay.visible and h.card_title.text == "A Pair"
+		and not h.card_alt.visible)
 	h._on_card_btn()
-	check("ui: the risk card", h.overlay.visible and h.card_title.text == "More dice, more risk")
-	h._on_card_btn()
-	check("ui: the seals show the risk", h.seals[2].odds.text.contains("% to lose it") and h.seals[0].odds.text == "no risk" and h.seals[0].cap.text == "1 die")
 	h._on_seal(3)
 	await settle()
 	h._on_die(0)
-	check("ui: the third 4 previews three of a kind", h.ribbon_label.text == "Three of a kind · 3")
+	check("ui: the third 4 previews three of a kind", h.ribbon_label.text == "Three of a kind · 3" and h.ribbon_if.visible)
 	h._on_keep()
 	await settle()
+	check("ui: the hint under the row is pointed at", h.hint.text == "One more 4: Four of a kind · 7" and h.msg.text.begins_with("Under your row") and h.s.bag == 4)
+	h._on_seal(2)
+	await settle()
+	await keep_face(6)
+	h._on_seal(2)
+	await settle()
+	await keep_face(6)
+	await await_result()
+	check("ui: lesson 1 is paid 5 and ends on the hands", h.s.row == [4, 4, 4, 6, 6] and h.s.marks == 5 and h.s.skulls == 0
+		and h.ribbon_label.text == "Three and a pair · 5" and h.overlay.visible and h.card_title.text == "Paid"
+		and h.card_body.visible and h.card_body.get_child(0) is GridContainer)
+	h._on_card_btn()
+	check("ui: Next hand waits under the result", h.next_box.visible and h.banner.visible and not h.overlay.visible)
+	h._on_next()
+	# lesson 2: skulls
+	check("ui: lesson 2 opens on skulls, with no Sin", h.tut != null and h.tut.lesson == 1 and h.card_title.text == "Skulls" and h.card_alt.visible
+		and h.cfg.demand == "" and h.demand_label.text == "" and not h.seen.get("tutorial", false))
+	var again = DiceScreen.new()   # the app closed in the middle of the lessons
+	again.save_path = "user://ui_test.cfg"
+	again.size = Vector2(1080, 1920)
+	root.add_child(again)
+	await process_frame
+	check("ui: a relaunch in the middle starts lesson 1 again", again.tut != null and again.tut.lesson == 0 and again.card_title.text == "The Master's dice")
+	again.queue_free()
+	await process_frame
+	h._on_card_btn()
+	h._on_seal(2)
+	await settle()
+	check("ui: a skull puts out a candle; the only die left is kept", h.s.skulls == 1 and h.candles[0].texture == h.CANDLE_OUT and h.s.row == [5]
+		and h.overlay.visible and h.card_title.text == "More dice, more risk")
+	h._on_card_btn()
+	check("ui: each button shows its risk", h.seals[2].odds.text.contains("% to lose it") and h.seals[0].cap.text == "1 die")
+	h._on_seal(3)
+	await settle()
+	check("ui: a second skull", h.s.skulls == 2 and h.s.thrown == [5, 3] and h.candles[1].texture == h.CANDLE_OUT)
+	await keep_face(5)
+	check("ui: the lesson asks for one die", h.msg.text.begins_with("One more skull loses the hand") and not h.seals[0].btn.disabled and h.seals[1].btn.disabled)
+	var throws: int = h.s.throws
+	h._on_seal(2)
+	check("ui: a button the lesson did not ask for does nothing", h.s.throws == throws and h.tut.step().n == 1)
+	h._on_seal(1)
+	await settle()
+	h._on_seal(1)
+	await settle()
+	check("ui: one die left, and the Last Dance card", h.s.row == [5, 5, 5, 3] and h.s.bag == 1 and h.overlay.visible and h.card_title.text == "The Last Dance")
+	h._on_card_btn()
+	h._on_seal(1)
+	await settle()
+	await await_result()
+	check("ui: lesson 2 ends on four 5s, the last die shown as ANY", h.s.row == [5, 5, 5, 3, 0] and h.s.marks == 7 and h.ribbon_label.text == "Four of a kind · 7"
+		and h.row_dice[4].get_child(0).visible and h.row_dice[4].get_child(0).text == "ANY" and not h.overlay.visible)
+	h._on_next()
+	# lesson 3: the Sin
+	check("ui: lesson 3 opens on the Sin, Pride watching", h.tut != null and h.tut.lesson == 2 and h.card_title.text == "The Sin" and h.card_alt.visible
+		and h.cfg.demand == "pride" and h.demand_label.text == "Exactly one 6 pays 4. Each 2 costs 1.")
+	h._on_card_btn()
+	check("ui: then Pride opens the hand, with time to read its rule", h.opener.visible and h.opener_name.text == "Pride"
+		and h.opener_line.text == "Exactly one 6 pays 4. Each 2 costs 1." and h.open_hold == h.OPEN_READ and not h.overlay.visible)
+	h._on_seal(2)
+	await settle()
+	check("ui: the first 6 wears +4", tag_of(0) == "+4" and tag_of(1) == "" and h.msg.text.begins_with("The number above a die"))
+	await keep_face(6)
+	h._on_seal(2)
+	await settle()
+	check("ui: the second 6 wears −4", tag_of(0) == "−4" and tag_of(1) == "")
+	h._on_die(0)
+	check("ui: the second 6 is refused by the lesson", h.selected == -1)
+	await keep_face(4)
 	check("ui: the last card hands over the dice", h.overlay.visible and h.card_title.text == "The dice are yours")
 	h._on_card_btn()
-	check("ui: free play: 3 in the bag, 1 skull", h.tut.done() and h.s.bag == 3 and h.s.skulls == 1 and not h.overlay.visible)
-	check("ui: the guided hand has no demand", h.cfg.demand == "" and h.demand_label.text == "" and not h.sin_label.visible and h.sin_name() == "Pride")
+	check("ui: free play under Pride: a 6 and a 4, Pride paying 4", h.tut.done() and h.s.row == [6, 4] and h.sin_label.visible
+		and h.sin_label.text == "Pride · 4" and not h.overlay.visible and h.msg.text.begins_with("Roll "))
 
 
 ## Waits for the result banner and Next hand, which follow the payout after the hand ends.
@@ -110,16 +224,14 @@ func play_out() -> void:
 
 func test_free_hands() -> void:
 	await play_out()
-	check("ui: the tutorial hand ends with the result banner and Next hand", h.s.over and h.banner.visible and h.next_box.visible
+	check("ui: the last lesson's hand ends with the result banner and Next hand", h.s.over and h.banner.visible and h.next_box.visible
 		and not h.seal_box.visible and h.banner_title.text != "" and not h.banner_title.text.contains(h.ribbon_label.text.get_slice(" · ", 0)))
 	check("ui: the counter shows the new total", h.marks_label.text == str(h.total))
 	h._on_next()
-	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
-	check("ui: the first hand with a demand explains it once", h.overlay.visible and h.card_title.text == "The Sin"
-		and h.seen.get("demand: Exactly one 6 pays 4. Each 2 costs 1.", false) and not h.opener.visible)
-	h._on_card_btn()
-	check("ui: then Pride opens the hand with its demand, and time to read it", h.opener.visible and h.opener_name.text == "Pride"
-		and h.opener_line.text == "Exactly one 6 pays 4. Each 2 costs 1." and h.demand_label.text == "Exactly one 6 pays 4. Each 2 costs 1." and h.open_hold == h.OPEN_READ)
+	check("ui: the lessons are done and saved, with all they taught", h.tut == null and h.seen.get("tutorial", false) and h.hands == 3
+		and h.seen.get("skull", false) and h.seen.get("dance", false) and h.seen.get("demand: Exactly one 6 pays 4. Each 2 costs 1.", false))
+	check("ui: the next hand has no card: Pride opens it briefly", not h.overlay.visible and h.opener.visible and h.open_hold == h.OPEN_TIME
+		and h.demand_label.text == "Exactly one 6 pays 4. Each 2 costs 1.")
 	var cw: float = h.demand_width()
 	check("ui: the demand line ends left of the candles (%d px of %d)" % [cw, h.candles[0].get_meta("x") - 60], cw > 100.0
 		and h.demand_label.position.x + cw < h.candles[0].get_meta("x") - 60)
@@ -128,7 +240,7 @@ func test_free_hands() -> void:
 		await play_out()
 		ok = ok and h.s.over and h.banner.visible and h.next_box.visible and h.marks_label.text == str(h.total)
 		h._on_next()
-	check("ui: 12 free hands play out", ok and h.hands == 13)
+	check("ui: 12 free hands play out", ok and h.hands == 15)
 	var c := ConfigFile.new()
 	check("ui: marks are saved", c.load("user://ui_test.cfg") == OK and int(c.get_value("dice", "total", -1)) == h.total)
 
@@ -385,3 +497,26 @@ func test_words() -> void:
 		and h.sin_label.visible and w <= 540.0)
 	await await_result()
 	h._on_next()
+
+
+func test_lesson_edges() -> void:
+	# Replay the tutorial from the ? page, in the middle of a hand Pride watches
+	hosted([6, 6, 2])
+	h._end_opening()
+	h._on_seal(1)
+	await settle()
+	h._on_help()
+	h._on_card_alt()
+	check("ui: Replay starts lesson 1 clean: no Sin's line, an empty row", h.tut != null and h.tut.lesson == 0 and h.card_title.text == "The Master's dice"
+		and h.demand_label.text == "" and h.s.row.is_empty() and not h.sin_label.visible)
+	# Skip the lessons on lesson 2: free play, and Pride's one-time card still comes
+	h.seen.erase("demand: Exactly one 6 pays 4. Each 2 costs 1.")
+	h.seen.erase("tutorial")
+	h.tut.next_lesson()
+	h._start_lesson()
+	check("ui: lesson 2 offers the skip", h.card_title.text == "Skulls" and h.card_alt.visible)
+	h._on_card_alt()
+	check("ui: Skip ends the lessons and Pride's card still comes", h.tut == null and h.seen.get("tutorial", false) and h.cfg.demand == "pride"
+		and h.overlay.visible and h.card_title.text == "The Sin" and not h.card_alt.visible)
+	h._on_card_btn()
+	check("ui: after it the dice are free", not h.overlay.visible and not h.seals[0].btn.disabled and not h.seals[2].btn.disabled)
