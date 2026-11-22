@@ -250,8 +250,17 @@ func test_help() -> void:
 	var grid: GridContainer = h.card_body.get_child(0)
 	var cells := grid.get_children()
 	check("ui: ? lists the hands in columns: name, dice, pay", h.overlay.visible and grid.columns == 3 and cells.size() == 21
-		and cells[0].text == "Five of a kind" and cells[1].get_child_count() == 5 and cells[2].text == "12"
-		and cells[9].text == "Run" and cells[11].text == "5")
+		and cells[0].get_child(0).text == "Five of a kind" and cells[1].get_child_count() == 5 and cells[2].text == "12"
+		and cells[9].get_child(0).text == "Run" and cells[11].text == "5")
+	check("ui: each hand says what makes it", cells[9].get_child(1).text == "2, 3, 4, 5, 6" and cells[18].get_child(1).text == "two dice the same")
+	var t: String = h.card_text.text
+	check("ui: ? holds all the rules in the lessons' words", t.contains("counts as any number") and t.contains("puts out a candle")
+		and t.contains("A full row always makes at least a Pair") and t.contains("The number above a die") and t.contains(h.Version.VERSION)
+		and banned_in(t).is_empty())
+	await process_frame
+	await process_frame
+	check("ui: both buttons of the ? page stay on the screen (%d of 1920)" % h.card_alt.get_global_rect().end.y, h.card_alt.visible
+		and h.card_alt.get_global_rect().end.y <= 1920.0 and h.card_title.get_global_rect().position.y >= 0.0)
 	h._on_card_btn()
 	check("ui: the help card closes", not h.overlay.visible)
 

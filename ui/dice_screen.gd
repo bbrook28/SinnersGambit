@@ -92,6 +92,17 @@ const W := 1020          # content width
 const DIE := 176         # die size in the row
 const TDIE := 196        # die size in the tray
 const SIN_CARD := "A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand.\n\nIts rule is written on the table edge. Lose the hand and it pays nothing."
+## All the rules, in the lessons' words, for the ? page.
+const RULES := [
+	"Rolling and keeping. Each turn, roll 1, 2 or 3 dice from the bag and keep one in your row; the rest go back into the bag. Five dice fill the row and it is paid. A full row always makes at least a Pair.",
+	"Skulls and candles. A 1 is a skull: it cannot be kept, it stays out of the bag and it puts out a candle. Three skulls and the Master takes the hand: it pays nothing. Under each button is your chance of losing the hand on that roll.",
+	"The Last Dance. The bag's last die is rolled alone. It counts as any number you need, but a skull loses the hand.",
+	"The Sin. A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand. The number above a die is what the Sin pays or takes if you keep it. Lose the hand and it pays nothing.",
+]
+const CARD_CHROME := 800   # a card's title, flourish, two buttons and paper margins: the height its text cannot use
+## What makes each hand, in the order of Rules.HANDS.
+const HAND_NOTES := ["", "two dice the same", "two pairs", "three dice the same", "2, 3, 4, 5, 6",
+	"three the same and a pair", "four dice the same", "all five the same"]
 const LIGHT_PAD := 600 # how far the Sin's light may reach past each side of the stage
 const EDGE_Y := 420     # the table's far edge in the stage
 const FPS := 8.0         # the Master's idle
@@ -158,6 +169,8 @@ var overlay: Control
 var card_title: Label
 var card_body: VBoxContainer
 var card_text: Label
+var card_scroll: ScrollContainer
+var card_inner: VBoxContainer
 var card_btn: Button
 var card_alt: Button
 var fx: Control
@@ -1565,13 +1578,22 @@ func _build_overlay() -> void:
 	fl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	fl.custom_minimum_size = Vector2(0, 60)
 	v.add_child(fl)
+	# the body and the text scroll when they are taller than the screen allows, so the buttons never leave it
+	card_scroll = ScrollContainer.new()
+	card_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(card_scroll)
+	card_inner = VBoxContainer.new()
+	card_inner.add_theme_constant_override("separation", 22)
+	card_inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_inner.minimum_size_changed.connect(_fit_card)
+	card_scroll.add_child(card_inner)
 	card_body = VBoxContainer.new()
-	v.add_child(card_body)
+	card_inner.add_child(card_body)
 	card_text = _label("", serif, 38, INK)
 	card_text.remove_theme_color_override("font_shadow_color")
 	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card_text.custom_minimum_size = Vector2(780, 0)
-	v.add_child(card_text)
+	card_inner.add_child(card_text)
 	var bc := CenterContainer.new()      # stacked in one column, seals on one left edge
 	v.add_child(bc)
 	var buttons := VBoxContainer.new()
@@ -1584,6 +1606,12 @@ func _build_overlay() -> void:
 	card_alt.pressed.connect(_on_card_alt)
 	card_alt.visible = false
 	buttons.add_child(card_alt)
+
+
+## The card's scrolling part is as tall as what it holds, up to what the screen leaves beside the title and buttons.
+func _fit_card() -> void:
+	var cap: float = maxf(300.0, get_viewport_rect().size.y - CARD_CHROME)
+	card_scroll.custom_minimum_size.y = minf(card_inner.get_combined_minimum_size().y, cap)
 
 
 ## A card's button: a wax seal with its words beside it.
@@ -1633,6 +1661,8 @@ func _show_card() -> void:
 	card_alt.text = c.alt
 	card_alt.icon = SEAL_BOOK
 	card_alt.visible = c.alt != ""
+	card_scroll.scroll_vertical = 0
+	_fit_card()
 	overlay.visible = true
 
 
@@ -1661,25 +1691,31 @@ func _close_card(which: String) -> void:
 func _on_help() -> void:
 	if overlay.visible:
 		return
-	var text := "Each turn, roll 1, 2 or 3 dice and keep one in your row; the rest go back into the bag. A 1 is a skull: it stays out and puts out a candle. Three skulls and the Master takes the hand. A full row is paid. The bag's last die is rolled alone: it counts as any number, but a skull loses the hand."
+	var text := "\n\n".join(RULES)
 	if demand_line() != "":
-		text = "%s is watching this hand.\n%s\n\n%s" %[sin_name(), demand_line(), text]
+		text = "%s is watching this hand.\n%s\n\n%s" % [sin_name(), demand_line(), text]
 	text += "\n\n%s%s" % [Version.VERSION, (" (%s)" % Version.BUILD) if Version.BUILD != "" else ""]
 	_card("The hands", text, "Back", Callable(), "Replay the tutorial", func():
 		_start_tutorial(), 0, SEAL_BACK, hand_ranking())
 
 
-## The hands from best to worst, each with its dice and its pay, in three columns.
+## The hands from best to worst, each with what makes it, its dice and its pay, in three columns.
 func hand_ranking() -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = 3
 	g.add_theme_constant_override("h_separation", 28)
 	g.add_theme_constant_override("v_separation", 8)
 	for h in range(Rules.HANDS.size() - 1, 0, -1):
+		var cell := VBoxContainer.new()
+		cell.add_theme_constant_override("separation", -6)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var nm := _label(Rules.HANDS[h], serif, 36, INK)
 		nm.remove_theme_color_override("font_shadow_color")
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(nm)
+		cell.add_child(nm)
+		var note := _label(HAND_NOTES[h], serif, 26, Color(INK, 0.75))
+		note.remove_theme_color_override("font_shadow_color")
+		cell.add_child(note)
+		g.add_child(cell)
 		var dice := HBoxContainer.new()
 		dice.add_theme_constant_override("separation", 4)
 		for f in EXAMPLES[h]:
