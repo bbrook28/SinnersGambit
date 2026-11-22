@@ -28,6 +28,7 @@ func _initialize() -> void:
 	await test_help()
 	await test_labels()
 	await test_demand()
+	await test_words()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -57,7 +58,7 @@ func test_tutorial() -> void:
 	h.tap_tray(h.tray_x(1) - 60.0)
 	check("ui: a tap on the inner half of the 6 is the 6, refused by the tutorial", h.selected == -1)
 	h.tap_tray(h.tray_x(0) + 60.0)
-	check("ui: picking the 4 previews it", h.selected == 0 and h.ribbon_label.text == "High die · 0" and h.keep_cap.text == "Keep the 4")
+	check("ui: picking the 4 previews it", h.selected == 0 and h.ribbon_label.text == "No match · 0" and h.keep_cap.text == "Keep the 4")
 	h._on_keep()
 	await settle()
 	check("ui: the 4 is in the row", h.s.row == [4] and h.phase == "throw")
@@ -114,11 +115,11 @@ func test_free_hands() -> void:
 	check("ui: the counter shows the new total", h.marks_label.text == str(h.total))
 	h._on_next()
 	check("ui: the tutorial is done and saved", h.tut == null and h.seen.get("tutorial", false) and h.hands == 1)
-	check("ui: the first hand with a demand explains it once", h.overlay.visible and h.card_title.text == "The Sin's demand"
-		and h.seen.get("demand: A lone 6 pays 4. Each 2 costs 1.", false) and not h.opener.visible)
+	check("ui: the first hand with a demand explains it once", h.overlay.visible and h.card_title.text == "The Sin"
+		and h.seen.get("demand: Exactly one 6 pays 4. Each 2 costs 1.", false) and not h.opener.visible)
 	h._on_card_btn()
 	check("ui: then Pride opens the hand with its demand, and time to read it", h.opener.visible and h.opener_name.text == "Pride"
-		and h.opener_line.text == "A lone 6 pays 4. Each 2 costs 1." and h.demand_label.text == "A lone 6 pays 4. Each 2 costs 1." and h.open_hold == h.OPEN_READ)
+		and h.opener_line.text == "Exactly one 6 pays 4. Each 2 costs 1." and h.demand_label.text == "Exactly one 6 pays 4. Each 2 costs 1." and h.open_hold == h.OPEN_READ)
 	var cw: float = h.demand_width()
 	check("ui: the demand line ends left of the candles (%d px of %d)" % [cw, h.candles[0].get_meta("x") - 60], cw > 100.0
 		and h.demand_label.position.x + cw < h.candles[0].get_meta("x") - 60)
@@ -138,7 +139,7 @@ func test_help() -> void:
 	var cells := grid.get_children()
 	check("ui: ? lists the hands in columns: name, dice, pay", h.overlay.visible and grid.columns == 3 and cells.size() == 21
 		and cells[0].text == "Five of a kind" and cells[1].get_child_count() == 5 and cells[2].text == "12"
-		and cells[9].text == "Straight" and cells[11].text == "5")
+		and cells[9].text == "Run" and cells[11].text == "5")
 	h._on_card_btn()
 	check("ui: the help card closes", not h.overlay.visible)
 
@@ -149,15 +150,15 @@ func test_labels() -> void:
 	h.s.bag = 2
 	h._refresh()
 	check("ui: a two-die bag: the 3 seal says so, the prompt offers 1 or 2", h.seals[2].odds.text.contains("only 2 in the bag")
-		and h.msg.text.begins_with("Draw 1 or 2 dice"))
+		and h.msg.text.begins_with("Roll 1 or 2 dice"))
 	h.s.row = [3, 5, 5, 2]
 	check("ui: the row shows matches first", h.shown_row() == [5, 5, 3, 2])
 	h.s.row = [6, 5, 4, 3]
 	h._refresh()
-	check("ui: a straight draw is named", h.hint.text == "Needs 2: Straight · 5")
+	check("ui: a straight draw is named", h.hint.text == "Needs 2: Run · 5")
 	h.s.row = [2, 3, 4]
 	h._refresh()
-	check("ui: three different dice: the hint names the straight, not a pair", h.hint.text == "Needs 5 and 6: Straight · 5")
+	check("ui: three different dice: the hint names the straight, not a pair", h.hint.text == "Needs 5 and 6: Run · 5")
 	h.s.row = [2, 3, 3]
 	h._refresh()
 	check("ui: a pair in the row: no straight to name", h.hint.text == "One more 3: Three of a kind · 3")
@@ -244,7 +245,7 @@ func test_demand() -> void:
 	hosted([6, 6, 2])
 	h._on_seal(1)
 	await settle()
-	check("ui: a lone 6 in the row: the hand and what Pride pays", h.s.row == [6] and h.ribbon_label.text == "High die · 0"
+	check("ui: a lone 6 in the row: the hand and what Pride pays", h.s.row == [6] and h.ribbon_label.text == "No match · 0"
 		and h.sin_label.visible and h.sin_label.text == "Pride · 4" and h.sin_plus.text == "+")
 	h._on_seal(2)
 	await settle()
@@ -254,7 +255,7 @@ func test_demand() -> void:
 	h._on_die(0)
 	check("ui: picking the second 6: a pair, and Pride pays nothing", h.ribbon_label.text == "Pair · 1" and h.sin_label.text == "Pride · 0" and h.ribbon_if.visible)
 	h._on_die(1)
-	check("ui: picking the 2: Pride pays 3", h.ribbon_label.text == "High die · 0" and h.sin_label.text == "Pride · 3")
+	check("ui: picking the 2: Pride pays 3", h.ribbon_label.text == "No match · 0" and h.sin_label.text == "Pride · 3")
 	# a first 6 thrown beside a 3 carries +4
 	hosted([3, 6, 4])
 	h._on_seal(1)
@@ -303,5 +304,84 @@ func test_demand() -> void:
 	check("ui: the wild die shows the 6 it was paid as, still marked wild", h.s.row == [3, 3, 4, 5, 0] and h.row_dice[4].texture == h.DICE[6]
 		and h.row_dice[4].get_child(0).visible and h.banner_text.text.begins_with("Pair 1 + Pride 4."))
 	h._on_help()
-	check("ui: ? names the host and its demand", h.card_text.text.begins_with("Pride hosts this hand.\nA lone 6 pays 4. Each 2 costs 1."))
+	check("ui: ? names the host and its demand", h.card_text.text.begins_with("Pride is watching this hand.\nExactly one 6 pays 4. Each 2 costs 1."))
 	h._on_card_btn()
+
+
+## Words a first-time player would not know; none may be shown.
+const BANNED := ["draw", "throw", "wild", "lone", "hosts", "straight", "full house", "high die", "seal", "snuff", "snuffs"]
+
+
+## The text of every visible Label and Button on the screen.
+func shown_text(n: Node = null) -> String:
+	if n == null:
+		n = h
+	var out := ""
+	if n is CanvasItem and not n.is_visible_in_tree():
+		return out
+	if (n is Label or n is Button) and n.text != "":
+		out += n.text + "\n"
+	for c in n.get_children():
+		out += shown_text(c)
+	return out
+
+
+## The banned words found in a text, as whole words.
+func banned_in(text: String) -> Array:
+	var found: Array = []
+	var re := RegEx.new()
+	for w in BANNED:
+		re.compile("\b%s\b" % w)
+		if re.search(text.to_lower()) != null:
+			found.append(w)
+	return found
+
+
+func test_words() -> void:
+	var bad: Array = []
+	hosted([6, 6, 2])
+	h._end_opening()
+	bad += banned_in(shown_text())
+	h._on_seal(1)
+	await settle()
+	h._on_seal(2)
+	await settle()
+	bad += banned_in(shown_text())
+	h._on_die(0)
+	bad += banned_in(shown_text())
+	hosted([3, 3, 4, 1, 1, 5, 4])
+	h._end_opening()
+	for i in 3:
+		h._on_seal(1)
+		await settle()
+	h._on_seal(2)
+	await settle()
+	h._on_seal(1)
+	await settle()
+	check("ui: the Last Dance is explained in plain words", h.msg.text.contains("counts as any number"))
+	bad += banned_in(shown_text())
+	h._on_seal(1)
+	await settle()
+	await await_result()
+	check("ui: the last die is labelled ANY", h.row_dice[4].get_child(0).visible and h.row_dice[4].get_child(0).text == "ANY")
+	bad += banned_in(shown_text())
+	h._on_help()
+	bad += banned_in(shown_text())
+	h._on_card_btn()
+	h._on_next()
+	check("ui: no jargon is shown %s" % str(bad), bad.is_empty())
+	check("ui: the Sin's line is 30 px or more", h.demand_label.get_theme_font_size("font_size") >= 30
+		and h.demand_label.position.x + h.demand_width() < h.candles[0].get_meta("x") - 60)
+	# the widest hand name beside the Sin's marks stays on the ribbon's paper
+	hosted([4, 4, 4, 6, 6])
+	h._end_opening()
+	for i in 5:
+		h._on_seal(1)
+		await settle()
+	var w := 36.0
+	for l in [h.ribbon_label, h.sin_plus, h.sin_label]:
+		w += l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
+	check("ui: 'Three and a pair' and the Sin's marks fit the ribbon (%d px of 540)" % w, h.ribbon_label.text == "Three and a pair · 5"
+		and h.sin_label.visible and w <= 540.0)
+	await await_result()
+	h._on_next()

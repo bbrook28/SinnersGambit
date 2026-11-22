@@ -4,7 +4,7 @@ extends RefCounted
 const State = preload("res://dice/state.gd")
 const Demands = preload("res://dice/demands.gd")
 
-const HANDS := ["High die", "Pair", "Two pair", "Three of a kind", "Straight", "Full house", "Four of a kind", "Five of a kind"]
+const HANDS := ["No match", "Pair", "Two pair", "Three of a kind", "Run", "Three and a pair", "Four of a kind", "Five of a kind"]
 
 
 static func new_hand(cfg: Dictionary, rng):

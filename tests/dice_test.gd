@@ -53,10 +53,10 @@ func _init() -> void:
 
 func test_score() -> void:
 	var cfg := Config.merged({})
-	var cases := [[[], "High die", 0], [[4], "High die", 0], [[4, 4], "Pair", 1],
+	var cases := [[[], "No match", 0], [[4], "No match", 0], [[4, 4], "Pair", 1],
 		[[4, 4, 5, 5], "Two pair", 2], [[3, 3, 3], "Three of a kind", 3],
-		[[2, 3, 4, 5, 6], "Straight", 5], [[6, 2, 5, 3, 4], "Straight", 5],
-		[[2, 2, 3, 3, 3], "Full house", 5], [[5, 5, 5, 5, 2], "Four of a kind", 7],
+		[[2, 3, 4, 5, 6], "Run", 5], [[6, 2, 5, 3, 4], "Run", 5],
+		[[2, 2, 3, 3, 3], "Three and a pair", 5], [[5, 5, 5, 5, 2], "Four of a kind", 7],
 		[[6, 6, 6, 6, 6], "Five of a kind", 12], [[2, 3, 4, 5, 5], "Pair", 1]]
 	for c in cases:
 		var sc: Dictionary = Rules.score(cfg, c[0])
@@ -66,9 +66,9 @@ func test_score() -> void:
 func test_score_wild() -> void:
 	var cfg := Config.merged({})
 	check("wild makes a pair from a single", Rules.score(cfg, [4, 0]).name == "Pair")
-	check("wild fills the straight", Rules.score(cfg, [2, 3, 5, 6, 0]).name == "Straight")
+	check("wild fills the straight", Rules.score(cfg, [2, 3, 5, 6, 0]).name == "Run")
 	check("wild takes the best hand: four over full house", Rules.score(cfg, [3, 3, 3, 2, 0]).name == "Four of a kind")
-	check("wild alone is high die", Rules.score(cfg, [0]).name == "High die")
+	check("wild alone is high die", Rules.score(cfg, [0]).name == "No match")
 
 
 func test_keep_returns_the_other() -> void:
@@ -154,7 +154,7 @@ func test_preview() -> void:
 	Rules.keep(s, 0)
 	Rules.throw(s)
 	check("preview shows what each keep makes", Rules.preview(s, 0).name == "Pair" and Rules.preview(s, 0).marks == 1
-		and Rules.preview(s, 1).name == "High die")
+		and Rules.preview(s, 1).name == "No match")
 	check("preview changes nothing", s.row == [4] and s.thrown == [4, 2])
 
 

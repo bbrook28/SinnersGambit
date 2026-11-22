@@ -7,7 +7,7 @@ extends RefCounted
 const DANGER_AT := 2   # skulls showing for a throw to count as thrown in danger
 
 const DEMANDS := {
-	"pride": {"lone": {6: 4}, "faces": {2: -1}, "danger": 0, "line": "A lone 6 pays 4. Each 2 costs 1."},
+	"pride": {"lone": {6: 4}, "faces": {2: -1}, "danger": 0, "line": "Exactly one 6 pays 4. Each 2 costs 1."},
 	"envy": {"faces": {6: 1, 2: -1}, "danger": 0, "line": "Each 6 pays 1. Each 2 costs 1."},
 	"wrath": {"faces": {}, "danger": 1, "line": "Each die thrown at two skulls pays 1."},
 }

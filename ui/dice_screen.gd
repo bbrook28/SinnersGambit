@@ -91,7 +91,8 @@ const BLOOD := Color("9e1b1b")
 const W := 1020          # content width
 const DIE := 176         # die size in the row
 const TDIE := 196        # die size in the tray
-const LIGHT_PAD := 600  # how far the Sin's light may reach past each side of the stage
+const SIN_CARD := "A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand.\n\nIts rule is written on the table edge. Lose the hand and it pays nothing."
+const LIGHT_PAD := 600 # how far the Sin's light may reach past each side of the stage
 const EDGE_Y := 420     # the table's far edge in the stage
 const FPS := 8.0         # the Master's idle
 const CANDLE_H := 220.0  # a lit candle's height
@@ -220,7 +221,7 @@ func _new_hand(rng = null) -> void:
 	if demand_line() != "" and not seen.get(met, false):
 		seen[met] = true
 		_save()
-		_card("The Sin's demand", "Each hand a Sin hosts, and pays you marks for what it wants, on top of your hand.\n\nIts window says what. Lose the hand and the Sin pays nothing.", "Got it", func(): _open_sin(OPEN_READ))
+		_card("The Sin", SIN_CARD, "Got it", func(): _open_sin(OPEN_READ))
 	else:
 		_open_sin()
 
@@ -796,15 +797,15 @@ func _refresh() -> void:
 		match phase:
 			"throw":
 				if Rules.is_dance(s):
-					m = "One die left: the Last Dance. Any face is wild; a skull loses the hand."
+					m = "One die left: the Last Dance. It counts as any number; a skull loses the hand."
 				elif Rules.throw_pays(s, 1) > 0:
-					m = "Two skulls show: %s pays %d for each die you throw now." % [sin_name(), Rules.throw_pays(s, 1)]
+					m = "Two skulls show: %s pays %d for each die you roll now." % [sin_name(), Rules.throw_pays(s, 1)]
 				elif s.thrown.is_empty() and s.throws > 0 and s.row.size() == 0 and s.skulls > 0 and s.last_faces.size() > 0 and s.last_faces.max() <= int(cfg.skull_faces):
-					m = "Nothing but skulls. Draw again."
+					m = "Nothing but skulls. Roll again."
 				else:
 					var o: Array = Rules.draw_options(s)
 					var said: String = " or ".join(o.map(func(x): return str(x))) if o.size() <= 2 else "1, 2 or 3"
-					m = "Draw %s %s. You keep one; the rest go back." % [said, "die" if o == [1] else "dice"]
+					m = "Roll %s %s. Keep one; the rest go back into the bag." % [said, "die" if o == [1] else "dice"]
 			"keep":
 				m = "Tap a die to see what it makes; tap again or Keep." if selected < 0 else "Keep it, or tap another die."
 			"over":
@@ -845,7 +846,7 @@ func next_hint() -> String:
 			if not f in row:
 				missing.append(str(f))
 		if missing.size() == int(cfg.row) - row.size():
-			return "Needs %s: Straight · %d" % [" and ".join(missing), Rules.pay(cfg, 4)]
+			return "Needs %s: %s · %d" % [" and ".join(missing), Rules.HANDS[4], Rules.pay(cfg, 4)]
 	var now: Dictionary = Rules.score(cfg, row)
 	var best := {}
 	var bf := 0
@@ -1392,7 +1393,7 @@ func _row() -> Control:
 		var d := _die_node(2, DIE)
 		d.visible = false
 		slot.add_child(d)
-		var wl := _label("WILD", caps_bold, 34, Color("b8860b"))
+		var wl := _label("ANY", caps_bold, 34, Color("b8860b"))
 		wl.size = Vector2(DIE, DIE)
 		wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		wl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1633,9 +1634,9 @@ func _close_card(which: String) -> void:
 func _on_help() -> void:
 	if overlay.visible:
 		return
-	var text := "Each throw, draw 1, 2 or 3 dice and keep one in your row; the rest go back. A 1 is a skull: it stays out and snuffs a candle. Three skulls and the Master takes the hand. A full row is paid. The bag's last die is thrown alone: wild, but a skull loses the hand."
+	var text := "Each turn, roll 1, 2 or 3 dice and keep one in your row; the rest go back into the bag. A 1 is a skull: it stays out and puts out a candle. Three skulls and the Master takes the hand. A full row is paid. The bag's last die is rolled alone: it counts as any number, but a skull loses the hand."
 	if demand_line() != "":
-		text = "%s hosts this hand.\n%s\n\n%s" %[sin_name(), demand_line(), text]
+		text = "%s is watching this hand.\n%s\n\n%s" %[sin_name(), demand_line(), text]
 	text += "\n\n%s%s" % [Version.VERSION, (" (%s)" % Version.BUILD) if Version.BUILD != "" else ""]
 	_card("The hands", text, "Back", Callable(), "Replay the tutorial", func():
 		_start_tutorial(), 0, SEAL_BACK, hand_ranking())
