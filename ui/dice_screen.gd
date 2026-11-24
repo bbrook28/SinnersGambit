@@ -1711,8 +1711,9 @@ func _close_card(which: String) -> void:
 	_refresh()
 
 
+## The ? page. It waits for moving dice: Replay the tutorial would clear the tray under a roll still playing.
 func _on_help() -> void:
-	if overlay.visible:
+	if overlay.visible or phase == "anim":
 		return
 	var text := "\n\n".join(RULES)
 	if demand_line() != "":

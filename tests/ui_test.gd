@@ -247,6 +247,18 @@ func test_free_hands() -> void:
 
 
 func test_help() -> void:
+	# the page waits for the dice: Replay the tutorial during a roll threw a script error
+	h._on_seal(2 if h.s.bag >= 2 else 1)
+	check("help: a roll is under way", h.phase == "anim")
+	h._on_help()
+	check("help: does not open while dice are moving", not h.overlay.visible)
+	await settle()
+	if h.phase == "keep":
+		h._on_die(0)
+		h._on_keep()
+		h._on_help()
+		check("help: nor while a kept die flies to the row", h.phase != "anim" or not h.overlay.visible)
+		await settle()
 	h._on_help()
 	var grid: GridContainer = h.card_body.get_child(0)
 	var cells := grid.get_children()
