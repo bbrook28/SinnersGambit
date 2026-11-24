@@ -1,6 +1,6 @@
 # Sinners' Gambit: dice poker against the Master (pitch)
 
-Date: 2026-11-20. Status: draft for Ben's approval. Replaces the bag hand (`2026-11-20-bag-hand-design.md`) as the hand, if approved.
+Date: 2026-11-20. Status: approved 2026-11-20, then changed by Ben the same day (bag 7, choose 1 to 3 dice a roll, no cash out; `CLAUDE.md`, Design). This page was not rewritten and no longer describes the hand: the rules as built are in `docs/rules.md`. Replaces the bag hand (`2026-11-20-bag-hand-design.md`) as the hand, if approved.
 
 ## The pitch
 You draw dice from a bag, a pair at a time, and build a poker hand against the Master of the Dance. Every throw you keep one die. Every 1 is a skull. Three skulls and the Master takes the lot. Cash out whenever your hand is good enough.

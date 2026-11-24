@@ -1,6 +1,6 @@
 # Sinners' Gambit: the Sin's demand (pitch, second revision)
 
-Date: 2026-11-21, revised twice the same day after the review of 0.12.0. Status: **draft for Ben's approval.** Adds to the dice poker pitch (`2026-11-20-dice-poker-pitch.md`); the hand's rules do not change. Numbers: `sim/demand_probe/demand5.py` (exact). The hand itself has its own pitch: `2026-11-21-the-refusal-pitch.md`.
+Date: 2026-11-21, revised twice the same day after the review of 0.12.0. Status: **Pride's rule shipped in 0.13.0** as "Exactly one 6 pays 4. Each 2 costs 1." (plan `docs/superpowers/plans/2026-11-21-lone-six.md`, approved); the other six Sins have no approved rule, and this page was not rewritten. The rules as built are in `docs/rules.md`. Adds to the dice poker pitch (`2026-11-20-dice-poker-pitch.md`); the hand's rules do not change. Numbers: `sim/demand_probe/demand5.py` (exact). The hand itself has its own pitch: `2026-11-21-the-refusal-pitch.md`.
 
 ## The pitch
 Each hand a Sin hosts, and the Sin pays marks for something the poker hand punishes. To be paid you must spoil your hand a little; the keep asks whether the Sin's marks are worth it. Bust and the Sin pays nothing.
