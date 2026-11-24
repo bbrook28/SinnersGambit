@@ -104,3 +104,12 @@ func next_lesson() -> bool:
 	lesson += 1
 	i = 0
 	return true
+
+
+## The lessons' card with that title, so a card shown outside the lessons uses the same words; {} when there is none.
+static func card(title: String) -> Dictionary:
+	for l in LESSONS:
+		for st in l.steps:
+			if st.type == "card" and st.title == title:
+				return st
+	return {}

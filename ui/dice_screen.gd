@@ -278,9 +278,8 @@ func _on_seal(n: int) -> void:
 	_sfx("press")
 	var row0: int = s.row.size()
 	var skulls0: int = s.skulls
-	var was_dance := Rules.is_dance(s)
 	Rules.throw(s, n)
-	_play_throw(row0, skulls0, was_dance)
+	_play_throw(row0, skulls0)
 
 
 func _on_die(i: int) -> void:
@@ -334,8 +333,25 @@ func _after_move() -> void:
 		_end()
 	else:
 		phase = "throw"
+		_meet_dance()
 		_refresh()
 		_tut_sync()
+
+
+## A one-time card for something a player who skipped the lessons meets in free play, in the lesson's own words.
+func _meet(key: String, title: String) -> void:
+	if tut != null or seen.get(key, false):
+		return
+	seen[key] = true
+	_save()
+	var c: Dictionary = Tutorial.card(title)
+	_card(c.title, c.text, "Got it", Callable())
+
+
+## The Last Dance's card, before its roll.
+func _meet_dance() -> void:
+	if Rules.is_dance(s):
+		_meet("dance", "The Last Dance")
 
 
 ## The hand is over: the Master laughs at a bust; a paid row sends its marks flying to the counter; then the
@@ -479,7 +495,7 @@ func _big(st) -> int:
 
 # ---------- animation ----------
 
-func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
+func _play_throw(row0: int, skulls0: int) -> void:
 	phase = "anim"
 	selected = -1
 	_clear_tray()
@@ -518,9 +534,9 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 		_buzz(90)
 		_flinch()
 		_shake()
-		if not seen.get("skull", false) and (tut == null or tut.done()):
-			seen["skull"] = true
 		await get_tree().create_timer(0.55).timeout
+		if not s.busted:
+			_meet("skull", "Skulls")
 	if s.busted:
 		_end()
 		return
@@ -531,9 +547,6 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 			if faces[k] > int(cfg.skull_faces):
 				j = k
 		var face: int = s.row[-1]
-		if was_dance and (tut == null or tut.done()) and not seen.get("dance", false):
-			seen["dance"] = true
-			_save()
 		await get_tree().create_timer(0.25).timeout
 		_fly(face, tray_dice[j].global_position, row0, func():
 			_clear_tray()
@@ -543,6 +556,7 @@ func _play_throw(row0: int, skulls0: int, was_dance: bool) -> void:
 		phase = "keep"
 	else:
 		phase = "throw"
+		_meet_dance()
 	_refresh()
 	_tut_sync()
 

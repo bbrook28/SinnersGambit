@@ -569,3 +569,53 @@ func test_lesson_edges() -> void:
 		and h.overlay.visible and h.card_title.text == "The Sin" and not h.card_alt.visible)
 	h._on_card_btn()
 	check("ui: after it the dice are free", not h.overlay.visible and not h.seals[0].btn.disabled and not h.seals[2].btn.disabled)
+	# a player who skipped meets the first skull and the first Last Dance with a card each, once
+	h.seen.erase("skull")
+	h.seen.erase("dance")
+	hosted([1, 3, 3, 1, 4, 4, 5])
+	h._end_opening()
+	h._on_seal(2)
+	await settle()
+	check("skip: the first skull brings the Skulls card", h.overlay.visible and h.card_title.text == "Skulls" and not h.card_alt.visible
+		and h.card_text.text == h.Tutorial.LESSONS[1].steps[0].text and h.seen.get("skull", false) and h.s.skulls == 1)
+	h._on_card_btn()
+	await settle()
+	h._on_seal(2)
+	await settle()
+	check("skip: the Skulls card comes once", not h.overlay.visible and h.s.skulls == 2 and h.s.row == [3, 3])
+	h._on_seal(1)
+	await settle()
+	check("skip: no Last Dance card with two dice in the bag", not h.overlay.visible and h.s.bag == 2)
+	h._on_seal(1)
+	await settle()
+	check("skip: the Last Dance card comes before the roll", h.overlay.visible and h.card_title.text == "The Last Dance" and not h.card_alt.visible
+		and h.s.bag == 1 and h.phase == "throw" and h.s.row == [3, 3, 4, 4] and h.seen.get("dance", false))
+	var c := ConfigFile.new()
+	check("skip: both are saved", c.load("user://ui_test.cfg") == OK and c.get_value("dice", "seen", {}).get("skull", false)
+		and c.get_value("dice", "seen", {}).get("dance", false))
+	h._on_card_btn()
+	h._on_seal(1)
+	await settle()
+	await await_result()
+	h._on_next()
+	# three skulls in one roll: the hand is lost, and the card waits for a later hand
+	h.seen.erase("skull")
+	hosted([1, 1, 1])
+	h._end_opening()
+	h._on_seal(3)
+	await settle()
+	await await_result()
+	check("skip: no Skulls card over a lost hand", h.s.busted and not h.overlay.visible and not h.seen.get("skull", false))
+	h._on_next()
+	# a player who finished the lessons sees neither
+	h.seen["skull"] = true
+	hosted([1, 3, 3, 1, 4, 4, 5])
+	h._end_opening()
+	var carded := false
+	for n in [2, 2, 1, 1, 1]:
+		h._on_seal(n)
+		await settle()
+		carded = carded or h.overlay.visible
+	check("finished: neither card comes back", not carded and h.s.over)
+	await await_result()
+	h._on_next()
