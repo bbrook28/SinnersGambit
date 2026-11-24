@@ -31,6 +31,7 @@ func _initialize() -> void:
 	await test_demand()
 	await test_words()
 	await test_lesson_edges()
+	await test_replay()
 	DirAccess.remove_absolute("user://ui_test.cfg")
 	print("ui_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -135,6 +136,7 @@ func test_lessons() -> void:
 	check("ui: lesson 1 is paid 5 and ends on the hands", h.s.row == [4, 4, 4, 6, 6] and h.s.marks == 5 and h.s.skulls == 0
 		and h.ribbon_label.text == "Three and a pair · 5" and h.overlay.visible and h.card_title.text == "Paid"
 		and h.card_body.visible and h.card_body.get_child(0) is GridContainer)
+	check("replay: lesson 1 pays its 5 the first time", h.total == 5 and h.lessons_paid == 1 and not h.banner_text.text.contains("replay"))
 	h._on_card_btn()
 	check("ui: Next hand waits under the result", h.next_box.visible and h.banner.visible and not h.overlay.visible)
 	h._on_next()
@@ -175,6 +177,7 @@ func test_lessons() -> void:
 	await await_result()
 	check("ui: lesson 2 ends on four 5s, the last die shown as ANY", h.s.row == [5, 5, 5, 3, 0] and h.s.marks == 7 and h.ribbon_label.text == "Four of a kind · 7"
 		and h.row_dice[4].get_child(0).visible and h.row_dice[4].get_child(0).text == "ANY" and not h.overlay.visible)
+	check("replay: lesson 2 pays its 7 the first time", h.total == 12 and h.lessons_paid == 2)
 	h._on_next()
 	# lesson 3: the Sin
 	check("ui: lesson 3 opens on the Sin, Pride watching", h.tut != null and h.tut.lesson == 2 and h.card_title.text == "The Sin" and h.card_alt.visible
@@ -648,3 +651,72 @@ func test_lesson_edges() -> void:
 	check("finished: neither card comes back", not carded and h.s.over)
 	await await_result()
 	h._on_next()
+
+
+## Plays the current lesson's hand to its result, as the lesson asks; the dice are the player's where it is free.
+func play_lesson() -> void:
+	var guard := 0
+	while not h.s.over and guard < 60:
+		guard += 1
+		if h.overlay.visible:
+			h._on_card_btn()
+			continue
+		if h.opener != null and h.opener.visible:
+			h._end_opening()
+		var st: Dictionary = h.tut.step()
+		if h.phase == "keep":
+			await keep_face(st.face if st.type == "keep" else h.s.thrown[0])
+		else:
+			h._on_seal(st.n if st.type == "throw" else 1)
+			await settle()
+	await await_result()
+	if h.overlay.visible:
+		h._on_card_btn()
+
+
+## A lesson pays the first time it is finished; a replay pays nothing and says so (it paid 12 marks each time).
+func test_replay() -> void:
+	check("replay: all three lessons were paid on the first run", h.lessons_paid == 3)
+	var before: int = h.total
+	h._start_tutorial()
+	await play_lesson()
+	check("replay: lesson 1 again leaves the total alone (%d, was %d)" % [h.total, before], h.s.marks == 5 and h.total == before
+		and h.marks_label.text == str(before))
+	check("replay: the result says so (%s)" % h.banner_text.text, h.banner_title.text == "5 marks"
+		and h.banner_text.text == "Your row is paid. A replay pays nothing. You have %d marks in all." % before)
+	# a player who skipped on lesson 2 was paid for lesson 1 alone: a replay pays lessons 2 and 3 once
+	h.lessons_paid = 1
+	h._on_next()
+	await play_lesson()
+	check("replay: a lesson never finished before is paid", h.tut.lesson == 1 and h.total == before + 7 and h.lessons_paid == 2
+		and not h.banner_text.text.contains("replay"))
+	var c := ConfigFile.new()
+	check("replay: what was paid is saved", c.load("user://ui_test.cfg") == OK and int(c.get_value("dice", "lessons_paid", -1)) == 2)
+	h._on_next()
+	await play_lesson()
+	check("replay: lesson 3 too, once", h.tut.lesson == 2 and h.lessons_paid == 3 and h.total == before + 7 + h.s.marks)
+	h._on_next()
+	# free hands pay as before
+	before = h.total
+	hosted([3, 3, 4, 4, 5])
+	h._end_opening()
+	for n in 5:
+		h._on_seal(1)
+		await settle()
+	await await_result()
+	check("replay: a free hand after it pays", h.tut == null and h.s.marks == 2 and h.total == before + 2 and not h.banner_text.text.contains("replay"))
+	h._on_next()
+	# a save from before this build, tutorial finished or skipped: its lessons count as paid
+	c = ConfigFile.new()
+	c.set_value("dice", "total", 40)
+	c.set_value("dice", "seen", {"tutorial": true})
+	c.save("user://ui_test_old.cfg")
+	var old = DiceScreen.new()
+	old.save_path = "user://ui_test_old.cfg"
+	old.size = Vector2(1080, 1920)
+	root.add_child(old)
+	await process_frame
+	check("replay: an older save's lessons count as paid", old.lessons_paid == 3 and old.total == 40)
+	old.queue_free()
+	await process_frame
+	DirAccess.remove_absolute("user://ui_test_old.cfg")

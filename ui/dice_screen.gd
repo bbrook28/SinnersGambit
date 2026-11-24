@@ -116,6 +116,8 @@ var phase := "throw"      # throw, keep, anim, over
 var selected := -1        # thrown die index picked for a keep
 var total := 0            # marks across hands
 var hands := 0
+var lessons_paid := 0     # lessons 1..this many have paid their marks; a replay pays nothing
+var unpaid := false       # the hand just ended was a lesson played again: its marks are shown, not added
 var sin_i := 0
 var seen := {}
 var cards: Array = []     # [{title, text, button, then, alt, alt_then, big, icon, body}]
@@ -356,11 +358,16 @@ func _meet_dance() -> void:
 
 ## The hand is over: the Master laughs at a bust; a paid row sends its marks flying to the counter; then the
 ## result banner comes down over the mat, with Next hand in place of the seals.
+## A lesson pays the first time its hand ends; played again it pays nothing (a replay paid its marks every time).
 func _end() -> void:
 	phase = "over"
 	hands += 1
 	var before := total
-	total += s.marks
+	unpaid = tut != null and lessons_paid > tut.lesson
+	if tut != null:
+		lessons_paid = maxi(lessons_paid, tut.lesson + 1)
+	if not unpaid:
+		total += s.marks
 	_save()
 	counting = true
 	marks_label.text = "%d" % before
@@ -381,7 +388,7 @@ func _end() -> void:
 func _payout(before: int) -> void:
 	var big := _big(s)
 	_react(big)
-	if s.marks <= 0:
+	if s.marks <= 0 or unpaid:
 		return
 	_sfx("pay_big" if big >= 1 else "pay_small")
 	_buzz(40 if big == 0 else 120)
@@ -442,7 +449,7 @@ func _show_result() -> void:
 		title = "%d mark%s" % [t.total, "" if t.total == 1 else "s"] if t.total > 0 else "No marks"
 		if t.total == 0 and t.sin < 0 and t.marks > 0:
 			title = "%s takes it all" % sin_name()   # the hand made marks and the Sin took them: not a bust, not a blank
-		text = "%s You have %d marks in all." % [paid_line(t), total]
+		text = "%s %sYou have %d marks in all." % [paid_line(t), "A replay pays nothing. " if unpaid else "", total]
 	var big := _big(s)
 	banner_title.text = title
 	banner_title.add_theme_font_size_override("font_size", (52 if s.busted else [72, 84, 96][big]))
@@ -1785,6 +1792,8 @@ func _load() -> void:
 		total = int(c.get_value("dice", "total", 0))
 		hands = int(c.get_value("dice", "hands", 0))
 		seen = c.get_value("dice", "seen", {})
+		# a save from before lessons_paid: a player past the tutorial has had its marks
+		lessons_paid = int(c.get_value("dice", "lessons_paid", Tutorial.LESSONS.size() if seen.get("tutorial", false) else 0))
 
 
 func _save() -> void:
@@ -1792,4 +1801,5 @@ func _save() -> void:
 	c.set_value("dice", "total", total)
 	c.set_value("dice", "hands", hands)
 	c.set_value("dice", "seen", seen)
+	c.set_value("dice", "lessons_paid", lessons_paid)
 	c.save(save_path)

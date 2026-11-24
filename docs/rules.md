@@ -44,6 +44,8 @@ A full row always makes at least a Pair or the Run.
 
 Each hand's marks are added to a running total (`ui/dice_screen.gd`, `_end`). The total is saved between sessions, never falls and buys nothing.
 
+A lesson's hand pays the first time it ends. Played again from "Replay the tutorial" it pays nothing, and its result says "A replay pays nothing." (`lessons_paid`, `ui/dice_screen.gd`, `_end`).
+
 ## Not live
 
 | Rule | Status |

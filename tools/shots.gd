@@ -224,6 +224,18 @@ func _initialize() -> void:
 		await settle()
 	await _shot("skip_last_dance_card")
 	h._on_card_btn()
+	# Replay the tutorial: lesson 1 again pays nothing, and its result says so
+	h._start_tutorial()
+	h._on_card_btn()
+	for step in [[2, 4], [2, 4], [3, 4], [2, 6], [2, 6]]:
+		if h.overlay.visible:
+			h._on_card_btn()
+		h._on_seal(step[0])
+		await settle()
+		await keep_face(step[1])
+	await _result()
+	h._on_card_btn()
+	await _shot("replay_result")
 	DirAccess.remove_absolute("user://shots.cfg")
 	quit(0)
 
