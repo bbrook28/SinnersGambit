@@ -872,32 +872,51 @@ func shown_row() -> Array:
 	return r
 
 
-## What one more die would make at best ("One more 4: Full house · 5"), or "" when no die improves the row.
+## What one more die would make at best ("One more 4: Three and a pair · 5"), or "" when no die improves the row.
+## A die is judged by what the row would pay in all, the hand and the Sin together, so under Pride a second 6
+## is not offered; where the die changes the Sin's pay the hint says so ("One more 6: Pride +4").
 func next_hint() -> String:
 	var row: Array = s.row.duplicate()
 	if phase == "keep" and selected >= 0:
 		row.append(s.thrown[selected])   # count the picked die, as the ribbon does
 	if row.is_empty() or row.size() >= int(cfg.row):
 		return ""
+	var sin0: int = Rules.sin_marks(cfg, row, s.bank)
 	# three or four dice, all different: the straight is the hand in play, so name the faces it still needs
 	if row.size() >= 3 and not 0 in row:
 		var missing: Array = []
+		var full: Array = row.duplicate()
 		for f in range(int(cfg.skull_faces) + 1, 7):
 			if not f in row:
 				missing.append(str(f))
+				full.append(f)
 		if missing.size() == int(cfg.row) - row.size():
-			return "Needs %s: %s · %d" % [" and ".join(missing), Rules.HANDS[4], Rules.pay(cfg, 4)]
+			return "Needs %s: %s · %d%s" % [" and ".join(missing), Rules.HANDS[4], Rules.pay(cfg, 4),
+				_sin_change(Rules.sin_marks(cfg, full, s.bank) - sin0, ", ")]
 	var now: Dictionary = Rules.score(cfg, row)
 	var best := {}
+	var best_all: int = now.marks + sin0
+	var best_sin := 0
 	var bf := 0
 	for f in range(int(cfg.skull_faces) + 1, 7):
 		var sc: Dictionary = Rules.score(cfg, row + [f])
-		if sc.marks > now.marks and (best.is_empty() or sc.marks > best.marks or (sc.marks == best.marks and sc.hand > best.hand)):
+		var sin: int = Rules.sin_marks(cfg, row + [f], s.bank)
+		var all: int = sc.marks + sin
+		if all > best_all or (not best.is_empty() and all == best_all and sc.hand > best.hand):
 			best = sc
+			best_all = all
+			best_sin = sin
 			bf = f
 	if best.is_empty():
 		return ""
-	return "One more %d: %s · %d" % [bf, best.name, best.marks]
+	if best.marks > now.marks:
+		return "One more %d: %s · %d%s" % [bf, best.name, best.marks, _sin_change(best_sin - sin0, ", ")]
+	return "One more %d: %s" % [bf, _sin_change(best_sin - sin0, "")]
+
+
+## The Sin's name and what a die would add to or take from its pay ("Pride +4"), after lead; "" for no change.
+func _sin_change(m: int, lead: String) -> String:
+	return "" if m == 0 else "%s%s %s" % [lead, sin_name(), marks_text(m)]
 
 
 ## This hand's Sin: its window on the wall, its colour on the wall and the table edge.

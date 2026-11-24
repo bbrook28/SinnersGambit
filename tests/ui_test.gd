@@ -189,6 +189,7 @@ func test_lessons() -> void:
 	h._on_seal(2)
 	await settle()
 	check("ui: the second 6 wears −4", tag_of(0) == "−4" and tag_of(1) == "")
+	check("ui: lesson 3's hint does not contradict the lesson (%s)" % h.hint.text, not h.hint.text.begins_with("One more 6"))
 	h._on_die(0)
 	check("ui: the second 6 is refused by the lesson", h.selected == -1)
 	await keep_face(4)
@@ -276,16 +277,16 @@ func test_labels() -> void:
 	check("ui: the row shows matches first", h.shown_row() == [5, 5, 3, 2])
 	h.s.row = [6, 5, 4, 3]
 	h._refresh()
-	check("ui: a straight draw is named", h.hint.text == "Needs 2: Run · 5")
+	check("ui: a straight draw is named, with what its 2 costs", h.hint.text == "Needs 2: Run · 5, Pride −1")
 	h.s.row = [2, 3, 4]
 	h._refresh()
-	check("ui: three different dice: the hint names the straight, not a pair", h.hint.text == "Needs 5 and 6: Run · 5")
+	check("ui: three different dice: the hint names the straight, not a pair", h.hint.text == "Needs 5 and 6: Run · 5, Pride +4")
 	h.s.row = [2, 3, 3]
 	h._refresh()
-	check("ui: a pair in the row: no straight to name", h.hint.text == "One more 3: Three of a kind · 3")
+	check("ui: a pair in the row: no straight to name; Pride's 6 beats a third 3", h.hint.text == "One more 6: Pride +4")
 	h.s.row = [2, 3]
 	h._refresh()
-	check("ui: two dice: the pair is still the hint", h.hint.text == "One more 2: Pair · 1")
+	check("ui: two dice: Pride's 6 beats a pair", h.hint.text == "One more 6: Pride +4")
 	h.s.busted = false
 	h.s.row = [6, 6, 6, 6, 2]
 	check("ui: four of a kind gets the grand card", h._big(h.s) == 2)
@@ -362,6 +363,33 @@ func test_demand() -> void:
 		for ch in [0x2b, 0x2212]:
 			glyphs = glyphs and (f.base_font.has_char(ch) or f.fallbacks[0].has_char(ch))
 	check("ui: the faces have a plus and a true minus", glyphs)
+	# the hint under the row counts what the Sin pays
+	hosted([])
+	h._end_opening()
+	h.s.row = [6]
+	h._refresh()
+	check("hint: no second 6 under Pride (%s)" % h.hint.text, h.hint.text == "")
+	h.s.thrown = [6, 4]
+	h.s.last_faces = [6, 4]
+	h.phase = "keep"
+	h.selected = 1
+	h._refresh()
+	check("hint: the pair that keeps the 6 alone (%s)" % h.hint.text, h.hint.text == "One more 4: Pair · 1")
+	h.s.thrown = []
+	h.s.last_faces = []
+	h.phase = "throw"
+	h.selected = -1
+	h.s.row = [3]
+	h._refresh()
+	check("hint: Pride's 6 beats a pair (%s)" % h.hint.text, h.hint.text == "One more 6: Pride +4")
+	h.s.row = [2, 2, 2, 2]
+	h._refresh()
+	check("hint: hand and Sin together (%s)" % h.hint.text, h.hint.text == "One more 2: Five of a kind · %d, Pride −1" % h.Rules.pay(h.cfg, 7))
+	h.cfg.demand = ""
+	h.s.row = [6]
+	h._refresh()
+	check("hint: with no Sin, as before (%s)" % h.hint.text, h.hint.text == "One more 6: Pair · 1")
+	h.cfg.demand = "pride"
 	# a 6 is kept alone, then a 6 and a 2 are thrown
 	hosted([6, 6, 2])
 	h._on_seal(1)
