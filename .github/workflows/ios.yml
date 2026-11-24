@@ -11,10 +11,6 @@ on:
         description: "TestFlight What to Test text (empty: leave it)"
         type: string
         default: ""
-      table:
-        description: "Open on the table layout (export preset \"iOS (table)\", feature table_view; blockout playtests)"
-        type: boolean
-        default: false
   push:
     tags: ["v*"]
 
@@ -40,7 +36,7 @@ jobs:
           # The Team ID lives in export_presets.cfg (it isn't secret); an
           # APPLE_TEAM_ID secret, if set, overrides it.
           TEAM="$TEAM_SECRET"
-          [ -z "$TEAM" ] && TEAM=$(sed -n 's/^application\/app_store_team_id="\(.*\)"/\1/p' export_presets.cfg | head -1)  # one line per iOS preset
+          [ -z "$TEAM" ] && TEAM=$(sed -n 's/^application\/app_store_team_id="\(.*\)"/\1/p' export_presets.cfg | head -1)
           echo "APPLE_TEAM=$TEAM" >> $GITHUB_ENV
           missing=""
           [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
@@ -48,7 +44,7 @@ jobs:
           [ -z "$ISSUER" ] && missing="$missing ASC_ISSUER_ID"
           [ -z "$KEY" ] && missing="$missing ASC_KEY_P8"
           if [ -n "$missing" ]; then
-            echo "::error::Missing repository secrets:$missing (see Docs/Handoff.md)"
+            echo "::error::Missing repository secrets:$missing"
             exit 1
           fi
 
@@ -119,10 +115,7 @@ jobs:
       - name: Export Xcode project
         run: |
           mkdir -p build/ios
-          PRESET="iOS"
-          [ "${{ inputs.table }}" = "true" ] && PRESET="iOS (table)"
-          echo "Export preset: $PRESET"
-          ~/godot/Godot.app/Contents/MacOS/Godot --headless --export-release "$PRESET" build/ios/SinnersGambit.ipa
+          ~/godot/Godot.app/Contents/MacOS/Godot --headless --export-release "iOS" build/ios/SinnersGambit.ipa
           test -d build/ios/SinnersGambit.xcodeproj
 
       - name: Write App Store Connect key
