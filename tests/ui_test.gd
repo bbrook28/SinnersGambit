@@ -270,6 +270,15 @@ func test_help() -> void:
 	check("ui: ? holds all the rules in the lessons' words", t.contains("counts as any number") and t.contains("puts out a candle")
 		and t.contains("A full row always makes at least a Pair") and t.contains("The number above a die") and t.contains(h.Version.VERSION)
 		and banned_in(t).is_empty())
+	check("ui: ? says a single die is kept for you", t.contains("it is kept for you"))
+	check("ui: ? says the last die's number counts the Sin's marks", t.contains("the Sin's marks included"))
+	check("ui: ? says a hand never pays less than 0", t.contains("never pays less than 0"))
+	var any_time := false
+	for lesson in h.Tutorial.LESSONS:
+		for step in lesson.steps:
+			if str(step.get("text", "")).contains("at any time"):
+				any_time = true
+	check("ui: no lesson says ? opens at any time (it waits for the dice)", not any_time)
 	await process_frame
 	await process_frame
 	check("ui: both buttons of the ? page stay on the screen (%d of 1920)" % h.card_alt.get_global_rect().end.y, h.card_alt.visible

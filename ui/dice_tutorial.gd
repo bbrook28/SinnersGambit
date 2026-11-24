@@ -36,7 +36,7 @@ const LESSONS := [
 		{"type": "throw", "n": 2, "msg": "One place left. Roll two."},
 		{"type": "keep", "face": 6, "msg": "Keep the 6: three 4s and a pair of 6s."},
 		{"type": "card", "title": "Paid", "body": "ranking",
-			"text": "A full row is paid, and it always makes at least a Pair. These are all the hands, best first.\n\nTap ? at any time to see them again."},
+			"text": "A full row is paid, and it always makes at least a Pair. These are all the hands, best first.\n\nTap ? to see them again."},
 		{"type": "end"}]},
 	# 2: skulls. 1 5 / 5 1 3 / 5 / 3 / the Last Dance: 4 -> 5 5 5 3 and any, Four of a kind, 7 marks
 	{"demand": "", "faces": [1, 5, 5, 1, 3, 5, 3, 4], "steps": [
@@ -62,7 +62,7 @@ const LESSONS := [
 		{"type": "throw", "n": 2, "msg": "Roll two again."},
 		{"type": "keep", "face": 4, "msg": "A second 6 is no longer exactly one: Pride would take its 4 back. Keep the 4."},
 		{"type": "card", "title": "The dice are yours",
-			"text": "The ribbon shows your hand and Pride's marks side by side.\n\nFinish this hand your own way. Tap ? at any time for all the rules."},
+			"text": "The ribbon shows your hand and Pride's marks side by side.\n\nFinish this hand your own way. Tap ? for all the rules."},
 		{"type": "free"}]},
 ]
 

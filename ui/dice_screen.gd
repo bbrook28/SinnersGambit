@@ -94,10 +94,10 @@ const TDIE := 196        # die size in the tray
 const SIN_CARD := "A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand.\n\nIts rule is written on the table edge. Lose the hand and it pays nothing."
 ## All the rules, in the lessons' words, for the ? page.
 const RULES := [
-	"Rolling and keeping. Each turn, roll 1, 2 or 3 dice from the bag and keep one in your row; the rest go back into the bag. Five dice fill the row and it is paid. A full row always makes at least a Pair.",
+	"Rolling and keeping. Each turn, roll 1, 2 or 3 dice from the bag and keep one in your row; the rest go back into the bag. If only one die can be kept, it is kept for you. Five dice fill the row and it is paid. A full row always makes at least a Pair.",
 	"Skulls and candles. A 1 is a skull: it cannot be kept, it stays out of the bag and it puts out a candle. Three skulls and the Master takes the hand: it pays nothing. Under each button is your chance of losing the hand on that roll.",
-	"The Last Dance. The bag's last die is rolled alone. It counts as any number you need, but a skull loses the hand.",
-	"The Sin. A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand. The number above a die is what the Sin pays or takes if you keep it. Lose the hand and it pays nothing.",
+	"The Last Dance. The bag's last die is rolled alone. It counts as any number: the one that pays most, the Sin's marks included. But a skull loses the hand.",
+	"The Sin. A Sin watches each hand. It pays marks for what it wants and takes marks for what it hates, on top of your hand. The number above a die is what the Sin pays or takes if you keep it. A Sin can take all a hand makes, never more: a hand never pays less than 0. Lose the hand and it pays nothing.",
 ]
 const CARD_CHROME := 800   # a card's title, flourish, two buttons and paper margins: the height its text cannot use
 ## What makes each hand, in the order of Rules.HANDS.
