@@ -1,4 +1,4 @@
-## Dice poker's rules (docs/superpowers/specs/2026-11-20-dice-poker-pitch.md). No UI; static functions over dice/state.gd.
+## Dice poker's rules (stated in docs/rules.md; the first pitch: docs/superpowers/specs/2026-11-20-dice-poker-pitch.md). No UI; static functions over dice/state.gd.
 extends RefCounted
 
 const State = preload("res://dice/state.gd")

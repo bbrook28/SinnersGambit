@@ -1,4 +1,4 @@
-## Drives the dice screen through the guided first hand and into free hands, as taps would.
+## Drives the dice screen through the three lessons and into free hands, as taps would.
 ## godot --headless --path . --script res://tests/ui_test.gd
 extends SceneTree
 

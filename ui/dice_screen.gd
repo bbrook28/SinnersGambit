@@ -57,7 +57,7 @@ const FLEUR := preload("res://assets/art/ui/divider_fleur.png")
 const SINS := ["pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"]
 ## The Sins that host. 0.13.0: Pride alone, with the one demand under test (dice/demands.gd). The other windows wait.
 const HOSTS := ["pride"]
-## All seven host hands, in this order, and each opens its hand at full screen.
+## Only the Sins in HOSTS host hands, in turn in that order (today Pride, every free hand); a host opens its hand at full screen.
 ## TODO(art): Greed's window needs a SpriteCook redo (Ben, 2026-11-21): the dice patch redrew his hands and robe,
 ## with a finer glass grain and lead lines that do not meet at its edge (see assets/art/spritecook-assets.json, 498a2ec6).
 ## Each Sin's glass colour, spilled on the wall and the table edge (never on the mat, dice or captions).
@@ -473,8 +473,8 @@ func _on_next() -> void:
 	_new_hand()
 
 
-## What was paid, in words: "Your row is paid." with no Sin; "Pair 1 + Pride 4." or "Pair 1, Envy takes 2." with one.
-## Envy can take more than the hand made; the hand then pays nothing, never less.
+## What was paid, in words: "Your row is paid." with no Sin; "Pair 1 + Pride 4." or "Pair 1, Pride takes 2." with one.
+## A Sin can take more than the hand made (a pair of 2s under Pride); the hand then pays nothing, never less.
 func paid_line(t: Dictionary) -> String:
 	if demand_line() == "":
 		return "Your row is paid."

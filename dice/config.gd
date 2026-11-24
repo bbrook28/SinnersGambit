@@ -1,4 +1,4 @@
-## Every number in dice poker (docs/superpowers/specs/2026-11-20-dice-poker-pitch.md). The sim overrides any key with key=value.
+## Every number in dice poker (the rules as built: docs/rules.md; the first pitch: docs/superpowers/specs/2026-11-20-dice-poker-pitch.md). The sim overrides any key with key=value.
 extends RefCounted
 
 const DEFAULTS := {

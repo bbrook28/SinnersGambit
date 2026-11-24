@@ -1,4 +1,4 @@
-## The game's first screen: dice poker against the Master, the guided first hand on first launch.
+## The game's first screen: dice poker against the Master, the three lessons on first launch.
 extends Control
 
 const DiceScreen = preload("res://ui/dice_screen.gd")
