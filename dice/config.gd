@@ -2,7 +2,7 @@
 extends RefCounted
 
 const DEFAULTS := {
-	"bag": 7,              # dice in the bag at the start of a hand (7: the Last Dance comes in ~25% of hands; at 8 it never can)
+	"bag": 7,              # dice in the bag at the start of a hand (7: best play reaches the Last Dance in 38% of hands, 37.9% under Pride and 38.4% with no Sin at 20,000 hands, seed 4, above the sim's 15-30% mark; at 8 it never can)
 	"draw": 2,             # dice a throw draws when the caller names none (the tests and old callers)
 	"max_draw": 3,         # you choose to draw 1 to this many dice each throw (Ben, 2026-11-20: core B, choose your draw)
 	"skull_faces": 1,      # faces 1..skull_faces are skulls; the rest are pips
