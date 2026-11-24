@@ -434,6 +434,8 @@ func _show_result() -> void:
 	var text := ""
 	if s.busted:
 		title = "The Master takes the hand"
+		# With bag 7 and row 5 the second line cannot show: a skull on the Last Dance is always the third
+		# (tests/dice_test.gd, test_last_dance_skull_is_the_third). It is kept for the day the bag or the row changes.
 		text = "Three skulls. The hand pays nothing." if s.skulls >= int(cfg.bust_at) else "A skull on the Last Dance. The hand pays nothing."
 	else:
 		var t: Dictionary = Rules.total(cfg, s.row, s.bank)

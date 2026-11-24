@@ -38,6 +38,7 @@ func _init() -> void:
 	test_full_row_cashes()
 	test_last_dance_wild()
 	test_last_dance_skull()
+	test_last_dance_skull_is_the_third()
 	test_bust_chance()
 	test_preview()
 	test_draw_choice()
@@ -283,3 +284,44 @@ func test_demand_solver() -> void:
 	var p: Dictionary = Policies.strong_policy(s.cfg)
 	check("Wrath: the solver weighs each draw with what it pays", p.solver.throw_value(s.row, 2, 2, 2, 0) != p.solver.throw_value(s.row, 2, 2, 1, 0)
 		and p.draw.call(s) in [1, 2])
+
+
+## Walks every state a hand can reach (bag, dice in the row, skulls), by every roll size and every count of skulls
+## rolled, through the real rules. With bag 7 and row 5 the Last Dance comes only at two skulls, so a skull there is
+## always the third: a lost hand always shows three skulls. The result banner's other line, "A skull on the Last
+## Dance.", can then never show (ui/dice_screen.gd, _show_result). This fails the day the bag or the row changes that.
+func test_last_dance_skull_is_the_third() -> void:
+	var cfg: Dictionary = Config.merged({})
+	var found := {"states": {}, "dances": 0, "early_dance": 0, "busts": 0, "short_busts": 0}
+	_walk(Rules.new_hand(cfg, Faces.new([])), found)
+	check("every state walked: %d, the Last Dance in %d of them" % [found.states.size(), found.dances], found.states.size() > 0 and found.dances > 0)
+	check("the Last Dance comes only at two skulls (%d earlier)" % found.early_dance, found.early_dance == 0)
+	check("a lost hand always shows three skulls (%d lost, %d with fewer)" % [found.busts, found.short_busts], found.busts > 0 and found.short_busts == 0)
+
+
+func _walk(s, found: Dictionary) -> void:
+	var key := "%d/%d/%d" % [s.bag, s.row.size(), s.skulls]
+	if found.states.has(key):
+		return
+	found.states[key] = true
+	if Rules.is_dance(s) and Rules.can_throw(s):
+		found.dances += 1
+		if s.skulls != int(s.cfg.bust_at) - 1:
+			found.early_dance += 1
+	for n in Rules.draw_options(s):
+		for k in n + 1:
+			var faces := []
+			for j in n:
+				faces.append(1 if j < k else 2)
+			var c = s.clone()
+			c.rng = Faces.new(faces)
+			Rules.throw(c, n)
+			if c.busted:
+				found.busts += 1
+				if c.skulls < int(c.cfg.bust_at):
+					found.short_busts += 1
+				continue
+			if not c.thrown.is_empty():
+				Rules.keep(c, 0)
+			if not c.over:
+				_walk(c, found)
