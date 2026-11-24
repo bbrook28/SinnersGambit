@@ -5,7 +5,7 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 ## Kept
 - `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`; the Master of the Dance, the Danse Macabre Reaper, is in `assets/art/master/`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
 - Godot 4.7 stable (standard build, GDScript), 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad. Targets Android and iOS.
-- iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow reads `VERSION` from `ui/version.gd` (bump the minor for each build Ben plays) and runs `tests/load_check.gd`.
+- iOS builds on GitHub Actions (`.github/workflows/ios.yml`, `export_presets.cfg`). The workflow reads `VERSION` from `ui/version.gd` (bump the minor for each build Ben plays) and runs `tests/load_check.gd` and `tests/run_all.sh` before the export.
 - `ui/main.tscn` opens dice poker (`ui/dice_screen.gd`, dressed with the kept art), with the tutorial: three scripted lessons (the row, skulls, the Sin) in `ui/dice_tutorial.gd`, design `docs/superpowers/specs/2026-11-21-tutorial-design.md` (0.14.0). Shown words are plain: roll, Run, Three and a pair, "counts as any number", "exactly one 6", button; `tests/ui_test.gd` (`BANNED`) fails on draw, throw, wild, lone, hosts, Straight, Full house, high die, seal, snuff. Code names keep the old words. Screenshots: `godot --path . --resolution 1080x2340 --script res://tools/shots.gd` -> `build/shots/`.
 
 ## Design
