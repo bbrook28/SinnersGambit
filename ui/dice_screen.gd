@@ -526,7 +526,8 @@ func _play_throw(row0: int, skulls0: int) -> void:
 			tray_dice[j].texture = DICE[faces[j]]
 			_tag_die(tray_dice[j], faces[j])
 	_sfx("die_land", 0.1, -3.0)
-	if s.skulls > skulls0:
+	var skulled: bool = s.skulls > skulls0
+	if skulled:
 		for k in range(skulls0, mini(s.skulls, candles.size())):
 			_set_candle(k, false)
 		_sfx("skull")
@@ -535,8 +536,6 @@ func _play_throw(row0: int, skulls0: int) -> void:
 		_flinch()
 		_shake()
 		await get_tree().create_timer(0.55).timeout
-		if not s.busted:
-			_meet("skull", "Skulls")
 	if s.busted:
 		_end()
 		return
@@ -550,8 +549,12 @@ func _play_throw(row0: int, skulls0: int) -> void:
 		await get_tree().create_timer(0.25).timeout
 		_fly(face, tray_dice[j].global_position, row0, func():
 			_clear_tray()
+			if skulled and not s.over:   # never over a payout: if this die ended the hand, the card waits for a later skull
+				_meet("skull", "Skulls")
 			_after_move())
 		return
+	if skulled:
+		_meet("skull", "Skulls")
 	if s.thrown.size() > 1:
 		phase = "keep"
 	else:
@@ -1725,9 +1728,10 @@ func _close_card(which: String) -> void:
 	_refresh()
 
 
-## The ? page. It waits for moving dice: Replay the tutorial would clear the tray under a roll still playing.
+## The ? page. It waits for moving dice and for a payout still counting: Replay the tutorial would start a new
+## hand under a roll or a result still playing.
 func _on_help() -> void:
-	if overlay.visible or phase == "anim":
+	if overlay.visible or phase == "anim" or (phase == "over" and not banner.visible):
 		return
 	var text := "\n\n".join(RULES)
 	if demand_line() != "":

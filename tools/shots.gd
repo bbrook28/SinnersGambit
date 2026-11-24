@@ -209,6 +209,21 @@ func _initialize() -> void:
 	await _shot("help_top")
 	h.card_scroll.scroll_vertical = 100000
 	await _shot("help_foot")
+	h._on_card_btn()
+	# a player who skipped the lessons: the first skull and the first Last Dance each bring a card
+	h.seen.erase("skull")
+	h.seen.erase("dance")
+	hosted([1, 3, 3, 1, 4, 4, 5])
+	h._on_seal(2)
+	await settle()
+	await _shot("skip_skulls_card")
+	h._on_card_btn()
+	await settle()
+	for k in [2, 1, 1]:
+		h._on_seal(k)
+		await settle()
+	await _shot("skip_last_dance_card")
+	h._on_card_btn()
 	DirAccess.remove_absolute("user://shots.cfg")
 	quit(0)
 

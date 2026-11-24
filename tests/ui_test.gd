@@ -607,8 +607,28 @@ func test_lesson_edges() -> void:
 	await await_result()
 	check("skip: no Skulls card over a lost hand", h.s.busted and not h.overlay.visible and not h.seen.get("skull", false))
 	h._on_next()
+	# a first skull beside the die that fills the row: the card does not cover the payout, it waits
+	hosted([3, 3, 4, 4, 1, 5])
+	h._end_opening()
+	for n in [1, 1, 1, 1, 2]:
+		h._on_seal(n)
+		await settle()
+	check("skip: no Skulls card over a row the same roll filled", h.s.over and not h.s.busted and h.s.skulls == 1
+		and not h.overlay.visible and not h.seen.get("skull", false))
+	# the ? page waits for the payout too: Replay there left the old hand's result over lesson 1
+	check("help: the hand is over and its result not yet shown", h.phase == "over" and not h.banner.visible)
+	h._on_help()
+	check("help: does not open during the payout", not h.overlay.visible)
+	await await_result()
+	h._on_help()
+	check("help: opens once the result is shown", h.overlay.visible and h.card_alt.text == "Replay the tutorial")
+	h._on_card_btn()
+	h._on_next()
 	# a player who finished the lessons sees neither
-	h.seen["skull"] = true
+	h.seen.erase("skull")
+	h.seen.erase("dance")
+	h._end_tutorial(true)
+	check("finished: the lessons mark both as taught", h.seen.get("skull", false) and h.seen.get("dance", false))
 	hosted([1, 3, 3, 1, 4, 4, 5])
 	h._end_opening()
 	var carded := false
