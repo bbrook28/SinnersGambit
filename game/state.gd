@@ -5,7 +5,8 @@ extends RefCounted
 class Seat:
 	var sin := ""              # a name from Config.SINS
 	var points := 0            # never below 0
-	var dice := 0              # dice this player rolls
+	var dice := 0              # dice this player owns
+	var lent := 0              # dice lent to this player: rolled with their next roll, then they go to the supply
 	var purgatory := false
 	var last_roll: Array = []  # the faces of the last roll; stays until this player rolls again
 	var last_score := 0        # points that roll scored (0 in Purgatory)

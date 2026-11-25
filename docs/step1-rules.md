@@ -4,7 +4,7 @@ Status: **Approved by Ben 2026-11-24.** Brief: `docs/fun-brief.md`. Build notes:
 Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulings of 2026-11-24, and the Sin cards in the Google Doc rulebook. Where the PDF and the Google Doc differ, the PDF wins. The PDF has no Sin cards, so every ability below is the Google Doc's, copied as written: no cost or number is changed.
 
 ## The game
-- **Goal:** first to 3000 points. It is checked at the end of your own Fate Phase: the first player to end a Fate Phase at 3000 or more wins at once. There is no tie-breaker.
+- **Goal:** first to 3000 points. It is checked at the end of your own Fate Phase: the first player to end a Fate Phase at 3000 or more, and not in Purgatory after that roll, wins at once. You cannot win while in Purgatory (Ben, 2026-11-24). There is no tie-breaker.
 - **Players:** 4, passing one phone. No bots.
 - **Dice:** 27 in all. Each player starts with 3; the other 15 are the shared supply. No one ever drops below 2.
 - **Sins:** dealt at random, one each, shown to everyone.
@@ -27,7 +27,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 
 ## Purgatory
 - While you are in Purgatory you cannot buy, trade or use abilities.
-- On your next turn, roll your dice as usual. Two or more dice showing 1, 2 or 3 frees you. Fewer, and your turn ends; you try again next turn.
+- On your next turn, roll your dice as usual. Two or more dice showing 1, 2 or 3 frees you. Fewer, and your turn ends with nothing scored, whatever the roll shows; you try again next turn.
 - The escape roll is never checked for Purgatory. Once free, you score its 4s, 5s and 6s and play on into your Gambit Phase.
 
 ## The three gifts

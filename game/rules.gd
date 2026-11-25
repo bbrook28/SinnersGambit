@@ -10,6 +10,11 @@ const GAMBIT := "gambit"  # rolled and free: buy, then pass
 const END := "end"        # rolled into (or stayed in) Purgatory: the turn is over, only passing is left
 const OVER := "over"      # someone has won
 
+# The three gifts.
+const POINTS := "points"  # give points
+const LEND := "lend"      # lend a die for one roll; then it goes to the supply
+const DIE := "die"        # buy a die from the supply for another player
+
 
 ## A new match. sins: one name a seat, or empty to deal them at random from rng.
 static func new_match(cfg: Dictionary, rng, sins: Array = []):
@@ -43,7 +48,7 @@ static func _deal(rng, n: int) -> Array:
 static func total_dice(s) -> int:
 	var n: int = s.supply
 	for p in s.seats:
-		n += p.dice
+		n += p.dice + p.lent
 	return n
 
 
@@ -72,8 +77,11 @@ static func roll(s) -> Dictionary:
 		return {}
 	var p = s.seats[s.turn]
 	var faces := []
-	for i in p.dice:
+	for i in p.dice + p.lent:
 		faces.append(s.rng.randi_range(1, 6))
+	# A lent die is rolled once, then goes to the supply.
+	s.supply += p.lent
+	p.lent = 0
 	var low := lows(s.cfg, faces)
 	var escaped := false
 	if p.purgatory:
@@ -86,8 +94,8 @@ static func roll(s) -> Dictionary:
 	p.last_roll = faces
 	p.last_score = scored
 	add_points(s, s.turn, scored)
-	# The win check, at the end of every Fate Phase.
-	if p.points >= int(s.cfg.win):
+	# The win check, at the end of the Fate Phase; no one wins while in Purgatory.
+	if p.points >= int(s.cfg.win) and not p.purgatory:
 		s.winner = s.turn
 		s.phase = OVER
 	else:
@@ -110,6 +118,51 @@ static func buy(s, n: int) -> bool:
 	add_points(s, s.turn, -n * int(s.cfg.die_cost))
 	p.dice += n
 	s.supply -= n
+	return true
+
+
+## Why this gift cannot be made now, in plain words; "" if it can. One of from and to is the player whose turn it is.
+## amount: the points to give (POINTS only).
+static func gift_block(s, kind: String, from: int, to: int, amount := 0) -> String:
+	if s.phase != GAMBIT:
+		return "Gifts are made in the Gambit Phase."
+	if from == to or (from != s.turn and to != s.turn):
+		return "A gift is between the player whose turn it is and one other player."
+	if s.seats[from].purgatory or s.seats[to].purgatory:
+		return "No gifts to or from a player in Purgatory."
+	var giver = s.seats[from]
+	if kind == POINTS:
+		if amount < 1:
+			return "Choose how many points."
+		if amount > giver.points:
+			return "Not enough points."
+	elif kind == LEND:
+		if giver.dice <= int(s.cfg.min_dice):
+			return "No one can go below %d dice." % int(s.cfg.min_dice)
+	elif kind == DIE:
+		if s.supply < 1:
+			return "The supply is empty."
+		if giver.points < int(s.cfg.die_cost):
+			return "Not enough points: a die costs %d." % int(s.cfg.die_cost)
+	else:
+		return "No such gift."
+	return ""
+
+
+## Make a gift, once the other player has agreed; it is permanent. False (and nothing changes) if it is not allowed.
+static func gift(s, kind: String, from: int, to: int, amount := 0) -> bool:
+	if gift_block(s, kind, from, to, amount) != "":
+		return false
+	if kind == POINTS:
+		add_points(s, from, -amount)
+		add_points(s, to, amount)
+	elif kind == LEND:
+		s.seats[from].dice -= 1
+		s.seats[to].lent += 1
+	else:
+		add_points(s, from, -int(s.cfg.die_cost))
+		s.supply -= 1
+		s.seats[to].dice += 1
 	return true
 
 

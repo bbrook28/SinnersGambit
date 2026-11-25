@@ -45,6 +45,9 @@ func _init() -> void:
 	test_win()
 	test_win_only_on_your_own_fate_phase()
 	test_turn_order()
+	test_give_points()
+	test_lend_a_die()
+	test_buy_for_another()
 	test_full_match()
 	print("game_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -201,13 +204,79 @@ func test_win() -> void:
 
 
 func test_win_only_on_your_own_fate_phase() -> void:
-	var s = game([4, 4, 4,  1, 1, 1])
+	var s = game([4, 4, 4,  1, 1, 1,  4, 4, 4,  4, 4, 4,  4, 4, 4,  6, 6, 2,  4, 4, 4,  4, 4, 4,  4, 4, 4,  1, 1, 5])
 	Rules.add_points(s, 1, 3000)
 	Rules.roll(s)
 	check("points reached outside your own Fate Phase do not win yet", s.winner == -1)
 	Rules.pass_turn(s)
 	Rules.roll(s)
-	check("they win at the end of your next Fate Phase, whatever you roll", s.winner == 1 and s.phase == Rules.OVER)
+	check("you cannot win while in Purgatory: 3000 points and a roll into Purgatory is no win", s.winner == -1 and s.phase == Rules.END and s.seats[1].purgatory)
+	for i in 4:
+		Rules.pass_turn(s)
+		Rules.roll(s)
+	check("a failed escape at 3000 is no win either", s.winner == -1 and s.seats[1].purgatory and s.turn == 1)
+	for i in 4:
+		Rules.pass_turn(s)
+		Rules.roll(s)
+	check("the roll that frees you wins", s.winner == 1 and s.phase == Rules.OVER and not s.seats[1].purgatory)
+	s = game([4, 4, 4,  5, 1, 1])
+	Rules.add_points(s, 1, 3000)
+	Rules.roll(s)
+	Rules.pass_turn(s)
+	Rules.roll(s)
+	check("free at the end of your Fate Phase with 3000: you win", s.winner == 1)
+
+
+func test_give_points() -> void:
+	var s = game([6, 6, 6])
+	check("no gifts before the roll", not Rules.gift(s, Rules.POINTS, 0, 1, 10))
+	Rules.roll(s)
+	check("give 50 of your 180 points", Rules.gift(s, Rules.POINTS, 0, 2, 50) and s.seats[0].points == 130 and s.seats[2].points == 50)
+	check("you cannot give more than you have", not Rules.gift(s, Rules.POINTS, 0, 2, 140) and s.seats[0].points == 130)
+	check("you can give all you have", Rules.gift(s, Rules.POINTS, 0, 3, 130) and s.seats[0].points == 0 and s.seats[3].points == 130)
+	check("0 points is no gift", not Rules.gift(s, Rules.POINTS, 0, 1, 0))
+	check("a gift you asked for: seat 3 gives seat 0 (whose turn it is) 30", Rules.gift(s, Rules.POINTS, 3, 0, 30) and s.seats[0].points == 30 and s.seats[3].points == 100)
+	check("two other players cannot trade on your turn", not Rules.gift(s, Rules.POINTS, 3, 2, 10))
+	check("no gift to yourself", not Rules.gift(s, Rules.POINTS, 0, 0, 10))
+	s.seats[1].purgatory = true
+	check("no gift to a player in Purgatory", not Rules.gift(s, Rules.POINTS, 0, 1, 10) and Rules.gift_block(s, Rules.POINTS, 0, 1, 10) != "")
+	s.seats[1].points = 100
+	check("no gift from a player in Purgatory", not Rules.gift(s, Rules.POINTS, 1, 0, 10) and not Rules.gift(s, Rules.LEND, 1, 0) and not Rules.gift(s, Rules.DIE, 1, 0))
+
+
+func test_lend_a_die() -> void:
+	# seat 0 rolls 3 dice and lends one to seat 1; seat 1 rolls 4 dice; next round seat 0 rolls 2 and seat 1 rolls 3
+	var s = game([6, 6, 6,  4, 4, 4, 5,  4, 4, 4,  4, 4, 4,  4, 4,  4, 4, 4])
+	Rules.roll(s)
+	check("lend a die to seat 1", Rules.gift(s, Rules.LEND, 0, 1))
+	check("the lender is down to 2 dice; the die waits with seat 1", s.seats[0].dice == 2 and s.seats[1].dice == 3 and s.seats[1].lent == 1)
+	check("still 27 dice in all", Rules.total_dice(s) == 27)
+	check("you cannot go below 2 dice", not Rules.gift(s, Rules.LEND, 0, 1) and s.seats[0].dice == 2)
+	Rules.pass_turn(s)
+	var r: Dictionary = Rules.roll(s)
+	check("seat 1 rolls 4 dice: 4, 4, 4, 5 scores 170", r.faces == [4, 4, 4, 5] and s.seats[1].points == 170)
+	check("after that one roll the lent die goes to the supply, not back to the lender", s.seats[1].lent == 0 and s.seats[1].dice == 3 and s.supply == 16 and s.seats[0].dice == 2)
+	check("still 27 dice in all after the roll", Rules.total_dice(s) == 27)
+	for i in 4:
+		Rules.pass_turn(s)
+		Rules.roll(s)
+	check("seat 0 now rolls 2 dice and seat 1 rolls 3", s.seats[0].last_roll.size() == 2 and s.seats[1].last_roll.size() == 3)
+	s = game([6, 6, 6])
+	Rules.roll(s)
+	check("a die you asked for: seat 2 lends one to seat 0", Rules.gift(s, Rules.LEND, 2, 0) and s.seats[2].dice == 2 and s.seats[0].lent == 1)
+	check("a seat on 2 dice cannot lend", not Rules.gift(s, Rules.LEND, 2, 0))
+
+
+func test_buy_for_another() -> void:
+	var s = game([4, 1, 1])
+	Rules.roll(s)
+	check("buy a die for seat 3: you pay 20, they keep it", Rules.gift(s, Rules.DIE, 0, 3) and s.seats[0].points == 20 and s.seats[3].dice == 4 and s.seats[0].dice == 3 and s.supply == 14)
+	check("still 27 dice in all", Rules.total_dice(s) == 27)
+	check("a seat with no points cannot buy one for you", not Rules.gift(s, Rules.DIE, 2, 0))
+	s.seats[2].points = 20
+	check("a die you asked for: seat 2 pays 20 and it is yours", Rules.gift(s, Rules.DIE, 2, 0) and s.seats[2].points == 0 and s.seats[0].dice == 4 and s.supply == 13)
+	s.supply = 0
+	check("an empty supply: no die to buy", not Rules.gift(s, Rules.DIE, 0, 1) and s.seats[0].points == 20)
 
 
 func test_turn_order() -> void:
@@ -237,6 +306,11 @@ func test_full_match() -> void:
 			var r: Dictionary = Rules.roll(s)
 			if r.purgatory and not r.escaped:
 				purgatories += 1
+			if s.phase == Rules.GAMBIT and seed_value % 4 == 3:
+				# gifts at random, allowed or not: a refused one must change nothing
+				var other: int = (s.turn + 1 + rng.randi_range(0, 2)) % 4
+				var pair := [s.turn, other] if rng.randi_range(0, 1) == 0 else [other, s.turn]
+				Rules.gift(s, [Rules.POINTS, Rules.LEND, Rules.DIE][rng.randi_range(0, 2)], pair[0], pair[1], rng.randi_range(0, 8) * 10)
 			if s.phase == Rules.GAMBIT and seed_value % 2 == 0:
 				Rules.buy(s, Rules.max_buy(s))
 			if Rules.total_dice(s) != 27:
@@ -250,10 +324,6 @@ func test_full_match() -> void:
 			broken.append("seed %d: no winner" % seed_value)
 		elif s.seats[s.winner].points < 3000 or s.winner != s.turn:
 			broken.append("seed %d: a wrong winner" % seed_value)
-		else:
-			for i in 4:
-				if i != s.winner and s.seats[i].points >= 3000:
-					broken.append("seed %d: two seats at 3000" % seed_value)
 		rounds.append(s.round_number)
 	check("200 seeded matches each play to one winner with no rule broken (%s)" % ("none" if broken.is_empty() else ", ".join(broken.slice(0, 5))), broken.is_empty())
 	check("Purgatory happens in play (%d times)" % purgatories, purgatories > 0)
@@ -262,6 +332,6 @@ func test_full_match() -> void:
 	for i in rounds.size():
 		if i % 2 == 0:
 			buy += rounds[i]
-		else:
+		elif i % 4 == 1:
 			keep += rounds[i]
-	print("game_test: match length in rounds, mean of 100 matches each: buying all you can %.1f, never buying %.1f" % [buy / 100.0, keep / 100.0])
+	print("game_test: match length in rounds, buying all you can %.1f (100 matches), never buying %.1f (50 matches)" % [buy / 100.0, keep / 50.0])
