@@ -6,7 +6,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 ## The game
 - **Goal:** first to 3000 points. It is checked at the end of your own Fate Phase: the first player to end a Fate Phase at 3000 or more, and not in Purgatory after that roll, wins at once. You cannot win while in Purgatory (Ben, 2026-11-24). There is no tie-breaker.
 - **Players:** 4, passing one phone. No bots.
-- **Dice:** 27 in all. Each player starts with 3; the other 15 are the shared supply. No one ever drops below 2.
+- **Dice:** each player starts with 3, and the shared supply starts with 6 spare dice at any table size (4 players: 18 dice in all). Ben's ruling, 2026-11-25: a seven-player table with the 27-dice box has 6 spare, and with 15 spare at a four-player table everyone bought dice freely and no one made a deal. A die still costs 20. No one ever drops below 2.
 - **Sins:** dealt at random, one each, shown to everyone.
 - **Start:** everyone at 0 points. Turns go round in seat order.
 - **Points never go below 0.** A loss stops at 0, and you cannot pay a cost you do not have.

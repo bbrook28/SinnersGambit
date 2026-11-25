@@ -1,11 +1,12 @@
 ## Step 1: four players pass one phone (rules: docs/step1-rules.md, in game/). A flat blockout: boxes and words, no art.
 ## Before the first turn: the How to play card (also behind the How to play button).
-## Top: the four players, always shown (points, dice, Purgatory, last roll). Bottom: what the player holding the phone does now.
-## No abilities yet.
+## Top: the four players, always shown (points, dice, Purgatory, last roll); tap a Sin's name to read its abilities.
+## Then one line saying who did what to whom, kept until the next action. Bottom: what the player holding the phone does now.
 extends Control
 
 const Rules = preload("res://game/rules.gd")
 const Config = preload("res://game/config.gd")
+const Sins = preload("res://game/sins.gd")
 
 const FELL_FILE := preload("res://assets/fonts/IMFellEnglish-NoDigits.ttf")
 const DIGITS_TEXT := preload("res://assets/fonts/Digits-Text.ttf")
@@ -24,10 +25,11 @@ const SEAT_COLORS := [Color("ff8a7a"), Color("6fb8ff"), Color("7fe08a"), Color("
 
 const W := 1040          # content width
 const DIE := 64          # a die of a last roll
+const PICK := 104        # a die you tap to choose it
 const SIZE_SMALL := 34
 const SIZE_TEXT := 40
 const SIZE_NAME := 48
-const SIZE_TITLE := 58
+const SIZE_TITLE := 54
 const SIZE_POINTS := 72
 const BUTTON_H := 116
 const GIFT_TITLES := {"points": "Give points", "lend": "Lend a die", "die": "Buy a die for a player"}
@@ -36,13 +38,13 @@ const GIFT_RULES := {
 	"lend": "The die is theirs for one roll, then it goes to the supply, not back to the lender. No one can go below 2 dice.",
 	"die": "The giver pays 20 and the die from the supply is theirs to keep.",
 }
-
 ## The How to play card: shown before the first turn of each match, and from the How to play button at any time.
 const HOWTO := [
 	"First to 3000 points wins.",
 	"On your turn, roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60.",
 	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
 	"After rolling you can buy dice for 20 each, give points, lend a die or buy a die for someone.",
+	"Each Sin has two abilities. Tap a Sin's name to read them.",
 	"Talk and make deals. Promises are not binding.",
 	"Then pass the phone.",
 ]
@@ -50,20 +52,28 @@ const HOWTO := [
 var s                        # the match (game/state.gd)
 var rng = null               # set before the screen enters the tree to script the dice; else random
 var sins: Array = []         # set to fix the Sins; else dealt at random
-var view := "handover"       # handover (pass the phone), turn (roll, Gambit, turn over, winner), gift (the form), agree (the other player's tap)
-var note := ""               # what just happened, shown in the turn view
+var view := "handover"       # handover (pass the phone), turn (roll, swap, Gambit, turn over, winner), gift, agree, ability
+var note := ""               # what the roll did, shown in the turn view
+var event := ""              # who did what to whom, in one line; stays until the next action
 var offer := {}              # the gift being set up: kind, give (the turn player gives), other (seat or -1), amount
+var act := {}                # the ability being set up: key, by (seat), args (the choices so far), back (the view to return to)
 var btn := {}                # the buttons on screen now, by key (the test taps these)
 
 var serif: FontVariation
 var header: Label
 var panels: Array = []       # one Dictionary of nodes a seat
+var event_box: PanelContainer
+var event_label: Label
 var title: Label
 var text: Label
 var buttons: VBoxContainer
 var howto: Control           # the How to play card, over everything
 var help_btn: Button
 var got_btn: Button
+var sin_card: Control        # a Sin's two abilities, over everything
+var sin_title: Label
+var sin_text: Label
+var close_btn: Button
 
 
 func _init() -> void:
@@ -84,7 +94,10 @@ func new_match() -> void:
 	s = Rules.new_match(Config.merged({}), rng, sins)
 	view = "handover"
 	note = ""
+	event = ""
+	act = {}
 	howto.visible = true
+	sin_card.visible = false
 	_refresh()
 
 
@@ -98,8 +111,19 @@ func sin_name(i: int) -> String:
 	return str(s.seats[i].sin).capitalize()
 
 
+## "Player 1 (Wrath)".
+func who(i: int) -> String:
+	if s.seats[i].sin == "":
+		return seat_name(i)
+	return "%s (%s)" % [seat_name(i), sin_name(i)]
+
+
 func dice_text(n: int) -> String:
 	return "1 die" if n == 1 else "%d dice" % n
+
+
+func rounds_text(n: int) -> String:
+	return "1 full round" if n == 1 else "%d full rounds" % n
 
 
 ## What a gift does, as one sentence.
@@ -126,19 +150,115 @@ func offer_block() -> String:
 	return Rules.gift_block(s, offer.kind, offer_from(), offer_to(), offer.amount)
 
 
+func faces_text(faces: Array) -> String:
+	return ", ".join(faces.map(func(f): return str(f)))
+
+
 ## What the roll did, in words.
 func roll_note(r: Dictionary) -> String:
-	var faces := ", ".join(r.faces.map(func(f): return str(f)))
+	var faces := faces_text(r.faces)
 	var low := Rules.lows(s.cfg, r.faces)
+	var out := ""
 	if r.escaped:
-		return "You rolled %s. %s showing 1, 2 or 3: you are out of Purgatory, and the roll scores %d." % [faces, dice_text(low).capitalize(), r.scored]
-	if r.purgatory and low < r.faces.size():
-		return "You rolled %s. Only %s showing 1, 2 or 3: you need two or more. You stay in Purgatory and score nothing." % [faces, dice_text(low)]
-	if r.purgatory and s.seats[s.turn].points >= int(s.cfg.win):
-		return "You rolled %s. Every die shows 1, 2 or 3: Purgatory. You score 0 and your turn ends. You cannot win while in Purgatory." % faces
-	if r.purgatory:
-		return "You rolled %s. Every die shows 1, 2 or 3: Purgatory. You score 0 and your turn ends. No buying or trading until you are out." % faces
-	return "You rolled %s and scored %d." % [faces, r.scored]
+		out = "You rolled %s. %s showing 1, 2 or 3: you are out of Purgatory, and the roll scores %d." % [faces, dice_text(low).capitalize(), r.scored]
+	elif r.purgatory and low < r.faces.size():
+		out = "You rolled %s. Only %s showing 1, 2 or 3: you need two or more. You stay in Purgatory and score nothing." % [faces, dice_text(low)]
+	elif r.purgatory and s.seats[s.turn].points >= int(s.cfg.win):
+		out = "You rolled %s. Every die shows 1, 2 or 3: Purgatory. You score 0 and your turn ends. You cannot win while in Purgatory." % faces
+	elif r.purgatory:
+		out = "You rolled %s. Every die shows 1, 2 or 3: Purgatory. You score 0 and your turn ends. No buying, trading or abilities until you are out." % faces
+	else:
+		out = "You rolled %s and scored %d." % [faces, r.scored]
+	if r.get("glance", 0) > 0:
+		out += " Green-Eyed Glance added the last die, a %d." % r.glance
+	if r.get("aura", false):
+		out += " Lethargic Aura: your first die was rolled twice and the lower kept."
+	if r.get("hubris", "") == "won":
+		out += " Hubris: it beat %d, so the score is doubled." % r.beat
+	elif r.get("hubris", "") == "lost":
+		out += " Hubris: it did not beat %d, so the roll scores 0." % r.beat
+	if r.get("drip", false):
+		out += " Slow Drip: under %d, so %d more." % [int(s.cfg.drip_under), int(s.cfg.drip_gain)]
+	return out
+
+
+## Who did what to whom, from what Rules.use returned. key: the ability (a copy passes the copied one).
+func event_line(r: Dictionary, key := "") -> String:
+	if key == "":
+		key = r.key
+	var me := who(r.by)
+	var ab := Sins.ability_name(key)
+	var t: String = seat_name(r.target) if r.has("target") else ""
+	var out := ""
+	match key:
+		"spark":
+			out = "%s used %s on %s: a %d was rerolled and came up %d." % [me, ab, t, r.was, r.face]
+			var change: int = r.change - r.lost
+			if change < 0:
+				out += " %s lost %d." % [t, -change]
+			elif change > 0:
+				out += " %s gained %d." % [t, change]
+		"strike":
+			if r.choice == "die":
+				out = "%s used %s on %s, who chose to give a die for %s." % [me, ab, t, rounds_text(int(s.cfg.strike_rounds))]
+			else:
+				out = "%s used %s on %s, who chose to lose points: %d lost." % [me, ab, t, r.paid]
+		"deal":
+			if r.choice == "die":
+				out = "%s used %s on %s, who chose to give a die for %s." % [me, ab, t, rounds_text(int(s.cfg.deal_rounds))]
+			else:
+				out = "%s used %s on %s, who chose to pay %d." % [me, ab, t, r.paid]
+		"whisper":
+			out = "%s used %s on %s: swapped a %d for their %d." % [me, ab, t, r.gave, r.got]
+		"allure":
+			out = "%s used %s on %s and %s: they picked a %d and a %d." % [me, ab, seat_name(r.a), seat_name(r.b), r.face_a, r.face_b]
+			if not r.match:
+				out += " No match: the two dice swapped."
+			elif r.take >= 0:
+				out += " A match: %s took that die from %s, to keep." % [seat_name(r.by), seat_name(r.take)]
+			else:
+				out += " A match, but neither can go below %d dice: no die taken." % int(s.cfg.min_dice)
+		"glance":
+			out = "%s used %s: the next roll gets a temporary die showing %d, copied from %s." % [me, ab, r.face, t]
+		"grasp":
+			out = "%s paid for %s. %s" % [me, ab, event_line(r, r.copied)]
+		"hubris":
+			out = "%s declared %s: beat %d and the roll's score doubles; fail and it is 0." % [me, ab, r.beat]
+		"superiority":
+			out = "%s armed %s: the first player to target them before their next turn loses %d." % [me, ab, int(s.cfg.superiority_loss)]
+		"feast":
+			out = "%s used %s: a %d went to the supply for %d points." % [me, ab, r.face, r.gain]
+		"bite":
+			out = "%s used %s on %s: stole %d." % [me, ab, t, r.stolen]
+		"aura":
+			out = "%s used %s on %s: on their next roll one die is rolled twice and the lower kept." % [me, ab, t]
+		"drip":
+			out = "%s copied %s: %d more." % [me, ab, r.gain]
+	for p in r.get("superiority", []):
+		out += " Superiority: %s lost %d for targeting %s." % [seat_name(r.by), int(s.cfg.superiority_loss), seat_name(p)]
+	return out
+
+
+## The seat that is Wrath, or -1.
+func wrath_seat() -> int:
+	for i in s.seats.size():
+		if s.seats[i].sin == "wrath":
+			return i
+	return -1
+
+
+## The ability whose choices are being asked for: the copied one under Jealous Grasp.
+func act_key() -> String:
+	return str(act.args.get("key", "grasp")) if act.key == "grasp" else str(act.key)
+
+
+## The choices so far, as Rules.block and Rules.use take them.
+func act_args(more := {}) -> Dictionary:
+	var a: Dictionary = act.args.duplicate()
+	a.merge(more, true)
+	if act.by != s.turn:
+		a["by"] = act.by
+	return a
 
 
 # ---- taps
@@ -158,17 +278,51 @@ func _on_got_it() -> void:
 	_refresh()
 
 
+func _on_sin(i: int) -> void:
+	var sn: String = s.seats[i].sin
+	if not Sins.INFO.has(sn):
+		return
+	var t1: Dictionary = Sins.INFO[sn].t1
+	var t2: Dictionary = Sins.INFO[sn].t2
+	sin_title.text = "%s: %s" % [seat_name(i), sin_name(i)]
+	sin_text.text = "Tier 1, free: %s\n%s\n\nTier 2, costs %d: %s\n%s\n\nTier 2 opens when you reach %d points and stays open. One Tier 1 and one Tier 2 a turn. No abilities in Purgatory." % [
+		t1.name, t1.text, Sins.cost(s.cfg, t2.key), t2.name, t2.text, int(s.cfg.tier2_at)]
+	sin_card.visible = true
+	_refresh()
+
+
+func _on_close() -> void:
+	sin_card.visible = false
+	_refresh()
+
+
 func _on_roll() -> void:
 	var r: Dictionary = Rules.roll(s)
 	if r.is_empty():
 		return
-	note = roll_note(r)
+	event = ""
+	if r.get("pending", false):
+		note = "You rolled %s." % faces_text(r.faces)
+	else:
+		note = roll_note(r)
+	_refresh()
+
+
+## Lust scores the roll without swapping.
+func _on_settle() -> void:
+	if s.phase != Rules.SWAP:
+		return
+	note = roll_note(Rules.settle(s))
 	_refresh()
 
 
 func _on_buy() -> void:
 	if Rules.buy(s, 1):
 		note = "You bought a die for %d. You roll it from your next turn." % int(s.cfg.die_cost)
+		event = ""
+		var g := Rules.vig_seat(s, s.turn)
+		if g >= 0:
+			event = "The Vig: %s gained %d from the die %s bought." % [who(g), int(s.cfg.vig), seat_name(s.turn)]
 	_refresh()
 
 
@@ -176,6 +330,7 @@ func _on_pass() -> void:
 	if Rules.pass_turn(s):
 		view = "handover"
 		note = ""
+		event = ""
 	_refresh()
 
 
@@ -207,7 +362,8 @@ func _on_all() -> void:
 
 
 func _on_back() -> void:
-	view = "turn"
+	view = str(act.get("back", "turn")) if view == "ability" else "turn"
+	act = {}
 	_refresh()
 
 
@@ -219,8 +375,12 @@ func _on_offer() -> void:
 
 func _on_agree(yes: bool) -> void:
 	var line := gift_line(offer.kind, offer_from(), offer_to(), offer.amount)
+	event = ""
 	if yes and Rules.gift(s, offer.kind, offer_from(), offer_to(), offer.amount):
 		note = "%s agreed. %s" % [seat_name(offer.other), line]
+		var g := Rules.vig_seat(s, offer_from())
+		if offer.kind == Rules.DIE and g >= 0:
+			event = "The Vig: %s gained %d from the die %s bought." % [who(g), int(s.cfg.vig), seat_name(offer_from())]
 	else:
 		note = "%s refused. Nothing changed." % seat_name(offer.other)
 	note += " Pass the phone back to %s." % seat_name(s.turn)
@@ -228,33 +388,160 @@ func _on_agree(yes: bool) -> void:
 	_refresh()
 
 
+## Start an ability: by is the seat using it (the turn player, or Wrath out of turn); preset: choices already made.
+func _on_ability(key: String, by: int, preset := {}) -> void:
+	act = {"key": key, "by": by, "args": preset.duplicate(), "back": view, "pair": [], "ready": false, "away": false}
+	view = "ability"
+	_step()
+
+
+func _on_grasp_key(key: String) -> void:
+	act.args["key"] = key
+	_step()
+
+
+func _on_target(i: int) -> void:
+	if act_key() == "allure":
+		if act.pair.has(i):
+			act.pair.erase(i)
+		elif act.pair.size() < 2:
+			act.pair.append(i)
+		_refresh()
+		return
+	act.args["target"] = i
+	if ["strike", "deal"].has(act_key()):
+		act.away = true   # the phone goes to the target for their choice
+	_step()
+
+
+func _on_pair() -> void:
+	if act.pair.size() == 2:
+		act.args["a"] = act.pair[0]
+		act.args["b"] = act.pair[1]
+		act.away = true
+	_step()
+
+
+func _on_choice(c: String) -> void:
+	act.args["choice"] = c
+	_step()
+
+
+func _on_secret_ready() -> void:
+	act.ready = true
+	_refresh()
+
+
+func _on_take(i: int) -> void:
+	act.args["take"] = i
+	_step()
+
+
+func _on_die(seat: int, index: int) -> void:
+	var a: Dictionary = act.args
+	match act_key():
+		"spark", "glance":
+			a["target"] = seat
+			a["index"] = index
+		"feast":
+			a["index"] = index
+		"whisper":
+			if not a.has("mine"):
+				a["mine"] = index
+			else:
+				a["target"] = seat
+				a["theirs"] = index
+		"allure":
+			a["pick_b" if a.has("pick_a") else "pick_a"] = index
+			act.ready = false
+	_step()
+
+
+## Entangling Allure, both dice picked and matching: the seats Lust may take from.
+func allure_takes() -> Array:
+	var a: Dictionary = act.args
+	var out := []
+	if s.seats[a.a].last_roll[a.pick_a] == s.seats[a.b].last_roll[a.pick_b]:
+		for i in [a.a, a.b]:
+			if Rules.spare(s, i):
+				out.append(i)
+	return out
+
+
+## Are all the choices made?
+func act_complete() -> bool:
+	var a: Dictionary = act.args
+	var needs: Array = Rules.NEEDS[act.key].duplicate()
+	if act.key == "grasp" and a.has("key"):
+		needs += Rules.NEEDS[a.key]
+	for k in needs:
+		if not a.has(k):
+			return false
+	if act_key() == "allure" and not a.has("take"):
+		var takes := allure_takes()
+		if takes.size() == 2:
+			return false
+		if takes.size() == 1:
+			a["take"] = takes[0]
+	return true
+
+
+## After each choice: ask the next one, or use the ability.
+func _step() -> void:
+	if not act_complete():
+		_refresh()
+		return
+	var away: bool = act.away
+	var whisper: bool = act.key == "whisper"
+	var r: Dictionary = Rules.use(s, act.key, act_args())
+	if r.is_empty():
+		event = "Nothing happened: %s" % Rules.block(s, act.key, act_args())
+	else:
+		event = event_line(r)
+		if whisper:
+			note = roll_note(r)
+	if away:
+		event += " Pass the phone back to %s." % seat_name(s.turn)
+	view = str(act.back)
+	act = {}
+	_refresh()
+
+
 # ---- drawing
 
 func _refresh() -> void:
 	header.text = "Round %d   ·   First to %d wins   ·   Supply: %s" % [s.round_number, int(s.cfg.win), dice_text(s.supply)]
-	for i in s.seats.size():
-		_refresh_panel(i)
 	for c in buttons.get_children():
 		buttons.remove_child(c)
 		c.queue_free()
 	btn = {}
+	for i in s.seats.size():
+		_refresh_panel(i)
+	event_label.text = event
+	event_box.visible = event != ""
 	if view == "handover":
 		_view_handover()
 	elif view == "gift":
 		_view_gift()
 	elif view == "agree":
 		_view_agree()
+	elif view == "ability":
+		_view_ability()
 	elif s.phase == Rules.FATE:
 		_view_fate()
+	elif s.phase == Rules.SWAP:
+		_view_swap()
 	elif s.phase == Rules.GAMBIT:
 		_view_gambit()
 	elif s.phase == Rules.END:
 		_view_end()
 	else:
 		_view_over()
-	# The card covers the table: while it is up, its button is the only one.
+	# A card covers the table: while it is up, its button is the only one.
 	if howto.visible:
 		btn = {"got_it": got_btn}
+	elif sin_card.visible:
+		btn = {"close": close_btn}
 	else:
 		btn["help"] = help_btn
 
@@ -266,7 +553,9 @@ func _refresh_panel(i: int) -> void:
 	var sb: StyleBoxFlat = n.box
 	sb.bg_color = PANEL_TURN if turn else PANEL
 	sb.set_border_width_all(10 if turn else 2)
-	n.sin.text = sin_name(i)
+	n.sin.text = sin_name(i) if p.sin != "" else "no Sin"
+	n.sin.disabled = not Sins.INFO.has(p.sin)
+	btn["sin%d" % i] = n.sin
 	n.points.text = str(p.points)
 	var tags := []
 	if s.winner == i:
@@ -275,9 +564,16 @@ func _refresh_panel(i: int) -> void:
 		tags.append("TURN")
 	if p.purgatory:
 		tags.append("IN PURGATORY")
+	if p.tier2 and p.sin != "":
+		tags.append("TIER 2")
+	if p.armed:
+		tags.append("ARMED")
+	if p.lethargic:
+		tags.append("LETHARGIC")
 	n.tag.text = "  ".join(tags)
 	n.tag.add_theme_color_override("font_color", BAD if p.purgatory else GOLD)
-	n.dice.text = dice_text(p.dice) + (" + %d lent" % p.lent if p.lent > 0 else "")
+	n.dice.text = dice_text(p.dice) + (" + %d lent" % p.lent if p.lent > 0 else "") + (" (%d taken)" % p.held if p.held > 0 else "")
+	n.dice.add_theme_font_size_override("font_size", 30 if (p.lent > 0 or p.held > 0) else SIZE_TEXT)
 	for c in n.roll.get_children():
 		n.roll.remove_child(c)
 		c.queue_free()
@@ -288,12 +584,20 @@ func _refresh_panel(i: int) -> void:
 		for f in p.last_roll:
 			n.roll.add_child(_die(f))
 		n.scored.text = "scored %d" % p.last_score
+	# Wrath's Spark of Rage: a button on every other player's roll, while Wrath can use it on them.
+	var w := wrath_seat()
+	var can: bool = w >= 0 and w != i and (view == "turn" or view == "handover") and Rules.block(s, "spark", {"by": w, "target": i}) == ""
+	n.spark.visible = can
+	if can:
+		btn["spark%d" % i] = n.spark
 
 
 func _view_handover() -> void:
 	var p = s.seats[s.turn]
 	title.text = "Pass the phone to %s" % seat_name(s.turn)
-	text.text = "%s plays %s." % [seat_name(s.turn), sin_name(s.turn)]
+	text.text = ""
+	if p.sin != "":
+		text.text = "%s plays %s." % [seat_name(s.turn), sin_name(s.turn)]
 	if p.purgatory:
 		text.text += " They are in Purgatory."
 	_add(_button("ready", "I am %s" % seat_name(s.turn), _on_ready, true))
@@ -308,12 +612,29 @@ func _view_fate() -> void:
 		text.text = "Roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60. A 1, 2 or 3 scores nothing. If every die shows 1, 2 or 3 you go to Purgatory: you score 0 and your turn ends."
 	if p.lent > 0:
 		text.text += " %s lent to you for this roll, then to the supply." % ("1 die is" if p.lent == 1 else "%d dice are" % p.lent)
-	_add(_button("roll", "Roll %s" % dice_text(p.dice + p.lent), _on_roll, true))
+	if p.lethargic:
+		text.text += " Lethargic Aura: one die is rolled twice and the lower kept."
+	# The abilities used before the roll.
+	if p.sin == "pride":
+		_add(_ability_button("hubris", "Declare Hubris: beat %d to double the roll, or score 0" % Rules.hubris_target(s)))
+	elif p.sin == "envy":
+		_add(_ability_button("glance", "Green-Eyed Glance: copy a die into this roll"))
+	var n: int = p.dice + p.lent + (1 if p.glance > 0 else 0)
+	_add(_button("roll", "Roll %s" % dice_text(n), _on_roll, true))
+
+
+## Lust has rolled: swap a die before scoring, or score it as it is.
+func _view_swap() -> void:
+	title.text = "%s: swap before scoring?" % seat_name(s.turn)
+	text.text = "%s\nWhisper of Desire: swap one of your dice with a higher die of another player's. Then the roll is scored." % note
+	_add(_ability_button("whisper", "Whisper of Desire: swap a die"))
+	_add(_button("settle", "Score the roll as it is", _on_settle, true))
 
 
 func _view_gambit() -> void:
+	var p = s.seats[s.turn]
 	title.text = "%s: buy, trade, then pass" % seat_name(s.turn)
-	text.text = note + "\nA die costs %d and you roll it from your next turn. A gift needs the other player's tap to agree." % int(s.cfg.die_cost)
+	text.text = note
 	var can := Rules.max_buy(s) > 0
 	var buy_text := "Buy a die: %d points" % int(s.cfg.die_cost)
 	if s.supply < 1:
@@ -321,9 +642,15 @@ func _view_gambit() -> void:
 	elif not can:
 		buy_text = "Buy a die: you need %d points" % int(s.cfg.die_cost)
 	_add(_button("buy", buy_text, _on_buy, false, not can))
-	_add(_row([_button("points", GIFT_TITLES.points, _on_gift.bind(Rules.POINTS)),
-		_button("lend", GIFT_TITLES.lend, _on_gift.bind(Rules.LEND))]))
-	_add(_button("die", GIFT_TITLES.die, _on_gift.bind(Rules.DIE)))
+	var gifts := [_button("points", "Give\npoints", _on_gift.bind(Rules.POINTS)), _button("lend", "Lend\na die", _on_gift.bind(Rules.LEND)),
+		_button("die", "Buy a die\nfor a player", _on_gift.bind(Rules.DIE))]
+	for g in gifts:
+		g.add_theme_font_size_override("font_size", SIZE_SMALL)
+	_add(_row(gifts))
+	if Sins.INFO.has(p.sin):
+		var t1: Dictionary = Sins.INFO[p.sin].t1
+		var t2: Dictionary = Sins.INFO[p.sin].t2
+		_add(_row([_ability_button(t1.key, t1.name), _ability_button(t2.key, "%s (%d)" % [t2.name, Sins.cost(s.cfg, t2.key)])]))
 	_add(_button("pass", "Pass: end my turn", _on_pass, true))
 
 
@@ -371,6 +698,105 @@ func _view_agree() -> void:
 	_add(_row([_button("refuse", "Refuse", _on_agree.bind(false)), _button("agree", "Agree", _on_agree.bind(true), true)]))
 
 
+## The next choice an ability needs: what to copy, a player, the target's own choice, a die, or a secret die.
+func _view_ability() -> void:
+	var a: Dictionary = act.args
+	var k := act_key()
+	var by: int = act.by
+	var card: Dictionary = Sins.card(k)
+	title.text = "%s: %s" % [who(by), Sins.ability_name(act.key)]
+	if act.key == "grasp" and a.has("key"):
+		title.text += ", copying %s" % card.name
+	text.text = str(card.get("text", ""))
+	var others := []
+	for i in s.seats.size():
+		if i != by:
+			others.append(i)
+	if act.key == "grasp" and not a.has("key"):
+		# what to copy: every Tier 1 used this round, the ones that cannot be copied switched off with the reason
+		var seen: Array = Rules.grasp_seen(s)
+		text.text += "\nUsed this round: %s." % (", ".join(seen.map(func(x): return Sins.ability_name(x))) if not seen.is_empty() else "nothing")
+		for x in seen:
+			var why := Rules.block(s, "grasp", {"key": x})
+			var b := _button("copy_" + x, Sins.ability_name(x) + ("\n" + why if why != "" else ""), _on_grasp_key.bind(x), false, why != "")
+			b.add_theme_font_size_override("font_size", SIZE_SMALL)
+			_add(b)
+		_add(_button("back", "Back", _on_back))
+	elif ["strike", "deal", "bite", "aura"].has(k) and not a.has("target"):
+		text.text += "\nChoose a player."
+		_add(_row(others.map(func(i): return _target_button(i, Rules.block(s, act.key, act_args({"target": i})), false))))
+		_add(_button("back", "Back", _on_back))
+	elif ["strike", "deal"].has(k):
+		# the target chooses
+		var t: int = a.target
+		title.text = "Pass the phone to %s" % seat_name(t)
+		var cost: int = int(s.cfg.strike_loss) if k == "strike" else int(s.cfg.deal_pay)
+		var rounds := rounds_text(int(s.cfg[k + "_rounds"]))
+		text.text = "%s uses %s on you. %s, choose: %s, or give them 1 of your dice for %s." % [who(by), card.name, seat_name(t),
+			("lose %d points" % cost) if k == "strike" else ("pay them %d points" % cost), rounds]
+		var no_points := Rules.block(s, act.key, act_args({"choice": "points"}))
+		var no_die := Rules.block(s, act.key, act_args({"choice": "die"}))
+		var b1 := _button("choose_points", ("Lose %d points" % cost if k == "strike" else "Pay %d points" % cost) + ("\n" + no_points if no_points != "" else ""),
+			_on_choice.bind("points"), false, no_points != "")
+		var b2 := _button("choose_die", "Give a die for %s" % rounds + ("\n" + no_die if no_die != "" else ""), _on_choice.bind("die"), false, no_die != "")
+		for b in [b1, b2]:
+			b.add_theme_font_size_override("font_size", 30)
+		_add(_row([b1, b2]))
+	elif k == "allure" and not a.has("a"):
+		text.text += "\nChoose 2 players. The phone is passed to each to pick a die of their last roll in secret."
+		_add(_row(others.map(func(i): return _target_button(i, Rules.block(s, "allure", {"a": i}), act.pair.has(i)))))
+		var why := "Choose 2 players." if act.pair.size() < 2 else Rules.block(s, "allure", {"a": act.pair[0], "b": act.pair[1]})
+		_add(_row([_button("back", "Back", _on_back), _button("use", "Use on these two", _on_pair, true, why != "")]))
+	elif k == "allure" and not (a.has("pick_a") and a.has("pick_b")):
+		# each chosen player in turn, in secret
+		var t: int = a.b if a.has("pick_a") else a.a
+		if not act.ready:
+			title.text = "Pass the phone to %s" % seat_name(t)
+			text.text = "%s uses Entangling Allure on %s and %s. %s: keep the screen to yourself; you will pick one die of your last roll in secret." % [
+				who(by), seat_name(a.a), seat_name(a.b), seat_name(t)]
+			_add(_button("ready", "I am %s" % seat_name(t), _on_secret_ready, true))
+		else:
+			title.text = "%s: pick one die in secret" % seat_name(t)
+			text.text = "If the two picked dice show the same number, %s takes one of them to keep. If not, the two dice swap. Tap a die, then pass the phone on." % seat_name(by)
+			_add(_dice_row(t, func(_f): return true))
+	elif k == "allure":
+		# a match, and both can spare the die: Lust chooses
+		title.text = "Pass the phone back to %s" % seat_name(by)
+		text.text = "%s and %s both picked a %d: a match. %s, take one of the two dice, to keep." % [seat_name(a.a), seat_name(a.b), s.seats[a.a].last_roll[a.pick_a], seat_name(by)]
+		_add(_row([_button("take%d" % a.a, "Take the die\nfrom %s" % seat_name(a.a), _on_take.bind(a.a)),
+			_button("take%d" % a.b, "Take the die\nfrom %s" % seat_name(a.b), _on_take.bind(a.b))]))
+	elif k == "feast":
+		text.text += "\nTap one of your dice showing 4, 5 or 6."
+		_add(_dice_row(by, func(f): return Rules.face_score(s.cfg, f) > 0))
+		_add(_button("back", "Back", _on_back))
+	elif k == "whisper" and not a.has("mine"):
+		text.text += "\nFirst tap the die of yours to swap away."
+		var best := 0
+		for i in others:
+			for f in s.seats[i].last_roll:
+				best = maxi(best, f)
+		_add(_dice_row(by, func(f): return f < best))
+		_add(_button("back", "Back", _on_back))
+	elif k == "whisper":
+		var mine: int = s.seats[by].last_roll[a.mine]
+		text.text += "\nYour %d goes. Now tap a higher die of another player's." % mine
+		for i in others:
+			if not s.seats[i].last_roll.is_empty():
+				_add(_dice_row(i, func(f): return f > mine))
+		_add(_button("back", "Back", _on_back))
+	else:
+		# spark, glance: a die of another player's last roll
+		var low: int = int(s.cfg.spark_min) if k == "spark" else 1
+		text.text += "\nTap a die showing 5 or 6." if k == "spark" else "\nTap a die to copy."
+		for i in others:
+			if a.has("target") and a.target != i:
+				continue
+			if s.seats[i].last_roll.is_empty() or Rules.block(s, act.key, act_args({"target": i})) != "":
+				continue
+			_add(_dice_row(i, func(f): return f >= low))
+		_add(_button("back", "Back", _on_back))
+
+
 # ---- building
 
 func _build() -> void:
@@ -384,8 +810,6 @@ func _build() -> void:
 	bg.color = BG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var top := 30
 	var bottom := 24
 	var safe := DisplayServer.get_display_safe_area()
@@ -394,21 +818,12 @@ func _build() -> void:
 		var k := get_viewport_rect().size.y / float(screen.y)
 		top = maxi(top, int(safe.position.y * k) + 8)
 		bottom = maxi(bottom, int((screen.y - safe.end.y) * k) + 8)
-	margin.add_theme_constant_override("margin_top", top)
-	margin.add_theme_constant_override("margin_bottom", bottom)
-	add_child(margin)
-	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(W, 0)
-	v.add_theme_constant_override("separation", 12)
-	var h := HBoxContainer.new()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	margin.add_child(h)
-	h.add_child(v)
+	var v := _page(self, top, bottom, 10)
 
 	header = _label("", SIZE_SMALL, DIM)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help_btn = _button("help", "How to play", _on_help)
-	help_btn.custom_minimum_size = Vector2(250, 88)
+	help_btn.custom_minimum_size = Vector2(250, 84)
 	help_btn.add_theme_font_size_override("font_size", SIZE_SMALL)
 	var head := HBoxContainer.new()
 	head.add_child(header)
@@ -416,17 +831,30 @@ func _build() -> void:
 	v.add_child(head)
 	for i in 4:
 		v.add_child(_panel(i))
+	# who did what to whom
+	var eb := StyleBoxFlat.new()
+	eb.bg_color = Color("3a2226")
+	eb.border_color = BAD
+	eb.set_border_width_all(2)
+	eb.set_corner_radius_all(12)
+	eb.set_content_margin_all(12)
+	event_box = PanelContainer.new()
+	event_box.add_theme_stylebox_override("panel", eb)
+	event_label = _label("", 30, TEXT)
+	event_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	event_box.add_child(event_label)
+	v.add_child(event_box)
 	title = _label("", SIZE_TITLE, GOLD)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(title)
-	text = _label("", SIZE_TEXT, TEXT)
+	text = _label("", SIZE_SMALL, TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(text)
 	var sp := Control.new()
 	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(sp)
 	buttons = VBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 12)
+	buttons.add_theme_constant_override("separation", 10)
 	v.add_child(buttons)
 
 	# the How to play card
@@ -434,18 +862,7 @@ func _build() -> void:
 	howto.color = BG
 	howto.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(howto)
-	var cm := MarginContainer.new()
-	cm.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cm.add_theme_constant_override("margin_top", top + 30)
-	cm.add_theme_constant_override("margin_bottom", bottom)
-	howto.add_child(cm)
-	var ch := HBoxContainer.new()
-	ch.alignment = BoxContainer.ALIGNMENT_CENTER
-	cm.add_child(ch)
-	var cv := VBoxContainer.new()
-	cv.custom_minimum_size = Vector2(W, 0)
-	cv.add_theme_constant_override("separation", 36)
-	ch.add_child(cv)
+	var cv := _page(howto, top + 30, bottom, 30)
 	cv.add_child(_label("How to play", SIZE_POINTS, GOLD))
 	for line in HOWTO:
 		var l := _label(line, SIZE_NAME, TEXT)
@@ -457,8 +874,42 @@ func _build() -> void:
 	got_btn = _button("got_it", "Got it", _on_got_it, true)
 	cv.add_child(got_btn)
 
+	# a Sin's abilities
+	sin_card = ColorRect.new()
+	sin_card.color = BG
+	sin_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(sin_card)
+	var sv := _page(sin_card, top + 30, bottom, 30)
+	sin_title = _label("", SIZE_POINTS, GOLD)
+	sv.add_child(sin_title)
+	sin_text = _label("", SIZE_NAME, TEXT)
+	sin_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sv.add_child(sin_text)
+	var ssp := Control.new()
+	ssp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sv.add_child(ssp)
+	close_btn = _button("close", "Close", _on_close, true)
+	sv.add_child(close_btn)
 
-## A seat's box: name, Sin, tag and points; then dice, last roll and what it scored.
+
+## A centred column of the content width inside parent, between the safe margins.
+func _page(parent: Control, top: int, bottom: int, gap: int) -> VBoxContainer:
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_top", top)
+	margin.add_theme_constant_override("margin_bottom", bottom)
+	parent.add_child(margin)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(h)
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(W, 0)
+	v.add_theme_constant_override("separation", gap)
+	h.add_child(v)
+	return v
+
+
+## A seat's box: name, Sin (a button: its abilities), tags and points; then dice, last roll, what it scored, and Spark of Rage.
 func _panel(i: int) -> Control:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = PANEL
@@ -472,22 +923,25 @@ func _panel(i: int) -> Control:
 	v.add_theme_constant_override("separation", 4)
 	pc.add_child(v)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 18)
+	top.add_theme_constant_override("separation", 14)
 	v.add_child(top)
 	top.add_child(_label(seat_name(i), SIZE_NAME, SEAT_COLORS[i]))
-	var sin_label := _label("", SIZE_TEXT, DIM)
-	top.add_child(sin_label)
-	var tag := _label("", SIZE_SMALL, GOLD)
+	var sin_btn := _button("sin%d" % i, "", _on_sin.bind(i))
+	sin_btn.custom_minimum_size = Vector2(190, 72)
+	sin_btn.add_theme_font_size_override("font_size", SIZE_SMALL)
+	top.add_child(sin_btn)
+	var tag := _label("", 28, GOLD)
 	tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	top.add_child(tag)
 	var points := _label("0", SIZE_POINTS, TEXT)
 	top.add_child(points)
 	var low := HBoxContainer.new()
-	low.add_theme_constant_override("separation", 18)
+	low.add_theme_constant_override("separation", 14)
 	v.add_child(low)
 	var dice := _label("", SIZE_TEXT, TEXT)
-	dice.custom_minimum_size = Vector2(250, DIE)
+	dice.custom_minimum_size = Vector2(230, DIE)
 	dice.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	low.add_child(dice)
 	var roll := HFlowContainer.new()
@@ -495,11 +949,16 @@ func _panel(i: int) -> Control:
 	roll.add_theme_constant_override("h_separation", 8)
 	roll.add_theme_constant_override("v_separation", 8)
 	low.add_child(roll)
-	var scored := _label("", SIZE_SMALL, DIM)
+	var scored := _label("", 30, DIM)
 	scored.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	scored.size_flags_vertical = Control.SIZE_FILL
 	low.add_child(scored)
-	panels.append({"box": sb, "sin": sin_label, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored})
+	var spark := _button("spark%d" % i, "Spark\nof Rage", func(): _on_ability("spark", wrath_seat(), {"target": i}))
+	spark.custom_minimum_size = Vector2(130, DIE)
+	spark.add_theme_font_size_override("font_size", 22)
+	spark.visible = false
+	low.add_child(spark)
+	panels.append({"box": sb, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
 	return pc
 
 
@@ -519,6 +978,46 @@ func _die(face: int) -> Control:
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pc.add_child(l)
 	return pc
+
+
+## A player's last roll as dice to tap (keys d<seat>_<index>); allowed(face) says which can be tapped.
+func _dice_row(seat: int, allowed: Callable) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	var l := _label(seat_name(seat), SIZE_TEXT, SEAT_COLORS[seat])
+	l.custom_minimum_size = Vector2(190, PICK)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(l)
+	var flow := HFlowContainer.new()
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 10)
+	h.add_child(flow)
+	var roll: Array = s.seats[seat].last_roll
+	for j in roll.size():
+		var b := _button("d%d_%d" % [seat, j], str(roll[j]), _on_die.bind(seat, j), false, not allowed.call(roll[j]), true)
+		b.custom_minimum_size = Vector2(PICK, PICK)
+		b.add_theme_font_size_override("font_size", SIZE_NAME)
+		flow.add_child(b)
+	return h
+
+
+## A player to choose (key target<seat>); why: the reason they cannot be chosen, shown on the button.
+func _target_button(i: int, why: String, chosen: bool) -> Button:
+	var b := _button("target%d" % i, seat_name(i) + ("\n" + why if why != "" else ""), _on_target.bind(i), false, why != "", chosen)
+	if why != "":
+		b.add_theme_font_size_override("font_size", 26)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return b
+
+
+## The button that starts one of the turn player's abilities; switched off, with the reason, when it cannot be used now.
+func _ability_button(key: String, label: String) -> Button:
+	var why := Rules.block(s, key)
+	var b := _button(key, label + ("\n" + why if why != "" else ""), _on_ability.bind(key, s.turn), false, why != "")
+	b.add_theme_font_size_override("font_size", 30 if why != "" else SIZE_SMALL)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return b
 
 
 func _label(t: String, size_px: int, color: Color) -> Label:
@@ -556,7 +1055,7 @@ func _button(key: String, label: String, then: Callable, main := false, off := f
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = BUTTON_OFF if st == "disabled" else (fill.darkened(0.2) if st == "pressed" else fill)
 		sb.set_corner_radius_all(12)
-		sb.set_content_margin_all(10)
+		sb.set_content_margin_all(8)
 		b.add_theme_stylebox_override(st, sb)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, ink)

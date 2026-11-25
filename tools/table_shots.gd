@@ -3,6 +3,7 @@
 extends SceneTree
 
 const TableScreen = preload("res://ui/table_screen.gd")
+const Rules = preload("res://game/rules.gd")
 
 var h
 var n := 0
@@ -14,7 +15,7 @@ class Faces:
 	func _init(f: Array) -> void:
 		queue = f.duplicate()
 	func randi_range(_a: int, _b: int) -> int:
-		return queue.pop_front()
+		return 4 if queue.is_empty() else queue.pop_front()   # past the script every die shows 4
 
 
 func _initialize() -> void:
@@ -25,86 +26,120 @@ func _initialize() -> void:
 	for f in DirAccess.get_files_at("res://build/" + dir):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("res://build/%s/%s" % [dir, f]))
 	h = TableScreen.new()
-	# P1 scores; P2 into Purgatory; P3 rolls 4 dice (one lent); P4; P1; P2 stays in; then a win
-	h.rng = Faces.new([4, 5, 1,  1, 2, 3,  6, 4, 2, 5,  5, 5, 3,  6, 6, 1,  2, 6, 6,  6, 6, 3])
-	h.sins = ["wrath", "greed", "lust", "pride"]
+	# P1 Wrath 4,5,1; P2 Lust 1,2,3 (swaps); Spark rerolls to 2; P3 Gluttony 6,4,1; P4 Pride 6,6,1
+	h.rng = Faces.new([4, 5, 1,  1, 2, 3,  2,  6, 4, 1,  6, 6, 1])
+	h.sins = ["wrath", "lust", "gluttony", "pride"]
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(h)
 	await _shot("how_to_play")
 	tap("got_it")
 	await _shot("pass_the_phone")
+	tap("sin0")
+	await _shot("sin_card_wrath")
+	tap("close")
+	tap("sin3")
+	await _shot("sin_card_pride")
+	tap("close")
 	tap("ready")
 	await _shot("roll")
 	tap("roll")
-	await _shot("gambit")
+	await _shot("gambit_wrath")
 	tap("buy")
 	await _shot("bought_a_die")
 	tap("points")
-	await _shot("give_points_choose")
 	tap("other2")
 	tap("p10")
 	tap("p10")
-	await _shot("give_points_ready")
+	await _shot("give_points")
 	tap("offer")
 	await _shot("agree")
 	tap("agree")
 	await _shot("agreed")
-	tap("lend")
-	tap("other2")
-	await _shot("lend_a_die")
-	tap("offer")
-	tap("agree")
-	tap("die")
-	tap("ask")
-	tap("other2")
-	await _shot("ask_for_a_die")
-	tap("offer")
-	await _shot("asked")
-	tap("refuse")
-	await _shot("refused")
 	tap("pass")
+	# Lust: Whisper of Desire before scoring
+	tap("ready")
+	tap("roll")
+	await _shot("lust_swap_before_scoring")
+	tap("whisper")
+	await _shot("whisper_pick_your_die")
+	tap("d1_0")
+	await _shot("whisper_pick_their_die")
+	tap("d0_1")
+	await _shot("whisper_done_spark_button_on_roll")
+	# Wrath, out of turn: Spark of Rage on Lust's roll
+	tap("spark1")
+	await _shot("spark_pick_a_die")
+	tap("d1_0")
+	await _shot("spark_done")
+	tap("pass")
+	# Gluttony: Feast
+	tap("ready")
+	tap("roll")
+	await _shot("gambit_gluttony_tier_2_shut")
+	tap("feast")
+	await _shot("feast_pick_a_die")
+	tap("d2_0")
+	await _shot("feast_done")
+	tap("pass")
+	# Pride: Hubris
+	tap("ready")
+	await _shot("pride_before_the_roll")
+	tap("hubris")
+	await _shot("hubris_declared")
+	tap("roll")
+	await _shot("hubris_won")
+	tap("pass")
+	# round 2, everyone past 350: Tier 2
+	for i in 4:
+		Rules.add_points(h.s, i, 400)
+	h._refresh()
+	tap("ready")
+	tap("roll")
+	await _shot("gambit_wrath_tier_2_open")
+	tap("strike")
+	await _shot("strike_pick_a_target")
+	tap("target3")
+	await _shot("strike_target_chooses")
+	tap("choose_die")
+	await _shot("strike_done")
+	tap("pass")
+	tap("ready")
+	tap("roll")
+	if h.btn.has("settle"):
+		tap("settle")
+	tap("allure")
+	tap("target0")
+	tap("target3")
+	await _shot("allure_two_players")
+	tap("use")
+	await _shot("allure_pass_to_first")
+	tap("ready")
+	await _shot("allure_secret_pick")
+	tap("d0_0")
+	tap("ready")
+	tap("d3_0")
+	await _shot("allure_after_the_picks")
+	if h.btn.has("take0"):
+		tap("take0")
+		await _shot("allure_done")
+	tap("pass")
+	# Gluttony: Voracious Bite on Pride; then Purgatory for Pride
+	tap("ready")
+	tap("roll")
+	tap("bite")
+	tap("target3")
+	await _shot("bite_done")
+	tap("pass")
+	h.rng.queue = [1, 2, 3]
 	tap("ready")
 	tap("roll")
 	await _shot("into_purgatory")
-	tap("pass")
-	await _shot("pass_to_player_3")
-	tap("ready")
-	await _shot("roll_with_a_lent_die")
-	tap("roll")
-	tap("points")
-	await _shot("purgatory_player_cannot_be_chosen")
-	tap("back")
-	tap("pass")
-	tap("ready")
-	tap("roll")
-	tap("buy")
-	tap("pass")
-	tap("ready")
-	tap("roll")
-	tap("pass")
-	await _shot("pass_to_a_player_in_purgatory")
-	tap("ready")
-	await _shot("roll_in_purgatory")
-	tap("roll")
-	await _shot("stays_in_purgatory")
-	tap("pass")
-	h.s.seats[2].points = 2890
-	h.s.seats[0].points = 2450
-	h.s.seats[3].points = 1980
-	h.s.seats[3].dice = 9
-	h.s.seats[3].last_roll = [6, 6, 5, 4, 4, 3, 2, 1, 1]
-	h.s.seats[3].last_score = 250
-	h._refresh()
-	tap("ready")
-	await _shot("late_in_the_match")
-	tap("roll")
-	await _shot("winner")
 	quit(0)
 
 
 func tap(key: String) -> void:
 	if not h.btn.has(key) or h.btn[key].disabled:
-		printerr("no button to tap: ", key)
+		printerr("no button to tap: ", key, " (on screen: ", h.btn.keys(), ")")
 		quit(1)
 		return
 	h.btn[key].pressed.emit()
