@@ -1,4 +1,5 @@
 ## Step 1: four players pass one phone (rules: docs/step1-rules.md, in game/). A flat blockout: boxes and words, no art.
+## Before the first turn: the How to play card (also behind the How to play button).
 ## Top: the four players, always shown (points, dice, Purgatory, last roll). Bottom: what the player holding the phone does now.
 ## No abilities yet.
 extends Control
@@ -36,6 +37,16 @@ const GIFT_RULES := {
 	"die": "The giver pays 20 and the die from the supply is theirs to keep.",
 }
 
+## The How to play card: shown before the first turn of each match, and from the How to play button at any time.
+const HOWTO := [
+	"First to 3000 points wins.",
+	"On your turn, roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60.",
+	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
+	"After rolling you can buy dice for 20 each, give points, lend a die or buy a die for someone.",
+	"Talk and make deals. Promises are not binding.",
+	"Then pass the phone.",
+]
+
 var s                        # the match (game/state.gd)
 var rng = null               # set before the screen enters the tree to script the dice; else random
 var sins: Array = []         # set to fix the Sins; else dealt at random
@@ -50,6 +61,9 @@ var panels: Array = []       # one Dictionary of nodes a seat
 var title: Label
 var text: Label
 var buttons: VBoxContainer
+var howto: Control           # the How to play card, over everything
+var help_btn: Button
+var got_btn: Button
 
 
 func _init() -> void:
@@ -70,6 +84,7 @@ func new_match() -> void:
 	s = Rules.new_match(Config.merged({}), rng, sins)
 	view = "handover"
 	note = ""
+	howto.visible = true
 	_refresh()
 
 
@@ -130,6 +145,16 @@ func roll_note(r: Dictionary) -> String:
 
 func _on_ready() -> void:
 	view = "turn"
+	_refresh()
+
+
+func _on_help() -> void:
+	howto.visible = true
+	_refresh()
+
+
+func _on_got_it() -> void:
+	howto.visible = false
 	_refresh()
 
 
@@ -227,6 +252,11 @@ func _refresh() -> void:
 		_view_end()
 	else:
 		_view_over()
+	# The card covers the table: while it is up, its button is the only one.
+	if howto.visible:
+		btn = {"got_it": got_btn}
+	else:
+		btn["help"] = help_btn
 
 
 func _refresh_panel(i: int) -> void:
@@ -376,8 +406,14 @@ func _build() -> void:
 	h.add_child(v)
 
 	header = _label("", SIZE_SMALL, DIM)
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(header)
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	help_btn = _button("help", "How to play", _on_help)
+	help_btn.custom_minimum_size = Vector2(250, 88)
+	help_btn.add_theme_font_size_override("font_size", SIZE_SMALL)
+	var head := HBoxContainer.new()
+	head.add_child(header)
+	head.add_child(help_btn)
+	v.add_child(head)
 	for i in 4:
 		v.add_child(_panel(i))
 	title = _label("", SIZE_TITLE, GOLD)
@@ -393,6 +429,34 @@ func _build() -> void:
 	buttons.add_theme_constant_override("separation", 12)
 	v.add_child(buttons)
 
+	# the How to play card
+	howto = ColorRect.new()
+	howto.color = BG
+	howto.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(howto)
+	var cm := MarginContainer.new()
+	cm.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cm.add_theme_constant_override("margin_top", top + 30)
+	cm.add_theme_constant_override("margin_bottom", bottom)
+	howto.add_child(cm)
+	var ch := HBoxContainer.new()
+	ch.alignment = BoxContainer.ALIGNMENT_CENTER
+	cm.add_child(ch)
+	var cv := VBoxContainer.new()
+	cv.custom_minimum_size = Vector2(W, 0)
+	cv.add_theme_constant_override("separation", 36)
+	ch.add_child(cv)
+	cv.add_child(_label("How to play", SIZE_POINTS, GOLD))
+	for line in HOWTO:
+		var l := _label(line, SIZE_NAME, TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(l)
+	var csp := Control.new()
+	csp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cv.add_child(csp)
+	got_btn = _button("got_it", "Got it", _on_got_it, true)
+	cv.add_child(got_btn)
+
 
 ## A seat's box: name, Sin, tag and points; then dice, last roll and what it scored.
 func _panel(i: int) -> Control:
@@ -401,7 +465,7 @@ func _panel(i: int) -> Control:
 	sb.border_color = SEAT_COLORS[i]
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
-	sb.set_content_margin_all(18)
+	sb.set_content_margin_all(12)
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()

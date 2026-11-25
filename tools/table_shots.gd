@@ -30,6 +30,8 @@ func _initialize() -> void:
 	h.sins = ["wrath", "greed", "lust", "pride"]
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(h)
+	await _shot("how_to_play")
+	tap("got_it")
 	await _shot("pass_the_phone")
 	tap("ready")
 	await _shot("roll")

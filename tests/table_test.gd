@@ -24,7 +24,7 @@ func check(name: String, ok: bool) -> void:
 
 
 ## A fresh screen on scripted dice (or random ones, seeded).
-func screen(faces = null, seed_value := 1) -> void:
+func screen(faces = null, seed_value := 1, card := false) -> void:
 	if h != null:
 		h.queue_free()
 	h = TableScreen.new()
@@ -38,6 +38,8 @@ func screen(faces = null, seed_value := 1) -> void:
 	root.add_child(h)
 	await process_frame
 	await process_frame
+	if not card:
+		tap("got_it")   # the How to play card, tested in test_howto
 
 
 ## Is this button on screen and able to be tapped?
@@ -58,6 +60,7 @@ func shown() -> String:
 
 
 func _initialize() -> void:
+	await test_howto()
 	await test_first_turn()
 	await test_purgatory()
 	await test_buy()
@@ -69,9 +72,37 @@ func _initialize() -> void:
 	quit(1 if _fails > 0 else 0)
 
 
+func test_howto() -> void:
+	await screen([4, 5, 1], 1, true)
+	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and h.btn.size() == 1)
+	var all := " ".join(h.HOWTO)
+	check("the card is at most six lines", h.HOWTO.size() <= 6)
+	var facts := ["3000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone"]
+	var missing := []
+	for f in facts:
+		if not all.contains(f):
+			missing.append(f)
+	check("the card covers the goal, the roll, Purgatory, buying, the gifts, promises and passing (missing: %s)" % ", ".join(missing), missing.is_empty())
+	check("the card does not mention abilities", not all.to_lower().contains("abilit") and not all.contains("Sin"))
+	await process_frame
+	check("the card fits the screen (button ends at %d of 1920)" % int(h.got_btn.get_global_rect().end.y), h.got_btn.get_global_rect().end.y <= 1920.0)
+	tap("got_it")
+	check("Got it shows the table: pass the phone to Player 1", not h.howto.visible and can_tap("ready") and can_tap("help"))
+	tap("help")
+	check("How to play brings the card back", h.howto.visible and can_tap("got_it") and h.btn.size() == 1)
+	tap("got_it")
+	tap("ready")
+	tap("roll")
+	tap("help")
+	tap("got_it")
+	check("the card can be read mid-turn and nothing changes", can_tap("pass") and can_tap("buy") and h.panels[0].points.text == "90")
+	tap("points")
+	check("How to play is on the table in the gift form too", can_tap("help"))
+
+
 func test_first_turn() -> void:
 	await screen([4, 5, 1,  6, 6, 6])
-	check("it opens on: pass the phone to Player 1", h.title.text == "Pass the phone to Player 1" and can_tap("ready") and h.btn.size() == 1)
+	check("it opens on: pass the phone to Player 1", h.title.text == "Pass the phone to Player 1" and can_tap("ready") and h.btn.size() == 2)
 	var ok := true
 	for i in 4:
 		var n: Dictionary = h.panels[i]
@@ -81,11 +112,11 @@ func test_first_turn() -> void:
 	check("the header shows the goal and the supply", h.header.text.contains("3000") and h.header.text.contains("15 dice"))
 	check("Player 1 is marked as the turn", h.panels[0].tag.text == "TURN" and h.panels[1].tag.text == "")
 	tap("ready")
-	check("then one Roll button, and the rules of the roll", can_tap("roll") and h.btn.size() == 1 and h.btn.roll.text == "Roll 3 dice" and shown().contains("Purgatory") and shown().contains("40, 50 or 60"))
+	check("then one Roll button, and the rules of the roll", can_tap("roll") and h.btn.size() == 2 and h.btn.roll.text == "Roll 3 dice" and shown().contains("Purgatory") and shown().contains("40, 50 or 60"))
 	tap("roll")
 	check("the result and what it scored", shown().contains("You rolled 4, 5, 1 and scored 90."))
 	check("the panel shows 90 points, the roll and its score", h.panels[0].points.text == "90" and h.panels[0].roll.get_child_count() == 3 and h.panels[0].scored.text == "scored 90")
-	check("the Gambit Phase offers Buy, the three gifts and Pass", can_tap("buy") and can_tap("points") and can_tap("lend") and can_tap("die") and can_tap("pass") and h.btn.size() == 5)
+	check("the Gambit Phase offers Buy, the three gifts and Pass", can_tap("buy") and can_tap("points") and can_tap("lend") and can_tap("die") and can_tap("pass") and h.btn.size() == 6)
 	tap("pass")
 	check("passing asks for the phone to go to Player 2", h.title.text == "Pass the phone to Player 2" and h.panels[1].tag.text == "TURN" and h.panels[0].tag.text == "")
 	tap("ready")
@@ -99,7 +130,7 @@ func test_purgatory() -> void:
 	tap("ready")
 	tap("roll")
 	check("all dice 1-3: the screen says Purgatory, 0 scored, turn over", shown().contains("Purgatory") and shown().contains("score 0") and h.panels[0].tag.text.contains("IN PURGATORY"))
-	check("in Purgatory the only button is Pass", can_tap("pass") and h.btn.size() == 1)
+	check("in Purgatory the only button is Pass", can_tap("pass") and h.btn.size() == 2)
 	tap("pass")
 	for i in 3:
 		tap("ready")
@@ -110,7 +141,7 @@ func test_purgatory() -> void:
 	tap("ready")
 	check("the roll screen explains how to get out", shown().contains("two or more showing 1, 2 or 3"))
 	tap("roll")
-	check("one low die: stays in, scores nothing, and says why", shown().contains("need two or more") and h.panels[0].points.text == "0" and h.btn.size() == 1 and can_tap("pass"))
+	check("one low die: stays in, scores nothing, and says why", shown().contains("need two or more") and h.panels[0].points.text == "0" and h.btn.size() == 2 and can_tap("pass"))
 	tap("pass")
 	for i in 3:
 		tap("ready")
@@ -213,8 +244,10 @@ func test_win() -> void:
 	tap("ready")
 	tap("roll")
 	check("the winner screen names the winner", h.title.text == "Player 1 wins!" and h.panels[0].tag.text == "WINNER" and shown().contains("3000"))
-	check("the only button starts a new match", can_tap("new") and h.btn.size() == 1)
+	check("the only button starts a new match", can_tap("new") and h.btn.size() == 2)
 	tap("new")
+	check("a new match opens on the How to play card again", can_tap("got_it") and h.btn.size() == 1)
+	tap("got_it")
 	var fresh := true
 	for i in 4:
 		fresh = fresh and h.panels[i].points.text == "0" and h.panels[i].dice.text == "3 dice" and h.panels[i].roll.get_child_count() == 1
