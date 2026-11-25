@@ -4,8 +4,9 @@ The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinne
 
 ## Step 1 (from 2026-11-24): 4 players, one phone
 The work now. Why: `docs/fun-brief.md`. Rules, approved: `docs/step1-rules.md` (build exactly what it says; ask Ben about any gap). Build order, limits and gotchas: `docs/step1-build.md`.
-- Built: the rules core, `game/` (no UI; `rules.gd` static functions over `state.gd`, every number in `config.gd`), tested by `tests/game_test.gd`. A turn is `roll`, then `buy` as often as you like, then `pass_turn`.
-- Not built yet: the pass-and-play screen, the three gifts, the abilities.
+- Built: the rules, `game/` (no UI; `rules.gd` static functions over `state.gd`, every number in `config.gd`), tested by `tests/game_test.gd`. A turn is `roll`, then `buy` and `gift` (give points, lend a die, buy a die for a player) as often as you like, then `pass_turn`.
+- Built: the pass-and-play screen, `ui/table_screen.gd` (flat blockout; `ui/main.tscn` opens it), driven as taps by `tests/table_test.gd`. Screenshots: `godot --path . --resolution 1080x2340 --script res://tools/table_shots.gd` -> `build/table_shots/`.
+- Not built yet: the abilities (the Sins are dealt and shown, and do nothing).
 - Dice poker (everything under "Kept" and "Design" below) stays in the repo, unused. `dice/` is a different game: nothing in it applies to step 1.
 
 ## Kept
