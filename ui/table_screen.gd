@@ -40,7 +40,7 @@ const GIFT_RULES := {
 }
 ## The How to play card: shown before the first turn of each match, and from the How to play button at any time.
 const HOWTO := [
-	"First to 3000 points wins.",
+	"First to 1000 points wins.",
 	"On your turn, roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60.",
 	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
 	"After rolling you can buy dice for 20 each, give points, lend a die or buy a die for someone.",

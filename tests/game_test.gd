@@ -211,38 +211,38 @@ func test_floor() -> void:
 
 func test_win() -> void:
 	var s = game([6, 1, 1])
-	s.seats[0].points = 2940
+	s.seats[0].points = 940
 	var r: Dictionary = Rules.roll(s)
-	check("ending your Fate Phase on 3000 wins at once", s.winner == 0 and s.phase == Rules.OVER and r.won)
+	check("ending your Fate Phase on 1000 wins at once", s.winner == 0 and s.phase == Rules.OVER and r.won)
 	check("nothing more can happen", Rules.roll(s).is_empty() and not Rules.buy(s, 1) and not Rules.pass_turn(s) and s.turn == 0)
 	s = game([5, 1, 1])
-	s.seats[0].points = 2940
+	s.seats[0].points = 940
 	Rules.roll(s)
-	check("2990 is not a win", s.winner == -1 and s.phase == Rules.GAMBIT)
+	check("990 is not a win", s.winner == -1 and s.phase == Rules.GAMBIT)
 
 
 func test_win_only_on_your_own_fate_phase() -> void:
 	var s = game([4, 4, 4,  1, 1, 1,  4, 4, 4,  4, 4, 4,  4, 4, 4,  6, 6, 2,  4, 4, 4,  4, 4, 4,  4, 4, 4,  1, 1, 5])
-	Rules.add_points(s, 1, 3000)
+	Rules.add_points(s, 1, 1000)
 	Rules.roll(s)
 	check("points reached outside your own Fate Phase do not win yet", s.winner == -1)
 	Rules.pass_turn(s)
 	Rules.roll(s)
-	check("you cannot win while in Purgatory: 3000 points and a roll into Purgatory is no win", s.winner == -1 and s.phase == Rules.END and s.seats[1].purgatory)
+	check("you cannot win while in Purgatory: 1000 points and a roll into Purgatory is no win", s.winner == -1 and s.phase == Rules.END and s.seats[1].purgatory)
 	for i in 4:
 		Rules.pass_turn(s)
 		Rules.roll(s)
-	check("a failed escape at 3000 is no win either", s.winner == -1 and s.seats[1].purgatory and s.turn == 1)
+	check("a failed escape at 1000 is no win either", s.winner == -1 and s.seats[1].purgatory and s.turn == 1)
 	for i in 4:
 		Rules.pass_turn(s)
 		Rules.roll(s)
 	check("the roll that frees you wins", s.winner == 1 and s.phase == Rules.OVER and not s.seats[1].purgatory)
 	s = game([4, 4, 4,  5, 1, 1])
-	Rules.add_points(s, 1, 3000)
+	Rules.add_points(s, 1, 1000)
 	Rules.roll(s)
 	Rules.pass_turn(s)
 	Rules.roll(s)
-	check("free at the end of your Fate Phase with 3000: you win", s.winner == 1)
+	check("free at the end of your Fate Phase with 1000: you win", s.winner == 1)
 
 
 func test_give_points() -> void:
@@ -515,7 +515,7 @@ func test_deal() -> void:
 	check("a target with under 50 points cannot choose to pay", Rules.block(s, "deal", {"target": 2, "choice": "points"}).contains("50"))
 	check("a target with neither 50 points nor a spare die cannot be chosen", Rules.block(s, "deal", {"target": 3}).contains("neither"))
 	var r: Dictionary = Rules.use(s, "deal", {"target": 1, "choice": "points"})
-	check("Cut a Deal costs 50; the target chose to pay Greed 50", r.get("ok", false) and s.seats[0].points == 520 and s.seats[1].points == 30)
+	check("Cut a Deal costs 70; the target chose to pay Greed 50", r.get("ok", false) and s.seats[0].points == 500 and s.seats[1].points == 30)
 	Rules.pass_turn(s)
 	play(s, 3)
 	rolled(s)
@@ -813,7 +813,8 @@ func test_full_match() -> void:
 	var used := {}
 	for seed_value in 300:
 		rng.seed = seed_value
-		var s = Rules.new_match(Config.merged({}), rng)
+		# the matches that use abilities play to 3000, long enough for every ability to come up; the plain ones play to the goal as built
+		var s = Rules.new_match(Config.merged({"win": 3000} if seed_value % 3 > 0 else {}), rng)
 		var turns := 0
 		while s.winner == -1 and turns < 5000:
 			turns += 1
@@ -848,7 +849,7 @@ func test_full_match() -> void:
 				Rules.pass_turn(s)
 		if s.winner == -1:
 			broken.append("seed %d: no winner" % seed_value)
-		elif s.seats[s.winner].points < 3000 or s.winner != s.turn or s.seats[s.winner].purgatory:
+		elif s.seats[s.winner].points < int(s.cfg.win) or s.winner != s.turn or s.seats[s.winner].purgatory:
 			broken.append("seed %d: a wrong winner" % seed_value)
 		rounds.append(s.round_number)
 	check("300 seeded matches each play to one winner with no rule broken (%s)" % ("none" if broken.is_empty() else ", ".join(broken.slice(0, 5))), broken.is_empty())
@@ -865,7 +866,7 @@ func test_full_match() -> void:
 			plain += rounds[i]
 		else:
 			wild += rounds[i]
-	print("game_test: match length in rounds, no abilities used %.1f (100 matches), abilities at random %.1f (200 matches)" % [plain / 100.0, wild / 200.0])
+	print("game_test: match length in rounds: to the goal as built with no abilities used %.1f (100 matches); to 3000 with abilities at random %.1f (200 matches)" % [plain / 100.0, wild / 200.0])
 
 
 ## One ability at random with choices at random, by the player whose turn it is or (Spark of Rage) by Wrath.

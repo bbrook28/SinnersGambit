@@ -12,7 +12,7 @@ const DEFAULTS := {
 	"face_points": 10,   # a 4, 5 or 6 scores 40, 50 or 60
 	"escape_lows": 2,    # dice showing 1..low_max that free you from Purgatory
 	"die_cost": 20,      # points for one die from the supply
-	"win": 3000,         # end your own Fate Phase on this or more, out of Purgatory, and you win
+	"win": 1000,         # end your own Fate Phase on this or more, out of Purgatory, and you win (Ben, 2026-11-25: a starting value under test; the rulebook says 3000)
 	# Abilities (the Sin cards as written in docs/step1-rules.md; the words are in game/sins.gd)
 	"tier2_at": 350,          # reach this and Tier 2 opens, and stays open
 	"spark_min": 5,           # Spark of Rage: the die must show this or more
@@ -21,7 +21,7 @@ const DEFAULTS := {
 	"strike_loss": 50,
 	"strike_rounds": 2,
 	"vig": 20,                # The Vig: of a die's price, to Greed
-	"deal_cost": 50,          # Cut a Deal
+	"deal_cost": 70,          # Cut a Deal (Ben, 2026-11-25: a starting value under test; the card says 50)
 	"deal_pay": 50,
 	"deal_rounds": 1,
 	"allure_cost": 40,        # Entangling Allure

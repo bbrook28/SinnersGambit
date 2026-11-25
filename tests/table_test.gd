@@ -104,7 +104,7 @@ func test_howto() -> void:
 	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and acts() == 1)
 	var all := " ".join(h.HOWTO)
 	check("the card is at most eight lines", h.HOWTO.size() <= 8)
-	var facts := ["3000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
+	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
 	var missing := []
 	for f in facts:
 		if not all.contains(f):
@@ -135,7 +135,7 @@ func test_first_turn() -> void:
 		ok = ok and n.points.text == "0" and n.dice.text == "3 dice" and n.points.is_visible_in_tree() and n.dice.is_visible_in_tree()
 	check("all four players show 0 points and 3 dice", ok)
 	check("each player's Sin is shown", h.panels[0].sin.text == "Wrath" and h.panels[3].sin.text == "Envy")
-	check("the header shows the goal and the supply", h.header.text.contains("3000") and h.header.text.contains("6 dice"))
+	check("the header shows the goal and the supply", h.header.text.contains("1000") and h.header.text.contains("6 dice"))
 	check("Player 1 is marked as the turn", h.panels[0].tag.text == "TURN" and h.panels[1].tag.text == "")
 	tap("ready")
 	check("then one Roll button, and the rules of the roll", can_tap("roll") and acts() == 1 and h.btn.roll.text == "Roll 3 dice" and shown().contains("Purgatory") and shown().contains("40, 50 or 60"))
@@ -265,11 +265,11 @@ func test_gifts() -> void:
 
 func test_win() -> void:
 	await screen([6, 1, 1,  4, 4, 4])
-	h.s.seats[0].points = 2940
+	h.s.seats[0].points = 940
 	h._refresh()
 	tap("ready")
 	tap("roll")
-	check("the winner screen names the winner", h.title.text == "Player 1 wins!" and h.panels[0].tag.text.contains("WINNER") and shown().contains("3000"))
+	check("the winner screen names the winner", h.title.text == "Player 1 wins!" and h.panels[0].tag.text.contains("WINNER") and shown().contains("1000"))
 	check("the only button starts a new match", can_tap("new") and acts() == 1)
 	tap("new")
 	check("a new match opens on the How to play card again", can_tap("got_it") and acts() == 1)
@@ -280,11 +280,11 @@ func test_win() -> void:
 	check("a new match: everyone at 0 with 3 dice and no roll, Player 1 to start", fresh and h.title.text == "Pass the phone to Player 1")
 	# no win while in Purgatory
 	await screen([1, 1, 1])
-	h.s.seats[0].points = 3000
+	h.s.seats[0].points = 1000
 	h._refresh()
 	tap("ready")
 	tap("roll")
-	check("3000 points and a roll into Purgatory: no winner, and the screen says why", h.s.winner == -1 and shown().contains("cannot win while in Purgatory") and can_tap("pass"))
+	check("1000 points and a roll into Purgatory: no winner, and the screen says why", h.s.winner == -1 and shown().contains("cannot win while in Purgatory") and can_tap("pass"))
 
 
 ## Every view at its fullest stays inside a 1080 x 1920 screen.
@@ -297,7 +297,7 @@ func test_fits() -> void:
 	views.append("roll")
 	# the fullest table: everyone with many dice rolled, and 4-digit scores
 	for p in h.s.seats:
-		p.points = 2000
+		p.points = 600
 		p.dice = 4
 		p.last_roll = [6, 6, 6, 6]
 		p.last_score = 240
