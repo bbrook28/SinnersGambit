@@ -2,6 +2,12 @@
 A clean slate (2026-11-20): still a dice game with the Seven Sins in stained glass; everything else is open.
 The old game (table game, sims, docs, duel greybox) is at the tag `archive/sinners-gambit-v1`; read it with `git show archive/sinners-gambit-v1:<path>`, never restore it wholesale.
 
+## Step 1 (from 2026-11-24): 4 players, one phone
+The work now. Why: `docs/fun-brief.md`. Rules, approved: `docs/step1-rules.md` (build exactly what it says; ask Ben about any gap). Build order, limits and gotchas: `docs/step1-build.md`.
+- Built: the rules core, `game/` (no UI; `rules.gd` static functions over `state.gd`, every number in `config.gd`), tested by `tests/game_test.gd`. A turn is `roll`, then `buy` as often as you like, then `pass_turn`.
+- Not built yet: the pass-and-play screen, the three gifts, the abilities.
+- Dice poker (everything under "Kept" and "Design" below) stays in the repo, unused. `dice/` is a different game: nothing in it applies to step 1.
+
 ## Kept
 - `assets/art/` (the glass windows are `assets/art/runtime/sins/<sin>.png`; the Master of the Dance, the Danse Macabre Reaper, is in `assets/art/master/`), `assets/fonts/` (Pirata One, IM Fell English, Cinzel), `assets/icons/`.
 - Godot 4.7 stable (standard build, GDScript), 2D, Mobile renderer, portrait 1080x1920 stretched to fit phone and iPad. Targets Android and iOS.
