@@ -45,6 +45,7 @@ const HOWTO := [
 	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
 	"After rolling you can buy dice for 20 each, give points, lend a die or buy a die for someone.",
 	"Each Sin has two abilities. Tap a Sin's name to read them.",
+	"You can use each ability once on your turn.",
 	"Talk and make deals. Promises are not binding.",
 	"Then pass the phone.",
 ]
@@ -285,7 +286,7 @@ func _on_sin(i: int) -> void:
 	var t1: Dictionary = Sins.INFO[sn].t1
 	var t2: Dictionary = Sins.INFO[sn].t2
 	sin_title.text = "%s: %s" % [seat_name(i), sin_name(i)]
-	sin_text.text = "Tier 1, free: %s\n%s\n\nTier 2, costs %d: %s\n%s\n\nTier 2 opens when you reach %d points and stays open. One Tier 1 and one Tier 2 a turn. No abilities in Purgatory." % [
+	sin_text.text = "Tier 1, free: %s\n%s\n\nTier 2, costs %d: %s\n%s\n\nTier 2 opens when you reach %d points and stays open. Each ability at most once on your turn. No abilities in Purgatory." % [
 		t1.name, t1.text, Sins.cost(s.cfg, t2.key), t2.name, t2.text, int(s.cfg.tier2_at)]
 	sin_card.visible = true
 	_refresh()

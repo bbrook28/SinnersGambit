@@ -3,6 +3,8 @@
 ## as often as allowed, then pass_turn(s). block(s, key, args) says in plain words why an ability cannot be used now.
 ##
 ## Readings of the Sin cards that the cards do not spell out (reported to Ben, 2026-11-25):
+## - "At most once per turn" (Ben, 2026-11-25) counts every use by the player whose turn it is, a copy through Jealous
+##   Grasp included; Wrath's Spark of Rage on another player's turn is not a use on Wrath's turn (once a round covers it).
 ## - A round, for "once a round", "each round" and "this round", runs from the start of your turn to the start of your next.
 ## - A die taken "for N full rounds" is rolled by the taker on their next N turns, then goes back to its owner.
 ## - In Purgatory no ability works, the passive ones included. A player in Purgatory can be a target.
@@ -287,6 +289,7 @@ static func pass_turn(s) -> bool:
 	var p = s.seats[s.turn]
 	p.used_t1 = false
 	p.used_t2 = false
+	p.used = {}
 	p.spark_used = false
 	p.armed = false
 	p.hubris = false
@@ -366,6 +369,9 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 			need = SWAP
 		if s.phase != need:
 			return {FATE: "Before you roll.", SWAP: "Before scoring.", GAMBIT: "After your roll."}[need]
+		# Ben, 2026-11-25: every ability at most once per turn by the player whose turn it is.
+		if p.used.has(key):
+			return "Already used this turn."
 		if copy:
 			pass
 		elif Sins.tier(key) == 1:
@@ -488,6 +494,8 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 	var p = s.seats[seat]
 	var cfg: Dictionary = s.cfg
 	var r := {"ok": true, "key": key, "by": seat, "superiority": []}
+	if seat == s.turn:
+		p.used[key] = true
 	# pay, and mark the use
 	if not copy:
 		if Sins.tier(key) == 1:

@@ -16,6 +16,7 @@ class Seat:
 	var tier2 := false         # reached 350 once: Tier 2 is open for good
 	var used_t1 := false       # used a Tier 1 this turn
 	var used_t2 := false       # used a Tier 2 this turn
+	var used := {}             # the abilities used on this turn of theirs (key -> true): each at most once a turn
 	var spark_used := false    # Wrath: Spark of Rage used since their last turn began (once a round)
 	var hubris := false        # Pride: declared for the coming roll
 	var glance := 0            # Envy: the face of the temporary die for the coming roll (0: none)

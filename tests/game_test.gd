@@ -50,6 +50,7 @@ func _init() -> void:
 	test_lend_a_die()
 	test_buy_for_another()
 	test_tier2()
+	test_once_a_turn()
 	test_spark()
 	test_strike()
 	test_vig()
@@ -337,7 +338,7 @@ func test_tier2() -> void:
 	check("reaching 350 opens Tier 2", s.seats[0].points == 350 and s.seats[0].tier2 and Rules.block(s, "bite", {"target": 1}) == "")
 	Rules.add_points(s, 0, -300)
 	check("it stays open after dropping below 350", s.seats[0].points == 50 and Rules.block(s, "bite", {"target": 1}) == "")
-	check("one Tier 2 a turn", not Rules.use(s, "bite", {"target": 1}).is_empty() and Rules.block(s, "bite", {"target": 2}) == "One Tier 2 a turn.")
+	check("at most once a turn", not Rules.use(s, "bite", {"target": 1}).is_empty() and Rules.block(s, "bite", {"target": 2}) == "Already used this turn.")
 	Rules.add_points(s, 0, -1000)
 	play(s, 4)
 	rolled(s)
@@ -345,6 +346,82 @@ func test_tier2() -> void:
 	Rules.add_points(s, 0, 10)
 	check("you cannot pay a cost you do not have", Rules.block(s, "bite", {"target": 2}).contains("not enough points") and Rules.use(s, "bite", {"target": 2}).is_empty() and s.seats[0].points == 10)
 	check("another Sin's ability is refused", Rules.use(s, "aura", {"target": 1}).is_empty() and Rules.use(s, "nonsense").is_empty())
+
+
+## Ben, 2026-11-25: every ability at most once per turn by the player whose turn it is.
+func test_once_a_turn() -> void:
+	# each ability with a button: used once, then refused with the reason, then free again on the next turn
+	var cases := [["wrath", "spark", {"target": 1, "index": 0}], ["wrath", "strike", {"target": 1, "choice": "points"}],
+		["greed", "deal", {"target": 1, "choice": "points"}], ["lust", "allure", {"a": 1, "b": 2, "pick_a": 0, "pick_b": 1}],
+		["envy", "grasp", {"key": "feast", "index": 0}], ["pride", "superiority", {}], ["gluttony", "feast", {"index": 0}],
+		["gluttony", "bite", {"target": 1}], ["sloth", "aura", {"target": 1}]]
+	var bad := []
+	for c in cases:
+		var s = sg([c[0], "", "", ""])
+		for i in 4:
+			Rules.add_points(s, i, 400)
+			s.seats[i].dice = 4
+			s.seats[i].last_roll = [6, 5, 4, 4]
+		s.supply = 2
+		s.t1_log.append({"turn": 0, "key": "feast"})
+		rolled(s)
+		var first: Dictionary = Rules.use(s, c[1], c[2])
+		var why: String = Rules.block(s, c[1])
+		var second: Dictionary = Rules.use(s, c[1], c[2])
+		Rules.pass_turn(s)
+		play(s, 3)
+		s.t1_log.append({"turn": s.turn_count, "key": "spark"})
+		rolled(s)
+		var again: String = Rules.block(s, c[1])
+		if first.is_empty() or why != "Already used this turn." or not second.is_empty() or again == "Already used this turn.":
+			bad.append("%s (%s / %s)" % [c[1], why, again])
+	check("each ability: once, then 'Already used this turn.', then free on the next turn (wrong: %s)" % ", ".join(bad), bad.is_empty())
+	# before the roll, and before scoring
+	var s = sg(["pride", "", "", ""])
+	Rules.use(s, "hubris")
+	check("Hubris twice before one roll", Rules.block(s, "hubris") == "Already used this turn." and Rules.use(s, "hubris").is_empty())
+	s = sg(["", "envy", "", ""], [6, 1, 1])
+	play(s)
+	Rules.use(s, "glance", {"target": 0, "index": 0})
+	check("Green-Eyed Glance twice before one roll", Rules.block(s, "glance") == "Already used this turn." and s.seats[1].glance == 6)
+	s = sg(["", "lust", "", ""], [6, 5, 1,  1, 2, 3])
+	play(s)
+	Rules.roll(s)
+	Rules.use(s, "whisper", {"mine": 0, "target": 0, "theirs": 0})
+	check("Whisper of Desire is used for the turn", s.seats[1].used.has("whisper"))
+	# a copy counts as a use of that ability by the player whose turn it is
+	s = sg(["wrath", "envy", "", ""], [6, 6, 1])
+	rolled(s)
+	Rules.pass_turn(s)
+	Rules.add_points(s, 1, 400)
+	s.t1_log.append({"turn": s.turn_count, "key": "spark"})
+	rolled(s)
+	check("a copied ability is marked used for the copier's turn", not Rules.use(s, "grasp", {"key": "spark", "target": 0, "index": 0}).is_empty() and s.seats[1].used.has("spark") and s.seats[1].used.has("grasp"))
+	# Wrath's Spark of Rage on another player's turn is not a use on Wrath's own turn
+	s = sg(["wrath", "", "", ""], [4, 4, 4,  6, 6, 1])
+	play(s)
+	Rules.roll(s)
+	check("Spark of Rage out of turn stays once a round", not Rules.use(s, "spark", {"by": 0, "target": 1, "index": 0}).is_empty() and Rules.block(s, "spark", {"by": 0, "target": 1, "index": 1}) == "Once a round." and not s.seats[0].used.has("spark"))
+	Rules.pass_turn(s)
+	play(s, 2)
+	rolled(s)
+	check("and on Wrath's next turn it can be used", Rules.block(s, "spark", {"target": 1, "index": 1}) == "")
+	# the passives are unchanged
+	s = sg(["", "greed", "", ""], [6, 6, 6])
+	rolled(s)
+	Rules.buy(s, 1)
+	Rules.buy(s, 1)
+	check("The Vig pays for every die, as before", s.seats[1].points == 40)
+	# not the same target twice running still holds
+	s = sg(["gluttony", "", "", ""])
+	Rules.add_points(s, 0, 400)
+	Rules.add_points(s, 1, 100)
+	rolled(s)
+	Rules.use(s, "bite", {"target": 1})
+	Rules.pass_turn(s)
+	play(s, 3)
+	rolled(s)
+	check("not the same target twice running still holds", Rules.block(s, "bite", {"target": 1}) == "Not the same target twice running." and Rules.block(s, "bite", {"target": 2}) == "")
 
 
 func test_spark() -> void:
@@ -362,7 +439,7 @@ func test_spark() -> void:
 	rolled(s)
 	r = Rules.use(s, "spark", {"target": 1, "index": 1})
 	check("a new round at Wrath's turn: the 5 is rerolled to a 4, which scores 40 in its place", r.get("ok", false) and r.face == 4 and r.change == -10 and r.lost == 0)
-	check("on Wrath's own turn it is the turn's Tier 1", s.seats[0].used_t1 and Rules.block(s, "spark", {"target": 2}) == "One Tier 1 a turn.")
+	check("on Wrath's own turn it is used once", s.seats[0].used_t1 and Rules.block(s, "spark", {"target": 2}) == "Already used this turn.")
 	s = sg(["wrath", "", "", ""], [1, 1, 1,  6, 6, 6])
 	play(s)
 	Rules.roll(s)
@@ -499,6 +576,7 @@ func test_allure() -> void:
 	check("a 5 and a 5 match: Lust takes one of them, to keep", r.get("ok", false) and r.match and r.take == 2 and s.seats[0].dice == 4 and s.seats[2].dice == 2 and s.seats[2].last_roll == [3, 3] and s.seats[1].dice == 3)
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
 	s.seats[0].used_t2 = false
+	s.seats[0].used = {}
 	check("a player on 2 dice cannot have theirs taken", Rules.block(s, "allure", {"a": 1, "b": 2, "take": 2}).contains("below 2"))
 
 
@@ -535,7 +613,7 @@ func test_grasp() -> void:
 	check("an ability no one used this round cannot be copied", Rules.block(s, "grasp", {"key": "spark"}) == "Not used this round.")
 	var r: Dictionary = Rules.use(s, "grasp", {"key": "feast", "index": 0})
 	check("Jealous Grasp costs 30 and copies Feast: a 5 to the supply for 150", r.get("ok", false) and r.copied == "feast" and s.seats[2].points == 490 + 150 - 30 and s.seats[2].dice == 2 and s.seats[2].last_roll == [4, 1])
-	check("one Tier 2 a turn", Rules.block(s, "grasp") == "One Tier 2 a turn.")
+	check("at most once a turn", Rules.block(s, "grasp") == "Already used this turn.")
 	Rules.pass_turn(s)
 	play(s)
 	s.rng.queue = [6, 6, 4]
@@ -661,7 +739,7 @@ func test_feast() -> void:
 	var r: Dictionary = Rules.use(s, "feast", {"index": 0})
 	check("Feast: the 6 goes to the supply for 150", r.get("ok", false) and s.seats[0].points == 250 and s.seats[0].dice == 2 and s.supply == 7 and s.seats[0].last_roll == [4, 1])
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
-	check("once a round", Rules.block(s, "feast") == "One Tier 1 a turn.")
+	check("once a round", Rules.block(s, "feast") == "Already used this turn.")
 	Rules.pass_turn(s)
 	play(s, 3)
 	rolled(s)

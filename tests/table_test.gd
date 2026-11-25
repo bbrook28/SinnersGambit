@@ -103,8 +103,8 @@ func test_howto() -> void:
 	await screen([4, 5, 1], 1, true)
 	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and acts() == 1)
 	var all := " ".join(h.HOWTO)
-	check("the card is at most seven lines", h.HOWTO.size() <= 7)
-	var facts := ["3000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin"]
+	check("the card is at most eight lines", h.HOWTO.size() <= 8)
+	var facts := ["3000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
 	var missing := []
 	for f in facts:
 		if not all.contains(f):
@@ -343,7 +343,7 @@ func test_sin_card() -> void:
 	tap("sin0")
 	var card: String = h.sin_title.text + " " + h.sin_text.text
 	check("tapping it shows the Sin's two abilities and the cost", h.sin_card.is_visible_in_tree() and card.contains("Wrath") and card.contains("Spark of Rage") and card.contains("reroll one die showing 5 or 6")
-		and card.contains("Vengeful Strike") and card.contains("costs 50") and card.contains("350"))
+		and card.contains("Vengeful Strike") and card.contains("costs 50") and card.contains("350") and card.contains("at most once on your turn"))
 	check("with one button, Close", can_tap("close") and acts() == 1)
 	tap("close")
 	tap("sin3")
@@ -381,7 +381,7 @@ func test_abilities() -> void:
 	tap("ready")
 	check("Pride can declare Hubris before the roll, and the button says what to beat", can_tap("hubris") and h.btn.hubris.text.contains("beat 50"))
 	tap("hubris")
-	check("declared: the line says so, and it cannot be declared twice", h.event.contains("declared Hubris") and not can_tap("hubris") and can_tap("roll"))
+	check("declared: the line says so, and it cannot be declared twice", h.event.contains("declared Hubris") and not can_tap("hubris") and h.btn.hubris.text.contains("Already used this turn") and can_tap("roll"))
 	tap("roll")
 	check("60 beats 50: the screen says the score doubled", shown().contains("doubled") and h.panels[0].points.text == "120")
 
@@ -416,6 +416,7 @@ func test_abilities() -> void:
 	tap("feast")
 	check("Feast: only a 4, 5 or 6 can be given", can_tap("d0_0") and can_tap("d0_1") and not can_tap("d0_2"))
 	tap("d0_0")
+	check("Feast is used for this turn: its button is off and says so", not can_tap("feast") and h.btn.feast.text.contains("Already used this turn"))
 	check("the 6 went to the supply for 150", h.panels[0].points.text == "250" and h.panels[0].dice.text == "2 dice" and h.event.contains("used Feast") and h.header.text.contains("7 dice"))
 	tap("pass")
 	give(1, 400)
@@ -438,7 +439,7 @@ func test_abilities() -> void:
 	check("the player picks the target", can_tap("target1") and can_tap("target2") and can_tap("target3") and not h.btn.has("target0") and can_tap("back"))
 	tap("target1")
 	check("Voracious Bite: 20 paid, 20 stolen", h.panels[0].points.text == "520" and h.panels[1].points.text == "80" and h.event.contains("used Voracious Bite on Player 2: stole 20"))
-	check("one Tier 2 a turn: the button is off and says so", not can_tap("bite") and h.btn.bite.text.contains("One Tier 2 a turn"))
+	check("once a turn: the button is off and says so", not can_tap("bite") and h.btn.bite.text.contains("Already used this turn"))
 
 	# Superiority, then Lethargic Aura into it
 	await screen([4, 4, 4], 1, false, ["pride", "sloth", "wrath", "envy"])

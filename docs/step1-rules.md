@@ -40,6 +40,8 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 ## Abilities
 Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays open even if you drop below. Tier 3 is not in step 1.
 
+**Once a turn (Ben's ruling, 2026-11-25):** every ability can be used at most once per turn by the player whose turn it is. The passive abilities (The Vig, Slow Drip) are unchanged. Feast stays once a round. "Not the same target twice running" still holds.
+
 | Sin | Tier 1 (free) | Tier 2 |
 |---|---|---|
 | Wrath | **Spark of Rage:** make a player reroll one die showing 5 or 6. If it comes up 1-3 they score 0 for it and lose 10. | **Vengeful Strike (50):** target chooses: lose 50, or give you 1 die for 2 full rounds. Not the same target twice running. |
