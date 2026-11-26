@@ -382,11 +382,12 @@ func test_abilities() -> void:
 	# Hubris, before the roll
 	await screen([6, 1, 1], 1, false, ["pride", "wrath", "gluttony", "envy"])
 	tap("ready")
-	check("Pride can declare Hubris before the roll, and the button says what to beat", can_tap("hubris") and h.btn.hubris.text.contains("beat 50"))
+	check("Pride can declare Hubris before the roll, and the button says what to beat and what it pays", can_tap("hubris") and h.btn.hubris.text.contains("beat 50 to score 50 more"))
 	tap("hubris")
-	check("declared: the line says so, and it cannot be declared twice", h.event.contains("declared Hubris") and not can_tap("hubris") and h.btn.hubris.text.contains("Already used this turn") and can_tap("roll"))
+	check("declared: the line says so, and it cannot be declared twice", h.event.contains("declared Hubris") and h.event.contains("scores 50 more") and not can_tap("hubris") and h.btn.hubris.text.contains("Already used this turn") and can_tap("roll"))
 	tap("roll")
-	check("60 beats 50: the screen says the score doubled", shown().contains("doubled") and h.panels[0].points.text == "120")
+	check("60 beats 50: the screen says the score includes 50 more", shown().contains("scored 110") and shown().contains("includes 50 more") and h.panels[0].points.text == "110")
+	check("no Hubris words still say the score doubles", not (h.event + shown() + h.Sins.card("hubris").text).contains("doubl"))
 
 	# Green-Eyed Glance, before the roll
 	await screen([6, 1, 1,  1, 2, 3], 1, false, ["wrath", "envy", "gluttony", "pride"])

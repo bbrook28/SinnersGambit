@@ -175,7 +175,7 @@ func roll_note(r: Dictionary) -> String:
 	if r.get("aura", false):
 		out += " Lethargic Aura: your first die was rolled twice and the lower kept."
 	if r.get("hubris", "") == "won":
-		out += " Hubris: it beat %d, so the score is doubled." % r.beat
+		out += " Hubris: it beat %d, so the score includes %d more." % [r.beat, int(s.cfg.hubris_win_add)]
 	elif r.get("hubris", "") == "lost":
 		out += " Hubris: it did not beat %d, so the roll scores 0." % r.beat
 	if r.get("drip", false):
@@ -224,7 +224,7 @@ func event_line(r: Dictionary, key := "") -> String:
 		"grasp":
 			out = "%s paid for %s. %s" % [me, ab, event_line(r, r.copied)]
 		"hubris":
-			out = "%s declared %s: beat %d and the roll's score doubles; fail and it is 0." % [me, ab, r.beat]
+			out = "%s declared %s: beat %d and the roll scores %d more; fail and it is 0." % [me, ab, r.beat, int(s.cfg.hubris_win_add)]
 		"superiority":
 			out = "%s armed %s: the first player to target them before their next turn loses %d." % [me, ab, int(s.cfg.superiority_loss)]
 		"feast":
@@ -617,7 +617,7 @@ func _view_fate() -> void:
 		text.text += " Lethargic Aura: one die is rolled twice and the lower kept."
 	# The abilities used before the roll.
 	if p.sin == "pride":
-		_add(_ability_button("hubris", "Declare Hubris: beat %d to double the roll, or score 0" % Rules.hubris_target(s)))
+		_add(_ability_button("hubris", "Declare Hubris: beat %d to score %d more, or score 0" % [Rules.hubris_target(s), int(s.cfg.hubris_win_add)]))
 	elif p.sin == "envy":
 		_add(_ability_button("glance", "Green-Eyed Glance: copy a die into this roll"))
 	var n: int = p.dice + p.lent + (1 if p.glance > 0 else 0)

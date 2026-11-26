@@ -16,7 +16,7 @@ const INFO := {
 		"t1": {"key": "glance", "name": "Green-Eyed Glance", "text": "Add a temporary die to your roll, matching any die an opponent just rolled."},
 		"t2": {"key": "grasp", "name": "Jealous Grasp", "text": "Copy any Tier 1 ability used this round. Not the same one twice running."}},
 	"pride": {
-		"t1": {"key": "hubris", "name": "Hubris", "text": "Before you roll, declare. Beat the previous player's total and your score for the roll doubles; fail and it is 0. First player must beat 50."},
+		"t1": {"key": "hubris", "name": "Hubris", "text": "Before you roll, declare. Beat the previous player's total and score 50 more for the roll; fail and it is 0. First player must beat 50."},
 		"t2": {"key": "superiority", "name": "Superiority", "text": "Passive. The first time you are targeted each round, the attacker loses 20."}},
 	"gluttony": {
 		"t1": {"key": "feast", "name": "Feast", "text": "Once a round, give one of your scoring dice (4-6) to the supply and gain 150."},

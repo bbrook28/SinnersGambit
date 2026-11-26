@@ -28,6 +28,14 @@ const DEFAULTS := {
 	"allure_cost": 40,        # Entangling Allure
 	"grasp_cost": 30,         # Jealous Grasp
 	"hubris_first": 50,       # Hubris: what the match's first roll must beat
+	# Ben, 2026-11-26: a won Hubris scores the roll plus 50; the card said the score doubles (Pride won 46% of sim matches
+	# at a five-Sin table with doubling). A starting value under test. The Sin card (game/sins.gd) and the screen say "50 more".
+	# The other keys are the options the sim compared, off at these values.
+	"hubris_win_pct": 100,    # a won Hubris scores this percent of the roll (200: doubled, the card as first written)
+	"hubris_win_add": 50,     # ... plus this many points
+	"hubris_fail_loss": 0,    # a failed Hubris scores 0 and also loses this
+	"hubris_bar": 0,          # what to beat. 0: the previous player's last roll. 1: the best last roll of any other player
+	"hubris_min": 0,          # what to beat is never under this
 	"superiority_cost": 40,   # Superiority
 	"superiority_loss": 20,
 	"feast_gain": 150,        # Feast

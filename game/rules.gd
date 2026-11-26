@@ -102,9 +102,15 @@ static func spare(s, seat: int) -> bool:
 ## What a declared Hubris must beat: the points the player before scored on their last roll; 50 if no one has rolled.
 static func hubris_target(s) -> int:
 	var prev = s.seats[(s.turn + s.seats.size() - 1) % s.seats.size()]
+	var bar: int = prev.last_score
 	if s.turn_count == 0 and prev.last_roll.is_empty():
-		return int(s.cfg.hubris_first)
-	return prev.last_score
+		bar = int(s.cfg.hubris_first)
+	elif int(s.cfg.hubris_bar) == 1:
+		# Option under test: the best roll any other player made since your last turn.
+		for i in s.seats.size():
+			if i != s.turn:
+				bar = maxi(bar, s.seats[i].last_score)
+	return maxi(bar, int(s.cfg.hubris_min))
 
 
 ## The Fate Phase: the player whose turn it is rolls all their dice once.
@@ -164,8 +170,16 @@ static func settle(s, extra := {}) -> Dictionary:
 		beat = hubris_target(s)
 		if not p.purgatory:
 			hubris = "won" if scored > beat else "lost"
-			p.last_mult = 2 if hubris == "won" else 0
-			scored *= p.last_mult
+			if hubris == "won":
+				# As ruled (Ben, 2026-11-26): 100 percent of the roll plus 50. The 50 is for the roll, not per die, so a die
+				# changed after the roll (Spark of Rage) counts once and the 50 stays. last_mult stays whole: at 150 percent
+				# such a die would count once, not one and a half times.
+				p.last_mult = int(s.cfg.hubris_win_pct) / 100
+				scored = scored * int(s.cfg.hubris_win_pct) / 100 + int(s.cfg.hubris_win_add)
+			else:
+				p.last_mult = 0
+				scored = 0
+				add_points(s, s.turn, -int(s.cfg.hubris_fail_loss))
 	p.last_score = scored
 	add_points(s, s.turn, scored)
 	# Slow Drip: a free Sloth who scores under 60 gains 40 more.

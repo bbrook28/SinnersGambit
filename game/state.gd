@@ -12,7 +12,7 @@ class Seat:
 	var purgatory := false
 	var last_roll: Array = []  # the faces of the last roll; stays until this player rolls again
 	var last_score := 0        # points that roll scored (0 in Purgatory)
-	var last_mult := 1         # what each scoring die of that roll was worth: 0 (Purgatory, a failed Hubris), 1, or 2 (Hubris)
+	var last_mult := 1         # what each scoring die of that roll was worth: 0 (Purgatory, a failed Hubris) or 1 (2 if cfg.hubris_win_pct is 200)
 	# abilities
 	var tier2 := false         # reached 350 once: Tier 2 is open for good
 	var used_t1 := false       # used a Tier 1 this turn

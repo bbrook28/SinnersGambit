@@ -38,7 +38,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 - None of these is allowed to or from a player in Purgatory.
 
 ## Abilities
-Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays open even if you drop below. Tier 3 is not in step 1. Cut a Deal costs 70, not the card's 50 (Ben's ruling, 2026-11-25, a starting value under test); what the target pays is still 50.
+Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays open even if you drop below. Tier 3 is not in step 1. Cut a Deal costs 70, not the card's 50 (Ben's ruling, 2026-11-25, a starting value under test); what the target pays is still 50. A won Hubris scores the roll plus 50, not the card's double (Ben's ruling, 2026-11-26, a starting value under test: with doubling Pride won 46% of sim matches at a five-Sin table, where a fair share is 25%).
 
 **Once a turn (Ben's ruling, 2026-11-25):** every ability can be used at most once per turn by the player whose turn it is. The passive abilities (The Vig, Slow Drip) are unchanged. Feast stays once a round. "Not the same target twice running" still holds.
 
@@ -48,13 +48,13 @@ Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays 
 | Greed | **The Vig:** passive. When an opponent buys a die, 20 of its price goes to you. | **Cut a Deal (70):** target chooses: pay you 50, or give you 1 die for 1 full round. Not the same target twice running. |
 | Lust | **Whisper of Desire:** before scoring, swap one of your dice with a higher die of another player's. | **Entangling Allure (40):** choose 2 players; each secretly picks 1 die. Match: you take one. No match: they swap. |
 | Envy | **Green-Eyed Glance:** add a temporary die to your roll, matching any die an opponent just rolled. | **Jealous Grasp (30):** copy any Tier 1 ability used this round. Not the same one twice running. |
-| Pride | **Hubris:** before you roll, declare. Beat the previous player's total and your score for the roll doubles; fail and it is 0. First player must beat 50. | **Superiority (40):** passive. The first time you are targeted each round, the attacker loses 20. |
+| Pride | **Hubris:** before you roll, declare. Beat the previous player's total and score 50 more for the roll; fail and it is 0. First player must beat 50. | **Superiority (40):** passive. The first time you are targeted each round, the attacker loses 20. |
 | Gluttony | **Feast:** once a round, give one of your scoring dice (4-6) to the supply and gain 150. | **Voracious Bite (20):** steal 20 from a player. Not the same target twice running. |
 | Sloth | **Slow Drip:** if you score under 60 this turn, gain 40 more. | **Lethargic Aura (30):** next turn the target rolls 1 die twice and keeps the lower. You gain 10. |
 
 How four of them work on one phone:
 - **Wrath's Spark of Rage.** Every other player's roll result shows a Spark of Rage button. Wrath calls it out loud and taps it, at most once a round. The phone is not passed to Wrath and there is no hidden prompt: everyone is in the same room.
-- **Pride's Hubris.** "The previous player's total" is the points the player before you scored on their last roll (0 if they were in Purgatory).
+- **Pride's Hubris.** "The previous player's total" is the points the player before you scored on their last roll (0 if they were in Purgatory). The 50 is for the roll, not for each die: if Spark of Rage rerolls a die of a won Hubris roll, the die's change counts once and the 50 stays.
 - **Pride's Superiority.** Pride pays 40 in their own Gambit Phase to arm it until their next turn.
 - **Lust's Entangling Allure.** The phone is passed to each chosen player in turn; each taps one die from their own last roll with the screen showing nothing to the others; then both picks are shown together. "Match" means the two dice show the same number. Nothing else about it changes.
 
