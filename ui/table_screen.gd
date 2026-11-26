@@ -43,7 +43,7 @@ const HOWTO := [
 	"First to 1000 points wins.",
 	"On your turn, roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60.",
 	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
-	"After rolling you can buy dice for 20 each, give points, lend a die or buy a die for someone.",
+	"After rolling you can buy one die a turn for 20, for you or for someone else. You can also give points or lend a die.",
 	"Each Sin has two abilities. Tap a Sin's name to read them.",
 	"You can use each ability once on your turn.",
 	"Talk and make deals. Promises are not binding.",
@@ -640,6 +640,8 @@ func _view_gambit() -> void:
 	var buy_text := "Buy a die: %d points" % int(s.cfg.die_cost)
 	if s.supply < 1:
 		buy_text = "Buy a die: the supply is empty"
+	elif p.bought >= int(s.cfg.buys_a_turn):
+		buy_text = "Buy a die: only one die a turn"
 	elif not can:
 		buy_text = "Buy a die: you need %d points" % int(s.cfg.die_cost)
 	_add(_button("buy", buy_text, _on_buy, false, not can))

@@ -186,11 +186,13 @@ static func settle(s, extra := {}) -> Dictionary:
 	return r
 
 
-## Dice the player whose turn it is can buy now: what they can pay for and the supply holds.
+## Dice the player whose turn it is can buy now: what they can pay for, the supply holds, and the turn still allows
+## (buys_a_turn: one die a turn, a gift of a die included; after Feast the die bought back is that one).
 static func max_buy(s) -> int:
 	if s.phase != GAMBIT:
 		return 0
-	return mini(s.supply, s.seats[s.turn].points / int(s.cfg.die_cost))
+	var p = s.seats[s.turn]
+	return maxi(0, mini(mini(s.supply, p.points / int(s.cfg.die_cost)), int(s.cfg.buys_a_turn) - p.bought))
 
 
 ## The seat The Vig pays when this seat buys a die: a free Greed who is not the buyer; else -1.
@@ -208,6 +210,7 @@ static func buy(s, n: int) -> bool:
 	var p = s.seats[s.turn]
 	add_points(s, s.turn, -n * int(s.cfg.die_cost))
 	p.dice += n
+	p.bought += n
 	s.supply -= n
 	var g := vig_seat(s, s.turn)
 	if g >= 0:
@@ -234,6 +237,8 @@ static func gift_block(s, kind: String, from: int, to: int, amount := 0) -> Stri
 		if not spare(s, from):
 			return "No one can go below %d dice." % int(s.cfg.min_dice)
 	elif kind == DIE:
+		if giver.bought >= int(s.cfg.buys_a_turn):
+			return "One die a turn: the buyer has bought one already."
 		if s.supply < 1:
 			return "The supply is empty."
 		if giver.points < int(s.cfg.die_cost):
@@ -255,6 +260,7 @@ static func gift(s, kind: String, from: int, to: int, amount := 0) -> bool:
 		s.seats[to].lent += 1
 	else:
 		add_points(s, from, -int(s.cfg.die_cost))
+		s.seats[from].bought += 1
 		s.supply -= 1
 		s.seats[to].dice += 1
 		var g := vig_seat(s, from)
@@ -285,6 +291,8 @@ static func pass_turn(s) -> bool:
 	if s.turn == 0:
 		s.round_number += 1
 	s.phase = FATE
+	for q in s.seats:
+		q.bought = 0
 	# A new round begins for this player.
 	var p = s.seats[s.turn]
 	p.used_t1 = false

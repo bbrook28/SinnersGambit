@@ -179,13 +179,31 @@ func test_two_dice() -> void:
 func test_buy() -> void:
 	var s = game([6, 6, 6])
 	Rules.roll(s)
-	check("180 points could pay for 9 dice, but the supply holds 6", Rules.max_buy(s) == 6)
-	check("buying 2 dice", Rules.buy(s, 2))
 	var p = s.seats[0]
-	check("costs 20 each: 180 - 40 = 140", p.points == 140)
-	check("the dice come from the supply: 5 dice, supply 4", p.dice == 5 and s.supply == 4)
+	check("180 points could pay for 9 dice, but only one die a turn", Rules.max_buy(s) == 1)
+	check("buying 2 dice at once is refused, and nothing changes", not Rules.buy(s, 2) and p.points == 180 and p.dice == 3 and s.supply == 6)
+	check("buying 1 die", Rules.buy(s, 1))
+	check("costs 20: 180 - 20 = 160", p.points == 160)
+	check("the die comes from the supply: 4 dice, supply 5", p.dice == 4 and s.supply == 5)
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
-	check("you can buy again in the same Gambit Phase", Rules.buy(s, 1) and p.dice == 6 and p.points == 120)
+	check("no second die in the same turn", Rules.max_buy(s) == 0 and not Rules.buy(s, 1) and p.dice == 4 and p.points == 160)
+	check("nor a die for another player: that is a buy too", Rules.gift_block(s, Rules.DIE, 0, 1).contains("One die a turn") and not Rules.gift(s, Rules.DIE, 0, 1) and s.supply == 5)
+	Rules.pass_turn(s)
+	play(s, 3)
+	Rules.roll(s)
+	check("on the next turn one die can be bought again", Rules.max_buy(s) == 1 and Rules.buy(s, 1) and p.dice == 5)
+	s = game([6, 6, 6])
+	Rules.roll(s)
+	p = s.seats[0]
+	check("a die bought for another player is the one buy of the turn", Rules.gift(s, Rules.DIE, 0, 1) and Rules.max_buy(s) == 0 and not Rules.buy(s, 1) and not Rules.gift(s, Rules.DIE, 0, 2))
+	s = sg(["gluttony", "", "", ""], [6, 6, 6])
+	rolled(s)
+	p = s.seats[0]
+	check("after Feast the die bought back is the one buy of the turn", not Rules.use(s, "feast", {"index": 0}).is_empty() and p.dice == 2 and Rules.buy(s, 1) and p.dice == 3 and not Rules.buy(s, 1) and Rules.max_buy(s) == 0)
+	s = game([6, 6, 6])
+	Rules.roll(s)
+	p = s.seats[0]
+	Rules.buy(s, 1)
 	check("the last roll does not change when you buy", p.last_roll == [6, 6, 6])
 
 
@@ -193,7 +211,7 @@ func test_buy_limits() -> void:
 	var s = game([4, 1, 1])
 	check("no buying before you roll", not Rules.buy(s, 1))
 	Rules.roll(s)
-	check("40 points buys at most 2", Rules.max_buy(s) == 2)
+	check("40 points could pay for 2, but only one die a turn", Rules.max_buy(s) == 1)
 	check("a die you cannot pay for is refused, and nothing changes", not Rules.buy(s, 3) and s.seats[0].points == 40 and s.seats[0].dice == 3 and s.supply == 6)
 	check("buying 0 or fewer is refused", not Rules.buy(s, 0) and not Rules.buy(s, -1))
 	s.supply = 1
@@ -410,8 +428,7 @@ func test_once_a_turn() -> void:
 	s = sg(["", "greed", "", ""], [6, 6, 6])
 	rolled(s)
 	Rules.buy(s, 1)
-	Rules.buy(s, 1)
-	check("The Vig pays for every die, as before", s.seats[1].points == 40)
+	check("The Vig pays for the die, as before", s.seats[1].points == 20)
 	# not the same target twice running still holds
 	s = sg(["gluttony", "", "", ""])
 	Rules.add_points(s, 0, 400)
@@ -487,10 +504,11 @@ func test_strike() -> void:
 func test_vig() -> void:
 	var s = sg(["", "greed", "", ""], [6, 6, 6])
 	rolled(s)
-	Rules.buy(s, 2)
-	check("The Vig: an opponent buys 2 dice, Greed gains 40", s.seats[1].points == 40 and s.seats[0].points == 140)
+	Rules.buy(s, 1)
+	check("The Vig: an opponent buys a die, Greed gains 20", s.seats[1].points == 20 and s.seats[0].points == 160)
+	s.seats[0].bought = 0
 	Rules.gift(s, Rules.DIE, 0, 2)
-	check("a die bought for another player: the buyer pays, Greed gains 20", s.seats[1].points == 60 and s.seats[0].points == 120)
+	check("a die bought for another player: the buyer pays, Greed gains 20", s.seats[1].points == 40 and s.seats[0].points == 140)
 	Rules.pass_turn(s)
 	rolled(s)
 	var before: int = s.seats[1].points

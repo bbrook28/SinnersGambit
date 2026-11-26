@@ -104,7 +104,7 @@ func test_howto() -> void:
 	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and acts() == 1)
 	var all := " ".join(h.HOWTO)
 	check("the card is at most eight lines", h.HOWTO.size() <= 8)
-	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
+	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "one die a turn", "for someone else", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
 	var missing := []
 	for f in facts:
 		if not all.contains(f):
@@ -185,7 +185,10 @@ func test_buy() -> void:
 	tap("buy")
 	check("Buy takes 20 points and adds a die", h.panels[0].points.text == "20" and h.panels[0].dice.text == "4 dice" and h.header.text.contains("5 dice"))
 	check("the screen says the die rolls from your next turn", shown().contains("next turn"))
-	tap("buy")
+	check("after one die the Buy button is off and says why", h.panels[0].points.text == "20" and not can_tap("buy") and h.btn.buy.text.contains("only one die a turn"))
+	h.s.seats[0].bought = 0
+	h.s.seats[0].points = 0
+	h._refresh()
 	check("with 0 points the Buy button is off and says why", h.panels[0].points.text == "0" and not can_tap("buy") and h.btn.buy.text.contains("need 20"))
 	h.s.supply = 0
 	h.s.seats[0].points = 100
