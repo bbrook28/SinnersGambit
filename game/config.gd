@@ -12,7 +12,7 @@ const DEFAULTS := {
 	"face_points": 10,   # a 4, 5 or 6 scores 40, 50 or 60
 	"escape_lows": 2,    # dice showing 1..low_max that free you from Purgatory
 	"die_cost": 20,      # points for one die from the supply
-	"buys_a_turn": 1,    # dice one player can buy in one turn, for themselves or as a gift (Ben, 2026-11-25); the die that replaces a Feasted one counts
+	"buys_a_turn": 1,    # dice a player can buy for themselves in one turn (Ben, 2026-11-25); the die that replaces a Feasted one counts, a die bought for another player does not
 	"win": 1000,         # end your own Fate Phase on this or more, out of Purgatory, and you win (Ben, 2026-11-25: a starting value under test; the rulebook says 3000)
 	# Abilities (the Sin cards as written in docs/step1-rules.md; the words are in game/sins.gd)
 	"tier2_at": 350,          # reach this and Tier 2 opens, and stays open

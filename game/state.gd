@@ -8,7 +8,7 @@ class Seat:
 	var dice := 0              # dice this player rolls each turn: their own and any they hold from another player
 	var held := 0              # of those, dice taken from another player for a time (Vengeful Strike, Cut a Deal)
 	var lent := 0              # dice lent to this player: rolled with their next roll, then they go to the supply
-	var bought := 0            # dice this player has bought this turn, for themselves or as a gift: at most cfg.buys_a_turn
+	var bought := 0            # dice this player has bought for themselves this turn: at most cfg.buys_a_turn
 	var purgatory := false
 	var last_roll: Array = []  # the faces of the last roll; stays until this player rolls again
 	var last_score := 0        # points that roll scored (0 in Purgatory)

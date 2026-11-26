@@ -23,7 +23,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 - **Talk.** Promises are not binding. Lying is allowed.
 - **Trade** (the three gifts, below).
 - **Use abilities:** one Tier 1 and one Tier 2 a turn.
-- **Buy a die:** 20 points from the supply, at most one die a turn (Ben's ruling, 2026-11-25). A die you buy for another player is that one die, and so is the die Gluttony buys back after Feast. You roll it from your next turn.
+- **Buy a die:** 20 points from the supply, at most one die a turn (Ben's ruling, 2026-11-25). The die Gluttony buys back after Feast is that one die. A die you buy for another player is a gift and is extra: it does not count. You roll it from your next turn.
 
 ## Purgatory
 - While you are in Purgatory you cannot buy, trade or use abilities.
@@ -33,7 +33,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 ## The three gifts
 - **Give points:** any amount you have, to any player.
 - **Lend a die:** one of your dice goes to another player for one roll, then it goes to the shared supply (not back to you). You cannot go below 2 dice.
-- **Buy a die for another player:** you pay 20, and the die from the supply is theirs to keep. It counts as the buyer's one die of the turn. Greed's Vig applies, and the buyer pays it.
+- **Buy a die for another player:** you pay 20, and the die from the supply is theirs to keep. It does not count as the buyer's one die of the turn (Ben, 2026-11-25). Greed's Vig applies, and the buyer pays it.
 - **Who gives:** the player whose turn it is offers a gift or asks for one; the other player taps to agree. Then it is permanent. A swap is two gifts.
 - None of these is allowed to or from a player in Purgatory.
 

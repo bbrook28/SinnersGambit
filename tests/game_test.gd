@@ -187,7 +187,7 @@ func test_buy() -> void:
 	check("the die comes from the supply: 4 dice, supply 5", p.dice == 4 and s.supply == 5)
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
 	check("no second die in the same turn", Rules.max_buy(s) == 0 and not Rules.buy(s, 1) and p.dice == 4 and p.points == 160)
-	check("nor a die for another player: that is a buy too", Rules.gift_block(s, Rules.DIE, 0, 1).contains("One die a turn") and not Rules.gift(s, Rules.DIE, 0, 1) and s.supply == 5)
+	check("a die for another player is extra: still allowed, as often as you can pay", Rules.gift(s, Rules.DIE, 0, 1) and Rules.gift(s, Rules.DIE, 0, 2) and s.supply == 3 and p.points == 120 and p.dice == 4)
 	Rules.pass_turn(s)
 	play(s, 3)
 	Rules.roll(s)
@@ -195,7 +195,7 @@ func test_buy() -> void:
 	s = game([6, 6, 6])
 	Rules.roll(s)
 	p = s.seats[0]
-	check("a die bought for another player is the one buy of the turn", Rules.gift(s, Rules.DIE, 0, 1) and Rules.max_buy(s) == 0 and not Rules.buy(s, 1) and not Rules.gift(s, Rules.DIE, 0, 2))
+	check("a die bought for another player first does not use up your own buy", Rules.gift(s, Rules.DIE, 0, 1) and Rules.max_buy(s) == 1 and Rules.buy(s, 1) and not Rules.buy(s, 1))
 	s = sg(["gluttony", "", "", ""], [6, 6, 6])
 	rolled(s)
 	p = s.seats[0]
@@ -506,7 +506,6 @@ func test_vig() -> void:
 	rolled(s)
 	Rules.buy(s, 1)
 	check("The Vig: an opponent buys a die, Greed gains 20", s.seats[1].points == 20 and s.seats[0].points == 160)
-	s.seats[0].bought = 0
 	Rules.gift(s, Rules.DIE, 0, 2)
 	check("a die bought for another player: the buyer pays, Greed gains 20", s.seats[1].points == 40 and s.seats[0].points == 140)
 	Rules.pass_turn(s)

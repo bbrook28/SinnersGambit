@@ -104,7 +104,7 @@ func test_howto() -> void:
 	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and acts() == 1)
 	var all := " ".join(h.HOWTO)
 	check("the card is at most eight lines", h.HOWTO.size() <= 8)
-	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "one die a turn", "for someone else", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
+	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "one die a turn", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
 	var missing := []
 	for f in facts:
 		if not all.contains(f):

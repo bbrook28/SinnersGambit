@@ -43,7 +43,7 @@ const HOWTO := [
 	"First to 1000 points wins.",
 	"On your turn, roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60.",
 	"If every die shows 1, 2 or 3 you are in Purgatory: no score, and your turn ends. On a later turn, two or more dice showing 1, 2 or 3 get you out.",
-	"After rolling you can buy one die a turn for 20, for you or for someone else. You can also give points or lend a die.",
+	"After rolling you can buy one die a turn for 20. You can also give points, lend a die or buy a die for someone.",
 	"Each Sin has two abilities. Tap a Sin's name to read them.",
 	"You can use each ability once on your turn.",
 	"Talk and make deals. Promises are not binding.",
