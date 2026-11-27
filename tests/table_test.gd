@@ -7,6 +7,7 @@ const Rules = preload("res://game/rules.gd")
 
 var _fails := 0
 var h
+var frame: Control   # holds the screen when it is tested at a height other than 1920
 
 
 class Faces:
@@ -24,9 +25,13 @@ func check(name: String, ok: bool) -> void:
 
 
 ## A fresh screen on scripted dice (or random ones, seeded).
-func screen(faces = null, seed_value := 1, card := false, sins := ["wrath", "pride", "gluttony", "envy"]) -> void:
+## tall: a screen of another height, as a taller phone gives (the screen fills a 1080 x tall frame).
+func screen(faces = null, seed_value := 1, card := false, sins := ["wrath", "pride", "gluttony", "envy"], tall := 1920) -> void:
 	if h != null:
 		h.queue_free()
+	if frame != null:
+		frame.queue_free()
+		frame = null
 	h = TableScreen.new()
 	if faces != null:
 		h.rng = Faces.new(faces)
@@ -34,8 +39,14 @@ func screen(faces = null, seed_value := 1, card := false, sins := ["wrath", "pri
 		h.rng = RandomNumberGenerator.new()
 		h.rng.seed = seed_value
 	h.sins = sins
-	h.size = Vector2(1080, 1920)
-	root.add_child(h)
+	h.size = Vector2(1080, tall)
+	if tall == 1920:
+		root.add_child(h)
+	else:
+		frame = Control.new()
+		frame.size = Vector2(1080, tall)
+		root.add_child(frame)
+		frame.add_child(h)
 	await process_frame
 	await process_frame
 	if not card:
@@ -97,6 +108,7 @@ func _initialize() -> void:
 	await test_log()
 	await test_display()
 	await test_fits()
+	await test_fits(2124)
 	await test_whole_match()
 	print("table_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -294,9 +306,15 @@ func test_win() -> void:
 	check("1000 points and a roll into Purgatory: no winner, and the screen says why", h.s.winner == -1 and shown().contains("cannot win while in Purgatory") and can_tap("pass"))
 
 
-## Every view at its fullest stays inside a 1080 x 1920 screen.
-func test_fits() -> void:
-	await screen([1, 6, 6, 6, 6, 6, 6])
+## The vertical gaps the screen is using now: [name line to dice line, row padding, between rows, above the heading].
+func gaps() -> Array:
+	return [h.panels[0].col.get_theme_constant("separation"), int(h.panels[0].box.get_content_margin(SIDE_TOP)), int(h.panels[3].box.get_content_margin(SIDE_BOTTOM)),
+		h.panel_box.get_theme_constant("separation"), h.title_gap.get_theme_constant("margin_top")]
+
+
+## Every view at its fullest stays inside a 1080 x 1920 screen; and inside a taller one, where the vertical gaps grow.
+func test_fits(height := 1920) -> void:
+	await screen([1, 6, 6, 6, 6, 6, 6], 1, false, ["wrath", "pride", "gluttony", "envy"], height)
 	var worst := 0.0
 	var where := ""
 	var views := ["handover"]
@@ -343,7 +361,22 @@ func test_fits() -> void:
 		if bottom > worst:
 			worst = bottom
 			where = st[1]
-	check("the buttons end inside the screen in every view (lowest: %d of 1920, in %s)" % [int(worst), where], worst > 0 and worst <= 1920.0)
+	check("the buttons end inside the screen in every view (lowest: %d of %d, in %s)" % [int(worst), height, where], worst > 0 and worst <= float(height))
+	var rows: float = h.panel_box.size.y
+	if height == 1920:
+		check("at 1920 tall the vertical gaps are the plain ones (%s; the four rows are %d high)" % [str(gaps()), int(rows)], gaps() == [4, 12, 12, 10, 0])
+	else:
+		check("at %d tall the vertical gaps are at their full size (%s; the four rows are %d high)" % [height, str(gaps()), int(rows)], gaps() == [20, 18, 18, 18, 16])
+		frame.size = Vector2(1080, 2000)
+		await process_frame
+		await process_frame
+		await process_frame
+		check("at 2000 tall they are half way, and the screen still fits (%s; buttons end at %d of 2000)" % [str(gaps()), int(h.buttons.get_global_rect().end.y)],
+			gaps() == [12, 15, 15, 14, 8] and h.buttons.get_global_rect().end.y <= 2000.0 and h.panel_box.size.y < rows)
+		frame.size = Vector2(1080, height)
+		await process_frame
+		await process_frame
+		await process_frame
 	var wide := 0.0
 	for n in h.panels:
 		wide = maxf(wide, n.points.get_global_rect().end.x)

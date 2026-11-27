@@ -40,6 +40,20 @@ const BORDER_NEAR := 6   # and on a row within NEAR_GAP of the goal
 const ROW_SIDE := 30     # a seat's box: left and right, edge to content. More than the thickest border, so the turn row keeps 20 clear inside it; the same on every row, so the names line up. At 32, six dice beside a share and Spark of Rage wrap to a second line.
 const NAME_GAP := 28     # between a player's name and the Sin button
 const TAG_SEP := "  ·  " # between a row's tags: TURN  ·  TIER 1 USED
+const ROW_GAP := 10      # between two seats' boxes
+const ROW_PAD := 12      # a seat's box: top and bottom, edge to content
+const ROW_LINES := 4     # a seat's box: between the name line and the dice line
+const MARGIN_TOP := 30   # the page's margins where the display has no safe-area inset
+const MARGIN_BOTTOM := 24
+## A screen taller than 1920 (the stretch aspect is "expand") has room the fullest view does not need: the vertical gaps
+## grow with the usable height, in proportion, from nothing at TALL_FROM to these amounts at TALL_FROM + TALL_FULL.
+## Four rows take 4 x (16 + 2 x 6) + 3 x 8 + 16 = 152 of the 160.
+const TALL_FROM := 1920
+const TALL_FULL := 160
+const TALL_ROW_LINES := 16
+const TALL_ROW_PAD := 6
+const TALL_ROW_GAP := 8
+const TALL_HEADING := 16 # above the "Player N: ..." heading
 const GIFT_TITLES := {"points": "Give points", "lend": "Lend a die", "die": "Buy a die for a player"}
 const GIFT_RULES := {
 	"points": "Any amount the giver has. The other player taps to agree; then it is permanent.",
@@ -87,6 +101,8 @@ var count_row: HBoxContainer # on the How to play card: how many players
 var event_box: PanelContainer
 var event_label: Label
 var title: Label
+var title_gap: MarginContainer # holds the heading; its top margin is the taller screen's extra gap above it
+var inset := 0               # height the safe area takes from the page beyond the default margins
 var text: Label
 var buttons: VBoxContainer
 var howto: Control           # the How to play card, over everything
@@ -111,7 +127,24 @@ func _init() -> void:
 
 func _ready() -> void:
 	_build()
+	resized.connect(_space)
 	new_match()
+
+
+## How far the usable height is past TALL_FROM, 0 to 1: the share of the taller screen's gaps to apply.
+func tall() -> float:
+	return clampf(size.y - inset - TALL_FROM, 0.0, TALL_FULL) / TALL_FULL
+
+
+## Sets the vertical gaps for this screen's height. Rounded down, so they never add more than the height gained.
+func _space() -> void:
+	var k := tall()
+	panel_box.add_theme_constant_override("separation", ROW_GAP + int(TALL_ROW_GAP * k))
+	title_gap.add_theme_constant_override("margin_top", int(TALL_HEADING * k))
+	for n in panels:
+		n.col.add_theme_constant_override("separation", ROW_LINES + int(TALL_ROW_LINES * k))
+		n.box.set_content_margin(SIDE_TOP, ROW_PAD + int(TALL_ROW_PAD * k))
+		n.box.set_content_margin(SIDE_BOTTOM, ROW_PAD + int(TALL_ROW_PAD * k))
 
 
 func new_match() -> void:
@@ -131,6 +164,7 @@ func new_match() -> void:
 	for i in seats:
 		panel_box.add_child(_panel(i))
 		shares.append(["", 0])
+	_space()
 	view = "handover"
 	note = ""
 	event = ""
@@ -1072,14 +1106,15 @@ func _build() -> void:
 	bg.color = BG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var top := 30
-	var bottom := 24
+	var top := MARGIN_TOP
+	var bottom := MARGIN_BOTTOM
 	var safe := DisplayServer.get_display_safe_area()
 	var screen := DisplayServer.screen_get_size()
 	if screen.y > 0 and safe.size.y > 0:
 		var k := get_viewport_rect().size.y / float(screen.y)
 		top = maxi(top, int(safe.position.y * k) + 8)
 		bottom = maxi(bottom, int((screen.y - safe.end.y) * k) + 8)
+	inset = (top - MARGIN_TOP) + (bottom - MARGIN_BOTTOM)
 	var v := _page(self, top, bottom, 10)
 
 	header = _label("", 30, DIM)
@@ -1098,7 +1133,7 @@ func _build() -> void:
 	head.add_child(help_btn)
 	v.add_child(head)
 	panel_box = VBoxContainer.new()
-	panel_box.add_theme_constant_override("separation", 10)
+	panel_box.add_theme_constant_override("separation", ROW_GAP)
 	v.add_child(panel_box)
 	# who did what to whom
 	var eb := StyleBoxFlat.new()
@@ -1115,7 +1150,9 @@ func _build() -> void:
 	v.add_child(event_box)
 	title = _label("", SIZE_TITLE, GOLD)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(title)
+	title_gap = MarginContainer.new()   # no margin, so no height of its own, until _space gives it one
+	title_gap.add_child(title)
+	v.add_child(title_gap)
 	text = _label("", SIZE_SMALL, TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(text)
@@ -1210,14 +1247,14 @@ func _panel(i: int) -> Control:
 	sb.border_color = SEAT_COLORS[i]
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
-	sb.set_content_margin_all(12)
+	sb.set_content_margin_all(ROW_PAD)
 	# The content margin is measured from the box's edge, border included: the sides are set past the thickest border.
 	sb.set_content_margin(SIDE_LEFT, ROW_SIDE)
 	sb.set_content_margin(SIDE_RIGHT, ROW_SIDE)
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
+	v.add_theme_constant_override("separation", ROW_LINES)
 	pc.add_child(v)
 	var top := HBoxContainer.new()
 	var top_sep := 14
@@ -1261,7 +1298,7 @@ func _panel(i: int) -> Control:
 	spark.add_theme_font_size_override("font_size", 22)
 	spark.visible = false
 	low.add_child(spark)
-	panels.append({"box": sb, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
+	panels.append({"box": sb, "col": v, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
 	return pc
 
 
