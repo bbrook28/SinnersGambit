@@ -7,7 +7,7 @@ Every number here is a starting value, not a measured one, unless it says "measu
 ## Ben's rulings, 2026-11-26
 The Pact stays on paper: no code yet.
 1. **Table-wide at 4 players, off at 2.** Any two players can seal a Pact, one Pact per player. It is not Greed's ability. Cut a Deal is not replaced by it and stays as it is (section 1's "Greed only" answer is not taken).
-2. **Whisper of Desire may betray, at normal strength.** A successful betrayal with Whisper is one swap, not two. Its own limit still holds: the swap cannot be what takes the player to 1000.
+2. **Whisper of Desire betrays at double: two swaps.** Changed by Ben on 2026-11-27 (it was one swap at normal strength). The caught roll is the same as for every other ability. The option C limit applies to both swaps: neither swap can be what takes the player to 1000.
 3. **At 700 the perk stops, the Pact still binds.** A partner on 700 or more gets no perk. Neither partner can target the other until the Pact is broken or left. This replaces guard 1 in section 4.
 4. **Leaving openly is allowed.** A player can say they are leaving; it takes effect on that player's next turn. No die, no penalty.
 5. **The numbers are Rising stakes** (version C in section 2): perk 10 a turn each, caught on a 1 or 2, penalty 50 plus every perk point this Pact has paid the betrayer.
@@ -21,13 +21,13 @@ What follows from them:
 Second round of rulings, 2026-11-27:
 6. **Off at 3 players, for now.** Two players sealing against the third decides the game. The next Pact test is at 4; settle 3 later.
 7. **No perk once you announce you are leaving.** The pay stops at once for the player who announced; the protection holds until their next turn. Their partner is still paid until the Pact ends. Under Rising stakes the leaver's penalty stops growing from that moment.
-8. **Entangling Allure is treated like Whisper.** A normal use cannot include your partner as one of the two players. Including them is a betrayal at normal strength, with the caught roll.
+8. **Entangling Allure betrays at normal strength.** (Unlike Whisper, which is doubled since ruling 2 changed.) A normal use cannot include your partner as one of the two players. Including them is a betrayal at normal strength, with the caught roll.
 
 Ruling 8 checked against Allure as built (`game/rules.gd`; 40 points; Lust chooses 2 players, each picks one die of their last roll in secret; match: Lust takes one of the two dice to keep, Lust's choice when both owners can spare it; no match: the two dice swap, which changes no one's points). The reading works, with these points fixed so the screen can state them:
 - The Master's die is rolled when Lust confirms the two players, before the phone goes round for the secret picks. Caught: no picks happen, the 40 is still paid, Allure counts as used, the Pact ends and the penalty is paid. The other chosen player is untouched.
 - Not caught: Allure runs exactly as written. On a match Lust may take the partner's die or the other player's.
 - Only Lust's own partner makes it a betrayal. Choosing two players who are bound to each other is a normal use.
-- It is nearly all risk for Lust. Most uses do the partner no harm: a match came up in about 15% of bot uses (measured at 2 players, 20,000 matches; not measured at 4), and a swap costs the partner nothing. So Lust pays a 1 in 3 chance of the penalty for about a 1 in 7 chance of taking a die. Expect it to be rare, like a Whisper betrayal. That makes Lust the safest partner at the table, which may be worth a look after the first Pact test.
+- It is nearly all risk for Lust. Most uses do the partner no harm: a match came up in about 15% of bot uses (measured at 2 players, 20,000 matches; not measured at 4), and a swap costs the partner nothing. So Lust pays a 1 in 3 chance of the penalty for about a 1 in 7 chance of taking a die. Expect it to be rare. Lust's real betrayal is the doubled Whisper (ruling 2).
 
 Still open:
 - 3 players, later (ruling 6).
@@ -86,7 +86,7 @@ Rules the versions share, so the screen can state them:
 | Old Cut a Deal (Greed's betrayal) | Pay 100, or 1 die for 2 full rounds | Fine. |
 | Jealous Grasp | Whatever it copies | Follows the copied ability. |
 | Entangling Allure | Nothing sensible | Breaks if doubled: it names two players and its result is a match or a swap. Ruled: a normal use cannot include your partner; including them is a betrayal at normal strength (ruling 8). |
-| Whisper of Desire | Two swaps | Breaks if doubled. Ruled: it may betray at normal strength, one swap (ruling 2). |
+| Whisper of Desire | Two swaps | Ruled: doubled, two swaps, with the 1000 limit on both (ruling 2). The size and timing risks below stand. |
 | Green-Eyed Glance, Hubris, Feast, Slow Drip, The Vig, Superiority | Not targeting | Not blocked by a Pact and never a betrayal. An armed Superiority still costs a betrayer 20. |
 
 Whisper of Desire, three reasons:
@@ -94,7 +94,16 @@ Whisper of Desire, three reasons:
 - The end-game leap gets bigger. Today 3% of Whisper uses win the match on a roll that would not have won unswapped, and that is 41% of Lust's sim wins. Doubling makes that swing twice as large.
 - Timing. Whisper happens between the roll and the scoring. A betrayal die there puts a second roll inside the first.
 
-Ruled (ruling 2): a Pact blocks Whisper on your partner unless Lust breaks the seal. Lust betrays with a single swap at normal strength and the usual die. Caught: no swap, the roll is scored as it is, the Pact ends and the penalty is paid. The die is rolled between Lust's roll and its scoring, so the screen has to show the betrayal result before the roll's score. A Whisper betrayal gains nothing over an ordinary swap except reaching the partner's dice, so for Lust the die is all risk: expect Lust to betray only when the partner holds the one die worth taking.
+Ruled (ruling 2, as changed 2026-11-27): a Pact blocks Whisper on your partner unless Lust breaks the seal. Lust betrays with two swaps and the usual die. Caught: no swap, the roll is scored as it is, the Pact ends and the penalty is paid. The die is rolled between Lust's roll and its scoring, so the screen has to show the betrayal result before the roll's score.
+
+How the 1000 limit reads with two swaps: each swap is judged as it is made, against the roll as rolled. If the roll as rolled does not reach 1000, the first swap cannot reach it, and neither can the second on top of the first. If the roll as rolled already reaches 1000, both swaps are free. So the doubled Whisper cannot create the end-game leap, which answers the second of the three reasons above.
+
+What it is worth: about 110 points on one roll (57 a swap, measured at 4 players), against a 1 in 3 chance of losing the swap and paying 50 plus the perks. In the section 2 sum that is a net of about plus 20 at the start of a Pact, the best betrayal at the table, and Lust can do it every turn the Pact is new. Watch this first in a Pact test.
+
+Assumptions to confirm before any build:
+- Both swaps take dice from the partner. (If the second could come from anyone, only the first is a betrayal.)
+- The two swaps use two different dice of Lust's. Swapping the same die twice would waste the first.
+- If only one allowed swap exists (one higher die, or the limit refuses the second), Lust makes one swap and the betrayal still counts.
 
 ## 4. Can a leader abuse a Pact for protection?
 Yes. The leader's best Pact is with whoever hurts them most. Measured harm per use at 4 players: Vengeful Strike 50, Spark of Rage 37, Voracious Bite 20, and bots aim these at the leader. A leader sealed to Wrath is safe from about 37 a round plus the Strike, and is paid a perk for it. The partner has a reason to agree too: the perk, and safety from the leader.
@@ -122,7 +131,7 @@ The witness is the Master of the Dance. He holds the seal, rolls the die, and co
 - The penalty: **the Master's due**.
 - At 700 (ruling 3): "Player 1 has passed 700. The Pact pays them no more. It still binds."
 - Leaving (ruling 4): button "Leave the Pact". Line: "Player 1 has told the Master they will leave the Pact with Player 3. It holds until Player 1's next turn." Then: "The Pact between Player 1 and Player 3 is ended. No one is Forsworn."
-- A Whisper betrayal (ruling 2): "Break the seal on Player 3 with Whisper of Desire? The Master rolls one die. 3, 4, 5 or 6: the swap happens, once. 1 or 2: you are Forsworn. No swap, the Pact ends, and the Master takes 50 and the 30 the Pact has paid you, for Player 3."
+- A Whisper betrayal (ruling 2): "Break the seal on Player 3 with Whisper of Desire? The Master rolls one die. 3, 4, 5 or 6: you swap two of your dice for two of theirs. 1 or 2: you are Forsworn. No swap, the Pact ends, and the Master takes 50 and the 30 the Pact has paid you, for Player 3."
 - The penalty under Rising stakes, on the confirm screen, always as a number: "the Master takes 50 and the 30 the Pact has paid you".
 
 ## Risks
