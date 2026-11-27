@@ -28,6 +28,8 @@ const SEAT_COLORS := [Color("ff8a7a"), Color("6fb8ff"), Color("7fe08a"), Color("
 
 const W := 1040          # content width
 const DIE := 64          # a die of a last roll
+const DIE_SEP := 8       # between two of them
+const DICE_ROOM := 424   # the narrowest a row's line of dice gets: beside a two-line share and Spark of Rage (six compact dice; tests/table_test.gd checks it)
 const PICK := 104        # a die you tap to choose it
 const SIZE_SMALL := 34
 const SIZE_TEXT := 40
@@ -45,15 +47,22 @@ const ROW_PAD := 12      # a seat's box: top and bottom, edge to content
 const ROW_LINES := 4     # a seat's box: between the name line and the dice line
 const MARGIN_TOP := 30   # the page's margins where the display has no safe-area inset
 const MARGIN_BOTTOM := 24
-## A screen taller than 1920 (the stretch aspect is "expand") has room the fullest view does not need: the vertical gaps
-## grow with the usable height, in proportion, from nothing at TALL_FROM to these amounts at TALL_FROM + TALL_FULL.
-## Four rows take 4 x (16 + 2 x 6) + 3 x 8 + 16 = 152 of the 160.
-const TALL_FROM := 1920
-const TALL_FULL := 160
-const TALL_ROW_LINES := 16
-const TALL_ROW_PAD := 6
-const TALL_ROW_GAP := 8
-const TALL_HEADING := 16 # above the "Player N: ..." heading
+## The seats' boxes come in two sizes. Compact is the numbers above: four of them fit every view on a 1920 screen.
+## Roomy is compact plus a share of ROOMY, set once a match (_measure) from the height there is to spend: what the screen
+## has past BASE_HEIGHT (the stretch aspect is "expand"), a whole compact box for each seat fewer than four, and what the
+## fullest turn view leaves at BASE_HEIGHT. Roomy is the size shown; a view that does not fit with it (a form, mostly) is
+## shown compact for as long as that is so (_fit).
+const BASE_HEIGHT := 1920
+const CARD_COMPACT := 192  # a compact box's height (tests/table_test.gd checks it is still this)
+const TURN_SPARE := 48     # of the 74 the fullest Gambit view leaves at BASE_HEIGHT with four compact boxes (the fullest form leaves 25)
+## Roomy at its fullest, as amounts added to compact: 12 + 24 + 2 x 30 = 96 a box, half as tall again as a compact one.
+const ROOMY := {
+	"die": 12,    # a die of a last roll: 76, at which five dice still fit beside a share and Spark of Rage
+	"lines": 24,  # between the name line and the dice line
+	"pad": 30,    # top and bottom
+	"gap": 10,    # between two boxes
+	"head": 16,   # above the "Player N: ..." heading
+}
 const GIFT_TITLES := {"points": "Give points", "lend": "Lend a die", "die": "Buy a die for a player"}
 const GIFT_RULES := {
 	"points": "Any amount the giver has. The other player taps to agree; then it is permanent.",
@@ -101,8 +110,12 @@ var count_row: HBoxContainer # on the How to play card: how many players
 var event_box: PanelContainer
 var event_label: Label
 var title: Label
-var title_gap: MarginContainer # holds the heading; its top margin is the taller screen's extra gap above it
-var inset := 0               # height the safe area takes from the page beyond the default margins
+var title_gap: MarginContainer # holds the heading; its top margin is the roomy size's extra gap above it
+var page: VBoxContainer      # the table's column: everything but the cards that cover it
+var page_top := MARGIN_TOP   # the page's margins, safe area included
+var page_bottom := MARGIN_BOTTOM
+var grow := {}               # this match's roomy size: the amounts added to compact, by ROOMY's keys
+var tight := false           # the boxes are shown compact: the view on screen does not fit with roomy ones
 var text: Label
 var buttons: VBoxContainer
 var howto: Control           # the How to play card, over everything
@@ -127,24 +140,65 @@ func _init() -> void:
 
 func _ready() -> void:
 	_build()
-	resized.connect(_space)
+	resized.connect(_measure)
+	# The page's minimum height is what its content needs: checked whenever it changes, not at a guessed moment.
+	page.minimum_size_changed.connect(_fit)
 	new_match()
 
 
-## How far the usable height is past TALL_FROM, 0 to 1: the share of the taller screen's gaps to apply.
-func tall() -> float:
-	return clampf(size.y - inset - TALL_FROM, 0.0, TALL_FULL) / TALL_FULL
+## The roomy size for this match and this screen: the share of ROOMY the height to spend allows, rounded down.
+func _measure() -> void:
+	var n: int = s.seats.size()
+	var usable: float = size.y - (page_top - MARGIN_TOP) - (page_bottom - MARGIN_BOTTOM)
+	var spend: float = maxf(0.0, usable - BASE_HEIGHT + TURN_SPARE + (4 - n) * (CARD_COMPACT + ROW_GAP))
+	var full: float = n * (ROOMY.die + ROOMY.lines + 2 * ROOMY.pad) + (n - 1) * ROOMY.gap + ROOMY.head
+	var k := clampf(spend / full, 0.0, 1.0)
+	grow = {}
+	for key in ROOMY:
+		grow[key] = int(ROOMY[key] * k)
+	tight = false
+	_space()
+	_fit()
 
 
-## Sets the vertical gaps for this screen's height. Rounded down, so they never add more than the height gained.
+## What the size on screen adds to compact: this match's roomy amount, or nothing while the boxes are compact.
+func grown(key: String) -> int:
+	return 0 if tight else int(grow.get(key, 0))
+
+
+## A die of a last roll of count dice, at the size on screen: the roomy size only if that many fit on one line at it.
+func die_px(count := 1) -> int:
+	var d := DIE + grown("die")
+	return d if count * d + (count - 1) * DIE_SEP <= DICE_ROOM else DIE
+
+
+## Sets the boxes to the size on screen now.
 func _space() -> void:
-	var k := tall()
-	panel_box.add_theme_constant_override("separation", ROW_GAP + int(TALL_ROW_GAP * k))
-	title_gap.add_theme_constant_override("margin_top", int(TALL_HEADING * k))
+	panel_box.add_theme_constant_override("separation", ROW_GAP + grown("gap"))
+	title_gap.add_theme_constant_override("margin_top", grown("head"))
 	for n in panels:
-		n.col.add_theme_constant_override("separation", ROW_LINES + int(TALL_ROW_LINES * k))
-		n.box.set_content_margin(SIDE_TOP, ROW_PAD + int(TALL_ROW_PAD * k))
-		n.box.set_content_margin(SIDE_BOTTOM, ROW_PAD + int(TALL_ROW_PAD * k))
+		n.col.add_theme_constant_override("separation", ROW_LINES + grown("lines"))
+		n.box.set_content_margin(SIDE_TOP, ROW_PAD + grown("pad"))
+		n.box.set_content_margin(SIDE_BOTTOM, ROW_PAD + grown("pad"))
+		n.dice.custom_minimum_size = Vector2(230, die_px())   # the line is as tall in every box, whatever its dice
+		var d := die_px(n.roll.get_child_count())
+		for c in n.roll.get_children():
+			if c is PanelContainer:   # a die; "no roll yet" is a Label
+				c.custom_minimum_size = Vector2(d, d)
+
+
+## Compact or roomy, from what the view on screen needs: compact while it would not fit with roomy boxes.
+## Decided again each time the page's minimum height changes, in both directions: a label that has just been shown asks
+## for too much height until it is laid out, so one reading cannot be kept. While compact, what roomy would need is the
+## height now plus all that roomy adds, which is never less than the truth: the two answers cannot chase each other.
+func _fit() -> void:
+	var n: int = panels.size()
+	var more: int = n * (int(grow.lines) + 2 * int(grow.pad) + int(grow.die)) + (n - 1) * int(grow.gap) + int(grow.head)
+	var need: float = page.get_combined_minimum_size().y + (more if tight else 0)
+	var want: bool = need > size.y - page_top - page_bottom
+	if want != tight:
+		tight = want
+		_space()
 
 
 func new_match() -> void:
@@ -164,7 +218,7 @@ func new_match() -> void:
 	for i in seats:
 		panel_box.add_child(_panel(i))
 		shares.append(["", 0])
-	_space()
+	_measure()
 	view = "handover"
 	note = ""
 	event = ""
@@ -840,7 +894,7 @@ func _refresh_panel(i: int) -> void:
 		n.scored.text = ""
 	else:
 		for f in p.last_roll:
-			n.roll.add_child(_die(f))
+			n.roll.add_child(_die(f, die_px(p.last_roll.size())))
 		# with what an ability added to it: "scored 210 (Glance +60)"
 		n.scored.text = "scored %d" % (p.last_score + int(shares[i][1])) + ("\n(%s)" % shares[i][0] if shares[i][0] != "" else "")
 		# two lines at the smaller size are no taller than the dice, so the row keeps its height
@@ -1114,8 +1168,10 @@ func _build() -> void:
 		var k := get_viewport_rect().size.y / float(screen.y)
 		top = maxi(top, int(safe.position.y * k) + 8)
 		bottom = maxi(bottom, int((screen.y - safe.end.y) * k) + 8)
-	inset = (top - MARGIN_TOP) + (bottom - MARGIN_BOTTOM)
+	page_top = top
+	page_bottom = bottom
 	var v := _page(self, top, bottom, 10)
+	page = v
 
 	header = _label("", 30, DIM)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1285,7 +1341,7 @@ func _panel(i: int) -> Control:
 	low.add_child(dice)
 	var roll := HFlowContainer.new()
 	roll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	roll.add_theme_constant_override("h_separation", 8)
+	roll.add_theme_constant_override("h_separation", DIE_SEP)
 	roll.add_theme_constant_override("v_separation", 8)
 	low.add_child(roll)
 	var scored := _label("", 30, DIM)
@@ -1298,12 +1354,12 @@ func _panel(i: int) -> Control:
 	spark.add_theme_font_size_override("font_size", 22)
 	spark.visible = false
 	low.add_child(spark)
-	panels.append({"box": sb, "col": v, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
+	panels.append({"panel": pc, "box": sb, "col": v, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
 	return pc
 
 
 ## One die of a last roll: a 4, 5 or 6 (it scores) is bright; a 1, 2 or 3 is dim.
-func _die(face: int) -> Control:
+func _die(face: int, px: int) -> Control:
 	var high: bool = face > int(s.cfg.low_max)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = TEXT if high else BUTTON_OFF
@@ -1312,7 +1368,7 @@ func _die(face: int) -> Control:
 	sb.set_corner_radius_all(10)
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", sb)
-	pc.custom_minimum_size = Vector2(DIE, DIE)
+	pc.custom_minimum_size = Vector2(px, px)
 	var l := _label(str(face), SIZE_NAME, DARK if high else DIM)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

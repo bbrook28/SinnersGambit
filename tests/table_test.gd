@@ -108,7 +108,9 @@ func _initialize() -> void:
 	await test_log()
 	await test_display()
 	await test_fits()
+	await test_fits(2000)
 	await test_fits(2124)
+	await test_roomy()
 	await test_whole_match()
 	print("table_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -306,17 +308,33 @@ func test_win() -> void:
 	check("1000 points and a roll into Purgatory: no winner, and the screen says why", h.s.winner == -1 and shown().contains("cannot win while in Purgatory") and can_tap("pass"))
 
 
-## The vertical gaps the screen is using now: [name line to dice line, row padding, between rows, above the heading].
+## The size the seats' boxes are at now: [name line to dice line, padding top, padding bottom, between boxes, above the heading, a die].
 func gaps() -> Array:
-	return [h.panels[0].col.get_theme_constant("separation"), int(h.panels[0].box.get_content_margin(SIDE_TOP)), int(h.panels[3].box.get_content_margin(SIDE_BOTTOM)),
-		h.panel_box.get_theme_constant("separation"), h.title_gap.get_theme_constant("margin_top")]
+	return [h.panels[0].col.get_theme_constant("separation"), int(h.panels[0].box.get_content_margin(SIDE_TOP)), int(h.panels[-1].box.get_content_margin(SIDE_BOTTOM)),
+		h.panel_box.get_theme_constant("separation"), h.title_gap.get_theme_constant("margin_top"), int(h.panels[0].dice.custom_minimum_size.y)]
 
 
-## Every view at its fullest stays inside a 1080 x 1920 screen; and inside a taller one, where the vertical gaps grow.
+const COMPACT := [4, 12, 12, 10, 0, 64]
+
+
+func frames(n := 3) -> void:
+	for i in n:
+		await process_frame
+
+
+## Every view at its fullest stays inside a 1080 x 1920 screen, and inside a taller one. The boxes are roomy in the turn's
+## own views and compact, as they have always been at 1920, in a form that would not fit with roomy ones.
 func test_fits(height := 1920) -> void:
 	await screen([1, 6, 6, 6, 6, 6, 6], 1, false, ["wrath", "pride", "gluttony", "envy"], height)
+	await frames()
+	var roomy: Array = gaps()
+	check("at %d tall with 4 players the boxes open roomy (%s), and no bigger than half as tall again" % [height, str(roomy)], not h.tight and roomy != COMPACT
+		and h.panels[1].panel.size.y <= 1.5 * h.CARD_COMPACT)
 	var worst := 0.0
 	var where := ""
+	var was := {}
+	var form_rows := 0.0
+	var form_box := 0.0
 	var views := ["handover"]
 	tap("ready")
 	views.append("roll")
@@ -361,22 +379,24 @@ func test_fits(height := 1920) -> void:
 		if bottom > worst:
 			worst = bottom
 			where = st[1]
+		was[st[1]] = gaps()
+		if st[1] == "give points":
+			form_rows = h.panel_box.size.y
+			form_box = h.panels[0].panel.size.y
 	check("the buttons end inside the screen in every view (lowest: %d of %d, in %s)" % [int(worst), height, where], worst > 0 and worst <= float(height))
-	var rows: float = h.panel_box.size.y
+	check("at %d the turn's own views at their fullest keep the roomy boxes (roll %s, Gambit %s)" % [height, str(was.roll), str(was.gambit)], was.roll == roomy and was.gambit == roomy)
 	if height == 1920:
-		check("at 1920 tall the vertical gaps are the plain ones (%s; the four rows are %d high)" % [str(gaps()), int(rows)], gaps() == [4, 12, 12, 10, 0])
+		# 826 and 199: the four boxes, and one of them, as they were with this table before there were two sizes
+		check("at %d the fullest form, give points, does not fit with roomy boxes and is shown with compact ones (the four are %d high, one %d)" % [height, int(form_rows), int(form_box)],
+			was["give points"] == COMPACT and int(form_rows) == 826 and int(form_box) == 199)
 	else:
-		check("at %d tall the vertical gaps are at their full size (%s; the four rows are %d high)" % [height, str(gaps()), int(rows)], gaps() == [20, 18, 18, 18, 16])
-		frame.size = Vector2(1080, 2000)
-		await process_frame
-		await process_frame
-		await process_frame
-		check("at 2000 tall they are half way, and the screen still fits (%s; buttons end at %d of 2000)" % [str(gaps()), int(h.buttons.get_global_rect().end.y)],
-			gaps() == [12, 15, 15, 14, 8] and h.buttons.get_global_rect().end.y <= 2000.0 and h.panel_box.size.y < rows)
-		frame.size = Vector2(1080, height)
-		await process_frame
-		await process_frame
-		await process_frame
+		check("at %d the fullest form, give points, fits with the boxes it shows (%s)" % [height, "compact" if was["give points"] == COMPACT else "roomy"], was["give points"] == COMPACT or was["give points"] == roomy)
+	tap("back")
+	await frames()
+	check("and when the form closes the boxes are roomy again (%s)" % str(gaps()), not h.tight and gaps() == roomy and h.buttons.get_global_rect().end.y <= float(height))
+	tap("die")
+	tap("other1")
+	await frames()
 	var wide := 0.0
 	for n in h.panels:
 		wide = maxf(wide, n.points.get_global_rect().end.x)
@@ -396,9 +416,47 @@ func test_fits(height := 1920) -> void:
 	await process_frame
 	await process_frame
 	await process_frame
-	check("six dice beside a share and the Spark of Rage button stay on one line (dice %d high, button ends at %d of 1080)" % [int(h.panels[1].roll.size.y), int(h.panels[1].spark.get_global_rect().end.x)],
-		h.panels[1].spark.is_visible_in_tree() and h.panels[1].roll.get_child_count() == 6 and h.panels[1].roll.size.y < 2.0 * h.DIE and h.panels[1].spark.get_global_rect().end.x <= 1080.0)
+	check("six dice beside a share and the Spark of Rage button stay on one line (dice %d high, their line %d wide of the %d counted on, button ends at %d of 1080)" % [
+		int(h.panels[1].roll.size.y), int(h.panels[1].roll.size.x), h.DICE_ROOM, int(h.panels[1].spark.get_global_rect().end.x)],
+		h.panels[1].spark.is_visible_in_tree() and h.panels[1].roll.get_child_count() == 6 and h.panels[1].roll.size.y < 2.0 * h.DIE and h.panels[1].roll.size.x >= h.DICE_ROOM
+		and h.panels[1].spark.get_global_rect().end.x <= 1080.0)
 	check("the top row with Match log and How to play stays inside the 1080 width (%d)" % int(h.help_btn.get_global_rect().end.x), h.help_btn.get_global_rect().end.x <= 1080.0 and h.log_btn.is_visible_in_tree())
+
+
+## Two and three players on a taller screen: the boxes are at the full roomy size, and the turn's own views still fit.
+func test_roomy() -> void:
+	var notice := "Player 1 (Wrath) used Entangling Allure on Player 2 and Player 3: they picked a 5 and a 5. A match: Player 1 took that die from Player 3, to keep. Superiority: Player 1 lost 20 for targeting Player 2."
+	var full := [28, 42, 42, 20, 16, 76]
+	for n in [2, 3]:
+		await screen([], 1, true, ["wrath", "pride", "gluttony"].slice(0, n), 2124)
+		tap("seats%d" % n)
+		tap("got_it")
+		await frames()
+		check("%d players at 2124 tall: the boxes are at the full roomy size (%s), half as tall again as compact (%d)" % [n, str(gaps()), int(h.panels[0].panel.size.y)],
+			not h.tight and gaps() == full and int(h.panels[0].panel.size.y) == int(1.5 * h.CARD_COMPACT))
+		var ok := true
+		var seen := []
+		for key in ["ready", "roll"]:
+			tap(key)
+			for i in n:
+				h.s.seats[i].last_roll = [6, 6, 6, 6]
+				h.shares[i] = ["Slow Drip +40", 40]
+			h.event = notice
+			h._refresh()
+			await frames()
+			seen.append(int(h.buttons.get_global_rect().end.y))
+			ok = ok and gaps() == full and h.buttons.get_global_rect().end.y <= 2124.0
+		check("%d players: the roll and Gambit views at their fullest fit with them (buttons end at %s of 2124)" % [n, str(seen)], ok)
+		tap("points")
+		if n > 2:
+			tap("other1")
+		h.event = notice
+		h._refresh()
+		await frames()
+		check("%d players: the give points form fits (boxes %s, buttons end at %d of 2124)" % [n, str(gaps()), int(h.buttons.get_global_rect().end.y)], h.buttons.get_global_rect().end.y <= 2124.0)
+		tap("back")
+		await frames()
+		check("%d players: and after it the boxes are roomy" % n, gaps() == full)
 
 
 func test_sin_card() -> void:
