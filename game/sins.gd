@@ -13,7 +13,7 @@ const INFO := {
 		"t1": {"key": "whisper", "name": "Whisper of Desire", "text": "Before scoring, swap one of your dice with a higher die of another player's. Not if the swap is what takes you to 1000."},
 		"t2": {"key": "allure", "name": "Entangling Allure", "text": "Choose 2 players; each secretly picks 1 die. Match: you take one. No match: they swap."}},
 	"envy": {
-		"t1": {"key": "glance", "name": "Green-Eyed Glance", "text": "Add a temporary die to your roll, matching any die an opponent just rolled."},
+		"t1": {"key": "glance", "name": "Green-Eyed Glance", "text": "Before you roll, copy any die an opponent just rolled: one of your dice is not rolled and shows that number. Not on two turns running."},
 		"t2": {"key": "grasp", "name": "Jealous Grasp", "text": "Copy any Tier 1 ability used this round. Not the same one twice running."}},
 	"pride": {
 		"t1": {"key": "hubris", "name": "Hubris", "text": "Before you roll, declare. Beat the previous player's total and score 50 more for the roll; fail and it is 0. First player must beat 50."},

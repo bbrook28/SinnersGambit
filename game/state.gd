@@ -20,12 +20,12 @@ class Seat:
 	var used := {}             # the abilities used on this turn of theirs (key -> true): each at most once a turn
 	var spark_used := false    # Wrath: Spark of Rage used since their last turn began (once a round)
 	var hubris := false        # Pride: declared for the coming roll
-	var glance := 0            # Envy: the face of the temporary die for the coming roll (0: none)
+	var glance := 0            # Envy: the copied face that stands in for one die, not rolled, in the coming roll (0: none)
 	var armed := false         # Pride: Superiority is paid for, until it fires or their next turn
 	var lethargic := false     # Lethargic Aura: on their next roll one die is rolled twice and the lower kept
 	var last_target := {}      # ability key -> the seat it last hit ("not the same target twice running")
 	var last_grasp := ""       # Envy: the ability Jealous Grasp copied last ("not the same one twice running")
-	var last_used := {}        # ability key -> turn_count at its last use (strike, deal, bite, grasp): at a two-player table "twice running" is two of your turns running
+	var last_used := {}        # ability key -> turn_count at its last use (strike, deal, bite, grasp: at a two-player table "twice running" is two of your turns running; glance: never on two turns running)
 
 
 var cfg: Dictionary

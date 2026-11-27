@@ -21,8 +21,12 @@
 ##   Match: Lust takes the other player's die. No match: the two dice swap. Only the other player is targeted.
 ##
 ## Whisper of Desire's limit (Ben, 2026-11-26): a swap is refused if it is what takes the player to the goal (1000) or
-## more. A roll that reaches the goal without the swap can still be swapped. Reading not spelled out by the ruling: a
-## Whisper copied by Jealous Grasp, after scoring, is refused the same way (below the goal before, on it or past it after).
+## more. A roll that reaches the goal without the swap can still be swapped. A Whisper copied by Jealous Grasp, after
+## scoring, is refused the same way (below the goal before, on it or past it after): Ben confirmed, 2026-11-26.
+##
+## Green-Eyed Glance (Ben, 2026-11-26, after the 0.20.0 playtest): the copied face stands in for one of Envy's dice,
+## which is not rolled (it was an extra die); and it cannot be used on two of Envy's turns running, at any table size.
+## Jealous Grasp cannot copy it, as before: it works before the roll, and Grasp is used after it.
 extends RefCounted
 
 const Config = preload("res://game/config.gd")
@@ -40,7 +44,8 @@ const POINTS := "points"  # give points
 const LEND := "lend"      # lend a die for one roll; then it goes to the supply
 const DIE := "die"        # buy a die from the supply for another player
 
-## Why an ability is refused at a two-player table the turn after it was used ("twice running" with one opponent).
+## Why an ability is refused at a two-player table the turn after it was used ("twice running" with one opponent),
+## and Green-Eyed Glance at any table.
 const TWO_RUNNING := "Not on two turns running: open again next turn."
 
 
@@ -141,7 +146,9 @@ static func roll(s) -> Dictionary:
 	var p = s.seats[s.turn]
 	var faces := []
 	var aura: bool = p.lethargic
-	for i in p.dice + p.lent:
+	# Green-Eyed Glance: one die is not rolled; the copied face stands in for it, for this roll only.
+	var glanced: int = p.glance
+	for i in p.dice + p.lent - (1 if glanced > 0 else 0):
 		var f: int = s.rng.randi_range(1, 6)
 		if i == 0 and aura:
 			# Lethargic Aura: one die is rolled twice and the lower kept.
@@ -151,8 +158,6 @@ static func roll(s) -> Dictionary:
 	# A lent die is rolled once, then goes to the supply.
 	s.supply += p.lent
 	p.lent = 0
-	# Green-Eyed Glance: the temporary die, for this roll only.
-	var glanced: int = p.glance
 	if glanced > 0:
 		faces.append(glanced)
 		p.glance = 0
@@ -509,6 +514,8 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 			if a.has("take") and (not [a.get("a", -1), a.get("b", -1)].has(a.take) or not spare(s, a.take)):
 				return "No one can go below %d dice." % int(cfg.min_dice)
 		"glance":
+			if s.turn_count - int(p.last_used.get(key, -99)) <= s.seats.size():
+				return TWO_RUNNING
 			if tp != null:
 				if tp.last_roll.is_empty():
 					return "They have not rolled yet."
@@ -641,6 +648,7 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 			r.merge({"a": a.a, "b": a.b, "face_a": fa, "face_b": fb, "match": fa == fb, "take": take})
 		"glance":
 			p.glance = s.seats[t].last_roll[a.index]
+			p.last_used[key] = s.turn_count
 			r.merge({"target": t, "face": p.glance})
 		"grasp":
 			p.last_grasp = a.key

@@ -407,9 +407,29 @@ func test_abilities() -> void:
 	tap("glance")
 	check("Envy picks any die an opponent rolled", can_tap("d0_0") and can_tap("d0_1") and not h.btn.has("d1_0"))
 	tap("d0_0")
-	check("the roll gets a fourth die", h.btn.roll.text == "Roll 4 dice" and h.event.contains("temporary die showing 6"))
+	check("one die will not be rolled: two dice and the copied 6", h.btn.roll.text == "Roll 2 dice, plus the copied 6" and h.event.contains("is not rolled and shows 6, copied from Player 1"))
 	tap("roll")
-	check("1, 2, 3 and the copied 6: 60, not Purgatory", h.panels[1].points.text == "60" and h.panels[1].roll.get_child_count() == 4 and can_tap("pass"))
+	check("1, 2 and the copied 6: 60, not Purgatory, and still three dice", h.panels[1].points.text == "60" and h.panels[1].roll.get_child_count() == 3 and can_tap("pass")
+		and shown().contains("You rolled 1, 2, 6 and scored 60. Green-Eyed Glance: the last die is the copied 6, not rolled."))
+	check("the match log has the use: who was copied and which face", h.log.lines().slice(-2) == [
+		"R1 Player 2 (Envy): used Green-Eyed Glance: one die of the next roll is not rolled and shows 6, copied from Player 1. [+0, total 0]",
+		"R1 Player 2 (Envy): rolled 1, 2, 6, scored 60, Glance +60 [+60, total 60]"])
+	tap("pass")
+	turns(3)
+	tap("ready")
+	check("on Envy's next turn Glance is switched off and the button says why", not can_tap("glance") and h.btn.glance.text.contains("Not on two turns running: open again next turn.") and h.btn.roll.text == "Roll 3 dice")
+	await process_frame
+	await process_frame
+	check("the switched-off button fits the screen (%d of 1080 wide, ends at %d of 1920)" % [int(h.btn.glance.get_global_rect().end.x), int(h.buttons.get_global_rect().end.y)],
+		h.btn.glance.get_global_rect().end.x <= 1080.0 and h.btn.glance.get_global_rect().position.x >= 0.0 and h.buttons.get_global_rect().end.y <= 1920.0)
+	tap("roll")
+	tap("pass")
+	turns(3)
+	tap("ready")
+	check("and on the turn after that it can be used again", can_tap("glance"))
+	tap("sin1")
+	check("Envy's card has the new words", h.sin_text.text.contains("one of your dice is not rolled") and h.sin_text.text.contains("Not on two turns running") and not h.sin_text.text.contains("temporary"))
+	tap("close")
 
 	# Whisper of Desire, before scoring
 	await screen([6, 5, 1,  1, 2, 3], 1, false, ["wrath", "lust", "gluttony", "pride"])

@@ -1,6 +1,7 @@
 ## Screenshots of the step 1 pass-and-play screen at phone size, for Ben. Needs a window (not --headless):
 ## godot --path . --resolution 1080x2340 --script res://tools/table_shots.gd   ->  build/table_shots/*.png
 ## The two-player table: add  -- seats=2 dir=table_shots_2p
+## Green-Eyed Glance alone (Envy's card, a use, the roll, and the turn it rests): add  -- glance=1 dir=table_shots_glance
 extends SceneTree
 
 const TableScreen = preload("res://ui/table_screen.gd")
@@ -10,6 +11,7 @@ var h
 var n := 0
 var dir := "table_shots"   # build/<dir>; pass -- dir=<name> to keep a second screen shape beside the first
 var seats := 4             # pass -- seats=2 for the two-player table
+var glance := false        # pass -- glance=1 for the Green-Eyed Glance screens only
 
 
 class Faces:
@@ -26,11 +28,17 @@ func _initialize() -> void:
 			dir = a.substr(4)
 		if a.begins_with("seats="):
 			seats = int(a.substr(6))
+		if a == "glance=1":
+			glance = true
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/" + dir))
 	for f in DirAccess.get_files_at("res://build/" + dir):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("res://build/%s/%s" % [dir, f]))
 	if seats == 2:
 		await _two()
+		quit(0)
+		return
+	if glance:
+		await _glance()
 		quit(0)
 		return
 	h = TableScreen.new()
@@ -154,6 +162,43 @@ func _initialize() -> void:
 	tap("log_win")
 	await _shot("match_log")
 	quit(0)
+
+
+## Green-Eyed Glance: the card, the pick, the roll with one die not rolled, and Envy's next turn, when it is off.
+func _glance() -> void:
+	h = TableScreen.new()
+	# P1 Wrath 6,5,1; P2 Envy copies the 6 and rolls 1,2; then every die shows 4
+	h.rng = Faces.new([6, 5, 1,  1, 2])
+	h.sins = ["wrath", "envy", "gluttony", "pride"]
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(h)
+	await process_frame   # the screen builds its buttons when it enters the tree
+	await process_frame
+	tap("got_it")
+	tap("sin1")
+	await _shot("sin_card_envy")
+	tap("close")
+	tap("ready")
+	tap("roll")
+	tap("pass")
+	tap("ready")
+	await _shot("envy_before_the_roll")
+	tap("glance")
+	await _shot("glance_pick_a_die")
+	tap("d0_0")
+	await _shot("glance_used")
+	tap("roll")
+	await _shot("glance_rolled")
+	tap("pass")
+	for i in 3:
+		tap("ready")
+		tap("roll")
+		tap("pass")
+	tap("ready")
+	await _shot("glance_resting")
+	tap("roll")
+	tap("log")
+	await _shot("match_log_with_glance")
 
 
 ## The two-player table: the count choice, the cards whose words change, a gift, Bite and Entangling Allure.

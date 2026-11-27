@@ -647,21 +647,54 @@ func test_allure() -> void:
 
 
 func test_glance() -> void:
-	# seat 0 rolls 6,1,1; Envy rolls 1,2,3 with a temporary 6
-	var s = sg(["", "envy", "", ""], [6, 1, 1,  1, 2, 3])
+	# seat 0 rolls 6,1,1; Envy copies the 6 and rolls only two dice: 1, 2
+	var s = sg(["", "envy", "", ""], [6, 1, 1,  1, 2])
 	Rules.roll(s)
 	check("only before your own roll", Rules.block(s, "glance", {"by": 1, "target": 0, "index": 0}) == "Not your turn.")
 	Rules.pass_turn(s)
 	var r: Dictionary = Rules.use(s, "glance", {"target": 0, "index": 0})
 	check("Green-Eyed Glance copies an opponent's 6", r.get("ok", false) and r.face == 6)
 	r = Rules.roll(s)
-	check("the roll has a temporary fourth die showing 6", s.seats[1].last_roll == [1, 2, 3, 6] and s.seats[1].points == 60 and not s.seats[1].purgatory)
+	check("the copied 6 stands in for one die, which is not rolled: two dice rolled, three shown", s.seats[1].last_roll == [1, 2, 6] and r.faces.size() == 3 and r.glance == 6
+		and s.rng.queue.is_empty() and s.seats[1].points == 60 and not s.seats[1].purgatory and s.seats[1].dice == 3)
 	check("the opponent's die is untouched", s.seats[0].last_roll == [6, 1, 1])
 	Rules.pass_turn(s)
 	play(s, 3)
+	check("on the turn after a use it is refused, with the reason", Rules.block(s, "glance") == Rules.TWO_RUNNING and Rules.block(s, "glance", {"target": 0, "index": 0}) == Rules.TWO_RUNNING
+		and Rules.use(s, "glance", {"target": 0, "index": 0}).is_empty() and s.seats[1].glance == 0)
 	Rules.roll(s)
-	check("the die was for that roll only", s.seats[1].last_roll.size() == 3 and s.seats[1].dice == 3)
-	check("after the roll it is too late", Rules.block(s, "glance", {"target": 0}) != "")
+	check("that turn all three dice are rolled", s.seats[1].last_roll.size() == 3 and s.seats[1].dice == 3)
+	check("after the roll it is too late", Rules.block(s, "glance", {"target": 0}) == "Before you roll.")
+	Rules.add_points(s, 1, 400)
+	check("Jealous Grasp still cannot copy it: it works before the roll", Rules.block(s, "grasp", {"key": "glance"}).contains("too late"))
+	Rules.pass_turn(s)
+	play(s, 3)
+	check("on the turn after that it is open again", Rules.block(s, "glance") == "" and Rules.block(s, "glance", {"target": 0, "index": 0}) == "")
+	Rules.use(s, "glance", {"target": 0, "index": 0})
+	s.seats[1].lent = 1
+	r = Rules.roll(s)
+	check("with a lent die: three dice rolled and the copy, and the lent die goes to the supply", r.faces.size() == 4 and r.glance == 4 and s.seats[1].lent == 0)
+	# on 2 dice: one rolled, one copied
+	s = sg(["", "envy", "", ""], [6, 1, 1,  2])
+	s.seats[1].dice = 2
+	play(s)
+	Rules.use(s, "glance", {"target": 0, "index": 0})
+	r = Rules.roll(s)
+	check("on 2 dice one is rolled and the other is the copy", s.seats[1].last_roll == [2, 6] and s.seats[1].points == 60)
+	# a copied low die can leave every die low: Purgatory
+	s = sg(["", "envy", "", ""], [6, 1, 1,  1, 2])
+	play(s)
+	Rules.use(s, "glance", {"target": 0, "index": 1})
+	r = Rules.roll(s)
+	check("copying a 1 onto a roll of 1, 2 is Purgatory", s.seats[1].last_roll == [1, 2, 1] and r.purgatory)
+	# two players: the same rule
+	s = Rules.new_match(Config.merged({"seats": 2}), Faces.new([6, 1, 1,  1, 2]), ["", "envy"])
+	play(s)
+	Rules.use(s, "glance", {"target": 0, "index": 0})
+	play(s, 2)
+	check("2 players: refused on Envy's next turn", Rules.block(s, "glance") == Rules.TWO_RUNNING)
+	play(s, 2)
+	check("2 players: open again on the one after", Rules.block(s, "glance") == "")
 
 
 func test_grasp() -> void:
@@ -1024,11 +1057,12 @@ func test_small_tables() -> void:
 	for n in [2, 3]:
 		var broken := []
 		var used := {}
-		for seed_value in 150:
+		for seed_value in 300:
 			rng.seed = seed_value
 			var s = Rules.new_match(Config.merged({"seats": n, "win": 3000} if seed_value % 3 > 0 else {"seats": n}), rng)
 			_match(s, rng, seed_value % 3 > 0, seed_value % 3 == 2, used, broken, "seed %d" % seed_value)
-		check("%d players: 150 seeded matches each play to one winner with no rule broken (%s)" % [n, "none" if broken.is_empty() else ", ".join(broken.slice(0, 5))], broken.is_empty())
+		check("%d players: 300 seeded matches each play to one winner with no rule broken (%s)" % [n, "none" if broken.is_empty() else ", ".join(broken.slice(0, 5))], broken.is_empty())
+		# 300 matches, not 150: with Green-Eyed Glance resting every other turn the first 150 at 3 players never had a Jealous Grasp go through.
 		# Jealous Grasp at 2 players needs Envy across from one of four Sins and the right copy: too rare for taps at
 		# random to count on. test_two_players uses it.
 		var missing := []

@@ -280,7 +280,7 @@ func roll_note(r: Dictionary) -> String:
 	else:
 		out = "You rolled %s and scored %d." % [faces, r.scored]
 	if r.get("glance", 0) > 0:
-		out += " Green-Eyed Glance added the last die, a %d." % r.glance
+		out += " Green-Eyed Glance: the last die is the copied %d, not rolled." % r.glance
 	if r.get("aura", false):
 		out += " Lethargic Aura: your first die was rolled twice and the lower kept."
 	if r.get("hubris", "") == "won":
@@ -336,7 +336,7 @@ func event_line(r: Dictionary, key := "") -> String:
 			else:
 				out += " A match, but neither can go below %d dice: no die taken." % int(s.cfg.min_dice)
 		"glance":
-			out = "%s used %s: the next roll gets a temporary die showing %d, copied from %s." % [me, ab, r.face, t]
+			out = "%s used %s: one die of the next roll is not rolled and shows %d, copied from %s." % [me, ab, r.face, t]
 		"grasp":
 			out = "%s paid for %s. %s" % [me, ab, event_line(r, r.copied)]
 		"hubris":
@@ -840,9 +840,9 @@ func _view_fate() -> void:
 	if p.sin == "pride":
 		_add(_ability_button("hubris", "Declare Hubris: beat %d to score %d more, or score 0" % [Rules.hubris_target(s), int(s.cfg.hubris_win_add)]))
 	elif p.sin == "envy":
-		_add(_ability_button("glance", "Green-Eyed Glance: copy a die into this roll"))
-	var n: int = p.dice + p.lent + (1 if p.glance > 0 else 0)
-	_add(_button("roll", "Roll %s" % dice_text(n), _on_roll, true))
+		_add(_ability_button("glance", "Green-Eyed Glance: copy a die in place of one of yours"))
+	var n: int = p.dice + p.lent - (1 if p.glance > 0 else 0)
+	_add(_button("roll", "Roll %s" % dice_text(n) + (", plus the copied %d" % p.glance if p.glance > 0 else ""), _on_roll, true))
 
 
 ## The Whisper of Desire card without its "Before scoring, " opening, for the swap view.
