@@ -35,6 +35,11 @@ const SIZE_NAME := 48
 const SIZE_TITLE := 54
 const SIZE_POINTS := 72
 const BUTTON_H := 116
+const BORDER_TURN := 10  # a seat's box: the border on the turn player's row
+const BORDER_NEAR := 6   # and on a row within NEAR_GAP of the goal
+const ROW_SIDE := 30     # a seat's box: left and right, edge to content. More than the thickest border, so the turn row keeps 20 clear inside it; the same on every row, so the names line up. At 32, six dice beside a share and Spark of Rage wrap to a second line.
+const NAME_GAP := 28     # between a player's name and the Sin button
+const TAG_SEP := "  ·  " # between a row's tags: TURN  ·  TIER 1 USED
 const GIFT_TITLES := {"points": "Give points", "lend": "Lend a die", "die": "Buy a die for a player"}
 const GIFT_RULES := {
 	"points": "Any amount the giver has. The other player taps to agree; then it is permanent.",
@@ -761,7 +766,7 @@ func _refresh_panel(i: int) -> void:
 	# Close to the goal: a warm box, a thicker border and gold points, whoever's turn it is.
 	var near: bool = p.points >= int(s.cfg.win) - NEAR_GAP
 	sb.bg_color = PANEL_NEAR if near else (PANEL_TURN if turn else PANEL)
-	sb.set_border_width_all(10 if turn else (6 if near else 2))
+	sb.set_border_width_all(BORDER_TURN if turn else (BORDER_NEAR if near else 2))
 	n.points.add_theme_color_override("font_color", GOLD if near else TEXT)
 	var best := 0
 	for q in s.seats:
@@ -789,7 +794,7 @@ func _refresh_panel(i: int) -> void:
 		tags.append("ARMED")
 	if p.lethargic:
 		tags.append("LETHARGIC")
-	n.tag.text = "  ".join(tags)
+	n.tag.text = TAG_SEP.join(tags)
 	n.tag.add_theme_color_override("font_color", BAD if p.purgatory else GOLD)
 	n.dice.text = dice_text(p.dice) + (" + %d lent" % p.lent if p.lent > 0 else "") + (" (%d taken)" % p.held if p.held > 0 else "")
 	n.dice.add_theme_font_size_override("font_size", 30 if (p.lent > 0 or p.held > 0) else SIZE_TEXT)
@@ -1206,15 +1211,23 @@ func _panel(i: int) -> Control:
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
 	sb.set_content_margin_all(12)
+	# The content margin is measured from the box's edge, border included: the sides are set past the thickest border.
+	sb.set_content_margin(SIDE_LEFT, ROW_SIDE)
+	sb.set_content_margin(SIDE_RIGHT, ROW_SIDE)
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	pc.add_child(v)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 14)
+	var top_sep := 14
+	top.add_theme_constant_override("separation", top_sep)
 	v.add_child(top)
 	top.add_child(_label(seat_name(i), SIZE_NAME, SEAT_COLORS[i]))
+	# a wider gap after the name only: the row's separation on each side of this, and the rest here
+	var name_gap := Control.new()
+	name_gap.custom_minimum_size = Vector2(NAME_GAP - 2 * top_sep, 0)
+	top.add_child(name_gap)
 	var sin_btn := _button("sin%d" % i, "", _on_sin.bind(i))
 	sin_btn.custom_minimum_size = Vector2(190, 72)
 	sin_btn.add_theme_font_size_override("font_size", SIZE_SMALL)

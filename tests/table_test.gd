@@ -348,6 +348,23 @@ func test_fits() -> void:
 	for n in h.panels:
 		wide = maxf(wide, n.points.get_global_rect().end.x)
 	check("the panels stay inside the 1080 width (%d)" % int(wide), wide <= 1080.0)
+	var clear := 1000.0
+	var gap := 1000.0
+	for n in h.panels:
+		clear = minf(clear, n.box.get_content_margin(SIDE_LEFT) - n.box.get_border_width(SIDE_LEFT))
+		clear = minf(clear, n.box.get_content_margin(SIDE_RIGHT) - n.box.get_border_width(SIDE_RIGHT))
+		gap = minf(gap, n.sin.get_global_rect().position.x - n.sin.get_parent().get_child(0).get_global_rect().end.x)
+	check("every row, the turn row with its thick border too, keeps 20 or more clear between border and content (%d), and 28 between name and Sin (%d)" % [int(clear), int(gap)],
+		h.panels[0].box.get_border_width(SIDE_LEFT) == h.BORDER_TURN and clear >= 20.0 and gap >= 28.0)
+	# the widest row: six dice, a share under the score, and Spark of Rage on it
+	tap("back")
+	h.s.seats[0].used = {}
+	h._refresh()
+	await process_frame
+	await process_frame
+	await process_frame
+	check("six dice beside a share and the Spark of Rage button stay on one line (dice %d high, button ends at %d of 1080)" % [int(h.panels[1].roll.size.y), int(h.panels[1].spark.get_global_rect().end.x)],
+		h.panels[1].spark.is_visible_in_tree() and h.panels[1].roll.get_child_count() == 6 and h.panels[1].roll.size.y < 2.0 * h.DIE and h.panels[1].spark.get_global_rect().end.x <= 1080.0)
 	check("the top row with Match log and How to play stays inside the 1080 width (%d)" % int(h.help_btn.get_global_rect().end.x), h.help_btn.get_global_rect().end.x <= 1080.0 and h.log_btn.is_visible_in_tree())
 
 
@@ -790,7 +807,7 @@ func test_display() -> void:
 	check("before anyone scores no one is LEADING", not h.panels[0].tag.text.contains("LEADING"))
 	tap("ready")
 	tap("roll")
-	check("the player in first place is tagged LEADING", h.panels[0].tag.text == "TURN  LEADING" and h.panels[1].tag.text == "")
+	check("the player in first place is tagged LEADING", h.panels[0].tag.text == "TURN  ·  LEADING" and h.panels[1].tag.text == "")
 	tap("pass")
 	tap("ready")
 	tap("roll")
