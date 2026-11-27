@@ -18,10 +18,19 @@ What follows from them:
 - Between saying "I leave" and that player's next turn, the Pact still binds and can still be betrayed, by either partner. The partner has one round to betray first.
 - Rising stakes with the perk stopped: the penalty stops growing for a partner on 700 or more, because no more perk is paid to them.
 
+Second round of rulings, 2026-11-27:
+6. **Off at 3 players, for now.** Two players sealing against the third decides the game. The next Pact test is at 4; settle 3 later.
+7. **No perk once you announce you are leaving.** The pay stops at once for the player who announced; the protection holds until their next turn. Their partner is still paid until the Pact ends. Under Rising stakes the leaver's penalty stops growing from that moment.
+8. **Entangling Allure is treated like Whisper.** A normal use cannot include your partner as one of the two players. Including them is a betrayal at normal strength, with the caught roll.
+
+Ruling 8 checked against Allure as built (`game/rules.gd`; 40 points; Lust chooses 2 players, each picks one die of their last roll in secret; match: Lust takes one of the two dice to keep, Lust's choice when both owners can spare it; no match: the two dice swap, which changes no one's points). The reading works, with these points fixed so the screen can state them:
+- The Master's die is rolled when Lust confirms the two players, before the phone goes round for the secret picks. Caught: no picks happen, the 40 is still paid, Allure counts as used, the Pact ends and the penalty is paid. The other chosen player is untouched.
+- Not caught: Allure runs exactly as written. On a match Lust may take the partner's die or the other player's.
+- Only Lust's own partner makes it a betrayal. Choosing two players who are bound to each other is a normal use.
+- It is nearly all risk for Lust. Most uses do the partner no harm: a match came up in about 15% of bot uses (measured at 2 players, 20,000 matches; not measured at 4), and a swap costs the partner nothing. So Lust pays a 1 in 3 chance of the penalty for about a 1 in 7 chance of taking a die. Expect it to be rare, like a Whisper betrayal. That makes Lust the safest partner at the table, which may be worth a look after the first Pact test.
+
 Still open:
-- 3 players. The ruling names 4 and 2. A Pact at 3 leaves one player out with no perk and one target fewer. On or off?
-- Does a player who has said they are leaving still get the perk until it takes effect?
-- Entangling Allure (section 3): can it include your partner? Section 3 says no.
+- 3 players, later (ruling 6).
 
 ## The idea, as Ben gave it
 Two players seal a Pact. While it holds, neither can target the other with abilities, and each gets a small perk every turn. Either can betray by using an ability on their partner: one die is rolled. Success: the ability lands twice. Caught: the ability does nothing, the Pact ends, and the partner takes points from the betrayer. The odds and both outcomes are shown before the betrayer commits. One Pact per player.
@@ -76,7 +85,7 @@ Rules the versions share, so the screen can state them:
 | Lethargic Aura | Two dice rolled twice next turn; Sloth gains 20 | Works. Needs its own line on the card. |
 | Old Cut a Deal (Greed's betrayal) | Pay 100, or 1 die for 2 full rounds | Fine. |
 | Jealous Grasp | Whatever it copies | Follows the copied ability. |
-| Entangling Allure | Nothing sensible | Breaks. It names two players and its result is a match or a swap. Rule: Allure cannot include your partner, and cannot betray. |
+| Entangling Allure | Nothing sensible | Breaks if doubled: it names two players and its result is a match or a swap. Ruled: a normal use cannot include your partner; including them is a betrayal at normal strength (ruling 8). |
 | Whisper of Desire | Two swaps | Breaks if doubled. Ruled: it may betray at normal strength, one swap (ruling 2). |
 | Green-Eyed Glance, Hubris, Feast, Slow Drip, The Vig, Superiority | Not targeting | Not blocked by a Pact and never a betrayal. An armed Superiority still costs a betrayer 20. |
 
