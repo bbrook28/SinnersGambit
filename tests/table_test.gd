@@ -414,6 +414,28 @@ func test_abilities() -> void:
 	tap("d0_0")
 	check("swapped, then scored: 60 and no Purgatory", h.panels[1].points.text == "60" and h.event.contains("swapped a 1 for their 6") and can_tap("pass") and shown().contains("scored 60"))
 
+	# Whisper of Desire cannot be what takes Lust to 1000: Player 1 shows 6, 5, 1; Lust on 900 rolls 4, 1, 1
+	await screen([6, 5, 1,  4, 1, 1], 1, false, ["wrath", "lust", "gluttony", "pride"])
+	turns(1)
+	give(1, 900)
+	tap("ready")
+	tap("roll")
+	check("the swap view states the limit", shown().contains("Not if the swap is what takes you to 1000"))
+	tap("whisper")
+	tap("d1_1")
+	check("the 6 would make 1000: it is switched off and the screen says why; the 5 can be taken", not can_tap("d0_0") and can_tap("d0_1") and shown().contains("A swap cannot be what takes you to 1000"))
+	tap("d0_1")
+	check("swapped for the 5: 990 and no winner", h.panels[1].points.text == "990" and h.s.winner == -1 and can_tap("pass"))
+	# every swap would reach 1000: Lust on 990 rolls 1, 2, 3
+	await screen([6, 5, 1,  1, 2, 3], 1, false, ["wrath", "lust", "gluttony", "pride"])
+	turns(1)
+	give(1, 990)
+	tap("ready")
+	tap("roll")
+	check("when every swap would reach 1000 the Whisper button is off with the reason, and the roll can be scored", not can_tap("whisper") and h.btn.whisper.text.contains("Every swap would take you to 1000") and can_tap("settle"))
+	tap("settle")
+	check("scored as it is: Purgatory", h.panels[1].tag.text.contains("IN PURGATORY"))
+
 	# Feast, then Jealous Grasp copying it
 	await screen([6, 4, 1,  5, 4, 1], 1, false, ["gluttony", "envy", "wrath", "pride"])
 	tap("ready")

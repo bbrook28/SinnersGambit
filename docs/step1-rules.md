@@ -38,7 +38,7 @@ Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulin
 - None of these is allowed to or from a player in Purgatory.
 
 ## Abilities
-Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays open even if you drop below. Tier 3 is not in step 1. Cut a Deal costs 70, not the card's 50 (Ben's ruling, 2026-11-25, a starting value under test); what the target pays is still 50. A won Hubris scores the roll plus 50, not the card's double (Ben's ruling, 2026-11-26, a starting value under test: with doubling Pride won 46% of sim matches at a five-Sin table, where a fair share is 25%).
+Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays open even if you drop below. Tier 3 is not in step 1. Cut a Deal costs 70, not the card's 50 (Ben's ruling, 2026-11-25, a starting value under test); what the target pays is still 50. A won Hubris scores the roll plus 50, not the card's double (Ben's ruling, 2026-11-26, a starting value under test: with doubling Pride won 46% of sim matches at a five-Sin table, where a fair share is 25%). A Whisper of Desire swap is refused if it is what takes the player to 1000 or more (Ben's ruling, 2026-11-26, after the 0.19.0 playtest: swaps were pushing players over the goal at the climax; in the sim 41% of Lust's wins came that way). A roll that reaches 1000 without the swap can still be swapped. A Whisper copied by Jealous Grasp is refused the same way.
 
 **Once a turn (Ben's ruling, 2026-11-25):** every ability can be used at most once per turn by the player whose turn it is. The passive abilities (The Vig, Slow Drip) are unchanged. Feast stays once a round. "Not the same target twice running" still holds.
 
@@ -46,7 +46,7 @@ Tier 1 is open from the start. Tier 2 opens when you reach 350 points and stays 
 |---|---|---|
 | Wrath | **Spark of Rage:** make a player reroll one die showing 5 or 6. If it comes up 1-3 they score 0 for it and lose 10. | **Vengeful Strike (50):** target chooses: lose 50, or give you 1 die for 2 full rounds. Not the same target twice running. |
 | Greed | **The Vig:** passive. When an opponent buys a die, 20 of its price goes to you. | **Cut a Deal (70):** target chooses: pay you 50, or give you 1 die for 1 full round. Not the same target twice running. |
-| Lust | **Whisper of Desire:** before scoring, swap one of your dice with a higher die of another player's. | **Entangling Allure (40):** choose 2 players; each secretly picks 1 die. Match: you take one. No match: they swap. |
+| Lust | **Whisper of Desire:** before scoring, swap one of your dice with a higher die of another player's. Not if the swap is what takes you to 1000. | **Entangling Allure (40):** choose 2 players; each secretly picks 1 die. Match: you take one. No match: they swap. |
 | Envy | **Green-Eyed Glance:** add a temporary die to your roll, matching any die an opponent just rolled. | **Jealous Grasp (30):** copy any Tier 1 ability used this round. Not the same one twice running. |
 | Pride | **Hubris:** before you roll, declare. Beat the previous player's total and score 50 more for the roll; fail and it is 0. First player must beat 50. | **Superiority (40):** passive. The first time you are targeted each round, the attacker loses 20. |
 | Gluttony | **Feast:** once a round, give one of your scoring dice (4-6) to the supply and gain 150. | **Voracious Bite (20):** steal 20 from a player. Not the same target twice running. |

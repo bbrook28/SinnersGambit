@@ -19,6 +19,10 @@
 ##   after a use, open again on the one after (_running).
 ## - Entangling Allure: Lust is one of the two. Lust and the other player each pick one of their own dice in secret.
 ##   Match: Lust takes the other player's die. No match: the two dice swap. Only the other player is targeted.
+##
+## Whisper of Desire's limit (Ben, 2026-11-26): a swap is refused if it is what takes the player to the goal (1000) or
+## more. A roll that reaches the goal without the swap can still be swapped. Reading not spelled out by the ruling: a
+## Whisper copied by Jealous Grasp, after scoring, is refused the same way (below the goal before, on it or past it after).
 extends RefCounted
 
 const Config = preload("res://game/config.gd")
@@ -38,6 +42,11 @@ const DIE := "die"        # buy a die from the supply for another player
 
 ## Why an ability is refused at a two-player table the turn after it was used ("twice running" with one opponent).
 const TWO_RUNNING := "Not on two turns running: open again next turn."
+
+
+## Why a Whisper of Desire swap is refused when it is what would take the player to the goal.
+static func whisper_cross_text(cfg: Dictionary) -> String:
+	return "A swap cannot be what takes you to %d." % int(cfg.win)
 
 ## The choices every use(s, key, args) needs.
 const NEEDS := {"spark": ["target", "index"], "strike": ["target", "choice"], "deal": ["target", "choice"],
@@ -352,6 +361,32 @@ static func whisper_pairs(s, seat: int) -> Array:
 	return out
 
 
+## Would swapping this seat's die showing gave for a die showing got be what takes them to the goal (cfg.win)?
+## Before scoring (Lust): the roll with the swap reaches it and the roll without does not. copy (Jealous Grasp, after
+## scoring): they are below it now and the changed die puts them on it or past it.
+static func whisper_crosses(s, seat: int, gave: int, got: int, copy := false) -> bool:
+	var p = s.seats[seat]
+	var cfg: Dictionary = s.cfg
+	var win := int(cfg.win)
+	var change: int = face_score(cfg, got) - face_score(cfg, gave)
+	if copy:
+		return p.points < win and p.points + change * p.last_mult >= win
+	var roll: Array = p.last_roll
+	var low: int = lows(cfg, roll)
+	var plain: int = 0 if low == roll.size() else score(cfg, roll)
+	var low_after: int = low - (1 if gave <= int(cfg.low_max) else 0) + (1 if got <= int(cfg.low_max) else 0)
+	var swapped: int = 0 if low_after == roll.size() else score(cfg, roll) + change
+	return p.points + plain < win and p.points + swapped >= win
+
+
+## Is there a swap Whisper of Desire allows this seat that is not refused by whisper_crosses?
+static func whisper_open(s, seat: int, copy := false) -> bool:
+	for pr in whisper_pairs(s, seat):
+		if not whisper_crosses(s, seat, s.seats[seat].last_roll[pr[0]], s.seats[pr[1]].last_roll[pr[2]], copy):
+			return true
+	return false
+
+
 ## The Tier 1 abilities used in the last round (since this player's last turn), newest first, each once: what Jealous Grasp sees.
 static func grasp_seen(s) -> Array:
 	var out := []
@@ -447,11 +482,15 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 		"whisper":
 			if whisper_pairs(s, seat).is_empty():
 				return "No other player shows a die higher than one of yours."
+			if not whisper_open(s, seat, copy):
+				return "Every swap would take you to %d: not allowed." % int(cfg.win)
 			if tp != null and a.has("mine") and a.has("theirs"):
 				if a.mine < 0 or a.mine >= p.last_roll.size() or a.theirs < 0 or a.theirs >= tp.last_roll.size():
 					return "Choose a die."
 				if tp.last_roll[a.theirs] <= p.last_roll[a.mine]:
 					return "Their die must be higher than yours."
+				if whisper_crosses(s, seat, p.last_roll[a.mine], tp.last_roll[a.theirs], copy):
+					return whisper_cross_text(cfg)
 		"allure":
 			for k in ["a", "b"]:
 				if a.has(k):

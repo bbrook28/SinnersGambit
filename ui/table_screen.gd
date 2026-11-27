@@ -678,10 +678,16 @@ func _view_fate() -> void:
 	_add(_button("roll", "Roll %s" % dice_text(n), _on_roll, true))
 
 
+## The Whisper of Desire card without its "Before scoring, " opening, for the swap view.
+func _whisper_words() -> String:
+	var t: String = Sins.text("whisper", s.seats.size()).trim_prefix("Before scoring, ")
+	return t.substr(0, 1).to_upper() + t.substr(1)
+
+
 ## Lust has rolled: swap a die before scoring, or score it as it is.
 func _view_swap() -> void:
 	title.text = "%s: swap before scoring?" % seat_name(s.turn)
-	text.text = "%s\nWhisper of Desire: swap one of your dice with a higher die of another player's. Then the roll is scored." % note
+	text.text = "%s\nWhisper of Desire: %s Then the roll is scored." % [note, _whisper_words()]
 	_add(_ability_button("whisper", "Whisper of Desire: swap a die"))
 	_add(_button("settle", "Score the roll as it is", _on_settle, true))
 
@@ -840,18 +846,29 @@ func _view_ability() -> void:
 		_add(_button("back", "Back", _on_back))
 	elif k == "whisper" and not a.has("mine"):
 		text.text += "\nFirst tap the die of yours to swap away."
-		var best := 0
-		for i in others:
-			for f in s.seats[i].last_roll:
-				best = maxi(best, f)
-		_add(_dice_row(by, func(f): return f < best))
+		var copy: bool = act.key == "grasp"
+		# a die of yours can go if some higher die on the table can come in without the swap being what reaches the goal
+		var can_go := func(f: int) -> bool:
+			for i in others:
+				for g in s.seats[i].last_roll:
+					if g > f and not Rules.whisper_crosses(s, by, f, g, copy):
+						return true
+			return false
+		_add(_dice_row(by, can_go))
 		_add(_button("back", "Back", _on_back))
 	elif k == "whisper":
 		var mine: int = s.seats[by].last_roll[a.mine]
 		text.text += "\nYour %d goes. Now tap a higher die of another player's." % mine
+		var copied: bool = act.key == "grasp"
+		var refused := false
+		for i in others:
+			for f in s.seats[i].last_roll:
+				refused = refused or (f > mine and Rules.whisper_crosses(s, by, mine, f, copied))
+		if refused:
+			text.text += "\n%s The dice that would are switched off." % Rules.whisper_cross_text(s.cfg)
 		for i in others:
 			if not s.seats[i].last_roll.is_empty():
-				_add(_dice_row(i, func(f): return f > mine))
+				_add(_dice_row(i, func(f): return f > mine and not Rules.whisper_crosses(s, by, mine, f, copied)))
 		_add(_button("back", "Back", _on_back))
 	else:
 		# spark, glance: a die of another player's last roll

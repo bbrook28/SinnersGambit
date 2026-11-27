@@ -569,6 +569,53 @@ func test_whisper() -> void:
 	Rules.roll(s)
 	check("no higher die on the table: the roll is scored at once", s.phase == Rules.GAMBIT and s.seats[0].points == 40)
 	check("after scoring it is too late", Rules.block(s, "whisper") == "Before scoring.")
+	# Ben, 2026-11-26: a swap is refused if it is what takes the player to 1000 or more
+	var cross: String = Rules.whisper_cross_text(Config.DEFAULTS)
+	check("the reason names the goal", cross.contains("1000") and Sins.card("whisper").text.contains("takes you to %d" % int(Config.DEFAULTS.win)))
+	# seat 0 shows 6,5,1; Lust on 900 rolls 4,1,1: 940 as it is, 1000 with the 6, 990 with the 5
+	s = sg(["", "lust", "", ""], [6, 5, 1,  4, 1, 1])
+	play(s)
+	Rules.add_points(s, 1, 900)
+	Rules.roll(s)
+	check("a swap that would take Lust from 940 to 1000 is refused, and says why", Rules.block(s, "whisper", {"mine": 1, "target": 0, "theirs": 0}) == cross
+		and Rules.use(s, "whisper", {"mine": 1, "target": 0, "theirs": 0}).is_empty() and s.phase == Rules.SWAP and s.seats[1].last_roll == [4, 1, 1] and s.seats[0].last_roll == [6, 5, 1])
+	check("a smaller swap that stops at 990 is allowed", Rules.block(s, "whisper", {"mine": 1, "target": 0, "theirs": 1}) == "" and Rules.block(s, "whisper") == "")
+	r = Rules.use(s, "whisper", {"mine": 1, "target": 0, "theirs": 1})
+	check("it scores 90: 990, no win", r.get("ok", false) and s.seats[1].points == 990 and s.winner == -1 and s.phase == Rules.GAMBIT)
+	# Lust on 950 rolls 5,1,1: 1000 without the swap, so the swap is not what gets there
+	s = sg(["", "lust", "", ""], [6, 5, 1,  5, 1, 1])
+	play(s)
+	Rules.add_points(s, 1, 950)
+	Rules.roll(s)
+	check("a roll that reaches 1000 as it is can still be swapped", s.phase == Rules.SWAP and Rules.block(s, "whisper", {"mine": 1, "target": 0, "theirs": 0}) == "")
+	r = Rules.use(s, "whisper", {"mine": 1, "target": 0, "theirs": 0})
+	check("and it wins with the better die: 950 + 110", r.get("ok", false) and s.winner == 1 and s.seats[1].points == 1060)
+	# Lust on 990 rolls 1,2,3: Purgatory as it is; either higher die would be a win
+	s = sg(["", "lust", "", ""], [6, 5, 1,  1, 2, 3])
+	play(s)
+	Rules.add_points(s, 1, 990)
+	Rules.roll(s)
+	check("when every swap would reach 1000 Whisper is off, and says why", s.phase == Rules.SWAP and Rules.block(s, "whisper").contains("Every swap would take you to 1000")
+		and Rules.block(s, "whisper", {"mine": 0, "target": 0, "theirs": 1}).contains("1000") and Rules.use(s, "whisper", {"mine": 0, "target": 0, "theirs": 1}).is_empty() and not Rules.whisper_open(s, 1))
+	Rules.settle(s)
+	check("the roll is scored as it is: Purgatory, no win", s.seats[1].purgatory and s.winner == -1 and s.seats[1].points == 990)
+	# far from the goal nothing changed
+	s = sg(["", "lust", "", ""], [6, 5, 1,  1, 2, 3])
+	play(s)
+	Rules.add_points(s, 1, 500)
+	Rules.roll(s)
+	check("below the goal every higher die can still be taken", Rules.block(s, "whisper", {"mine": 0, "target": 0, "theirs": 0}) == "" and Rules.whisper_open(s, 1))
+	# a Whisper copied by Jealous Grasp, after scoring: Envy on 980 with a 1 to swap for a 4
+	s = sg(["lust", "envy", "", ""])
+	play(s)
+	s.t1_log.append({"turn": s.turn_count, "key": "whisper"})
+	Rules.add_points(s, 1, 900)
+	s.rng.queue = [1, 4, 4]
+	rolled(s)
+	check("a copied Whisper that would take Envy from 980 to 1020 is refused", s.seats[1].points == 980 and Rules.block(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}).contains("take you to 1000")
+		and Rules.use(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}).is_empty() and s.seats[1].points == 980)
+	Rules.add_points(s, 1, -100)
+	check("below that it is allowed", Rules.block(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}) == "")
 
 
 func test_allure() -> void:

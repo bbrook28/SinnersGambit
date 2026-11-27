@@ -10,7 +10,7 @@ const INFO := {
 		"t1": {"key": "vig", "name": "The Vig", "text": "Passive. When an opponent buys a die, 20 of its price goes to you."},
 		"t2": {"key": "deal", "name": "Cut a Deal", "text": "Target chooses: pay you 50, or give you 1 die for 1 full round. Not the same target twice running."}},
 	"lust": {
-		"t1": {"key": "whisper", "name": "Whisper of Desire", "text": "Before scoring, swap one of your dice with a higher die of another player's."},
+		"t1": {"key": "whisper", "name": "Whisper of Desire", "text": "Before scoring, swap one of your dice with a higher die of another player's. Not if the swap is what takes you to 1000."},
 		"t2": {"key": "allure", "name": "Entangling Allure", "text": "Choose 2 players; each secretly picks 1 die. Match: you take one. No match: they swap."}},
 	"envy": {
 		"t1": {"key": "glance", "name": "Green-Eyed Glance", "text": "Add a temporary die to your roll, matching any die an opponent just rolled."},
