@@ -25,6 +25,7 @@ class Seat:
 	var lethargic := false     # Lethargic Aura: on their next roll one die is rolled twice and the lower kept
 	var last_target := {}      # ability key -> the seat it last hit ("not the same target twice running")
 	var last_grasp := ""       # Envy: the ability Jealous Grasp copied last ("not the same one twice running")
+	var last_used := {}        # ability key -> turn_count at its last use (strike, deal, bite, grasp): at a two-player table "twice running" is two of your turns running
 
 
 var cfg: Dictionary

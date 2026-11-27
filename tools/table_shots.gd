@@ -1,5 +1,6 @@
 ## Screenshots of the step 1 pass-and-play screen at phone size, for Ben. Needs a window (not --headless):
 ## godot --path . --resolution 1080x2340 --script res://tools/table_shots.gd   ->  build/table_shots/*.png
+## The two-player table: add  -- seats=2 dir=table_shots_2p
 extends SceneTree
 
 const TableScreen = preload("res://ui/table_screen.gd")
@@ -8,6 +9,7 @@ const Rules = preload("res://game/rules.gd")
 var h
 var n := 0
 var dir := "table_shots"   # build/<dir>; pass -- dir=<name> to keep a second screen shape beside the first
+var seats := 4             # pass -- seats=2 for the two-player table
 
 
 class Faces:
@@ -22,9 +24,15 @@ func _initialize() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("dir="):
 			dir = a.substr(4)
+		if a.begins_with("seats="):
+			seats = int(a.substr(6))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/" + dir))
 	for f in DirAccess.get_files_at("res://build/" + dir):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("res://build/%s/%s" % [dir, f]))
+	if seats == 2:
+		await _two()
+		quit(0)
+		return
 	h = TableScreen.new()
 	# P1 Wrath 4,5,1; P2 Lust 1,2,3 (swaps); Spark rerolls to 2; P3 Gluttony 6,4,1; P4 Pride 6,6,1
 	h.rng = Faces.new([4, 5, 1,  1, 2, 3,  2,  6, 4, 1,  6, 6, 1])
@@ -135,6 +143,69 @@ func _initialize() -> void:
 	tap("roll")
 	await _shot("into_purgatory")
 	quit(0)
+
+
+## The two-player table: the count choice, the cards whose words change, a gift, Bite and Entangling Allure.
+func _two() -> void:
+	h = TableScreen.new()
+	# P1 Lust 4,5,1; P2 Gluttony 6,4,2; P1 4,6,2; then every die shows 4
+	h.rng = Faces.new([])
+	h.sins = ["lust", "gluttony"]
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(h)
+	await _shot("how_to_play_4_chosen")
+	tap("seats2")
+	h.rng.queue = [4, 5, 1,  6, 4, 2,  4, 6, 2]   # set here: the four-player match the card opened on dealt its Sins from the dice
+	await _shot("how_to_play_2_chosen")
+	tap("got_it")
+	await _shot("pass_the_phone")
+	tap("sin0")
+	await _shot("sin_card_lust")
+	tap("close")
+	tap("sin1")
+	await _shot("sin_card_gluttony")
+	tap("close")
+	tap("ready")
+	await _shot("roll")
+	tap("roll")
+	await _shot("gambit_lust")
+	tap("points")
+	await _shot("give_points_other_player_chosen")
+	tap("back")
+	tap("pass")
+	for i in 2:
+		Rules.add_points(h.s, i, 400)
+	h._refresh()
+	tap("ready")
+	tap("roll")
+	await _shot("gambit_gluttony_tier_2_open")
+	tap("bite")
+	await _shot("bite_pick_the_target")
+	tap("target0")
+	await _shot("bite_done")
+	tap("pass")
+	tap("ready")
+	tap("roll")
+	if h.btn.has("settle"):
+		await _shot("lust_swap_before_scoring")
+		tap("settle")
+	tap("allure")
+	await _shot("allure_lust_picks_in_secret")
+	tap("d0_0")
+	await _shot("allure_pass_to_the_other_player")
+	tap("ready")
+	await _shot("allure_other_player_picks")
+	tap("d1_1")
+	await _shot("allure_done")
+	tap("pass")
+	tap("ready")
+	tap("roll")
+	tap("bite")
+	await _shot("bite_refused_the_turn_after")
+	tap("back")
+	await _shot("gambit_gluttony_2_dice")
+	tap("help")
+	await _shot("how_to_play_mid_match")
 
 
 func tap(key: String) -> void:

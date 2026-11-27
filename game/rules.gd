@@ -12,6 +12,13 @@
 ##   Entangling Allure, Voracious Bite or Lethargic Aura; not by Green-Eyed Glance, which only copies.
 ## - A die changed after its roll was scored (Spark of Rage, a copied Whisper) changes that roll's score by the difference.
 ##   A die another player swaps into your scored roll changes nothing you scored.
+##
+## Any table from 2 players up plays by cfg.seats. Two readings change with one opponent (Ben's rulings, 2026-11-26):
+## - "Not the same target twice running" (Vengeful Strike, Cut a Deal, Voracious Bite) and Jealous Grasp's "not the same
+##   one twice running": there is no one else to choose, so it means two of your turns running. Refused on your next turn
+##   after a use, open again on the one after (_running).
+## - Entangling Allure: Lust is one of the two. Lust and the other player each pick one of their own dice in secret.
+##   Match: Lust takes the other player's die. No match: the two dice swap. Only the other player is targeted.
 extends RefCounted
 
 const Config = preload("res://game/config.gd")
@@ -28,6 +35,9 @@ const OVER := "over"      # someone has won
 const POINTS := "points"  # give points
 const LEND := "lend"      # lend a die for one roll; then it goes to the supply
 const DIE := "die"        # buy a die from the supply for another player
+
+## Why an ability is refused at a two-player table the turn after it was used ("twice running" with one opponent).
+const TWO_RUNNING := "Not on two turns running: open again next turn."
 
 ## The choices every use(s, key, args) needs.
 const NEEDS := {"spark": ["target", "index"], "strike": ["target", "choice"], "deal": ["target", "choice"],
@@ -409,8 +419,8 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 	if a.has("target"):
 		if t == seat or t < 0 or t >= s.seats.size():
 			return "Choose another player."
-		if ["strike", "deal", "bite"].has(key) and p.last_target.get(key, -1) == t:
-			return "Not the same target twice running."
+		if ["strike", "deal", "bite"].has(key) and p.last_target.get(key, -1) == t and _running(s, p, key):
+			return TWO_RUNNING if s.seats.size() == 2 else "Not the same target twice running."
 	var tp = s.seats[t] if t >= 0 and t < s.seats.size() else null
 	match key:
 		"spark":
@@ -445,7 +455,8 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 		"allure":
 			for k in ["a", "b"]:
 				if a.has(k):
-					if a[k] == seat or a[k] < 0 or a[k] >= s.seats.size():
+					# With one opponent, Lust is one of the two.
+					if a[k] < 0 or a[k] >= s.seats.size() or (a[k] == seat and s.seats.size() > 2):
 						return "Choose two other players."
 					if s.seats[a[k]].last_roll.is_empty():
 						return "They have not rolled yet."
@@ -454,6 +465,8 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 						return "Choose a die."
 			if a.has("a") and a.has("b") and a.a == a.b:
 				return "Choose two different players."
+			if a.has("take") and a.take == seat:
+				return "You cannot take your own die."
 			if a.has("take") and (not [a.get("a", -1), a.get("b", -1)].has(a.take) or not spare(s, a.take)):
 				return "No one can go below %d dice." % int(cfg.min_dice)
 		"glance":
@@ -468,8 +481,8 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 					return "It works before the roll is scored: too late to copy." if ["hubris", "glance"].has(a.key) else "Always on: nothing to copy."
 				if not grasp_seen(s).has(a.key):
 					return "Not used this round."
-				if p.last_grasp == a.key:
-					return "Not the same one twice running."
+				if p.last_grasp == a.key and _running(s, p, "grasp"):
+					return TWO_RUNNING if s.seats.size() == 2 else "Not the same one twice running."
 				var sub: Dictionary = a.duplicate()
 				sub.erase("key")
 				sub["copy"] = true
@@ -477,8 +490,10 @@ static func block(s, key: String, a: Dictionary = {}) -> String:
 			else:
 				var any := false
 				for k in grasp_seen(s):
-					any = any or (Sins.GRASP_OK.has(k) and p.last_grasp != k)
+					any = any or (Sins.GRASP_OK.has(k) and not (p.last_grasp == k and _running(s, p, "grasp")))
 				if not any:
+					if s.seats.size() == 2 and Sins.GRASP_OK.has(p.last_grasp) and grasp_seen(s).has(p.last_grasp):
+						return TWO_RUNNING
 					return "No Tier 1 ability to copy this round."
 		"superiority":
 			if p.armed:
@@ -539,6 +554,7 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 		"strike", "deal":
 			_targeted(s, seat, t, r)
 			p.last_target[key] = t
+			p.last_used[key] = s.turn_count
 			var paid := 0
 			if a.choice == "die":
 				_take_die(s, t, seat, int(cfg[key + "_rounds"]))
@@ -561,8 +577,10 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 				r.merge(settle(s))
 				r.merge({"target": t, "gave": gave, "got": got})
 		"allure":
-			_targeted(s, seat, a.a, r)
-			_targeted(s, seat, a.b, r)
+			# With one opponent Lust is one of the two, and does not target or take from themselves.
+			for i in [a.a, a.b]:
+				if i != seat:
+					_targeted(s, seat, i, r)
 			var pa = s.seats[a.a]
 			var pb = s.seats[a.b]
 			var fa: int = pa.last_roll[a.pick_a]
@@ -571,8 +589,9 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 			if fa == fb:
 				# a match: Lust takes one of the two dice, for good, if its owner can spare it
 				take = a.get("take", -1)
-				if take < 0:
-					take = a.a if spare(s, a.a) else (a.b if spare(s, a.b) else -1)
+				for i in [a.a, a.b]:
+					if take < 0 and i != seat and spare(s, i):
+						take = i
 				if take >= 0:
 					s.seats[take].dice -= 1
 					s.seats[take].last_roll.remove_at(a.pick_a if take == a.a else a.pick_b)
@@ -586,6 +605,7 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 			r.merge({"target": t, "face": p.glance})
 		"grasp":
 			p.last_grasp = a.key
+			p.last_used[key] = s.turn_count
 			var sub: Dictionary = a.duplicate()
 			sub.erase("key")
 			sub["copy"] = true
@@ -610,6 +630,7 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 		"bite":
 			_targeted(s, seat, t, r)
 			p.last_target[key] = t
+			p.last_used[key] = s.turn_count
 			var stolen := -add_points(s, t, -int(cfg.bite_steal))
 			add_points(s, seat, stolen)
 			r.merge({"target": t, "stolen": stolen})
@@ -622,6 +643,14 @@ static func use(s, key: String, a: Dictionary = {}) -> Dictionary:
 			add_points(s, seat, int(cfg.drip_gain))
 			r["gain"] = int(cfg.drip_gain)
 	return r
+
+
+## Does "twice running" still hold for this ability's last use? With other players to choose from it holds until
+## another is chosen. With one opponent (Ben, 2026-11-26) it holds on the user's next turn only.
+static func _running(s, p, key: String) -> bool:
+	if s.seats.size() > 2:
+		return true
+	return s.turn_count - int(p.last_used.get(key, -99)) <= s.seats.size()
 
 
 static func _log(s, key: String) -> void:

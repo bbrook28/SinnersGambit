@@ -1,11 +1,11 @@
-# Step 1 rules: 4 players, one phone
+# Step 1 rules: 2 to 4 players, one phone
 
 Status: **Approved by Ben 2026-11-24.** Brief: `docs/fun-brief.md`. Build notes: `docs/step1-build.md`.
 Sources: Ben's 2025 printed rulebook (`Sinners Gambit.pdf`, 21 pages), his rulings of 2026-11-24, and the Sin cards in the Google Doc rulebook. Where the PDF and the Google Doc differ, the PDF wins. The PDF has no Sin cards, so every ability below is the Google Doc's, copied as written: no cost or number is changed.
 
 ## The game
 - **Goal:** first to 1000 points (Ben's ruling, 2026-11-25, a starting value under test; the rulebook's goal is 3000). It is checked at the end of your own Fate Phase: the first player to end a Fate Phase at 1000 or more, and not in Purgatory after that roll, wins at once. You cannot win while in Purgatory (Ben, 2026-11-24). There is no tie-breaker.
-- **Players:** 4, passing one phone. No bots.
+- **Players:** 2, 3 or 4, passing one phone; chosen on the How to play card before the first turn (Ben, 2026-11-26; it was 4 only). No bots. The rules are the same at every table size except the two readings under "Two players" below.
 - **Dice:** each player starts with 3, and the shared supply starts with 6 spare dice at any table size (4 players: 18 dice in all). Ben's ruling, 2026-11-25: a seven-player table with the 27-dice box has 6 spare, and with 15 spare at a four-player table everyone bought dice freely and no one made a deal. A die still costs 20. No one ever drops below 2.
 - **Sins:** dealt at random, one each, shown to everyone.
 - **Start:** everyone at 0 points. Turns go round in seat order.
@@ -57,6 +57,13 @@ How four of them work on one phone:
 - **Pride's Hubris.** "The previous player's total" is the points the player before you scored on their last roll (0 if they were in Purgatory). The 50 is for the roll, not for each die: if Spark of Rage rerolls a die of a won Hubris roll, the die's change counts once and the 50 stays.
 - **Pride's Superiority.** Pride pays 40 in their own Gambit Phase to arm it until their next turn.
 - **Lust's Entangling Allure.** The phone is passed to each chosen player in turn; each taps one die from their own last roll with the screen showing nothing to the others; then both picks are shown together. "Match" means the two dice show the same number. Nothing else about it changes.
+
+## Two players
+Ben's rulings, 2026-11-26. Everything else is as above: 3 dice each and 6 spare (12 dice in all), first to 1000, the three gifts, Hubris against the other player's last roll.
+- **"Not the same target twice running"** (Vengeful Strike, Cut a Deal, Voracious Bite) and Jealous Grasp's "not the same one twice running": with one opponent there is no one else to choose, so it means not on two of your turns running. After a use it is refused on your next turn and open again on the one after. At 3 or 4 players it is as before: refused until you choose another target.
+- **Entangling Allure:** Lust is one of the two. Lust picks one die of their own last roll in secret, then the phone goes to the other player, who picks one of theirs. Match: Lust takes the other player's die, to keep (nothing is taken from a player on 2 dice). No match: the two dice swap. Only the other player counts as targeted.
+- The Sin cards for these five abilities have their own words at a two-player table (`TWO` in `game/sins.gd`).
+- Not measured: the sims so far were at four seats.
 
 A die taken by an ability stays away for as long as its card says (Wrath 2 full rounds, Greed 1 full round), not the PDF's "until the owner's next Fate Phase".
 

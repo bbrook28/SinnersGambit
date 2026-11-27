@@ -65,7 +65,9 @@ func _init() -> void:
 	test_bite()
 	test_drip()
 	test_aura()
+	test_two_players()
 	test_full_match()
+	test_small_tables()
 	print("game_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
 
@@ -827,6 +829,168 @@ func test_aura() -> void:
 	check("the turn after is a plain roll", not r.aura and s.seats[1].last_roll == [4, 4, 4])
 
 
+## Two players (Ben, 2026-11-26): the same game with two seats. Two readings change with one opponent: "twice running"
+## means two of your turns running, and Entangling Allure is between Lust and the other player.
+func test_two_players() -> void:
+	var two: Dictionary = Config.merged({"seats": 2})
+	var s = Rules.new_match(two, Faces.new([]), ["", ""])
+	check("2 players: 2 seats, 3 dice each, 6 spare, 12 dice in all", s.seats.size() == 2 and s.seats[1].dice == 3 and s.supply == 6 and Rules.total_dice(s) == 12)
+	play(s, 2)
+	check("2 players: a round is two turns", s.turn == 0 and s.round_number == 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	s = Rules.new_match(two, rng)
+	check("2 players: two different Sins are dealt", s.seats[0].sin != s.seats[1].sin and Config.SINS.has(s.seats[0].sin) and Config.SINS.has(s.seats[1].sin))
+	# Hubris: the player before is always the one opponent
+	s = Rules.new_match(two, Faces.new([4, 4, 4,  6, 5, 4,  6, 6, 4]), ["pride", ""])
+	play(s, 2)
+	check("2 players: Hubris must beat the other player's last roll", Rules.hubris_target(s) == 150)
+	# "not the same target twice running": refused on your next turn, open again on the one after
+	var bad := []
+	for c in [["wrath", "strike", {"target": 1, "choice": "points"}], ["greed", "deal", {"target": 1, "choice": "points"}], ["gluttony", "bite", {"target": 1}]]:
+		s = Rules.new_match(two, Faces.new([]), [c[0], ""])
+		Rules.add_points(s, 0, 400)
+		Rules.add_points(s, 1, 400)
+		var got := []
+		for turn in 4:
+			rolled(s)
+			got.append(Rules.block(s, c[1], {"target": 1}))
+			Rules.use(s, c[1], c[2])
+			Rules.pass_turn(s)
+			play(s)
+		if got != ["", Rules.TWO_RUNNING, "", Rules.TWO_RUNNING]:
+			bad.append("%s: %s" % [c[1], got])
+	check("2 players: Strike, Deal and Bite are refused on the turn after a use, and open again on the one after (wrong: %s)" % ", ".join(bad), bad.is_empty())
+	check("2 players: the reason says when it opens again", Rules.TWO_RUNNING.contains("two turns running") and Rules.TWO_RUNNING.contains("next turn"))
+	# Jealous Grasp: there is only ever one ability to copy, so the same reading
+	s = Rules.new_match(two, Faces.new([]), ["gluttony", "envy"])
+	Rules.add_points(s, 1, 400)
+	var seen := []
+	for turn in 3:
+		s.seats[0].dice = 3
+		s.seats[1].dice = 3
+		rolled(s)
+		Rules.use(s, "feast", {"index": 0})
+		Rules.pass_turn(s)
+		rolled(s)
+		seen.append(Rules.block(s, "grasp", {"key": "feast"}))
+		seen.append(Rules.block(s, "grasp"))
+		Rules.use(s, "grasp", {"key": "feast", "index": 0})
+		Rules.pass_turn(s)
+	check("2 players: Jealous Grasp is refused on the turn after a copy, and open again on the one after (%s)" % [seen],
+		seen[0] == "" and seen[1] == "" and seen[2] == Rules.TWO_RUNNING and seen[3] != "" and seen[4] == "" and seen[5] == "")
+	# Entangling Allure: Lust and the other player each pick one of their own dice
+	s = Rules.new_match(two, Faces.new([4, 4, 4,  5, 5, 2,  4, 5, 1]), ["lust", ""])
+	Rules.add_points(s, 0, 400)
+	rolled(s)
+	check("2 players: the other player must have rolled", Rules.block(s, "allure", {"a": 0, "b": 1}) == "They have not rolled yet.")
+	Rules.pass_turn(s)
+	play(s)
+	rolled(s)
+	check("2 players: Entangling Allure is between Lust and the other player", Rules.block(s, "allure", {"a": 0, "b": 1}) == "" and Rules.block(s, "allure", {"a": 1, "b": 1}) != "")
+	var before: int = s.seats[0].points
+	var theirs: int = s.seats[1].points
+	var r: Dictionary = Rules.use(s, "allure", {"a": 0, "b": 1, "pick_a": 0, "pick_b": 2})
+	check("2 players: a 4 and a 2 do not match: the two dice swap", r.get("ok", false) and not r.match and s.seats[0].last_roll == [2, 5, 1] and s.seats[1].last_roll == [5, 5, 4])
+	check("2 players: it costs 40 and the swap changes no one's points", s.seats[0].points == before - 40 and s.seats[1].points == theirs)
+	Rules.pass_turn(s)
+	play(s)
+	rolled(s)
+	s.seats[0].last_roll = [5, 4, 4]
+	s.seats[1].last_roll = [5, 3, 3]
+	check("2 players: Lust never takes their own die", Rules.block(s, "allure", {"a": 0, "b": 1, "take": 0}) != "")
+	r = Rules.use(s, "allure", {"a": 0, "b": 1, "pick_a": 0, "pick_b": 0})
+	check("2 players: a 5 and a 5 match: Lust takes the other player's die, to keep", r.get("ok", false) and r.match and r.take == 1 and s.seats[0].dice == 4 and s.seats[1].dice == 2
+		and s.seats[1].last_roll == [3, 3] and s.seats[0].last_roll == [5, 4, 4] and Rules.total_dice(s) == 12)
+	s.seats[0].used_t2 = false
+	s.seats[0].used = {}
+	s.seats[1].last_roll = [5, 3]
+	r = Rules.use(s, "allure", {"a": 0, "b": 1, "pick_a": 0, "pick_b": 0})
+	check("2 players: a match with the other player on 2 dice takes nothing", r.get("ok", false) and r.match and r.take == -1 and s.seats[0].dice == 4 and s.seats[1].dice == 2)
+	# only the other player is targeted: an armed Pride makes Lust lose 20 once, and Lust does not target themselves
+	s = Rules.new_match(two, Faces.new([]), ["lust", "pride"])
+	Rules.add_points(s, 0, 400)
+	play(s, 2)
+	rolled(s)
+	s.seats[1].armed = true
+	r = Rules.use(s, "allure", {"a": 0, "b": 1, "pick_a": 0, "pick_b": 0})
+	check("2 players: Entangling Allure targets the other player only", r.superiority == [1])
+	# at a bigger table nothing changed
+	s = sg(["lust", "", "", ""])
+	Rules.add_points(s, 0, 400)
+	play(s, 4)
+	rolled(s)
+	check("3 or more players: Lust is still not one of the two", Rules.block(s, "allure", {"a": 0, "b": 1}) == "Choose two other players.")
+	for key in Sins.TWO:
+		check("2 players: the %s card has its own words" % key, Sins.text(key, 2) == Sins.TWO[key] and Sins.text(key, 3) == Sins.card(key).text and Sins.text(key, 2) != Sins.card(key).text)
+	check("2 players: the other cards are unchanged", Sins.text("feast", 2) == Sins.card("feast").text and Sins.TWO.size() == 5)
+
+
+## One whole match: seats buy, give (gifts) and use abilities (wild) at random, allowed or not. What broke goes in broken.
+## Returns how many rolls ended in Purgatory.
+func _match(s, rng, wild: bool, gifts: bool, used: Dictionary, broken: Array, tag: String) -> int:
+	var n: int = s.seats.size()
+	var dice: int = n * int(s.cfg.start_dice) + int(s.cfg.spare_dice)
+	var purgatories := 0
+	var turns := 0
+	while s.winner == -1 and turns < 5000:
+		turns += 1
+		if wild:
+			_fuzz(s, rng, used)
+		Rules.roll(s)
+		if s.phase == Rules.SWAP:
+			var pairs: Array = Rules.whisper_pairs(s, s.turn)
+			var pr: Array = pairs[rng.randi_range(0, pairs.size() - 1)]
+			if rng.randi_range(0, 1) == 0 and not Rules.use(s, "whisper", {"mine": pr[0], "target": pr[1], "theirs": pr[2]}).is_empty():
+				used["whisper"] = true
+			else:
+				Rules.settle(s)
+		if s.seats[s.turn].purgatory:
+			purgatories += 1
+		if wild:
+			for i in 3:
+				_fuzz(s, rng, used)
+		if s.phase == Rules.GAMBIT and gifts:
+			# gifts at random, allowed or not: a refused one must change nothing
+			var other: int = (s.turn + 1 + rng.randi_range(0, n - 2)) % n
+			var pair := [s.turn, other] if rng.randi_range(0, 1) == 0 else [other, s.turn]
+			Rules.gift(s, [Rules.POINTS, Rules.LEND, Rules.DIE][rng.randi_range(0, 2)], pair[0], pair[1], rng.randi_range(0, 8) * 10)
+		if s.phase == Rules.GAMBIT and rng.randi_range(0, 2) == 0:
+			Rules.buy(s, rng.randi_range(1, 2))
+		if Rules.total_dice(s) != dice:
+			broken.append("%s: %d dice" % [tag, Rules.total_dice(s)])
+		for p in s.seats:
+			if p.points < 0 or p.dice < 2 or p.dice - p.held < 2 or s.supply < 0 or p.held < 0:
+				broken.append("%s: points %d, dice %d, held %d, supply %d" % [tag, p.points, p.dice, p.held, s.supply])
+		if s.winner == -1:
+			Rules.pass_turn(s)
+	if s.winner == -1:
+		broken.append("%s: no winner" % tag)
+	elif s.seats[s.winner].points < int(s.cfg.win) or s.winner != s.turn or s.seats[s.winner].purgatory:
+		broken.append("%s: a wrong winner" % tag)
+	return purgatories
+
+
+## Whole matches at 2 and 3 players, with abilities and gifts at random: each ends in a winner and no rule is broken.
+func test_small_tables() -> void:
+	var rng := RandomNumberGenerator.new()
+	for n in [2, 3]:
+		var broken := []
+		var used := {}
+		for seed_value in 150:
+			rng.seed = seed_value
+			var s = Rules.new_match(Config.merged({"seats": n, "win": 3000} if seed_value % 3 > 0 else {"seats": n}), rng)
+			_match(s, rng, seed_value % 3 > 0, seed_value % 3 == 2, used, broken, "seed %d" % seed_value)
+		check("%d players: 150 seeded matches each play to one winner with no rule broken (%s)" % [n, "none" if broken.is_empty() else ", ".join(broken.slice(0, 5))], broken.is_empty())
+		# Jealous Grasp at 2 players needs Envy across from one of four Sins and the right copy: too rare for taps at
+		# random to count on. test_two_players uses it.
+		var missing := []
+		for k in Rules.NEEDS:
+			if not used.has(k) and not Sins.PASSIVE.has(k) and not (n == 2 and k == "grasp"):
+				missing.append(k)
+		check("%d players: every other ability with a button was used in those matches (never: %s)" % [n, ", ".join(missing)], missing.is_empty())
+
+
 ## Whole matches on seeded dice with the Sins dealt: seats buy, give and use abilities at random, allowed or not.
 ## Each ends in a winner and no rule is broken on the way.
 func test_full_match() -> void:
@@ -839,42 +1003,7 @@ func test_full_match() -> void:
 		rng.seed = seed_value
 		# the matches that use abilities play to 3000, long enough for every ability to come up; the plain ones play to the goal as built
 		var s = Rules.new_match(Config.merged({"win": 3000} if seed_value % 3 > 0 else {}), rng)
-		var turns := 0
-		while s.winner == -1 and turns < 5000:
-			turns += 1
-			if seed_value % 3 > 0:
-				_fuzz(s, rng, used)
-			var r: Dictionary = Rules.roll(s)
-			if s.phase == Rules.SWAP:
-				var pairs: Array = Rules.whisper_pairs(s, s.turn)
-				var pr: Array = pairs[rng.randi_range(0, pairs.size() - 1)]
-				if rng.randi_range(0, 1) == 0 and not Rules.use(s, "whisper", {"mine": pr[0], "target": pr[1], "theirs": pr[2]}).is_empty():
-					used["whisper"] = true
-				else:
-					Rules.settle(s)
-			if s.seats[s.turn].purgatory:
-				purgatories += 1
-			if seed_value % 3 > 0:
-				for i in 3:
-					_fuzz(s, rng, used)
-			if s.phase == Rules.GAMBIT and seed_value % 3 == 2:
-				# gifts at random, allowed or not: a refused one must change nothing
-				var other: int = (s.turn + 1 + rng.randi_range(0, 2)) % 4
-				var pair := [s.turn, other] if rng.randi_range(0, 1) == 0 else [other, s.turn]
-				Rules.gift(s, [Rules.POINTS, Rules.LEND, Rules.DIE][rng.randi_range(0, 2)], pair[0], pair[1], rng.randi_range(0, 8) * 10)
-			if s.phase == Rules.GAMBIT and rng.randi_range(0, 2) == 0:
-				Rules.buy(s, rng.randi_range(1, 2))
-			if Rules.total_dice(s) != 18:
-				broken.append("seed %d: %d dice" % [seed_value, Rules.total_dice(s)])
-			for p in s.seats:
-				if p.points < 0 or p.dice < 2 or p.dice - p.held < 2 or s.supply < 0 or p.held < 0:
-					broken.append("seed %d: points %d, dice %d, held %d, supply %d" % [seed_value, p.points, p.dice, p.held, s.supply])
-			if s.winner == -1:
-				Rules.pass_turn(s)
-		if s.winner == -1:
-			broken.append("seed %d: no winner" % seed_value)
-		elif s.seats[s.winner].points < int(s.cfg.win) or s.winner != s.turn or s.seats[s.winner].purgatory:
-			broken.append("seed %d: a wrong winner" % seed_value)
+		purgatories += _match(s, rng, seed_value % 3 > 0, seed_value % 3 == 2, used, broken, "seed %d" % seed_value)
 		rounds.append(s.round_number)
 	check("300 seeded matches each play to one winner with no rule broken (%s)" % ("none" if broken.is_empty() else ", ".join(broken.slice(0, 5))), broken.is_empty())
 	check("Purgatory happens in play (%d times)" % purgatories, purgatories > 0)

@@ -93,6 +93,7 @@ func _initialize() -> void:
 	await test_win()
 	await test_sin_card()
 	await test_abilities()
+	await test_two_players()
 	await test_fits()
 	await test_whole_match()
 	print("table_test: %d failure(s)" % _fails)
@@ -101,7 +102,7 @@ func _initialize() -> void:
 
 func test_howto() -> void:
 	await screen([4, 5, 1], 1, true)
-	check("a match opens on the How to play card, with one button", h.howto.is_visible_in_tree() and can_tap("got_it") and acts() == 1)
+	check("a match opens on the How to play card: Got it, and 2, 3 or 4 players with 4 chosen", h.howto.is_visible_in_tree() and can_tap("got_it") and can_tap("seats2") and can_tap("seats3") and can_tap("seats4") and acts() == 4 and h.seats == 4)
 	var all := " ".join(h.HOWTO)
 	check("the card is at most eight lines", h.HOWTO.size() <= 8)
 	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "one die a turn", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
@@ -115,11 +116,12 @@ func test_howto() -> void:
 	tap("got_it")
 	check("Got it shows the table: pass the phone to Player 1", not h.howto.visible and can_tap("ready") and can_tap("help"))
 	tap("help")
-	check("How to play brings the card back", h.howto.visible and can_tap("got_it") and acts() == 1)
+	check("How to play brings the card back, and before the first turn the number of players can still be changed", h.howto.visible and can_tap("got_it") and can_tap("seats2") and acts() == 4)
 	tap("got_it")
 	tap("ready")
 	tap("roll")
 	tap("help")
+	check("once a turn has begun the card has one button: the number of players is fixed", can_tap("got_it") and acts() == 1 and not h.count_row.is_visible_in_tree())
 	tap("got_it")
 	check("the card can be read mid-turn and nothing changes", can_tap("pass") and can_tap("buy") and h.panels[0].points.text == "90")
 	tap("points")
@@ -275,7 +277,7 @@ func test_win() -> void:
 	check("the winner screen names the winner", h.title.text == "Player 1 wins!" and h.panels[0].tag.text.contains("WINNER") and shown().contains("1000"))
 	check("the only button starts a new match", can_tap("new") and acts() == 1)
 	tap("new")
-	check("a new match opens on the How to play card again", can_tap("got_it") and acts() == 1)
+	check("a new match opens on the How to play card again, with the number of players to choose", can_tap("got_it") and can_tap("seats2") and acts() == 4)
 	tap("got_it")
 	var fresh := true
 	for i in 4:
@@ -517,10 +519,83 @@ func test_abilities() -> void:
 	check("Lust took Player 3's die", h.panels[0].dice.text == "4 dice" and h.panels[2].dice.text == "2 dice" and h.event.contains("A match: Player 1 took that die from Player 3"))
 
 
+## Two players (Ben, 2026-11-26): chosen on the How to play card. Every die shows 4, so no roll offers Lust a swap.
+func test_two_players() -> void:
+	await screen([], 1, true, ["lust", "gluttony"])
+	tap("seats3")
+	check("3 players: three players on the table", h.s.seats.size() == 3 and h.panels.size() == 3 and h.panel_box.get_child_count() == 3 and h.howto.visible)
+	tap("seats2")
+	check("2 players: choosing 2 starts a two-player match, still on the card, with 2 shown as chosen", h.s.seats.size() == 2 and h.panels.size() == 2 and h.panel_box.get_child_count() == 2
+		and h.howto.visible and h.seats == 2 and Rules.total_dice(h.s) == 12)
+	tap("got_it")
+	check("2 players: pass the phone to Player 1; both players shown with their Sins", h.title.text == "Pass the phone to Player 1" and h.panels[0].sin.text == "Lust" and h.panels[1].sin.text == "Gluttony"
+		and h.panels[1].points.is_visible_in_tree() and h.header.text.contains("6 dice"))
+	tap("sin0")
+	check("2 players: Lust's card says Entangling Allure is between the two of you", h.sin_text.text.contains("You and the other player each secretly pick") and not h.sin_text.text.contains("Choose 2 players"))
+	tap("close")
+	tap("sin1")
+	check("2 players: Gluttony's card says not on two turns running", h.sin_text.text.contains("Not on two turns running") and not h.sin_text.text.contains("same target"))
+	tap("close")
+	give(0, 400)
+	give(1, 400)
+	tap("ready")
+	tap("roll")
+	tap("points")
+	check("2 players: a gift is to the one other player, already chosen", can_tap("offer") and can_tap("other1") and not h.btn.has("other0") and shown().contains("Player 1 gives 10 points to Player 2."))
+	tap("back")
+	tap("pass")
+	# Gluttony bites
+	tap("ready")
+	tap("roll")
+	tap("bite")
+	check("2 players: the one other player is the target", can_tap("target0") and not h.btn.has("target1") and shown().contains("Steal 20 from the other player"))
+	tap("target0")
+	check("2 players: Voracious Bite stole 20", h.event.contains("used Voracious Bite on Player 1: stole 20"))
+	tap("pass")
+	# Lust: Entangling Allure with the one other player
+	tap("ready")
+	tap("roll")
+	tap("allure")
+	check("2 players: Lust picks first, in secret, with no players to choose", h.title.text == "Player 1: pick one die in secret" and can_tap("d0_0") and can_tap("d0_2") and not h.btn.has("d1_0")
+		and can_tap("back") and not h.btn.has("use") and shown().contains("you take theirs"))
+	tap("back")
+	check("2 players: Back before the pick costs nothing", can_tap("allure") and h.panels[0].points.text == str(400 + 120 - 20 + 120))
+	tap("allure")
+	tap("d0_0")
+	check("2 players: then the phone goes to the other player, and Lust's pick is not shown", h.title.text == "Pass the phone to Player 2" and can_tap("ready") and acts() == 1 and h.event == "" and not h.btn.has("d0_0") and shown().contains("secret"))
+	tap("ready")
+	check("2 players: they tap one of their own dice", can_tap("d1_0") and not h.btn.has("d0_0") and shown().contains("takes yours"))
+	tap("d1_0")
+	check("2 players: a 4 and a 4 match: Lust takes the other player's die, and the phone goes back", h.panels[0].dice.text == "4 dice" and h.panels[1].dice.text == "2 dice"
+		and h.event.contains("Player 1 picked a 4 and Player 2 a 4") and h.event.contains("A match: Player 1 took that die from Player 2") and h.event.contains("Pass the phone back to Player 1") and can_tap("pass"))
+	check("2 players: Lust paid 40", h.panels[0].points.text == str(400 + 120 - 20 + 120 - 40))
+	tap("pass")
+	# Gluttony's next turn: not on two turns running
+	tap("ready")
+	tap("roll")
+	tap("bite")
+	check("2 players: the turn after a Bite it is refused, and the button says when it opens again", not can_tap("target0") and h.btn.target0.text.contains("two turns running") and h.btn.target0.text.contains("next turn"))
+	tap("back")
+	tap("pass")
+	turns(1)
+	tap("ready")
+	tap("roll")
+	tap("bite")
+	check("2 players: on the turn after that it is open again", can_tap("target0"))
+	tap("target0")
+	await process_frame
+	await process_frame
+	check("2 players: the buttons end inside the screen (%d of 1920)" % int(h.buttons.get_global_rect().end.y), h.buttons.get_global_rect().end.y <= 1920.0)
+
+
 ## Whole matches by taps alone on seeded dice with the Sins dealt: any button on screen, at random, to a winner.
 func test_whole_match() -> void:
-	for seed_value in [7, 8, 9, 10]:
-		await screen(null, seed_value, false, [])
+	for c in [[7, 4], [8, 4], [9, 4], [10, 4], [11, 2], [12, 2], [13, 2], [14, 3]]:
+		var seed_value: int = c[0]
+		await screen(null, seed_value, true, [])
+		if c[1] != 4:
+			tap("seats%d" % c[1])
+		tap("got_it")
 		var pick := RandomNumberGenerator.new()
 		pick.seed = seed_value
 		var taps := 0
@@ -542,11 +617,11 @@ func test_whole_match() -> void:
 			tap(key)
 			if h.event != "":
 				events[h.event.split(" used ")[-1].split(":")[0].split(" on ")[0]] = true
-			if Rules.total_dice(h.s) != 18:
+			if Rules.total_dice(h.s) != c[1] * 3 + 6:
 				stuck = "%d dice" % Rules.total_dice(h.s)
 				break
 			if taps % 500 == 0:
 				await process_frame
-		check("seed %d: a whole match by random taps ends in a winner (%d taps, round %d, %s; %s)" % [seed_value, taps, h.s.round_number,
+		check("seed %d, %d players: a whole match by random taps ends in a winner (%d taps, round %d, %s; %s)" % [seed_value, c[1], taps, h.s.round_number,
 			", ".join(h.s.seats.map(func(p): return p.sin)), stuck], stuck == "" and h.s.winner >= 0)
 		check("seed %d: the winner screen is up" % seed_value, h.title.text.contains("wins!") and can_tap("new"))

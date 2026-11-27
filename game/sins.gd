@@ -26,7 +26,17 @@ const INFO := {
 		"t2": {"key": "aura", "name": "Lethargic Aura", "text": "Next turn the target rolls 1 die twice and keeps the lower. You gain 10."}},
 }
 
-const PASSIVE := ["vig", "drip"]                       # always on: never a button
+## The cards whose words change at a two-player table (Ben, 2026-11-26). With one opponent, "not the same target twice
+## running" means not on two of your turns running, and Entangling Allure is between Lust and the other player.
+const TWO := {
+	"strike": "The other player chooses: lose 50, or give you 1 die for 2 full rounds. Not on two turns running.",
+	"deal": "The other player chooses: pay you 50, or give you 1 die for 1 full round. Not on two turns running.",
+	"allure": "You and the other player each secretly pick 1 of your own dice. Match: you take theirs. No match: the two dice swap.",
+	"grasp": "Copy any Tier 1 ability used this round. Not the same one on two turns running.",
+	"bite": "Steal 20 from the other player. Not on two turns running.",
+}
+
+const PASSIVE :=["vig", "drip"]                       # always on: never a button
 const GRASP_OK := ["spark", "whisper", "feast", "drip"]  # the Tier 1 abilities Jealous Grasp can copy after Envy's roll
 
 
@@ -37,6 +47,13 @@ static func card(key: String) -> Dictionary:
 			if INFO[sin][t].key == key:
 				return INFO[sin][t]
 	return {}
+
+
+## The card's words at a table of this many players.
+static func text(key: String, seats: int) -> String:
+	if seats == 2 and TWO.has(key):
+		return TWO[key]
+	return str(card(key).get("text", ""))
 
 
 static func ability_name(key: String) -> String:

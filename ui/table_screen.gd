@@ -1,6 +1,6 @@
-## Step 1: four players pass one phone (rules: docs/step1-rules.md, in game/). A flat blockout: boxes and words, no art.
-## Before the first turn: the How to play card (also behind the How to play button).
-## Top: the four players, always shown (points, dice, Purgatory, last roll); tap a Sin's name to read its abilities.
+## Step 1: 2, 3 or 4 players pass one phone (rules: docs/step1-rules.md, in game/). A flat blockout: boxes and words, no art.
+## Before the first turn: the How to play card (also behind the How to play button), where the number of players is chosen.
+## Top: the players, always shown (points, dice, Purgatory, last roll); tap a Sin's name to read its abilities.
 ## Then one line saying who did what to whom, kept until the next action. Bottom: what the player holding the phone does now.
 extends Control
 
@@ -50,6 +50,10 @@ const HOWTO := [
 	"Then pass the phone.",
 ]
 
+const SEAT_CHOICES := [2, 3, 4]   # the table sizes the How to play card offers
+
+var seats := 4               # players in the next match: chosen on the How to play card before the first turn
+var fresh := true            # no turn has begun: the number of players can still be changed
 var s                        # the match (game/state.gd)
 var rng = null               # set before the screen enters the tree to script the dice; else random
 var sins: Array = []         # set to fix the Sins; else dealt at random
@@ -63,6 +67,8 @@ var btn := {}                # the buttons on screen now, by key (the test taps 
 var serif: FontVariation
 var header: Label
 var panels: Array = []       # one Dictionary of nodes a seat
+var panel_box: VBoxContainer # the seats' boxes: rebuilt for each match's number of players
+var count_row: HBoxContainer # on the How to play card: how many players
 var event_box: PanelContainer
 var event_label: Label
 var title: Label
@@ -92,7 +98,15 @@ func new_match() -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
-	s = Rules.new_match(Config.merged({}), rng, sins)
+	# Fixed Sins (tests, screenshots) are used seat by seat; with too few for the table they are dealt at random.
+	s = Rules.new_match(Config.merged({"seats": seats}), rng, sins.slice(0, seats) if sins.size() >= seats else [])
+	fresh = true
+	for c in panel_box.get_children():
+		panel_box.remove_child(c)
+		c.queue_free()
+	panels = []
+	for i in seats:
+		panel_box.add_child(_panel(i))
 	view = "handover"
 	note = ""
 	event = ""
@@ -212,11 +226,18 @@ func event_line(r: Dictionary, key := "") -> String:
 		"whisper":
 			out = "%s used %s on %s: swapped a %d for their %d." % [me, ab, t, r.gave, r.got]
 		"allure":
-			out = "%s used %s on %s and %s: they picked a %d and a %d." % [me, ab, seat_name(r.a), seat_name(r.b), r.face_a, r.face_b]
+			var two: bool = r.a == r.by or r.b == r.by   # two players: Lust is one of the two
+			if two:
+				var them: int = r.b if r.a == r.by else r.a
+				out = "%s used %s on %s: %s picked a %d and %s a %d." % [me, ab, seat_name(them), seat_name(r.a), r.face_a, seat_name(r.b), r.face_b]
+			else:
+				out = "%s used %s on %s and %s: they picked a %d and a %d." % [me, ab, seat_name(r.a), seat_name(r.b), r.face_a, r.face_b]
 			if not r.match:
 				out += " No match: the two dice swapped."
 			elif r.take >= 0:
 				out += " A match: %s took that die from %s, to keep." % [seat_name(r.by), seat_name(r.take)]
+			elif two:
+				out += " A match, but no one can go below %d dice: no die taken." % int(s.cfg.min_dice)
 			else:
 				out += " A match, but neither can go below %d dice: no die taken." % int(s.cfg.min_dice)
 		"glance":
@@ -266,7 +287,21 @@ func act_args(more := {}) -> Dictionary:
 
 func _on_ready() -> void:
 	view = "turn"
+	fresh = false
 	_refresh()
+
+
+## The number of players, chosen on the How to play card before the first turn: a new match at that table size.
+func _on_seats(n: int) -> void:
+	if not fresh or not SEAT_CHOICES.has(n):
+		return
+	seats = n
+	new_match()
+
+
+## The one other player at a two-player table; -1 at a bigger one.
+func only_other(seat: int) -> int:
+	return 1 - seat if s.seats.size() == 2 else -1
 
 
 func _on_help() -> void:
@@ -287,7 +322,7 @@ func _on_sin(i: int) -> void:
 	var t2: Dictionary = Sins.INFO[sn].t2
 	sin_title.text = "%s: %s" % [seat_name(i), sin_name(i)]
 	sin_text.text = "Tier 1, free: %s\n%s\n\nTier 2, costs %d: %s\n%s\n\nTier 2 opens when you reach %d points and stays open. Each ability at most once on your turn. No abilities in Purgatory." % [
-		t1.name, t1.text, Sins.cost(s.cfg, t2.key), t2.name, t2.text, int(s.cfg.tier2_at)]
+		t1.name, Sins.text(t1.key, s.seats.size()), Sins.cost(s.cfg, t2.key), t2.name, Sins.text(t2.key, s.seats.size()), int(s.cfg.tier2_at)]
 	sin_card.visible = true
 	_refresh()
 
@@ -336,7 +371,7 @@ func _on_pass() -> void:
 
 
 func _on_gift(kind: String) -> void:
-	offer = {"kind": kind, "give": true, "other": -1, "amount": 10}
+	offer = {"kind": kind, "give": true, "other": only_other(s.turn), "amount": 10}
 	view = "gift"
 	_refresh()
 
@@ -392,6 +427,12 @@ func _on_agree(yes: bool) -> void:
 ## Start an ability: by is the seat using it (the turn player, or Wrath out of turn); preset: choices already made.
 func _on_ability(key: String, by: int, preset := {}) -> void:
 	act = {"key": key, "by": by, "args": preset.duplicate(), "back": view, "pair": [], "ready": false, "away": false}
+	if key == "allure" and only_other(by) >= 0:
+		# Two players: Lust is one of the two, and picks first with the phone already in hand.
+		act.args["a"] = by
+		act.args["b"] = only_other(by)
+		act.ready = true
+		act.away = true
 	view = "ability"
 	_step()
 
@@ -464,7 +505,7 @@ func allure_takes() -> Array:
 	var out := []
 	if s.seats[a.a].last_roll[a.pick_a] == s.seats[a.b].last_roll[a.pick_b]:
 		for i in [a.a, a.b]:
-			if Rules.spare(s, i):
+			if i != act.by and Rules.spare(s, i):
 				out.append(i)
 	return out
 
@@ -538,9 +579,22 @@ func _refresh() -> void:
 		_view_end()
 	else:
 		_view_over()
-	# A card covers the table: while it is up, its button is the only one.
+	# A card covers the table: while it is up, its buttons are the only ones.
+	for c in count_row.get_children():
+		count_row.remove_child(c)
+		c.queue_free()
+	count_row.visible = fresh
 	if howto.visible:
 		btn = {"got_it": got_btn}
+		if fresh:
+			# before the first turn: how many players (the chosen number is the bright one)
+			var l := _label("Players", SIZE_NAME, GOLD)
+			l.custom_minimum_size = Vector2(220, 0)
+			count_row.add_child(l)
+			for n in SEAT_CHOICES:
+				var b := _button("seats%d" % n, str(n), _on_seats.bind(n), false, false, n == seats)
+				b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				count_row.add_child(b)
 	elif sin_card.visible:
 		btn = {"close": close_btn}
 	else:
@@ -710,7 +764,8 @@ func _view_ability() -> void:
 	title.text = "%s: %s" % [who(by), Sins.ability_name(act.key)]
 	if act.key == "grasp" and a.has("key"):
 		title.text += ", copying %s" % card.name
-	text.text = str(card.get("text", ""))
+	text.text = Sins.text(k, s.seats.size())
+	var two: bool = only_other(by) >= 0
 	var others := []
 	for i in s.seats.size():
 		if i != by:
@@ -755,13 +810,24 @@ func _view_ability() -> void:
 		var t: int = a.b if a.has("pick_a") else a.a
 		if not act.ready:
 			title.text = "Pass the phone to %s" % seat_name(t)
-			text.text = "%s uses Entangling Allure on %s and %s. %s: keep the screen to yourself; you will pick one die of your last roll in secret." % [
-				who(by), seat_name(a.a), seat_name(a.b), seat_name(t)]
+			if two:
+				text.text = "%s uses Entangling Allure and has picked one of their own dice in secret. %s: keep the screen to yourself; you will pick one die of your last roll in secret." % [
+					who(by), seat_name(t)]
+			else:
+				text.text = "%s uses Entangling Allure on %s and %s. %s: keep the screen to yourself; you will pick one die of your last roll in secret." % [
+					who(by), seat_name(a.a), seat_name(a.b), seat_name(t)]
 			_add(_button("ready", "I am %s" % seat_name(t), _on_secret_ready, true))
 		else:
 			title.text = "%s: pick one die in secret" % seat_name(t)
-			text.text = "If the two picked dice show the same number, %s takes one of them to keep. If not, the two dice swap. Tap a die, then pass the phone on." % seat_name(by)
+			if two and t == by:
+				text.text = "Keep the screen to yourself. Tap one die of your last roll; then %s picks one of theirs. If the two dice show the same number, you take theirs to keep. If not, the two dice swap." % seat_name(a.b)
+			elif two:
+				text.text = "If your die and the one %s picked show the same number, %s takes yours to keep. If not, the two dice swap. Tap a die, then pass the phone back." % [seat_name(by), seat_name(by)]
+			else:
+				text.text = "If the two picked dice show the same number, %s takes one of them to keep. If not, the two dice swap. Tap a die, then pass the phone on." % seat_name(by)
 			_add(_dice_row(t, func(_f): return true))
+			if two and t == by:
+				_add(_button("back", "Back", _on_back))
 	elif k == "allure":
 		# a match, and both can spare the die: Lust chooses
 		title.text = "Pass the phone back to %s" % seat_name(by)
@@ -832,8 +898,9 @@ func _build() -> void:
 	head.add_child(header)
 	head.add_child(help_btn)
 	v.add_child(head)
-	for i in 4:
-		v.add_child(_panel(i))
+	panel_box = VBoxContainer.new()
+	panel_box.add_theme_constant_override("separation", 10)
+	v.add_child(panel_box)
 	# who did what to whom
 	var eb := StyleBoxFlat.new()
 	eb.bg_color = Color("3a2226")
@@ -874,6 +941,9 @@ func _build() -> void:
 	var csp := Control.new()
 	csp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cv.add_child(csp)
+	count_row = HBoxContainer.new()
+	count_row.add_theme_constant_override("separation", 12)
+	cv.add_child(count_row)
 	got_btn = _button("got_it", "Got it", _on_got_it, true)
 	cv.add_child(got_btn)
 
