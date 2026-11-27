@@ -142,6 +142,17 @@ func _initialize() -> void:
 	tap("ready")
 	tap("roll")
 	await _shot("into_purgatory")
+	tap("pass")
+	# the last stretch: Wrath close to the goal, then the win and the match log
+	h.s.seats[0].points = 940
+	h._refresh()
+	await _shot("near_the_goal")
+	h.rng.queue = [6, 1, 1]
+	tap("ready")
+	tap("roll")
+	await _shot("winner_with_match_log_button")
+	tap("log_win")
+	await _shot("match_log")
 	quit(0)
 
 

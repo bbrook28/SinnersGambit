@@ -2,11 +2,13 @@
 ## Before the first turn: the How to play card (also behind the How to play button), where the number of players is chosen.
 ## Top: the players, always shown (points, dice, Purgatory, last roll); tap a Sin's name to read its abilities.
 ## Then one line saying who did what to whom, kept until the next action. Bottom: what the player holding the phone does now.
+## The Match log button (top, and on the winner screen) lists every move of the match, newest first (ui/match_log.gd).
 extends Control
 
 const Rules = preload("res://game/rules.gd")
 const Config = preload("res://game/config.gd")
 const Sins = preload("res://game/sins.gd")
+const MatchLog = preload("res://ui/match_log.gd")
 
 const FELL_FILE := preload("res://assets/fonts/IMFellEnglish-NoDigits.ttf")
 const DIGITS_TEXT := preload("res://assets/fonts/Digits-Text.ttf")
@@ -14,6 +16,7 @@ const DIGITS_TEXT := preload("res://assets/fonts/Digits-Text.ttf")
 const BG := Color("14161c")
 const PANEL := Color("22262f")
 const PANEL_TURN := Color("343b4b")
+const PANEL_NEAR := Color("5a4310")   # a player within NEAR_GAP points of the goal
 const TEXT := Color("f2ead8")
 const DIM := Color("9aa0ad")
 const GOLD := Color("e8c06a")
@@ -51,6 +54,9 @@ const HOWTO := [
 ]
 
 const SEAT_CHOICES := [2, 3, 4]   # the table sizes the How to play card offers
+const NEAR_GAP := 150             # a player this close to the goal (850 of 1000; Ben, 2026-11-26) is shown brighter
+## The abilities that change what a roll scores, as the short name shown beside the score: "scored 210 (Glance +60)".
+const SHARE_NAMES := {"glance": "Glance", "hubris": "Hubris", "whisper": "Whisper", "drip": "Slow Drip"}
 
 var seats := 4               # players in the next match: chosen on the How to play card before the first turn
 var fresh := true            # no turn has begun: the number of players can still be changed
@@ -63,6 +69,10 @@ var event := ""              # who did what to whom, in one line; stays until th
 var offer := {}              # the gift being set up: kind, give (the turn player gives), other (seat or -1), amount
 var act := {}                # the ability being set up: key, by (seat), args (the choices so far), back (the view to return to)
 var btn := {}                # the buttons on screen now, by key (the test taps these)
+var log = MatchLog.new()     # every move of this match
+var shares: Array = []       # a seat: [what an ability added to their last roll ("Glance +60", or ""), points of it that last_score leaves out (Slow Drip)]
+var roll_before := 0         # the turn player's points before their roll
+var copied := ""             # the text Copy log last put on the clipboard
 
 var serif: FontVariation
 var header: Label
@@ -81,6 +91,11 @@ var sin_card: Control        # a Sin's two abilities, over everything
 var sin_title: Label
 var sin_text: Label
 var close_btn: Button
+var log_btn: Button
+var log_card: Control        # the match log, over everything
+var log_list: VBoxContainer
+var copy_btn: Button
+var log_close_btn: Button
 
 
 func _init() -> void:
@@ -105,15 +120,95 @@ func new_match() -> void:
 		panel_box.remove_child(c)
 		c.queue_free()
 	panels = []
+	log = MatchLog.new()
+	shares = []
+	copied = ""
 	for i in seats:
 		panel_box.add_child(_panel(i))
+		shares.append(["", 0])
 	view = "handover"
 	note = ""
 	event = ""
 	act = {}
 	howto.visible = true
 	sin_card.visible = false
+	log_card.visible = false
 	_refresh()
+
+
+# ---- the match log
+
+## A move by a seat, with what it did to that seat's points since before.
+func _log(seat: int, words: String, before: int) -> void:
+	log.add(s.round_number, who(seat), words, s.seats[seat].points - before, s.seats[seat].points)
+
+
+## An ability changed what this roll scored: count it, show it beside the score, and return the words for the log.
+func _share(seat: int, key: String, points: int, unscored := 0) -> String:
+	var words := "%s %s" % [SHARE_NAMES[key], MatchLog.signed(points)]
+	shares[seat] = [words, unscored]
+	log.count(seat, Sins.ability_name(key), points)
+	return ", " + words
+
+
+## The settled roll of the player whose turn it is. whisper: what Lust's swap added to it (null: no swap).
+func _log_roll(r: Dictionary, whisper = null) -> void:
+	var seat: int = s.turn
+	var cfg: Dictionary = s.cfg
+	var words := "rolled %s, scored %d" % [faces_text(r.faces), r.scored]
+	var low := Rules.lows(cfg, r.faces)
+	if whisper != null:
+		words += _share(seat, "whisper", whisper)
+	if r.get("glance", 0) > 0:
+		words += _share(seat, "glance", 0 if r.purgatory else Rules.face_score(cfg, r.glance))
+	if r.get("hubris", "") == "won":
+		words += _share(seat, "hubris", r.scored - Rules.score(cfg, r.faces))
+	elif r.get("hubris", "") == "lost":
+		words += _share(seat, "hubris", -Rules.score(cfg, r.faces))
+	if r.get("drip", false):
+		words += _share(seat, "drip", int(cfg.drip_gain), int(cfg.drip_gain))
+	if r.get("aura", false):
+		words += ", Lethargic Aura (one die rolled twice, the lower kept)"
+	if r.escaped:
+		words += ", out of Purgatory"
+	elif r.purgatory and low < r.faces.size():
+		words += ", stays in Purgatory"
+	elif r.purgatory:
+		words += ", into Purgatory"
+	_log(seat, words, roll_before)
+	if r.won:
+		log.add(s.round_number, who(seat), "wins with %d points" % s.seats[seat].points, 0, s.seats[seat].points)
+
+
+func _on_log() -> void:
+	log_card.visible = true
+	copy_btn.text = "Copy log"
+	_refresh()
+
+
+func _on_close_log() -> void:
+	log_card.visible = false
+	_refresh()
+
+
+## The whole match as plain text, to the clipboard.
+func _on_copy_log() -> void:
+	var names := []
+	var points := []
+	for i in s.seats.size():
+		names.append(who(i))
+		points.append(s.seats[i].points)
+	copied = log.copy_text(names, points)
+	if DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		DisplayServer.clipboard_set(copied)
+		copy_btn.text = "Copied"
+	else:
+		copy_btn.text = "No clipboard here"
+
+
+## Has the player used this ability for this turn? (Spark of Rage: for this round.)
+func spent(p, key: String) -> bool:
+	return p.used.has(key) or (key == "spark" and p.spark_used)
 
 
 # ---- names and sentences
@@ -333,14 +428,17 @@ func _on_close() -> void:
 
 
 func _on_roll() -> void:
+	roll_before = s.seats[s.turn].points
 	var r: Dictionary = Rules.roll(s)
 	if r.is_empty():
 		return
 	event = ""
+	shares[s.turn] = ["", 0]
 	if r.get("pending", false):
 		note = "You rolled %s." % faces_text(r.faces)
 	else:
 		note = roll_note(r)
+		_log_roll(r)
 	_refresh()
 
 
@@ -348,18 +446,30 @@ func _on_roll() -> void:
 func _on_settle() -> void:
 	if s.phase != Rules.SWAP:
 		return
-	note = roll_note(Rules.settle(s))
+	var r: Dictionary = Rules.settle(s)
+	note = roll_note(r)
+	_log_roll(r)
 	_refresh()
 
 
 func _on_buy() -> void:
+	var before: int = s.seats[s.turn].points
 	if Rules.buy(s, 1):
 		note = "You bought a die for %d. You roll it from your next turn." % int(s.cfg.die_cost)
 		event = ""
+		_log(s.turn, "bought a die for %d" % int(s.cfg.die_cost), before)
 		var g := Rules.vig_seat(s, s.turn)
 		if g >= 0:
 			event = "The Vig: %s gained %d from the die %s bought." % [who(g), int(s.cfg.vig), seat_name(s.turn)]
+			_log_vig(g, s.turn)
 	_refresh()
+
+
+## The Vig paid Greed for a die this seat bought.
+func _log_vig(greed: int, buyer: int) -> void:
+	var gain := int(s.cfg.vig)
+	_log(greed, "The Vig: gained %d from the die %s bought" % [gain, seat_name(buyer)], s.seats[greed].points - gain)
+	log.count(greed, Sins.ability_name("vig"), gain)
 
 
 func _on_pass() -> void:
@@ -411,14 +521,18 @@ func _on_offer() -> void:
 
 func _on_agree(yes: bool) -> void:
 	var line := gift_line(offer.kind, offer_from(), offer_to(), offer.amount)
+	var before: int = s.seats[offer_from()].points
 	event = ""
 	if yes and Rules.gift(s, offer.kind, offer_from(), offer_to(), offer.amount):
 		note = "%s agreed. %s" % [seat_name(offer.other), line]
+		_log(offer_from(), "gift, %s agreed: %s" % [seat_name(offer.other), line], before)
 		var g := Rules.vig_seat(s, offer_from())
 		if offer.kind == Rules.DIE and g >= 0:
 			event = "The Vig: %s gained %d from the die %s bought." % [who(g), int(s.cfg.vig), seat_name(offer_from())]
+			_log_vig(g, offer_from())
 	else:
 		note = "%s refused. Nothing changed." % seat_name(offer.other)
+		_log(offer_from(), "gift, %s refused: %s" % [seat_name(offer.other), line], before)
 	note += " Pass the phone back to %s." % seat_name(s.turn)
 	view = "turn"
 	_refresh()
@@ -535,13 +649,38 @@ func _step() -> void:
 		return
 	var away: bool = act.away
 	var whisper: bool = act.key == "whisper"
-	var r: Dictionary = Rules.use(s, act.key, act_args())
+	var by: int = act.by
+	var args := act_args()
+	var pts := []
+	for q in s.seats:
+		pts.append(q.points)
+	var r: Dictionary = Rules.use(s, act.key, args)
 	if r.is_empty():
-		event = "Nothing happened: %s" % Rules.block(s, act.key, act_args())
+		var why: String = Rules.block(s, act.key, args)
+		event = "Nothing happened: %s" % why
+		_log(by, "tried %s: refused. %s" % [Sins.ability_name(act.key), why], pts[by])
 	else:
 		event = event_line(r)
+		var words := event.trim_prefix(who(by) + " ")
 		if whisper:
+			# Lust's swap, then the roll it settled: what the swap added is the score less the unswapped roll's.
 			note = roll_note(r)
+			log.add(s.round_number, who(by), words, 0, pts[by])
+			var plain: Array = r.faces.duplicate()
+			plain[args.mine] = r.gave
+			_log_roll(r, r.scored - (0 if Rules.lows(s.cfg, plain) == plain.size() else Rules.score(s.cfg, plain)))
+		else:
+			_log(by, words, pts[by])
+			# Spark of Rage rerolled a die of the target's roll: the score shown is no longer the one the share was part of.
+			if r.get("copied", act.key) == "spark":
+				shares[r.target] = ["", 0]
+			# Hubris and Green-Eyed Glance are counted when the roll they change is scored.
+			if not ["hubris", "glance"].has(act.key):
+				var others := 0
+				for i in s.seats.size():
+					if i != by:
+						others += s.seats[i].points - pts[i]
+				log.count(by, Sins.ability_name(act.key), s.seats[by].points - pts[by], others)
 	if away:
 		event += " Pass the phone back to %s." % seat_name(s.turn)
 	view = str(act.back)
@@ -597,8 +736,21 @@ func _refresh() -> void:
 				count_row.add_child(b)
 	elif sin_card.visible:
 		btn = {"close": close_btn}
+	elif log_card.visible:
+		btn = {"copy_log": copy_btn, "close_log": log_close_btn}
+		for c in log_list.get_children():
+			log_list.remove_child(c)
+			c.queue_free()
+		# newest first
+		for i in range(log.entries.size() - 1, -1, -1):
+			var row := _label(MatchLog.line(log.entries[i]), 30, TEXT)
+			row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			log_list.add_child(row)
+		if log.entries.is_empty():
+			log_list.add_child(_label("Nothing has happened yet.", SIZE_SMALL, DIM))
 	else:
 		btn["help"] = help_btn
+		btn["log"] = log_btn
 
 
 func _refresh_panel(i: int) -> void:
@@ -606,8 +758,14 @@ func _refresh_panel(i: int) -> void:
 	var n: Dictionary = panels[i]
 	var turn: bool = i == s.turn
 	var sb: StyleBoxFlat = n.box
-	sb.bg_color = PANEL_TURN if turn else PANEL
-	sb.set_border_width_all(10 if turn else 2)
+	# Close to the goal: a warm box, a thicker border and gold points, whoever's turn it is.
+	var near: bool = p.points >= int(s.cfg.win) - NEAR_GAP
+	sb.bg_color = PANEL_NEAR if near else (PANEL_TURN if turn else PANEL)
+	sb.set_border_width_all(10 if turn else (6 if near else 2))
+	n.points.add_theme_color_override("font_color", GOLD if near else TEXT)
+	var best := 0
+	for q in s.seats:
+		best = maxi(best, q.points)
 	n.sin.text = sin_name(i) if p.sin != "" else "no Sin"
 	n.sin.disabled = not Sins.INFO.has(p.sin)
 	btn["sin%d" % i] = n.sin
@@ -617,10 +775,16 @@ func _refresh_panel(i: int) -> void:
 		tags.append("WINNER")
 	elif turn:
 		tags.append("TURN")
+	if s.winner < 0 and best > 0 and p.points == best:
+		tags.append("LEADING")
 	if p.purgatory:
 		tags.append("IN PURGATORY")
+	# On your turn: an ability already used is marked, so the row says what is left.
+	var info: Dictionary = Sins.INFO.get(p.sin, {})
+	if turn and not info.is_empty() and spent(p, info.t1.key):
+		tags.append("TIER 1 USED")
 	if p.tier2 and p.sin != "":
-		tags.append("TIER 2")
+		tags.append("TIER 2 USED" if turn and spent(p, info.t2.key) else "TIER 2")
 	if p.armed:
 		tags.append("ARMED")
 	if p.lethargic:
@@ -638,7 +802,10 @@ func _refresh_panel(i: int) -> void:
 	else:
 		for f in p.last_roll:
 			n.roll.add_child(_die(f))
-		n.scored.text = "scored %d" % p.last_score
+		# with what an ability added to it: "scored 210 (Glance +60)"
+		n.scored.text = "scored %d" % (p.last_score + int(shares[i][1])) + ("\n(%s)" % shares[i][0] if shares[i][0] != "" else "")
+		# two lines at the smaller size are no taller than the dice, so the row keeps its height
+		n.scored.add_theme_font_size_override("font_size", 24 if shares[i][0] != "" else 30)
 	# Wrath's Spark of Rage: a button on every other player's roll, while Wrath can use it on them.
 	var w := wrath_seat()
 	var can: bool = w >= 0 and w != i and (view == "turn" or view == "handover") and Rules.block(s, "spark", {"by": w, "target": i}) == ""
@@ -726,7 +893,7 @@ func _view_end() -> void:
 func _view_over() -> void:
 	title.text = "%s wins!" % seat_name(s.winner)
 	text.text = "%s\n%s ended a Fate Phase on %d points, out of Purgatory. First to %d wins." % [note, seat_name(s.winner), s.seats[s.winner].points, int(s.cfg.win)]
-	_add(_button("new", "New match", new_match, true))
+	_add(_row([_button("log_win", "Match log", _on_log), _button("new", "New match", new_match, true)]))
 
 
 func _view_gift() -> void:
@@ -906,13 +1073,19 @@ func _build() -> void:
 		bottom = maxi(bottom, int((screen.y - safe.end.y) * k) + 8)
 	var v := _page(self, top, bottom, 10)
 
-	header = _label("", SIZE_SMALL, DIM)
+	header = _label("", 30, DIM)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help_btn = _button("help", "How to play", _on_help)
-	help_btn.custom_minimum_size = Vector2(250, 84)
+	help_btn.custom_minimum_size = Vector2(210, 84)
 	help_btn.add_theme_font_size_override("font_size", SIZE_SMALL)
+	log_btn = _button("log", "Match log", _on_log)
+	log_btn.custom_minimum_size = Vector2(180, 84)
+	log_btn.add_theme_font_size_override("font_size", SIZE_SMALL)
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
 	head.add_child(header)
+	head.add_child(log_btn)
 	head.add_child(help_btn)
 	v.add_child(head)
 	panel_box = VBoxContainer.new()
@@ -981,6 +1154,28 @@ func _build() -> void:
 	close_btn = _button("close", "Close", _on_close, true)
 	sv.add_child(close_btn)
 
+	# the match log: every move, newest first, in a list that scrolls
+	log_card = ColorRect.new()
+	log_card.color = BG
+	log_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(log_card)
+	var lv := _page(log_card, top + 30, bottom, 20)
+	lv.add_child(_label("Match log", SIZE_POINTS, GOLD))
+	var log_hint := _label("Every move, newest first. R is the round; in brackets, the change to that player's points and their total.", SIZE_SMALL, DIM)
+	log_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lv.add_child(log_hint)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lv.add_child(scroll)
+	log_list = VBoxContainer.new()
+	log_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_list.add_theme_constant_override("separation", 18)
+	scroll.add_child(log_list)
+	copy_btn = _button("copy_log", "Copy log", _on_copy_log)
+	log_close_btn = _button("close_log", "Close", _on_close_log, true)
+	lv.add_child(_row([copy_btn, log_close_btn]))
+
 
 ## A centred column of the content width inside parent, between the safe margins.
 func _page(parent: Control, top: int, bottom: int, gap: int) -> VBoxContainer:
@@ -1041,6 +1236,7 @@ func _panel(i: int) -> Control:
 	low.add_child(roll)
 	var scored := _label("", 30, DIM)
 	scored.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	scored.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	scored.size_flags_vertical = Control.SIZE_FILL
 	low.add_child(scored)
 	var spark := _button("spark%d" % i, "Spark\nof Rage", func(): _on_ability("spark", wrath_seat(), {"target": i}))
