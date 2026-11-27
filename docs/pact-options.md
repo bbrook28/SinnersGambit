@@ -98,7 +98,7 @@ Ruled (ruling 2, as changed 2026-11-27): a Pact blocks Whisper on your partner u
 
 How the 1000 limit reads with two swaps: each swap is judged as it is made, against the roll as rolled. If the roll as rolled does not reach 1000, the first swap cannot reach it, and neither can the second on top of the first. If the roll as rolled already reaches 1000, both swaps are free. So the doubled Whisper cannot create the end-game leap, which answers the second of the three reasons above.
 
-What it is worth: about 110 points on one roll (57 a swap, measured at 4 players), against a 1 in 3 chance of losing the swap and paying 50 plus the perks. In the section 2 sum that is a net of about plus 20 at the start of a Pact, the best betrayal at the table, and Lust can do it every turn the Pact is new. Watch this first in a Pact test.
+What it is worth: about 110 points on one roll (57 a swap, measured at 4 players), against a 1 in 3 chance of losing the swap and paying 50 plus the perks. In the section 2 sum (V = 57) that is a net of about plus 2 at the start of a Pact: break-even, like a 50 point ability, and falling as the perks build. The difference is that Whisper is free, Tier 1 and open from the first turn, so Lust is the one player who can afford to try it early. Watch this first in a Pact test.
 
 Assumptions to confirm before any build:
 - Both swaps take dice from the partner. (If the second could come from anyone, only the first is a betrayal.)
