@@ -408,6 +408,11 @@ func test_abilities() -> void:
 	check("Envy picks any die an opponent rolled", can_tap("d0_0") and can_tap("d0_1") and not h.btn.has("d1_0"))
 	tap("d0_0")
 	check("one die will not be rolled: two dice and the copied 6", h.btn.roll.text == "Roll 2 dice, plus the copied 6" and h.event.contains("is not rolled and shows 6, copied from Player 1"))
+	await process_frame
+	await process_frame
+	check("while the copy waits the roll text says the same as the button, and fits (text ends at %d of 1080, buttons at %d of 1920)" % [int(h.text.get_global_rect().end.x), int(h.buttons.get_global_rect().end.y)],
+		shown().contains("Roll 2 dice once. The last die is not rolled: it shows the copied 6.") and not shown().contains("Roll all your dice")
+		and h.text.get_global_rect().end.x <= 1080.0 and h.text.get_global_rect().position.x >= 0.0 and h.buttons.get_global_rect().end.y <= 1920.0)
 	tap("roll")
 	check("1, 2 and the copied 6: 60, not Purgatory, and still three dice", h.panels[1].points.text == "60" and h.panels[1].roll.get_child_count() == 3 and can_tap("pass")
 		and shown().contains("You rolled 1, 2, 6 and scored 60. Green-Eyed Glance: the last die is the copied 6, not rolled."))

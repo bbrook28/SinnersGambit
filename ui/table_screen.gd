@@ -831,7 +831,11 @@ func _view_fate() -> void:
 	if p.purgatory:
 		text.text = "You are in Purgatory. Roll all your dice: two or more showing 1, 2 or 3 free you, and then the roll's 4s, 5s and 6s score. Fewer, and your turn ends with nothing scored."
 	else:
-		text.text = "Roll all your dice once. A 4, 5 or 6 scores 40, 50 or 60. A 1, 2 or 3 scores nothing. If every die shows 1, 2 or 3 you go to Purgatory: you score 0 and your turn ends."
+		# A Green-Eyed Glance copy is waiting: one die is not rolled, as the roll button below says.
+		var first := "Roll all your dice once."
+		if p.glance > 0:
+			first = "Roll %s once. The last die is not rolled: it shows the copied %d." % [dice_text(p.dice + p.lent - 1), p.glance]
+		text.text = first + " A 4, 5 or 6 scores 40, 50 or 60. A 1, 2 or 3 scores nothing. If every die shows 1, 2 or 3 you go to Purgatory: you score 0 and your turn ends."
 	if p.lent > 0:
 		text.text += " %s lent to you for this roll, then to the supply." % ("1 die is" if p.lent == 1 else "%d dice are" % p.lent)
 	if p.lethargic:
