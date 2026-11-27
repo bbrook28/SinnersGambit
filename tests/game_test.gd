@@ -46,9 +46,6 @@ func _init() -> void:
 	test_win()
 	test_win_only_on_your_own_fate_phase()
 	test_turn_order()
-	test_give_points()
-	test_lend_a_die()
-	test_buy_for_another()
 	test_tier2()
 	test_once_a_turn()
 	test_spark()
@@ -189,15 +186,10 @@ func test_buy() -> void:
 	check("the die comes from the supply: 4 dice, supply 5", p.dice == 4 and s.supply == 5)
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
 	check("no second die in the same turn", Rules.max_buy(s) == 0 and not Rules.buy(s, 1) and p.dice == 4 and p.points == 160)
-	check("a die for another player is extra: still allowed, as often as you can pay", Rules.gift(s, Rules.DIE, 0, 1) and Rules.gift(s, Rules.DIE, 0, 2) and s.supply == 3 and p.points == 120 and p.dice == 4)
 	Rules.pass_turn(s)
 	play(s, 3)
 	Rules.roll(s)
 	check("on the next turn one die can be bought again", Rules.max_buy(s) == 1 and Rules.buy(s, 1) and p.dice == 5)
-	s = game([6, 6, 6])
-	Rules.roll(s)
-	p = s.seats[0]
-	check("a die bought for another player first does not use up your own buy", Rules.gift(s, Rules.DIE, 0, 1) and Rules.max_buy(s) == 1 and Rules.buy(s, 1) and not Rules.buy(s, 1))
 	s = sg(["gluttony", "", "", ""], [6, 6, 6])
 	rolled(s)
 	p = s.seats[0]
@@ -263,58 +255,6 @@ func test_win_only_on_your_own_fate_phase() -> void:
 	Rules.pass_turn(s)
 	Rules.roll(s)
 	check("free at the end of your Fate Phase with 1000: you win", s.winner == 1)
-
-
-func test_give_points() -> void:
-	var s = game([6, 6, 6])
-	check("no gifts before the roll", not Rules.gift(s, Rules.POINTS, 0, 1, 10))
-	Rules.roll(s)
-	check("give 50 of your 180 points", Rules.gift(s, Rules.POINTS, 0, 2, 50) and s.seats[0].points == 130 and s.seats[2].points == 50)
-	check("you cannot give more than you have", not Rules.gift(s, Rules.POINTS, 0, 2, 140) and s.seats[0].points == 130)
-	check("you can give all you have", Rules.gift(s, Rules.POINTS, 0, 3, 130) and s.seats[0].points == 0 and s.seats[3].points == 130)
-	check("0 points is no gift", not Rules.gift(s, Rules.POINTS, 0, 1, 0))
-	check("a gift you asked for: seat 3 gives seat 0 (whose turn it is) 30", Rules.gift(s, Rules.POINTS, 3, 0, 30) and s.seats[0].points == 30 and s.seats[3].points == 100)
-	check("two other players cannot trade on your turn", not Rules.gift(s, Rules.POINTS, 3, 2, 10))
-	check("no gift to yourself", not Rules.gift(s, Rules.POINTS, 0, 0, 10))
-	s.seats[1].purgatory = true
-	check("no gift to a player in Purgatory", not Rules.gift(s, Rules.POINTS, 0, 1, 10) and Rules.gift_block(s, Rules.POINTS, 0, 1, 10) != "")
-	s.seats[1].points = 100
-	check("no gift from a player in Purgatory", not Rules.gift(s, Rules.POINTS, 1, 0, 10) and not Rules.gift(s, Rules.LEND, 1, 0) and not Rules.gift(s, Rules.DIE, 1, 0))
-
-
-func test_lend_a_die() -> void:
-	# seat 0 rolls 3 dice and lends one to seat 1; seat 1 rolls 4 dice; next round seat 0 rolls 2 and seat 1 rolls 3
-	var s = game([6, 6, 6,  4, 4, 4, 5,  4, 4, 4,  4, 4, 4,  4, 4,  4, 4, 4])
-	Rules.roll(s)
-	check("lend a die to seat 1", Rules.gift(s, Rules.LEND, 0, 1))
-	check("the lender is down to 2 dice; the die waits with seat 1", s.seats[0].dice == 2 and s.seats[1].dice == 3 and s.seats[1].lent == 1)
-	check("still 18 dice in all", Rules.total_dice(s) == 18)
-	check("you cannot go below 2 dice", not Rules.gift(s, Rules.LEND, 0, 1) and s.seats[0].dice == 2)
-	Rules.pass_turn(s)
-	var r: Dictionary = Rules.roll(s)
-	check("seat 1 rolls 4 dice: 4, 4, 4, 5 scores 170", r.faces == [4, 4, 4, 5] and s.seats[1].points == 170)
-	check("after that one roll the lent die goes to the supply, not back to the lender", s.seats[1].lent == 0 and s.seats[1].dice == 3 and s.supply == 7 and s.seats[0].dice == 2)
-	check("still 18 dice in all after the roll", Rules.total_dice(s) == 18)
-	for i in 4:
-		Rules.pass_turn(s)
-		Rules.roll(s)
-	check("seat 0 now rolls 2 dice and seat 1 rolls 3", s.seats[0].last_roll.size() == 2 and s.seats[1].last_roll.size() == 3)
-	s = game([6, 6, 6])
-	Rules.roll(s)
-	check("a die you asked for: seat 2 lends one to seat 0", Rules.gift(s, Rules.LEND, 2, 0) and s.seats[2].dice == 2 and s.seats[0].lent == 1)
-	check("a seat on 2 dice cannot lend", not Rules.gift(s, Rules.LEND, 2, 0))
-
-
-func test_buy_for_another() -> void:
-	var s = game([4, 1, 1])
-	Rules.roll(s)
-	check("buy a die for seat 3: you pay 20, they keep it", Rules.gift(s, Rules.DIE, 0, 3) and s.seats[0].points == 20 and s.seats[3].dice == 4 and s.seats[0].dice == 3 and s.supply == 5)
-	check("still 18 dice in all", Rules.total_dice(s) == 18)
-	check("a seat with no points cannot buy one for you", not Rules.gift(s, Rules.DIE, 2, 0))
-	s.seats[2].points = 20
-	check("a die you asked for: seat 2 pays 20 and it is yours", Rules.gift(s, Rules.DIE, 2, 0) and s.seats[2].points == 0 and s.seats[0].dice == 4 and s.supply == 4)
-	s.supply = 0
-	check("an empty supply: no die to buy", not Rules.gift(s, Rules.DIE, 0, 1) and s.seats[0].points == 20)
 
 
 func test_turn_order() -> void:
@@ -464,6 +404,15 @@ func test_spark() -> void:
 	Rules.roll(s)
 	check("in Purgatory Wrath cannot use it", Rules.use(s, "spark", {"by": 0, "target": 1, "index": 0}).is_empty() and Rules.block(s, "spark", {"by": 0}) == "No abilities in Purgatory.")
 	check("no one but Wrath can use it", Rules.use(s, "spark", {"by": 2, "target": 1, "index": 0}).is_empty())
+	# no other player shows a 5 or 6: Spark of Rage is off before a player is chosen, and says why
+	s = sg(["wrath", "", "", ""], [6, 6, 6,  4, 3, 1])
+	rolled(s)
+	check("Wrath's own 6s do not count, and with no other roll on the table it is off", Rules.block(s, "spark") == Rules.NO_SPARK and not Rules.spark_open(s, 0))
+	Rules.pass_turn(s)
+	Rules.roll(s)
+	check("a roll with no 5 or 6: off, out of turn too", Rules.block(s, "spark", {"by": 0}) == Rules.NO_SPARK and Rules.block(s, "spark", {"by": 0, "target": 1}) == Rules.NO_SPARK)
+	s.seats[2].last_roll = [5, 1, 1]
+	check("another player showing a 5: open", Rules.block(s, "spark", {"by": 0}) == "" and Rules.spark_open(s, 0))
 
 
 func test_strike() -> void:
@@ -508,8 +457,6 @@ func test_vig() -> void:
 	rolled(s)
 	Rules.buy(s, 1)
 	check("The Vig: an opponent buys a die, Greed gains 20", s.seats[1].points == 20 and s.seats[0].points == 160)
-	Rules.gift(s, Rules.DIE, 0, 2)
-	check("a die bought for another player: the buyer pays, Greed gains 20", s.seats[1].points == 40 and s.seats[0].points == 140)
 	Rules.pass_turn(s)
 	rolled(s)
 	var before: int = s.seats[1].points
@@ -595,7 +542,7 @@ func test_whisper() -> void:
 	play(s)
 	Rules.add_points(s, 1, 990)
 	Rules.roll(s)
-	check("when every swap would reach 1000 Whisper is off, and says why", s.phase == Rules.SWAP and Rules.block(s, "whisper").contains("Every swap would take you to 1000")
+	check("when every swap would reach 1000 Whisper is off, with the same reason as a refused die", s.phase == Rules.SWAP and Rules.block(s, "whisper") == cross
 		and Rules.block(s, "whisper", {"mine": 0, "target": 0, "theirs": 1}).contains("1000") and Rules.use(s, "whisper", {"mine": 0, "target": 0, "theirs": 1}).is_empty() and not Rules.whisper_open(s, 1))
 	Rules.settle(s)
 	check("the roll is scored as it is: Purgatory, no win", s.seats[1].purgatory and s.winner == -1 and s.seats[1].points == 990)
@@ -612,7 +559,7 @@ func test_whisper() -> void:
 	Rules.add_points(s, 1, 900)
 	s.rng.queue = [1, 4, 4]
 	rolled(s)
-	check("a copied Whisper that would take Envy from 980 to 1020 is refused", s.seats[1].points == 980 and Rules.block(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}).contains("take you to 1000")
+	check("a copied Whisper that would take Envy from 980 to 1020 is refused", s.seats[1].points == 980 and Rules.block(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}) == cross
 		and Rules.use(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}).is_empty() and s.seats[1].points == 980)
 	Rules.add_points(s, 1, -100)
 	check("below that it is allowed", Rules.block(s, "grasp", {"key": "whisper", "mine": 0, "target": 0, "theirs": 0}) == "")
@@ -671,9 +618,6 @@ func test_glance() -> void:
 	play(s, 3)
 	check("on the turn after that it is open again", Rules.block(s, "glance") == "" and Rules.block(s, "glance", {"target": 0, "index": 0}) == "")
 	Rules.use(s, "glance", {"target": 0, "index": 0})
-	s.seats[1].lent = 1
-	r = Rules.roll(s)
-	check("with a lent die: three dice rolled and the copy, and the lent die goes to the supply", r.faces.size() == 4 and r.glance == 4 and s.seats[1].lent == 0)
 	# on 2 dice: one rolled, one copied
 	s = sg(["", "envy", "", ""], [6, 1, 1,  2])
 	s.seats[1].dice = 2
@@ -711,21 +655,26 @@ func test_grasp() -> void:
 	check("Hubris cannot be copied after the roll", Rules.block(s, "grasp", {"key": "hubris"}).contains("too late"))
 	check("an ability no one used this round cannot be copied", Rules.block(s, "grasp", {"key": "spark"}) == "Not used this round.")
 	var r: Dictionary = Rules.use(s, "grasp", {"key": "feast", "index": 0})
-	check("Jealous Grasp costs 30 and copies Feast: a 5 to the supply for 150", r.get("ok", false) and r.copied == "feast" and s.seats[2].points == 490 + 150 - 30 and s.seats[2].dice == 2 and s.seats[2].last_roll == [4, 1])
+	check("Jealous Grasp costs 30 and copies Feast: a 5 to the supply for 120", r.get("ok", false) and r.copied == "feast" and s.seats[2].points == 490 + 120 - 30 and s.seats[2].dice == 2 and s.seats[2].last_roll == [4, 1])
 	check("at most once a turn", Rules.block(s, "grasp") == "Already used this turn.")
 	Rules.pass_turn(s)
 	play(s)
-	s.rng.queue = [6, 6, 4]
-	s.seats[0].dice = 3
-	s.supply -= 1
-	rolled(s)
-	Rules.use(s, "feast", {"index": 0})
-	Rules.pass_turn(s)
+	play(s)
+	s.t1_log.append({"turn": s.turn_count, "key": "feast"})   # a Feast this round (Gluttony's own rests on this turn)
 	play(s)
 	s.seats[2].dice = 3
 	s.supply -= 1
 	rolled(s)
 	check("not the same one twice running", Rules.block(s, "grasp", {"key": "feast"}) == "Not the same one twice running." and Rules.block(s, "grasp") != "")
+	# a copied Feast follows Feast's own rest: with another ability copied in between it would still be two turns running
+	s.seats[2].last_grasp = "drip"
+	check("a copied Feast rests too: refused on Envy's next turn, with the reason", Rules.block(s, "grasp", {"key": "feast", "index": 0}) == Rules.TWO_RUNNING and Rules.use(s, "grasp", {"key": "feast", "index": 0}).is_empty())
+	Rules.pass_turn(s)
+	play(s, 2)
+	s.t1_log.append({"turn": s.turn_count, "key": "feast"})
+	play(s)
+	rolled(s)
+	check("and open again on the turn after", Rules.block(s, "grasp", {"key": "feast", "index": 0}) == "")
 	# copies of Slow Drip, Spark of Rage and Whisper of Desire
 	s = sg(["sloth", "envy", "", ""], [4, 1, 1,  4, 1, 1])
 	play(s)
@@ -843,13 +792,35 @@ func test_feast() -> void:
 	rolled(s)
 	check("the die must show 4, 5 or 6", Rules.use(s, "feast", {"index": 2}).is_empty())
 	var r: Dictionary = Rules.use(s, "feast", {"index": 0})
-	check("Feast: the 6 goes to the supply for 150", r.get("ok", false) and s.seats[0].points == 250 and s.seats[0].dice == 2 and s.supply == 7 and s.seats[0].last_roll == [4, 1])
+	check("Feast: the 6 goes to the supply for 120", r.get("ok", false) and r.gain == 120 and s.seats[0].points == 220 and s.seats[0].dice == 2 and s.supply == 7 and s.seats[0].last_roll == [4, 1])
+	check("the Feast card says the number the rules use, and the rest", Sins.card("feast").text.contains("gain %d." % int(s.cfg.feast_gain)) and Sins.card("feast").text.contains("Not on two turns running"))
 	check("still 18 dice in all", Rules.total_dice(s) == 18)
-	check("once a round", Rules.block(s, "feast") == "Already used this turn.")
+	check("once a turn", Rules.block(s, "feast") == "Already used this turn.")
+	Rules.buy(s, 1)
 	Rules.pass_turn(s)
 	play(s, 3)
 	rolled(s)
+	check("on the turn after a Feast it is refused, with the reason, and nothing changes", s.seats[0].dice == 3 and Rules.block(s, "feast") == Rules.TWO_RUNNING and Rules.block(s, "feast", {"index": 0}) == Rules.TWO_RUNNING
+		and Rules.use(s, "feast", {"index": 0}).is_empty() and s.seats[0].dice == 3 and s.supply == 6)
+	Rules.pass_turn(s)
+	play(s, 3)
+	rolled(s)
+	check("on the turn after that it is open again", Rules.block(s, "feast") == "" and not Rules.use(s, "feast", {"index": 0}).is_empty() and s.seats[0].dice == 2)
+	Rules.pass_turn(s)
+	play(s, 7)
+	rolled(s)
 	check("no one goes below 2 dice", Rules.block(s, "feast").contains("below 2") and Rules.use(s, "feast", {"index": 0}).is_empty())
+	# two players: the same rest, two of your own turns
+	s = Rules.new_match(Config.merged({"seats": 2}), Faces.new([]), ["gluttony", ""])
+	var got := []
+	for turn in 4:
+		s.seats[0].dice = 3
+		rolled(s)
+		got.append(Rules.block(s, "feast"))
+		Rules.use(s, "feast", {"index": 0})
+		Rules.pass_turn(s)
+		play(s)
+	check("2 players: Feast is refused on the turn after a use, and open again on the one after (%s)" % [got], got == ["", Rules.TWO_RUNNING, "", Rules.TWO_RUNNING])
 	s = sg(["gluttony", "", "", ""], [1, 2, 3])
 	s.seats[0].purgatory = true
 	rolled(s)
@@ -951,6 +922,7 @@ func test_two_players() -> void:
 		s.seats[1].dice = 3
 		rolled(s)
 		Rules.use(s, "feast", {"index": 0})
+		s.t1_log.append({"turn": s.turn_count, "key": "feast"})   # Gluttony's own Feast rests every other turn
 		Rules.pass_turn(s)
 		rolled(s)
 		seen.append(Rules.block(s, "grasp", {"key": "feast"}))
@@ -1006,9 +978,9 @@ func test_two_players() -> void:
 	check("2 players: the other cards are unchanged", Sins.text("feast", 2) == Sins.card("feast").text and Sins.TWO.size() == 5)
 
 
-## One whole match: seats buy, give (gifts) and use abilities (wild) at random, allowed or not. What broke goes in broken.
+## One whole match: seats buy and use abilities (wild) at random, allowed or not. What broke goes in broken.
 ## Returns how many rolls ended in Purgatory.
-func _match(s, rng, wild: bool, gifts: bool, used: Dictionary, broken: Array, tag: String) -> int:
+func _match(s, rng, wild: bool, used: Dictionary, broken: Array, tag: String) -> int:
 	var n: int = s.seats.size()
 	var dice: int = n * int(s.cfg.start_dice) + int(s.cfg.spare_dice)
 	var purgatories := 0
@@ -1030,11 +1002,6 @@ func _match(s, rng, wild: bool, gifts: bool, used: Dictionary, broken: Array, ta
 		if wild:
 			for i in 3:
 				_fuzz(s, rng, used)
-		if s.phase == Rules.GAMBIT and gifts:
-			# gifts at random, allowed or not: a refused one must change nothing
-			var other: int = (s.turn + 1 + rng.randi_range(0, n - 2)) % n
-			var pair := [s.turn, other] if rng.randi_range(0, 1) == 0 else [other, s.turn]
-			Rules.gift(s, [Rules.POINTS, Rules.LEND, Rules.DIE][rng.randi_range(0, 2)], pair[0], pair[1], rng.randi_range(0, 8) * 10)
 		if s.phase == Rules.GAMBIT and rng.randi_range(0, 2) == 0:
 			Rules.buy(s, rng.randi_range(1, 2))
 		if Rules.total_dice(s) != dice:
@@ -1051,7 +1018,7 @@ func _match(s, rng, wild: bool, gifts: bool, used: Dictionary, broken: Array, ta
 	return purgatories
 
 
-## Whole matches at 2 and 3 players, with abilities and gifts at random: each ends in a winner and no rule is broken.
+## Whole matches at 2 and 3 players, with abilities at random: each ends in a winner and no rule is broken.
 func test_small_tables() -> void:
 	var rng := RandomNumberGenerator.new()
 	for n in [2, 3]:
@@ -1060,7 +1027,7 @@ func test_small_tables() -> void:
 		for seed_value in 300:
 			rng.seed = seed_value
 			var s = Rules.new_match(Config.merged({"seats": n, "win": 3000} if seed_value % 3 > 0 else {"seats": n}), rng)
-			_match(s, rng, seed_value % 3 > 0, seed_value % 3 == 2, used, broken, "seed %d" % seed_value)
+			_match(s, rng, seed_value % 3 > 0, used, broken, "seed %d" % seed_value)
 		check("%d players: 300 seeded matches each play to one winner with no rule broken (%s)" % [n, "none" if broken.is_empty() else ", ".join(broken.slice(0, 5))], broken.is_empty())
 		# 300 matches, not 150: with Green-Eyed Glance resting every other turn the first 150 at 3 players never had a Jealous Grasp go through.
 		# Jealous Grasp at 2 players needs Envy across from one of four Sins and the right copy: too rare for taps at
@@ -1072,7 +1039,7 @@ func test_small_tables() -> void:
 		check("%d players: every other ability with a button was used in those matches (never: %s)" % [n, ", ".join(missing)], missing.is_empty())
 
 
-## Whole matches on seeded dice with the Sins dealt: seats buy, give and use abilities at random, allowed or not.
+## Whole matches on seeded dice with the Sins dealt: seats buy and use abilities at random, allowed or not.
 ## Each ends in a winner and no rule is broken on the way.
 func test_full_match() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -1084,7 +1051,7 @@ func test_full_match() -> void:
 		rng.seed = seed_value
 		# the matches that use abilities play to 3000, long enough for every ability to come up; the plain ones play to the goal as built
 		var s = Rules.new_match(Config.merged({"win": 3000} if seed_value % 3 > 0 else {}), rng)
-		purgatories += _match(s, rng, seed_value % 3 > 0, seed_value % 3 == 2, used, broken, "seed %d" % seed_value)
+		purgatories += _match(s, rng, seed_value % 3 > 0, used, broken, "seed %d" % seed_value)
 		rounds.append(s.round_number)
 	check("300 seeded matches each play to one winner with no rule broken (%s)" % ("none" if broken.is_empty() else ", ".join(broken.slice(0, 5))), broken.is_empty())
 	check("Purgatory happens in play (%d times)" % purgatories, purgatories > 0)

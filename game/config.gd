@@ -12,7 +12,7 @@ const DEFAULTS := {
 	"face_points": 10,   # a 4, 5 or 6 scores 40, 50 or 60
 	"escape_lows": 2,    # dice showing 1..low_max that free you from Purgatory
 	"die_cost": 20,      # points for one die from the supply
-	"buys_a_turn": 1,    # dice a player can buy for themselves in one turn (Ben, 2026-11-25); the die that replaces a Feasted one counts, a die bought for another player does not
+	"buys_a_turn": 1,    # dice a player can buy in one turn (Ben, 2026-11-25); the die that replaces a Feasted one counts
 	"win": 1000,         # end your own Fate Phase on this or more, out of Purgatory, and you win (Ben, 2026-11-25: a starting value under test; the rulebook says 3000)
 	# Abilities (the Sin cards as written in docs/step1-rules.md; the words are in game/sins.gd)
 	"tier2_at": 350,          # reach this and Tier 2 opens, and stays open
@@ -38,7 +38,7 @@ const DEFAULTS := {
 	"hubris_min": 0,          # what to beat is never under this
 	"superiority_cost": 40,   # Superiority
 	"superiority_loss": 20,
-	"feast_gain": 150,        # Feast
+	"feast_gain": 120,        # Feast (Ben, 2026-11-26, after the 0.21.0 playtest: 150 before; and not on two turns running. Sim: build/sim_step1/table_sim_feast2.gd)
 	"bite_cost": 20,          # Voracious Bite
 	"bite_steal": 20,
 	"drip_under": 60,         # Slow Drip: a roll scoring under this ...

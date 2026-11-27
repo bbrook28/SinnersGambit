@@ -19,7 +19,7 @@ const INFO := {
 		"t1": {"key": "hubris", "name": "Hubris", "text": "Before you roll, declare. Beat the previous player's total and score 50 more for the roll; fail and it is 0. First player must beat 50."},
 		"t2": {"key": "superiority", "name": "Superiority", "text": "Passive. The first time you are targeted each round, the attacker loses 20."}},
 	"gluttony": {
-		"t1": {"key": "feast", "name": "Feast", "text": "Once a round, give one of your scoring dice (4-6) to the supply and gain 150."},
+		"t1": {"key": "feast", "name": "Feast", "text": "Give one of your scoring dice (4-6) to the supply and gain 120. Not on two turns running."},
 		"t2": {"key": "bite", "name": "Voracious Bite", "text": "Steal 20 from a player. Not the same target twice running."}},
 	"sloth": {
 		"t1": {"key": "drip", "name": "Slow Drip", "text": "If you score under 60 this turn, gain 40 more."},

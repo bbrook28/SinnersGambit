@@ -7,8 +7,7 @@ class Seat:
 	var points := 0            # never below 0
 	var dice := 0              # dice this player rolls each turn: their own and any they hold from another player
 	var held := 0              # of those, dice taken from another player for a time (Vengeful Strike, Cut a Deal)
-	var lent := 0              # dice lent to this player: rolled with their next roll, then they go to the supply
-	var bought := 0            # dice this player has bought for themselves this turn: at most cfg.buys_a_turn
+	var bought := 0            # dice this player has bought this turn: at most cfg.buys_a_turn
 	var purgatory := false
 	var last_roll: Array = []  # the faces of the last roll; stays until this player rolls again
 	var last_score := 0        # points that roll scored (0 in Purgatory)
@@ -25,7 +24,7 @@ class Seat:
 	var lethargic := false     # Lethargic Aura: on their next roll one die is rolled twice and the lower kept
 	var last_target := {}      # ability key -> the seat it last hit ("not the same target twice running")
 	var last_grasp := ""       # Envy: the ability Jealous Grasp copied last ("not the same one twice running")
-	var last_used := {}        # ability key -> turn_count at its last use (strike, deal, bite, grasp: at a two-player table "twice running" is two of your turns running; glance: never on two turns running)
+	var last_used := {}        # ability key -> turn_count at its last use (strike, deal, bite, grasp: at a two-player table "twice running" is two of your turns running; glance and feast: never on two turns running)
 
 
 var cfg: Dictionary

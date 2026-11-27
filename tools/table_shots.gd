@@ -2,6 +2,7 @@
 ## godot --path . --resolution 1080x2340 --script res://tools/table_shots.gd   ->  build/table_shots/*.png
 ## The two-player table: add  -- seats=2 dir=table_shots_2p
 ## Green-Eyed Glance alone (Envy's card, a use, the roll, and the turn it rests): add  -- glance=1 dir=table_shots_glance
+## What 0.22.0 changed (the Sin picker, a Whisper of Desire swap refused, Feast resting): add  -- new=1 dir=table_shots_022
 extends SceneTree
 
 const TableScreen = preload("res://ui/table_screen.gd")
@@ -12,6 +13,7 @@ var n := 0
 var dir := "table_shots"   # build/<dir>; pass -- dir=<name> to keep a second screen shape beside the first
 var seats := 4             # pass -- seats=2 for the two-player table
 var glance := false        # pass -- glance=1 for the Green-Eyed Glance screens only
+var fresh := false         # pass -- new=1 for the screens 0.22.0 changed
 
 
 class Faces:
@@ -30,6 +32,8 @@ func _initialize() -> void:
 			seats = int(a.substr(6))
 		if a == "glance=1":
 			glance = true
+		if a == "new=1":
+			fresh = true
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/" + dir))
 	for f in DirAccess.get_files_at("res://build/" + dir):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("res://build/%s/%s" % [dir, f]))
@@ -41,6 +45,10 @@ func _initialize() -> void:
 		await _glance()
 		quit(0)
 		return
+	if fresh:
+		await _new()
+		quit(0)
+		return
 	h = TableScreen.new()
 	# P1 Wrath 4,5,1; P2 Lust 1,2,3 (swaps); Spark rerolls to 2; P3 Gluttony 6,4,1; P4 Pride 6,6,1
 	h.rng = Faces.new([4, 5, 1,  1, 2, 3,  2,  6, 4, 1,  6, 6, 1])
@@ -48,7 +56,7 @@ func _initialize() -> void:
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(h)
 	await _shot("how_to_play")
-	tap("got_it")
+	tap("deal")
 	await _shot("pass_the_phone")
 	tap("sin0")
 	await _shot("sin_card_wrath")
@@ -62,15 +70,6 @@ func _initialize() -> void:
 	await _shot("gambit_wrath")
 	tap("buy")
 	await _shot("bought_a_die")
-	tap("points")
-	tap("other2")
-	tap("p10")
-	tap("p10")
-	await _shot("give_points")
-	tap("offer")
-	await _shot("agree")
-	tap("agree")
-	await _shot("agreed")
 	tap("pass")
 	# Lust: Whisper of Desire before scoring
 	tap("ready")
@@ -174,7 +173,7 @@ func _glance() -> void:
 	root.add_child(h)
 	await process_frame   # the screen builds its buttons when it enters the tree
 	await process_frame
-	tap("got_it")
+	tap("deal")
 	tap("sin1")
 	await _shot("sin_card_envy")
 	tap("close")
@@ -201,7 +200,75 @@ func _glance() -> void:
 	await _shot("match_log_with_glance")
 
 
-## The two-player table: the count choice, the cards whose words change, a gift, Bite and Entangling Allure.
+## 0.22.0: the How to play card, the Sin picker, Whisper of Desire with a swap refused, the Gambit Phase without gifts,
+## and Feast on the turn it rests.
+func _new() -> void:
+	h = TableScreen.new()
+	h.rng = Faces.new([])
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(h)
+	await _shot("how_to_play")
+	tap("pick")
+	await _shot("sin_picker_player_1")
+	tap("pick_wrath")
+	tap("pick_lust")
+	await _shot("sin_picker_player_3_two_taken")
+	tap("pick_gluttony")
+	tap("pick_pride")
+	await _shot("after_the_picks")
+	# P1 Wrath 6,5,1; P2 Lust, on 900, rolls 4,1,1: the 6 would make 1000
+	h.rng.queue = [6, 5, 1,  4, 1, 1,  6, 4, 1]
+	tap("ready")
+	tap("roll")
+	await _shot("gambit_wrath_no_gifts_no_spark")
+	tap("pass")
+	Rules.add_points(h.s, 1, 900)
+	h._refresh()
+	tap("ready")
+	tap("roll")
+	tap("whisper")
+	tap("d1_1")
+	await _shot("whisper_greyed_out_die")
+	tap("d0_1")
+	await _shot("whisper_done_swap_refused_note")
+	tap("log")
+	await _shot("match_log_swap_refused")
+	tap("close_log")
+	h.s.seats[1].points = 300   # away from the goal, so the match goes on
+	h._refresh()
+	tap("pass")
+	# Gluttony feasts, then rests a turn
+	tap("ready")
+	tap("roll")
+	tap("feast")
+	tap("d2_0")
+	await _shot("feast_done_120")
+	tap("buy")
+	tap("pass")
+	for i in 3:
+		tap("ready")
+		tap("roll")
+		if h.btn.has("settle"):
+			tap("settle")
+		tap("pass")
+	tap("ready")
+	tap("roll")
+	await _shot("feast_resting")
+	# every swap would reach 1000: the Whisper button is off
+	tap("pass")
+	tap("ready")
+	tap("roll")
+	tap("pass")
+	h.s.seats[1].points = 990
+	h.s.seats[0].last_roll = [6, 5, 1]
+	h.rng.queue = [1, 2, 3]
+	h._refresh()
+	tap("ready")
+	tap("roll")
+	await _shot("whisper_button_off_every_swap_refused")
+
+
+## The two-player table: the count choice, the cards whose words change, Bite and Entangling Allure.
 func _two() -> void:
 	h = TableScreen.new()
 	# P1 Lust 4,5,1; P2 Gluttony 6,4,2; P1 4,6,2; then every die shows 4
@@ -213,7 +280,7 @@ func _two() -> void:
 	tap("seats2")
 	h.rng.queue = [4, 5, 1,  6, 4, 2,  4, 6, 2]   # set here: the four-player match the card opened on dealt its Sins from the dice
 	await _shot("how_to_play_2_chosen")
-	tap("got_it")
+	tap("deal")
 	await _shot("pass_the_phone")
 	tap("sin0")
 	await _shot("sin_card_lust")
@@ -225,9 +292,6 @@ func _two() -> void:
 	await _shot("roll")
 	tap("roll")
 	await _shot("gambit_lust")
-	tap("points")
-	await _shot("give_points_other_player_chosen")
-	tap("back")
 	tap("pass")
 	for i in 2:
 		Rules.add_points(h.s, i, 400)

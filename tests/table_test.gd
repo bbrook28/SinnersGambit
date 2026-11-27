@@ -50,7 +50,7 @@ func screen(faces = null, seed_value := 1, card := false, sins := ["wrath", "pri
 	await process_frame
 	await process_frame
 	if not card:
-		tap("got_it")   # the How to play card, tested in test_howto
+		tap("deal")   # the How to play card, tested in test_howto: the Sins as dealt (the fixed ones here)
 
 
 ## Is this button on screen and able to be tapped?
@@ -97,10 +97,10 @@ func shown() -> String:
 
 func _initialize() -> void:
 	await test_howto()
+	await test_picker()
 	await test_first_turn()
 	await test_purgatory()
 	await test_buy()
-	await test_gifts()
 	await test_win()
 	await test_sin_card()
 	await test_abilities()
@@ -118,30 +118,110 @@ func _initialize() -> void:
 
 func test_howto() -> void:
 	await screen([4, 5, 1], 1, true)
-	check("a match opens on the How to play card: Got it, and 2, 3 or 4 players with 4 chosen", h.howto.is_visible_in_tree() and can_tap("got_it") and can_tap("seats2") and can_tap("seats3") and can_tap("seats4") and acts() == 4 and h.seats == 4)
+	check("a match opens on the How to play card: 2, 3 or 4 players with 4 chosen, Deal them out and Pick Sins, and no Got it yet", h.howto.is_visible_in_tree() and can_tap("deal") and can_tap("pick")
+		and can_tap("seats2") and can_tap("seats3") and can_tap("seats4") and acts() == 5 and h.seats == 4 and not h.got_btn.is_visible_in_tree())
 	var all := " ".join(h.HOWTO)
 	check("the card is at most eight lines", h.HOWTO.size() <= 8)
-	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "give points", "lend a die", "one die a turn", "buy a die for someone", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
+	var facts := ["1000", "40, 50 or 60", "Purgatory", "two or more", "20", "one die a turn", "not binding", "pass the phone", "Tap a Sin", "each ability once on your turn"]
 	var missing := []
 	for f in facts:
 		if not all.contains(f):
 			missing.append(f)
-	check("the card covers the goal, the roll, Purgatory, buying, the gifts, the Sins, promises and passing (missing: %s)" % ", ".join(missing), missing.is_empty())
+	check("the card covers the goal, the roll, Purgatory, buying, the Sins, promises and passing (missing: %s)" % ", ".join(missing), missing.is_empty())
+	check("the card no longer speaks of the gifts that were cut", not all.contains("give points") and not all.contains("lend") and not all.contains("for someone"))
 	await process_frame
-	check("the card fits the screen (button ends at %d of 1920)" % int(h.got_btn.get_global_rect().end.y), h.got_btn.get_global_rect().end.y <= 1920.0)
-	tap("got_it")
-	check("Got it shows the table: pass the phone to Player 1", not h.howto.visible and can_tap("ready") and can_tap("help"))
+	check("the card fits the screen (buttons end at %d of 1920)" % int(h.start_row.get_global_rect().end.y), h.start_row.get_global_rect().end.y <= 1920.0)
+	tap("deal")
+	check("Deal them out shows the table: pass the phone to Player 1", not h.howto.visible and can_tap("ready") and can_tap("help") and h.panels[0].sin.text == "Wrath")
 	tap("help")
-	check("How to play brings the card back, and before the first turn the number of players can still be changed", h.howto.visible and can_tap("got_it") and can_tap("seats2") and acts() == 4)
+	check("How to play brings the card back; before the first turn the players and the Sins can still be changed, and Got it closes it", h.howto.visible and can_tap("got_it") and can_tap("seats2")
+		and can_tap("deal") and can_tap("pick") and acts() == 6)
+	await frames()
+	check("with Got it too the card still fits the screen (it ends at %d of 1920)" % int(h.got_btn.get_global_rect().end.y), h.got_btn.get_global_rect().end.y <= 1920.0)
 	tap("got_it")
 	tap("ready")
 	tap("roll")
 	tap("help")
-	check("once a turn has begun the card has one button: the number of players is fixed", can_tap("got_it") and acts() == 1 and not h.count_row.is_visible_in_tree())
+	check("once a turn has begun the card has one button: the players and the Sins are fixed", can_tap("got_it") and acts() == 1 and not h.count_row.is_visible_in_tree() and not h.start_row.is_visible_in_tree())
 	tap("got_it")
 	check("the card can be read mid-turn and nothing changes", can_tap("pass") and can_tap("buy") and h.panels[0].points.text == "90")
-	tap("points")
-	check("How to play is on the table in the gift form too", can_tap("help"))
+
+
+## The words of one Sin's entry in the picker.
+func entry(sin: String) -> String:
+	var out := []
+	for l in h.btn["pick_" + sin].get_parent().get_child(0).get_children():
+		out.append(l.text)
+	return " | ".join(out)
+
+
+## Sin picking (Ben, 2026-11-26): the phone goes round in seat order and each player taps a free Sin.
+func test_picker() -> void:
+	await screen([], 1, true, [])
+	tap("pick")
+	var free := true
+	for sin in h.Config.SINS:
+		free = free and can_tap("pick_" + sin)
+	check("Pick Sins opens the picker for Player 1: seven Sins, all free, and Back", h.pick_card.is_visible_in_tree() and h.pick_title.text == "Player 1: pick your Sin" and free and can_tap("pick_back") and acts() == 8)
+	check("each Sin shows its name and a line for each ability, in the cards' words (%s)" % entry("wrath"), entry("wrath") ==
+		"Wrath | Spark of Rage: %s | Vengeful Strike (50): %s" % [h.Sins.card("spark").text, h.Sins.card("strike").text])
+	await frames()
+	var wide := 0.0
+	for sin in h.Config.SINS:
+		wide = maxf(wide, h.btn["pick_" + sin].get_parent().get_global_rect().end.x)
+	check("the picker fits the screen (Back ends at %d of 1920, the entries at %d of 1080)" % [int(h.pick_back_btn.get_global_rect().end.y), int(wide)],
+		h.pick_back_btn.get_global_rect().end.y <= 1920.0 and wide <= 1080.0 and h.btn.pick_wrath.get_global_rect().position.y >= h.pick_title.get_global_rect().end.y)
+	tap("pick_lust")
+	check("then Player 2 picks; Lust is taken: switched off, and says by whom", h.pick_title.text == "Player 2: pick your Sin" and not can_tap("pick_lust") and entry("lust").begins_with("Lust  ·  taken by Player 1")
+		and can_tap("pick_wrath") and h.picks == ["lust"])
+	h._on_pick("lust")
+	check("a taken Sin cannot be picked again", h.picks == ["lust"] and h.pick_title.text == "Player 2: pick your Sin")
+	tap("pick_back")
+	check("Back returns to the How to play card and drops the picks", not h.pick_card.visible and h.howto.is_visible_in_tree() and can_tap("pick") and can_tap("deal") and h.picks.is_empty())
+	tap("pick")
+	check("picking starts again with every Sin free", can_tap("pick_lust") and h.pick_title.text == "Player 1: pick your Sin")
+	for sin in ["gluttony", "envy", "wrath"]:
+		tap("pick_" + sin)
+	check("three picked: Player 4 chooses among the four left", h.pick_title.text == "Player 4: pick your Sin" and not can_tap("pick_wrath") and can_tap("pick_sloth") and h.howto.visible)
+	tap("pick_sloth")
+	var got := []
+	for i in 4:
+		got.append(h.panels[i].sin.text)
+	check("after the last pick the table opens with those Sins in seat order (%s)" % ", ".join(got), not h.pick_card.visible and not h.howto.visible and h.title.text == "Pass the phone to Player 1"
+		and got == ["Gluttony", "Envy", "Wrath", "Sloth"] and h.s.seats[3].sin == "sloth" and h.s.seats[0].points == 0)
+	tap("help")
+	check("before the first turn the card still offers Deal them out and Pick Sins, and Got it keeps the picks", can_tap("got_it") and can_tap("deal") and can_tap("pick"))
+	tap("got_it")
+	tap("ready")
+	check("and the match plays on with the picked Sins", can_tap("roll") and h.panels[0].sin.text == "Gluttony")
+	# two players: two picks, and the cards in their two-player words
+	await screen([], 1, true, [])
+	tap("seats2")
+	tap("pick")
+	check("2 players: the picker shows the two-player cards", entry("lust").contains("You and the other player each secretly pick") and entry("gluttony").contains("Steal 20 from the other player"))
+	tap("pick_pride")
+	tap("pick_lust")
+	check("2 players: two picks start the match", not h.pick_card.visible and h.s.seats.size() == 2 and h.s.seats[0].sin == "pride" and h.s.seats[1].sin == "lust" and can_tap("ready"))
+	# Deal them out is still the random deal
+	var rng := RandomNumberGenerator.new()
+	var seen := {}
+	for seed_value in 12:
+		await screen(null, seed_value, false, [])
+		var mine := {}
+		for p in h.s.seats:
+			mine[p.sin] = true
+			seen[p.sin] = true
+		if mine.size() != 4:
+			seen["bad"] = true
+	check("Deal them out deals four different Sins at random (%d of 7 seen in 12 deals)" % seen.size(), not seen.has("bad") and seen.size() >= 6)
+
+
+## The short reason shown on a die that cannot be tapped ("" if it has none).
+func mark(key: String) -> String:
+	for c in h.btn[key].get_children():
+		if c is Label:
+			return c.text
+	return ""
 
 
 func test_first_turn() -> void:
@@ -160,7 +240,8 @@ func test_first_turn() -> void:
 	tap("roll")
 	check("the result and what it scored", shown().contains("You rolled 4, 5, 1 and scored 90."))
 	check("the panel shows 90 points, the roll and its score", h.panels[0].points.text == "90" and h.panels[0].roll.get_child_count() == 3 and h.panels[0].scored.text == "scored 90")
-	check("the Gambit Phase offers Buy, the three gifts and Pass", can_tap("buy") and can_tap("points") and can_tap("lend") and can_tap("die") and can_tap("pass") and acts() == 6)
+	check("the Gambit Phase offers Buy, the Sin's abilities and Pass, and no gifts", can_tap("buy") and can_tap("pass") and h.btn.has("strike") and not h.btn.has("points") and not h.btn.has("lend") and not h.btn.has("die")
+		and acts() == 3 and h.title.text == "Player 1: buy, use abilities, then pass")
 	tap("pass")
 	check("passing asks for the phone to go to Player 2", h.title.text == "Pass the phone to Player 2" and h.panels[1].tag.text == "TURN" and h.panels[0].tag.text == "LEADING")
 	tap("ready")
@@ -214,76 +295,6 @@ func test_buy() -> void:
 	check("with an empty supply the Buy button is off and says why", not can_tap("buy") and h.btn.buy.text.contains("supply is empty"))
 
 
-func test_gifts() -> void:
-	await screen([6, 6, 6,  4, 4, 4, 4])
-	tap("ready")
-	tap("roll")
-	# give points: 180 -> Player 3 gets 60
-	tap("points")
-	check("the gift form: I give or I ask, the three other players, an amount", can_tap("give") and can_tap("ask") and can_tap("other1") and can_tap("other2") and can_tap("other3") and not h.btn.has("other0") and can_tap("p10"))
-	check("no offer until a player is chosen", not can_tap("offer") and shown().contains("Choose a player"))
-	tap("other2")
-	for i in 5:
-		tap("p10")
-	check("the form says what will happen", shown().contains("Player 1 gives 60 points to Player 3."))
-	tap("offer")
-	check("nothing changes until the other player agrees", h.s.seats[0].points == 180 and h.title.text == "Pass the phone to Player 3" and shown().contains("permanent") and can_tap("agree") and can_tap("refuse"))
-	tap("agree")
-	check("agreed: the points move, and the screen says so", h.panels[0].points.text == "120" and h.panels[2].points.text == "60" and shown().contains("Player 3 agreed") and shown().contains("Pass the phone back to Player 1"))
-	# a refused gift changes nothing
-	tap("points")
-	tap("other1")
-	tap("offer")
-	tap("refuse")
-	check("refused: nothing moves, and the screen says so", h.panels[0].points.text == "120" and h.panels[1].points.text == "0" and shown().contains("Player 2 refused"))
-	# you cannot offer more than you have
-	tap("points")
-	tap("other1")
-	tap("p100")
-	tap("p100")
-	check("the amount stops at what the giver has", h.offer.amount == 120)
-	tap("all")
-	check("All is everything the giver has", h.offer.amount == 120 and can_tap("offer"))
-	# ask: Player 3 has 60
-	tap("ask")
-	tap("other2")
-	tap("all")
-	check("asking: the other player is the giver, so the amount stops at their points", h.offer.amount == 60 and shown().contains("Player 3 gives 60 points to Player 1."))
-	tap("offer")
-	check("the ask is put to Player 3", shown().contains("Player 1 asks") and h.title.text == "Pass the phone to Player 3")
-	tap("agree")
-	check("agreed: Player 3 gave 60 to Player 1", h.panels[0].points.text == "180" and h.panels[2].points.text == "0")
-	# lend a die
-	tap("lend")
-	check("the lend form states the rule", shown().contains("one roll") and shown().contains("supply") and shown().contains("below 2 dice"))
-	tap("other1")
-	tap("offer")
-	tap("agree")
-	check("lent: Player 1 has 2 dice, Player 2 shows 3 dice + 1 lent", h.panels[0].dice.text == "2 dice" and h.panels[1].dice.text == "3 dice + 1 lent")
-	tap("lend")
-	tap("other1")
-	check("on 2 dice you cannot lend, and the form says why", not can_tap("offer") and shown().contains("below 2 dice"))
-	tap("back")
-	# buy a die for another player
-	tap("die")
-	check("the form states who pays", shown().contains("pays 20"))
-	tap("other3")
-	tap("offer")
-	tap("agree")
-	check("bought for Player 4: Player 1 paid 20, Player 4 has 4 dice", h.panels[0].points.text == "160" and h.panels[3].dice.text == "4 dice" and h.header.text.contains("5 dice"))
-	# no gifts with a player in Purgatory
-	h.s.seats[2].purgatory = true
-	h._refresh()
-	tap("points")
-	check("a player in Purgatory cannot be chosen, and the button says why", not can_tap("other2") and h.btn.other2.text.contains("Purgatory"))
-	tap("back")
-	tap("pass")
-	tap("ready")
-	check("Player 2 is told a die is lent for this roll", h.btn.roll.text == "Roll 4 dice" and shown().contains("lent to you for this roll"))
-	tap("roll")
-	check("after the roll the lent die is in the supply", h.panels[1].dice.text == "3 dice" and h.panels[1].roll.get_child_count() == 4 and h.header.text.contains("6 dice"))
-
-
 func test_win() -> void:
 	await screen([6, 1, 1,  4, 4, 4])
 	h.s.seats[0].points = 940
@@ -293,8 +304,8 @@ func test_win() -> void:
 	check("the winner screen names the winner", h.title.text == "Player 1 wins!" and h.panels[0].tag.text.contains("WINNER") and shown().contains("1000"))
 	check("the winner screen has two buttons: Match log and New match", can_tap("new") and can_tap("log_win") and acts() == 2)
 	tap("new")
-	check("a new match opens on the How to play card again, with the number of players to choose", can_tap("got_it") and can_tap("seats2") and acts() == 4)
-	tap("got_it")
+	check("a new match opens on the How to play card again, with the number of players and the Sins to choose", can_tap("deal") and can_tap("pick") and can_tap("seats2") and acts() == 5)
+	tap("deal")
 	var fresh := true
 	for i in 4:
 		fresh = fresh and h.panels[i].points.text == "0" and h.panels[i].dice.text == "3 dice" and h.panels[i].roll.get_child_count() == 1
@@ -333,11 +344,8 @@ func test_fits(height := 1920) -> void:
 	var worst := 0.0
 	var where := ""
 	var was := {}
-	var form_rows := 0.0
-	var form_box := 0.0
-	var views := ["handover"]
+	var seen := {}
 	tap("ready")
-	views.append("roll")
 	# the fullest table: everyone with many dice rolled, and 4-digit scores
 	for p in h.s.seats:
 		p.points = 600
@@ -347,7 +355,6 @@ func test_fits(height := 1920) -> void:
 		p.purgatory = true
 	h.s.seats[0].purgatory = false
 	h.s.seats[0].last_roll = []
-	h.s.seats[0].lent = 1
 	h.s.seats[1].dice = 6
 	h.s.seats[1].last_roll = [6, 6, 6, 6, 6, 6]
 	h.s.supply = 0
@@ -358,8 +365,14 @@ func test_fits(height := 1920) -> void:
 	h.s.seats[0].armed = true
 	h.s.seats[0].lethargic = true
 	h._refresh()
-	var steps := [["", "roll"], ["roll", "gambit"], ["points", "give points"], ["back", ""], ["lend", "lend"], ["back", ""], ["die", "buy for a player"]]
+	# the forms: Vengeful Strike's two steps, and Spark of Rage picking a die on the fullest roll
+	h.s.seats[0].tier2 = true
+	var steps := [["", "roll"], ["roll", "gambit"], ["strike", "strike: pick a player"], ["target1", "strike: the target chooses"], ["choose_points", ""], ["spark1", "spark: pick a die"]]
 	for st in steps:
+		if st[0] == "strike":
+			# the forms open from a turn with its abilities unused
+			h.s.seats[0].used = {}
+			h._refresh()
 		if st[0] != "":
 			tap(st[0])
 		if st[1] == "":
@@ -368,8 +381,6 @@ func test_fits(height := 1920) -> void:
 			for p in h.s.seats:
 				p.purgatory = false
 			h._refresh()
-		if h.btn.has("other1"):
-			tap("other1")
 		h.event = "Player 1 (Wrath) used Entangling Allure on Player 2 and Player 3: they picked a 5 and a 5. A match: Player 1 took that die from Player 3, to keep. Superiority: Player 1 lost 20 for targeting Player 2."
 		h._refresh()
 		await process_frame
@@ -380,23 +391,28 @@ func test_fits(height := 1920) -> void:
 			worst = bottom
 			where = st[1]
 		was[st[1]] = gaps()
-		if st[1] == "give points":
-			form_rows = h.panel_box.size.y
-			form_box = h.panels[0].panel.size.y
-	check("the buttons end inside the screen in every view (lowest: %d of %d, in %s)" % [int(worst), height, where], worst > 0 and worst <= float(height))
+		seen[st[1]] = int(bottom)
+	check("the buttons end inside the screen in every view (lowest: %d of %d, in %s; all: %s)" % [int(worst), height, where, str(seen)], worst > 0 and worst <= float(height))
 	check("at %d the turn's own views at their fullest keep the roomy boxes (roll %s, Gambit %s)" % [height, str(was.roll), str(was.gambit)], was.roll == roomy and was.gambit == roomy)
-	if height == 1920:
-		# 826 and 199: the four boxes, and one of them, as they were with this table before there were two sizes
-		check("at %d the fullest form, give points, does not fit with roomy boxes and is shown with compact ones (the four are %d high, one %d)" % [height, int(form_rows), int(form_box)],
-			was["give points"] == COMPACT and int(form_rows) == 826 and int(form_box) == 199)
-	else:
-		check("at %d the fullest form, give points, fits with the boxes it shows (%s)" % [height, "compact" if was["give points"] == COMPACT else "roomy"], was["give points"] == COMPACT or was["give points"] == roomy)
 	tap("back")
 	await frames()
-	check("and when the form closes the boxes are roomy again (%s)" % str(gaps()), not h.tight and gaps() == roomy and h.buttons.get_global_rect().end.y <= float(height))
-	tap("die")
-	tap("other1")
+	check("and when a form closes the boxes are roomy again (%s)" % str(gaps()), not h.tight and gaps() == roomy and h.buttons.get_global_rect().end.y <= float(height))
+	# a view too tall for roomy boxes is shown with compact ones: a long notice stands in for it, now the gift forms are gone
+	var long_event: String = h.event
+	h.s.seats[0].spark_used = true   # no Spark of Rage button on the rows, as when the two numbers below were taken
+	h.event = " ".join([long_event, long_event, long_event, long_event])
+	h._refresh()
 	await frames()
+	var compact_rows: float = h.panel_box.size.y
+	var compact_box: float = h.panels[0].panel.size.y
+	if height == 1920:
+		# 826 and 199: the four boxes, and one of them, as they were with this table before there were two sizes
+		check("at %d a view that does not fit with roomy boxes is shown with compact ones (%s; the four are %d high, one %d)" % [height, str(gaps()), int(compact_rows), int(compact_box)],
+			h.tight and gaps() == COMPACT and int(compact_rows) == 826 and int(compact_box) == 199)
+	h.event = long_event
+	h._refresh()
+	await frames()
+	check("and with the view back to its size the boxes are roomy again (%s)" % str(gaps()), not h.tight and gaps() == roomy)
 	var wide := 0.0
 	for n in h.panels:
 		wide = maxf(wide, n.points.get_global_rect().end.x)
@@ -410,8 +426,8 @@ func test_fits(height := 1920) -> void:
 	check("every row, the turn row with its thick border too, keeps 20 or more clear between border and content (%d), and 28 between name and Sin (%d)" % [int(clear), int(gap)],
 		h.panels[0].box.get_border_width(SIDE_LEFT) == h.BORDER_TURN and clear >= 20.0 and gap >= 28.0)
 	# the widest row: six dice, a share under the score, and Spark of Rage on it
-	tap("back")
 	h.s.seats[0].used = {}
+	h.s.seats[0].spark_used = false
 	h._refresh()
 	await process_frame
 	await process_frame
@@ -430,7 +446,7 @@ func test_roomy() -> void:
 	for n in [2, 3]:
 		await screen([], 1, true, ["wrath", "pride", "gluttony"].slice(0, n), 2124)
 		tap("seats%d" % n)
-		tap("got_it")
+		tap("deal")
 		await frames()
 		check("%d players at 2124 tall: the boxes are at the full roomy size (%s), half as tall again as compact (%d)" % [n, str(gaps()), int(h.panels[0].panel.size.y)],
 			not h.tight and gaps() == full and int(h.panels[0].panel.size.y) == int(1.5 * h.CARD_COMPACT))
@@ -447,13 +463,12 @@ func test_roomy() -> void:
 			seen.append(int(h.buttons.get_global_rect().end.y))
 			ok = ok and gaps() == full and h.buttons.get_global_rect().end.y <= 2124.0
 		check("%d players: the roll and Gambit views at their fullest fit with them (buttons end at %s of 2124)" % [n, str(seen)], ok)
-		tap("points")
-		if n > 2:
-			tap("other1")
+		give(0, 400)
+		tap("strike")
 		h.event = notice
 		h._refresh()
 		await frames()
-		check("%d players: the give points form fits (boxes %s, buttons end at %d of 2124)" % [n, str(gaps()), int(h.buttons.get_global_rect().end.y)], h.buttons.get_global_rect().end.y <= 2124.0)
+		check("%d players: the Vengeful Strike form fits (boxes %s, buttons end at %d of 2124)" % [n, str(gaps()), int(h.buttons.get_global_rect().end.y)], h.buttons.get_global_rect().end.y <= 2124.0)
 		tap("back")
 		await frames()
 		check("%d players: and after it the boxes are roomy" % n, gaps() == full)
@@ -482,7 +497,10 @@ func test_sin_card() -> void:
 func test_abilities() -> void:
 	# Spark of Rage, out of turn, from the button on a roll
 	await screen([4, 4, 4,  6, 5, 1,  2])
-	turns(1)
+	tap("ready")
+	tap("roll")
+	check("Wrath's own turn with no 5 or 6 on the table: Spark of Rage is not shown, Vengeful Strike is", not h.btn.has("spark") and h.btn.has("strike") and not h.panels[1].spark.is_visible_in_tree())
+	tap("pass")
 	tap("ready")
 	tap("roll")
 	check("a roll with a 5 or 6 shows Wrath's Spark of Rage button; Wrath's own roll does not", can_tap("spark1") and not h.btn.has("spark0"))
@@ -492,11 +510,22 @@ func test_abilities() -> void:
 	check("one line says who did what to whom", h.event_box.is_visible_in_tree() and h.event.contains("Player 1 (Wrath) used Spark of Rage on Player 2") and h.event.contains("came up 2") and h.event.contains("Player 2 lost 70"))
 	check("the points and the roll changed, and Player 2 plays on", h.panels[1].points.text == "40" and can_tap("pass") and h.title.text.contains("Player 2"))
 	check("once a round: the button is gone", not h.btn.has("spark1"))
-	tap("points")
-	tap("back")
+	tap("help")
+	tap("got_it")
 	check("the line stays while nothing is done", h.event.contains("Spark of Rage"))
 	tap("buy")
 	check("and goes at the next action", h.event == "" and not h.event_box.visible)
+	# a roll with no 5 or 6 has no Spark of Rage button; on Wrath's own turn the button is there while a 5 or 6 shows
+	await screen([4, 4, 4,  4, 3, 1,  6, 5, 1])
+	turns(1)
+	tap("ready")
+	tap("roll")
+	check("a roll of 4, 3, 1 shows no Spark of Rage button", not h.btn.has("spark1") and not h.panels[1].spark.is_visible_in_tree())
+	tap("pass")
+	turns(2)
+	tap("ready")
+	tap("roll")
+	check("on Wrath's own turn, with Player 3 showing 6, 5, 1, Spark of Rage is a button again", can_tap("spark") and can_tap("spark2") and not h.btn.has("spark1"))
 
 	# Hubris, before the roll
 	await screen([6, 1, 1], 1, false, ["pride", "wrath", "gluttony", "envy"])
@@ -565,18 +594,41 @@ func test_abilities() -> void:
 	check("the swap view states the limit", shown().contains("Not if the swap is what takes you to 1000"))
 	tap("whisper")
 	tap("d1_1")
-	check("the 6 would make 1000: it is switched off and the screen says why; the 5 can be taken", not can_tap("d0_0") and can_tap("d0_1") and shown().contains("A swap cannot be what takes you to 1000"))
+	check("the 6 would make 1000: it is switched off and marked with the reason, and the screen says why; the 5 can be taken; the 1 is off with no mark", not can_tap("d0_0") and mark("d0_0") == "to 1000" and can_tap("d0_1") and mark("d0_1") == ""
+		and not can_tap("d0_2") and mark("d0_2") == "" and shown().contains("A swap cannot be what takes you to 1000") and shown().contains("marked \"to 1000\""))
+	await frames()
+	var die: Rect2 = h.btn.d0_0.get_global_rect()
+	var tag: Rect2 = h.btn.d0_0.get_child(0).get_global_rect()
+	check("the reason sits inside its die (die %s, mark %s)" % [str(die), str(tag)], die.encloses(tag) and h.buttons.get_global_rect().end.y <= 1920.0)
 	tap("d0_1")
-	check("swapped for the 5: 990 and no winner", h.panels[1].points.text == "990" and h.s.winner == -1 and can_tap("pass"))
+	check("swapped for the 5: 990 and no winner, and the screen says a swap was refused", h.panels[1].points.text == "990" and h.s.winner == -1 and can_tap("pass") and shown().contains("Whisper of Desire refused some swaps"))
+	check("the match log says which swap was refused, before the swap and the roll (%s)" % " | ".join(h.log.lines().slice(-3)), h.log.lines().slice(-3) == [
+		"R1 Player 2 (Lust): Whisper of Desire refused: a 1 for a 6. A swap cannot be what takes you to 1000. [+0, total 900]",
+		"R1 Player 2 (Lust): used Whisper of Desire on Player 1: swapped a 1 for their 5. [+0, total 900]",
+		"R1 Player 2 (Lust): rolled 4, 5, 1, scored 90, Whisper +50 [+90, total 990]"])
+	# a die of Lust's own with every swap refused is marked too: Lust on 940 rolls 4, 2, 1
+	await screen([6, 5, 1,  4, 2, 1], 1, false, ["wrath", "lust", "gluttony", "pride"])
+	turns(1)
+	give(1, 940)
+	tap("ready")
+	tap("roll")
+	tap("whisper")
+	check("the 2 and the 1 would reach 1000 with any higher die: off and marked; the 4 can go", can_tap("d1_0") and not can_tap("d1_1") and mark("d1_1") == "to 1000" and not can_tap("d1_2") and mark("d1_2") == "to 1000"
+		and shown().contains("A swap cannot be what takes you to 1000"))
+	tap("back")
+	tap("settle")
+	check("scored as it is, the log still says what was refused (%s)" % h.log.lines()[-2], h.log.lines()[-2] ==
+		"R1 Player 2 (Lust): Whisper of Desire refused: a 4 for a 6; a 2 for a 6 or 5; a 1 for a 6 or 5. A swap cannot be what takes you to 1000. [+0, total 940]")
 	# every swap would reach 1000: Lust on 990 rolls 1, 2, 3
 	await screen([6, 5, 1,  1, 2, 3], 1, false, ["wrath", "lust", "gluttony", "pride"])
 	turns(1)
 	give(1, 990)
 	tap("ready")
 	tap("roll")
-	check("when every swap would reach 1000 the Whisper button is off with the reason, and the roll can be scored", not can_tap("whisper") and h.btn.whisper.text.contains("Every swap would take you to 1000") and can_tap("settle"))
+	check("when every swap would reach 1000 the Whisper button is off with the same reason, and the roll can be scored", not can_tap("whisper") and h.btn.whisper.text.contains("A swap cannot be what takes you to 1000.") and can_tap("settle"))
 	tap("settle")
-	check("scored as it is: Purgatory", h.panels[1].tag.text.contains("IN PURGATORY"))
+	check("scored as it is: Purgatory, and the log says the swaps were refused", h.panels[1].tag.text.contains("IN PURGATORY") and h.log.lines()[-2] ==
+		"R1 Player 2 (Lust): Whisper of Desire refused: a 1 for a 6 or 5; a 2 for a 6 or 5; a 3 for a 6 or 5. A swap cannot be what takes you to 1000. [+0, total 990]")
 
 	# Feast, then Jealous Grasp copying it
 	await screen([6, 4, 1,  5, 4, 1], 1, false, ["gluttony", "envy", "wrath", "pride"])
@@ -587,7 +639,7 @@ func test_abilities() -> void:
 	check("Feast: only a 4, 5 or 6 can be given", can_tap("d0_0") and can_tap("d0_1") and not can_tap("d0_2"))
 	tap("d0_0")
 	check("Feast is used for this turn: its button is off and says so", not can_tap("feast") and h.btn.feast.text.contains("Already used this turn"))
-	check("the 6 went to the supply for 150", h.panels[0].points.text == "250" and h.panels[0].dice.text == "2 dice" and h.event.contains("used Feast") and h.header.text.contains("7 dice"))
+	check("the 6 went to the supply for 120", h.panels[0].points.text == "220" and h.panels[0].dice.text == "2 dice" and h.event.contains("for 120 points") and h.header.text.contains("7 dice"))
 	tap("pass")
 	give(1, 400)
 	check("reaching 350 shows TIER 2 on the player", h.panels[1].tag.text.contains("TIER 2"))
@@ -597,7 +649,30 @@ func test_abilities() -> void:
 	check("Jealous Grasp lists what was used this round", can_tap("copy_feast") and shown().contains("Feast"))
 	tap("copy_feast")
 	tap("d1_0")
-	check("Envy paid 30, gave a 5 to the supply and gained 150", h.panels[1].points.text == str(400 + 90 + 150 - 30) and h.event.contains("Jealous Grasp") and h.event.contains("Feast"))
+	check("Envy paid 30, gave a 5 to the supply and gained 120", h.panels[1].points.text == str(400 + 90 + 120 - 30) and h.event.contains("Jealous Grasp") and h.event.contains("Feast"))
+	# Feast rests on the turn after a use: the button is dimmed and says why
+	await screen([6, 4, 1], 1, false, ["gluttony", "pride", "wrath", "envy"])
+	tap("ready")
+	tap("roll")
+	tap("feast")
+	tap("d0_0")
+	tap("buy")
+	tap("pass")
+	turns(3)
+	tap("ready")
+	tap("roll")
+	check("on Gluttony's next turn Feast is switched off and the button says why", h.panels[0].dice.text == "3 dice" and not can_tap("feast") and h.btn.feast.text.contains("Not on two turns running"))
+	await frames()
+	check("the switched-off Feast button fits the screen (%d of 1080 wide, ends at %d of 1920)" % [int(h.btn.feast.get_global_rect().end.x), int(h.buttons.get_global_rect().end.y)],
+		h.btn.feast.get_global_rect().end.x <= 1080.0 and h.buttons.get_global_rect().end.y <= 1920.0)
+	tap("pass")
+	turns(3)
+	tap("ready")
+	tap("roll")
+	check("and on the turn after that it can be used again", can_tap("feast"))
+	tap("sin0")
+	check("Gluttony's card has the new words", h.sin_text.text.contains("gain 120") and h.sin_text.text.contains("Not on two turns running") and not h.sin_text.text.contains("150"))
+	tap("close")
 
 	# Voracious Bite: pick the target
 	await screen([4, 4, 4], 1, false, ["gluttony", "pride", "wrath", "envy"])
@@ -691,7 +766,7 @@ func test_two_players() -> void:
 	tap("seats2")
 	check("2 players: choosing 2 starts a two-player match, still on the card, with 2 shown as chosen", h.s.seats.size() == 2 and h.panels.size() == 2 and h.panel_box.get_child_count() == 2
 		and h.howto.visible and h.seats == 2 and Rules.total_dice(h.s) == 12)
-	tap("got_it")
+	tap("deal")
 	check("2 players: pass the phone to Player 1; both players shown with their Sins", h.title.text == "Pass the phone to Player 1" and h.panels[0].sin.text == "Lust" and h.panels[1].sin.text == "Gluttony"
 		and h.panels[1].points.is_visible_in_tree() and h.header.text.contains("6 dice"))
 	tap("sin0")
@@ -704,9 +779,6 @@ func test_two_players() -> void:
 	give(1, 400)
 	tap("ready")
 	tap("roll")
-	tap("points")
-	check("2 players: a gift is to the one other player, already chosen", can_tap("offer") and can_tap("other1") and not h.btn.has("other0") and shown().contains("Player 1 gives 10 points to Player 2."))
-	tap("back")
 	tap("pass")
 	# Gluttony bites
 	tap("ready")
@@ -831,22 +903,12 @@ func test_log() -> void:
 	tap("roll")
 	check("a roll out of Purgatory is logged, in round 3", h.log.lines()[-1] == "R3 Player 1 (Wrath): rolled 3, 3, 5, scored 50, out of Purgatory [+50, total 50]")
 
-	# a gift, agreed and refused, and The Vig
+	# The Vig
 	await screen([6, 6, 6], 1, false, ["wrath", "greed", "gluttony", "envy"])
 	tap("ready")
 	tap("roll")
 	tap("buy")
 	check("The Vig is logged for Greed", h.log.lines()[-1] == "R1 Player 2 (Greed): The Vig: gained 20 from the die Player 1 bought [+20, total 20]")
-	tap("points")
-	tap("other2")
-	tap("offer")
-	tap("agree")
-	check("an agreed gift is logged for the giver", h.log.lines()[-1] == "R1 Player 1 (Wrath): gift, Player 3 agreed: Player 1 gives 10 points to Player 3. [-10, total 150]")
-	tap("points")
-	tap("other2")
-	tap("offer")
-	tap("refuse")
-	check("a refused gift is logged, and nothing moved", h.log.lines()[-1] == "R1 Player 1 (Wrath): gift, Player 3 refused: Player 1 gives 10 points to Player 3. [+0, total 150]")
 	tap("log")
 	tap("copy_log")
 	check("the totals count The Vig for Greed", h.copied.contains("Player 2 (Greed), 20 points: The Vig x1 +20"))
@@ -977,7 +1039,7 @@ func test_whole_match() -> void:
 		await screen(null, seed_value, true, [])
 		if c[1] != 4:
 			tap("seats%d" % c[1])
-		tap("got_it")
+		tap("deal")
 		var pick := RandomNumberGenerator.new()
 		pick.seed = seed_value
 		var taps := 0
