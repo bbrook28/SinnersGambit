@@ -33,6 +33,7 @@ const DIE_SEP := 8       # between two of them
 const DICE_ROOM := 424   # the narrowest a row's line of dice gets: beside a two-line share and Spark of Rage (six compact dice; tests/table_test.gd checks it)
 const PICK := 104        # a die you tap to choose it
 const SIZE_SMALL := 34
+const SIZE_EVENT := 30    # the last move
 const SIZE_NOTE := 34     # the smallest text on the table: the top bar, "no roll yet", "scored N", a switched-off ability's reason (30 before 0.23.0)
 const SIZE_TEXT := 40
 const SIZE_NAME := 48
@@ -117,7 +118,7 @@ var pick_title: Label
 var pick_list: VBoxContainer
 var pick_back_btn: Button
 var event_box: PanelContainer
-var event_label: Label
+var event_label: RichTextLabel
 var title: Label
 var title_gap: MarginContainer # holds the heading; its top margin is the roomy size's extra gap above it
 var page: VBoxContainer      # the table's column: everything but the cards that cover it
@@ -196,8 +197,10 @@ func _space() -> void:
 		n.dice.custom_minimum_size = Vector2(230, die_px())   # the line is as tall in every box, whatever its dice
 		var d := die_px(n.roll.get_child_count())
 		for c in n.roll.get_children():
-			if c is PanelContainer:   # a die; "no roll yet" is a Label
+			if c is PanelContainer:   # a die
 				c.custom_minimum_size = Vector2(d, d)
+			else:                     # "no roll yet": as tall as the line, its words in the middle beside "3 dice"
+				c.custom_minimum_size = Vector2(0, die_px())
 
 
 ## Compact or roomy, from what the view on screen needs: compact while it would not fit with roomy boxes.
@@ -826,14 +829,15 @@ func _step() -> void:
 # ---- drawing
 
 func _refresh() -> void:
-	header.text = "Round %d   ·   First to %d wins   ·   Supply: %s" % [s.round_number, int(s.cfg.win), dice_text(s.supply)]
+	# two lines at SIZE_NOTE, broken where it reads best rather than wherever the width runs out
+	header.text = "Round %d   ·   First to %d wins\nSupply: %s" % [s.round_number, int(s.cfg.win), dice_text(s.supply)]
 	for c in buttons.get_children():
 		buttons.remove_child(c)
 		c.queue_free()
 	btn = {}
 	for i in s.seats.size():
 		_refresh_panel(i)
-	event_label.text = event
+	event_label.text = "[color=#%s]LAST MOVE[/color]%s%s" % [BAD.to_html(false), "   ", event.replace("[", "[lb]")]
 	event_box.visible = event != ""
 	if view == "handover":
 		_view_handover()
@@ -944,15 +948,18 @@ func _refresh_panel(i: int) -> void:
 		n.roll.remove_child(c)
 		c.queue_free()
 	if p.last_roll.is_empty():
-		n.roll.add_child(_label("no roll yet", SIZE_SMALL, DIM))
+		var none := _label("no roll yet", SIZE_TEXT, DIM)
+		none.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		none.custom_minimum_size = Vector2(0, die_px())
+		n.roll.add_child(none)
 		n.scored.text = ""
 	else:
 		for f in p.last_roll:
 			n.roll.add_child(_die(f, die_px(p.last_roll.size())))
 		# with what an ability added to it: "scored 210 (Glance +60)"
 		n.scored.text = "scored %d" % (p.last_score + int(shares[i][1])) + ("\n(%s)" % shares[i][0] if shares[i][0] != "" else "")
-		# two lines at the smaller size are no taller than the dice, so the row keeps its height
-		n.scored.add_theme_font_size_override("font_size", 24 if shares[i][0] != "" else 30)
+		# two lines at 24 are no taller than a compact die, so the row keeps its height; one line is at SIZE_NOTE
+		n.scored.add_theme_font_size_override("font_size", 24 if shares[i][0] != "" else SIZE_NOTE)
 	# Wrath's Spark of Rage: a button on every other player's roll, while Wrath can use it on them.
 	var w := wrath_seat()
 	var can: bool = w >= 0 and w != i and (view == "turn" or view == "handover") and Rules.block(s, "spark", {"by": w, "target": i}) == ""
@@ -1205,7 +1212,7 @@ func _build() -> void:
 	var v := _page(self, top, bottom, 10)
 	page = v
 
-	header = _label("", 30, DIM)
+	header = _label("", SIZE_NOTE, DIM)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help_btn = _button("help", "How to play", _on_help)
@@ -1223,17 +1230,25 @@ func _build() -> void:
 	panel_box = VBoxContainer.new()
 	panel_box.add_theme_constant_override("separation", ROW_GAP)
 	v.add_child(panel_box)
-	# who did what to whom
+	# who did what to whom: the last move, a card of its own, headed LAST MOVE on its first line
 	var eb := StyleBoxFlat.new()
 	eb.bg_color = Color("3a2226")
 	eb.border_color = BAD
 	eb.set_border_width_all(2)
+	eb.border_width_left = 8
 	eb.set_corner_radius_all(12)
-	eb.set_content_margin_all(12)
+	eb.set_content_margin_all(16)
+	eb.set_content_margin(SIDE_LEFT, 24)
 	event_box = PanelContainer.new()
 	event_box.add_theme_stylebox_override("panel", eb)
-	event_label = _label("", 30, TEXT)
+	event_label = RichTextLabel.new()
+	event_label.bbcode_enabled = true
+	event_label.fit_content = true
+	event_label.scroll_active = false
 	event_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	event_label.add_theme_font_size_override("normal_font_size", SIZE_EVENT)
+	event_label.add_theme_color_override("default_color", TEXT)
 	event_box.add_child(event_label)
 	v.add_child(event_box)
 	title = _label("", SIZE_TITLE, GOLD)
@@ -1401,14 +1416,14 @@ func _panel(i: int) -> Control:
 	roll.add_theme_constant_override("h_separation", DIE_SEP)
 	roll.add_theme_constant_override("v_separation", 8)
 	low.add_child(roll)
-	var scored := _label("", 30, DIM)
+	var scored := _label("", SIZE_NOTE, DIM)
 	scored.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	scored.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	scored.size_flags_vertical = Control.SIZE_FILL
 	low.add_child(scored)
 	var spark := _button("spark%d" % i, "Spark\nof Rage", func(): _on_ability("spark", wrath_seat(), {"target": i}))
 	spark.custom_minimum_size = Vector2(130, DIE)
-	spark.add_theme_font_size_override("font_size", 22)
+	spark.add_theme_font_size_override("font_size", 26)
 	spark.visible = false
 	low.add_child(spark)
 	panels.append({"panel": pc, "box": sb, "col": v, "sin": sin_btn, "tag": tag, "points": points, "dice": dice, "roll": roll, "scored": scored, "spark": spark})
@@ -1516,12 +1531,35 @@ func _target_button(i: int, why: String, chosen: bool) -> Button:
 	return b
 
 
-## The button that starts one of the turn player's abilities; switched off, with the reason, when it cannot be used now.
+## The button that starts one of the turn player's abilities, in one of three looks (Ben, 2026-11-28):
+## available, a gold border; used this turn, filled dark with gold words and USED; shut for another reason, an outline
+## only, with the reason. Used and shut are switched off and say why.
 func _ability_button(key: String, label: String) -> Button:
 	var why := Rules.block(s, key)
-	var b := _button(key, label + ("\n" + why if why != "" else ""), _on_ability.bind(key, s.turn), false, why != "")
-	b.add_theme_font_size_override("font_size", 30 if why != "" else SIZE_SMALL)
+	var used: bool = why != "" and spent(s.seats[s.turn], key)
+	var words := label + (TAG_SEP + "USED" if used else "") + ("\n" + why if why != "" else "")
+	var b := _button(key, words, _on_ability.bind(key, s.turn), false, why != "")
+	b.add_theme_font_size_override("font_size", SIZE_NOTE if why != "" else SIZE_SMALL)
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if why == "":
+		for st in ["normal", "hover", "pressed"]:
+			var sb: StyleBoxFlat = b.get_theme_stylebox(st).duplicate()
+			sb.border_color = GOLD
+			sb.set_border_width_all(4)
+			b.add_theme_stylebox_override(st, sb)
+	else:
+		var off := StyleBoxFlat.new()
+		off.set_corner_radius_all(12)
+		off.set_content_margin_all(8)
+		off.set_border_width_all(2)
+		if used:
+			off.bg_color = BUTTON_OFF
+			off.border_color = GOLD.darkened(0.45)
+		else:
+			off.bg_color = BG
+			off.border_color = BUTTON
+		b.add_theme_stylebox_override("disabled", off)
+		b.add_theme_color_override("font_disabled_color", GOLD if used else DIM)
 	return b
 
 
