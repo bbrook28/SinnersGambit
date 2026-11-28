@@ -111,6 +111,7 @@ func _initialize() -> void:
 	await test_fits(2000)
 	await test_fits(2124)
 	await test_roomy()
+	await test_fill()
 	await test_whole_match()
 	print("table_test: %d failure(s)" % _fails)
 	quit(1 if _fails > 0 else 0)
@@ -339,8 +340,8 @@ func test_fits(height := 1920) -> void:
 	await screen([1, 6, 6, 6, 6, 6, 6], 1, false, ["wrath", "pride", "gluttony", "envy"], height)
 	await frames()
 	var roomy: Array = gaps()
-	check("at %d tall with 4 players the boxes open roomy (%s), and no bigger than half as tall again" % [height, str(roomy)], not h.tight and roomy != COMPACT
-		and h.panels[1].panel.size.y <= 1.5 * h.CARD_COMPACT)
+	check("at %d tall with 4 players the boxes open roomy (%s), and before the fill no bigger than half as tall again (%d, fill %d)" % [height, str(roomy), int(h.panels[1].panel.size.y), h.fill],
+		not h.tight and roomy != COMPACT and h.panels[1].panel.size.y - h.fill <= 1.5 * h.CARD_COMPACT)
 	var worst := 0.0
 	var where := ""
 	var was := {}
@@ -439,17 +440,42 @@ func test_fits(height := 1920) -> void:
 	check("the top row with Match log and How to play stays inside the 1080 width (%d)" % int(h.help_btn.get_global_rect().end.x), h.help_btn.get_global_rect().end.x <= 1080.0 and h.log_btn.is_visible_in_tree())
 
 
+## At phone height (2340) the boxes take the height a view leaves unused, up to FILL_MAX each: no empty band above the
+## buttons in the Gambit view, the same fill however often the page is laid out again, and none while compact.
+func test_fill() -> void:
+	await screen([4, 5, 1], 1, false, ["wrath", "pride", "gluttony", "envy"], 2340)
+	tap("ready")
+	tap("roll")
+	await frames()
+	var band: float = (2340.0 - h.page_bottom) - h.buttons.get_global_rect().end.y
+	var under: float = h.buttons.get_global_rect().position.y - h.text.get_global_rect().end.y
+	check("at 2340, 4 players, Gambit: the boxes take the unused height (fill %d of %d), buttons end %d above the margin, %d between the text and the buttons" % [h.fill, h.FILL_MAX, int(band), int(under)],
+		not h.tight and h.fill > 0 and h.fill <= h.FILL_MAX and absf(band) <= 1.0 and (h.fill == h.FILL_MAX or under <= 4.0 * 10 + 4))
+	var was: int = h.fill
+	var tall: float = h.panels[0].panel.size.y
+	h._refresh()
+	await frames()
+	h._fit()
+	await frames()
+	check("laid out again, the fill stays %d (now %d) and the boxes %d high (now %d)" % [was, h.fill, int(tall), int(h.panels[0].panel.size.y)], h.fill == was and int(h.panels[0].panel.size.y) == int(tall))
+	h.event = " ".join(["Player 1 (Wrath) used Entangling Allure on Player 2 and Player 3: they picked a 5 and a 5. A match: Player 1 took that die from Player 3, to keep."].map(func(x): return x + " " + x + " " + x))
+	h._refresh()
+	await frames()
+	check("a long last move takes height from the fill (now %d, was %d), and the buttons still end inside the screen (%d)" % [h.fill, was, int(h.buttons.get_global_rect().end.y)],
+		h.fill < was and h.buttons.get_global_rect().end.y <= 2340.0 - h.page_bottom + 1.0)
+
+
 ## Two and three players on a taller screen: the boxes are at the full roomy size, and the turn's own views still fit.
 func test_roomy() -> void:
 	var notice := "Player 1 (Wrath) used Entangling Allure on Player 2 and Player 3: they picked a 5 and a 5. A match: Player 1 took that die from Player 3, to keep. Superiority: Player 1 lost 20 for targeting Player 2."
-	var full := [28, 42, 42, 20, 16, 76]
+	var full := [16, 34, 34, 20, 16, 104]
 	for n in [2, 3]:
 		await screen([], 1, true, ["wrath", "pride", "gluttony"].slice(0, n), 2124)
 		tap("seats%d" % n)
 		tap("deal")
 		await frames()
-		check("%d players at 2124 tall: the boxes are at the full roomy size (%s), half as tall again as compact (%d)" % [n, str(gaps()), int(h.panels[0].panel.size.y)],
-			not h.tight and gaps() == full and int(h.panels[0].panel.size.y) == int(1.5 * h.CARD_COMPACT))
+		check("%d players at 2124 tall: the boxes are at the full roomy size (%s), half as tall again as compact before the fill (%d, fill %d)" % [n, str(gaps()), int(h.panels[0].panel.size.y), h.fill],
+			not h.tight and gaps() == full and int(h.panels[0].panel.size.y) - h.fill == int(1.5 * h.CARD_COMPACT))
 		var ok := true
 		var seen := []
 		for key in ["ready", "roll"]:

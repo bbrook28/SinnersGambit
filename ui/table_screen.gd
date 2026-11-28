@@ -33,6 +33,7 @@ const DIE_SEP := 8       # between two of them
 const DICE_ROOM := 424   # the narrowest a row's line of dice gets: beside a two-line share and Spark of Rage (six compact dice; tests/table_test.gd checks it)
 const PICK := 104        # a die you tap to choose it
 const SIZE_SMALL := 34
+const SIZE_NOTE := 34     # the smallest text on the table: the top bar, "no roll yet", "scored N", a switched-off ability's reason (30 before 0.23.0)
 const SIZE_TEXT := 40
 const SIZE_NAME := 48
 const SIZE_TITLE := 54
@@ -56,14 +57,17 @@ const MARGIN_BOTTOM := 24
 const BASE_HEIGHT := 1920
 const CARD_COMPACT := 192  # a compact box's height (tests/table_test.gd checks it is still this)
 const TURN_SPARE := 48     # of what the fullest Gambit view leaves at BASE_HEIGHT with four compact boxes: 74 when this was set (0.21.0), more since the gift buttons went
-## Roomy at its fullest, as amounts added to compact: 12 + 24 + 2 x 30 = 96 a box, half as tall again as a compact one.
+## Roomy at its fullest, as amounts added to compact: 40 + 12 + 2 x 22 = 96 a box, half as tall again as a compact one.
 const ROOMY := {
-	"die": 12,    # a die of a last roll: 76, at which five dice still fit beside a share and Spark of Rage
-	"lines": 24,  # between the name line and the dice line
-	"pad": 30,    # top and bottom
+	"die": 40,    # a die of a last roll: up to 104, as big as a die you tap; fewer of them fit beside a share and Spark of Rage the more there are (die_px)
+	"lines": 12,  # between the name line and the dice line
+	"pad": 22,    # top and bottom
 	"gap": 10,    # between two boxes
 	"head": 16,   # above the "Player N: ..." heading
 }
+## On top of the size set for the match, each view gives the height it leaves unused to the boxes (_fit), up to FILL_MAX
+## a box, so the boxes, not an empty band, take the screen (Ben, 2026-11-28). The fullest views leave little or nothing.
+const FILL_MAX := 100
 ## The How to play card: shown before the first turn of each match, and from the How to play button at any time.
 const HOWTO := [
 	"First to 1000 points wins.",
@@ -121,6 +125,7 @@ var page_top := MARGIN_TOP   # the page's margins, safe area included
 var page_bottom := MARGIN_BOTTOM
 var grow := {}               # this match's roomy size: the amounts added to compact, by ROOMY's keys
 var tight := false           # the boxes are shown compact: the view on screen does not fit with roomy ones
+var fill := 0                # what the view on screen adds to each box's height, out of the height it leaves unused
 var text: Label
 var buttons: VBoxContainer
 var howto: Control           # the How to play card, over everything
@@ -162,6 +167,7 @@ func _measure() -> void:
 	for key in ROOMY:
 		grow[key] = int(ROOMY[key] * k)
 	tight = false
+	fill = 0
 	_space()
 	_fit()
 
@@ -171,10 +177,12 @@ func grown(key: String) -> int:
 	return 0 if tight else int(grow.get(key, 0))
 
 
-## A die of a last roll of count dice, at the size on screen: the roomy size only if that many fit on one line at it.
+## A die of a last roll of count dice, at the size on screen: the roomy size, or the biggest at which that many fit on
+## one line in DICE_ROOM, and never smaller than compact.
 func die_px(count := 1) -> int:
 	var d := DIE + grown("die")
-	return d if count * d + (count - 1) * DIE_SEP <= DICE_ROOM else DIE
+	var fits := int((DICE_ROOM - (count - 1) * DIE_SEP) / maxi(count, 1))
+	return maxi(DIE, mini(d, fits))
 
 
 ## Sets the boxes to the size on screen now.
@@ -196,14 +204,40 @@ func _space() -> void:
 ## Decided again each time the page's minimum height changes, in both directions: a label that has just been shown asks
 ## for too much height until it is laid out, so one reading cannot be kept. While compact, what roomy would need is the
 ## height now plus all that roomy adds, which is never less than the truth: the two answers cannot chase each other.
+## Then the fill: what the view leaves unused, shared out among the boxes. The height without it is the page's less what
+## the fill adds to each box now, so the fill cannot feed on itself.
 func _fit() -> void:
 	var n: int = panels.size()
+	if n == 0:
+		return
 	var more: int = n * (int(grow.lines) + 2 * int(grow.pad) + int(grow.die)) + (n - 1) * int(grow.gap) + int(grow.head)
-	var need: float = page.get_combined_minimum_size().y + (more if tight else 0)
-	var want: bool = need > size.y - page_top - page_bottom
+	var avail: float = size.y - page_top - page_bottom
+	var need: float = _unfilled() + (more if tight else 0)
+	var want: bool = need > avail
 	if want != tight:
 		tight = want
 		_space()
+	fill = 0 if tight else clampi(int((avail - _unfilled()) / n), 0, FILL_MAX)
+	_fill()   # also when the fill is the same: a box's content may have changed height
+
+
+## The page's height without the fill.
+func _unfilled() -> float:
+	var extra := 0.0
+	for p in panels:
+		extra += maxf(0.0, p.panel.get_combined_minimum_size().y - _natural(p))
+	return page.get_combined_minimum_size().y - extra
+
+
+## A box's height without the fill: its content and its padding.
+func _natural(p: Dictionary) -> float:
+	return p.col.get_combined_minimum_size().y + p.box.get_content_margin(SIDE_TOP) + p.box.get_content_margin(SIDE_BOTTOM)
+
+
+## Each box as tall as its content plus the fill, the content in the middle.
+func _fill() -> void:
+	for p in panels:
+		p.panel.custom_minimum_size.y = (_natural(p) + fill) if fill > 0 else 0.0
 
 
 ## chosen: the Sins the players picked, one a seat; else they are dealt. card: open on the How to play card.
@@ -1333,6 +1367,7 @@ func _panel(i: int) -> Control:
 	pc.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", ROW_LINES)
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER   # in the middle of a box the fill makes taller
 	pc.add_child(v)
 	var top := HBoxContainer.new()
 	var top_sep := 14
